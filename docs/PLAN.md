@@ -1,8 +1,8 @@
 # UltimateTV: Product & Technical Plan
 
-> Status: **Draft v1** (2026-10-24). This is a plan, not code yet.
-> Target hardware: **Hisense 85" 85U7STUK** (2026 U7 Mini-LED, VIDAA OS).
-> North star: **the best picture and sound the TV can produce, wrapped in a UI that passes the Wife Acceptance Factor (WAF).**
+> Status: **Draft v2** (2026-10-24). This is a plan, not code yet.
+> Target hardware: **Hisense 85" 85U7STUK** (2026 U7 Mini-LED, VIDAA OS). **The app runs on the TV itself, with no external streaming box.**
+> North star: **the best picture and sound VIDAA can deliver, wrapped in a UI that passes the Wife Acceptance Factor (WAF).**
 
 ---
 
@@ -13,10 +13,12 @@
 | G1 | One app for everything | Live IPTV, Xtream, VOD, Jellyfin, AIOStreams/TorBox and NAS files all live in one home screen and one search. |
 | G2 | Sky-grade TV guide | A fast EPG grid with live preview, now/next banner and one-press **Record series**. Recordings appear in a planner. |
 | G3 | WAF | Someone who has never seen it can turn the TV on, find a show and press play with only the arrow keys, OK and Back. No settings screens, no codec talk, no "pick a stream" lists by default. |
-| G4 | Reference picture & sound | Native Dolby Vision / HDR10+ / HLG, correct frame rate (24p stays 24p), and Dolby Atmos (incl. TrueHD/DD+ JOC) passthrough wherever the hardware allows. |
+| G4 | Best picture & sound on VIDAA | Dolby Vision / HDR10+ / HLG whenever the TV can show it, Dolby Atmos via Dolby Digital Plus, and a server that rewraps or converts files the TV can't play, so playback never just fails. |
 | G5 | Own your library | Anything downloaded (TorBox, recordings) lands on the local NAS and shows up in Jellyfin automatically. |
 
 **Out of scope for v1:** multi-user profiles with parental PINs (v2), mobile apps (a companion web remote is in Phase 4), casting.
+
+**Decision log:** Gary chose **VIDAA TV only, no external box** (2026-10-24). This plan is built around that choice. The server design keeps an Android TV box as a cheap upgrade path later (§10), and nothing in this plan has to be thrown away to take it.
 
 ---
 
@@ -38,35 +40,29 @@
 
 | Area | Reality on VIDAA | Impact |
 |------|------------------|--------|
-| **Native apps / APK sideloading** | Not possible. VIDAA is Linux + a Chromium-based app runtime, and there is no Android layer. | No ExoPlayer/mpv, no native code. |
+| **Native apps / APK sideloading** | Not possible. VIDAA is Linux + a Chromium-based app runtime, and there is no Android layer. | The app is a **web app** (HTML/JS). |
 | **App store submission** | Partner-only. You apply as a "Content Partner" via vidaa.com, and publishing can take ~21 days. The store is aimed at commercial services. An app aggregating IPTV/debrid sources will very likely be rejected. | Don't plan on the official store. |
 | **Unofficial install of a web app** | The community tools *vidaa-edge* / *vidaa-appstore* add a hosted web app (PWA) as a launcher icon. You point the TV's DNS at a helper on your LAN and open `vidaahub.com`. The old `hisense://debug` developer-mode trick **no longer works on newer firmware**, and the launcher icon sometimes doesn't appear. Firmware updates can break it at any time. | Possible, but fragile. A browser **bookmark** to a self-hosted URL is the reliable fallback. |
 | **HTML5 runtime** | An older embedded Chromium. The version varies by firmware, and older builds caused blank screens in community apps until they were patched. MSE/EME are available. | Transpile to an older ES target, avoid bleeding-edge CSS, and test on the device. |
-| **Video codecs in the browser** | Community testing on VIDAA (MediaTek SoC): H.264 and HEVC Main/Main10 up to 4K, VP9, and DV+HDR in **MKV** play. **DV in MP4 crashes or hangs the browser.** **AV1 does not play in the browser**, even though the panel's native player decodes it. Above-4K content gives a black screen. | A transcode or remux fallback is needed. DV is container-sensitive. |
-| **Native player hand-off** | Community apps can hand a URL to VIDAA's **native media player**, which gets proper hardware DV/HDR. You lose your own UI (no custom OSD, subtitles styling, skip-intro, progress tracking). | A useful escape hatch for "best picture" on VIDAA-only setups. |
-| **Audio** | Browser playback handles AAC, AC-3, E-AC-3, Opus and FLAC. **Lossless TrueHD / DTS-HD MA bitstream passthrough is not available from web apps.** Community reports suggest most TVs only pass DD+ 5.1/Atmos-in-DD+ over eARC from internal apps, and TrueHD is not passed. | Atmos works only via DD+ JOC, with no lossless Atmos from VIDAA apps. |
+| **Video codecs in the browser** | Community testing on VIDAA (MediaTek SoC): H.264 and HEVC Main/Main10 up to 4K, VP9, and DV+HDR in **MKV** play. **DV in MP4 crashes or hangs the browser.** **AV1 does not play in the browser**, even though the panel's native player decodes it. Above-4K content gives a black screen. | The server must remux or transcode. DV is container-sensitive. |
+| **Native player hand-off** | Community apps can hand a URL to VIDAA's **native media player**, which gets proper hardware DV/HDR. You lose your own UI (no custom OSD, subtitles styling, skip-intro, progress tracking). | An escape hatch for the files the browser player can't handle. |
+| **Audio** | Browser playback handles AAC, AC-3, E-AC-3, Opus and FLAC. **Lossless TrueHD / DTS-HD MA bitstream passthrough is not available from web apps.** Community reports suggest most TVs only pass DD+ 5.1/Atmos-in-DD+ over eARC from internal apps, and TrueHD is not passed. | Atmos works only via DD+ JOC, with no lossless Atmos. |
 | **DRM** | Widevine and PlayReady are reported to be available via EME. | Not needed for our sources (IPTV/Jellyfin/debrid are DRM-free). |
 | **Remote** | The VIDAA remote sends standard key codes plus colour and number keys (varies by remote). Some keys are reserved by the OS. | Map Back, colour and number keys. Never rely on keys the OS reserves. |
 | **Background work** | None. A web app can't record, download or schedule while closed. | Recording and downloads **must** live on a server, not the TV. |
+| **Frame rate & HDR switching** | Not exposed to web apps. The TV decides output mode from the video it is decoding. Whether it switches to 24p/50 Hz for browser video has to be tested. | Probe in Phase 0. If it doesn't, films that need it go through the native-player hand-off. |
 
-### 2.3 Workarounds, ranked
+### 2.3 How we work around each limit without a box
 
-1. **External Android TV / Google TV streamer on HDMI (recommended primary client).**
-   - **Nvidia Shield TV Pro**: the best all-rounder. Bitstreams **TrueHD Atmos and DTS-HD MA/DTS:X**, DV Profile 5/8, HDR10/HDR10+ (via apps), AFR via API, and a mature ExoPlayer/Media3 platform. Its weak spot is DV Profile 7 FEL (it plays the base layer only).
-   - **Ugoos AM6B+ (CoreELEC or Android)**: the enthusiast option, with full DV Profile 7 FEL support for UHD Blu-ray remuxes.
-   - **Google TV Streamer 4K / Fire TV Stick 4K Max**: cheaper, with good DV/Atmos-in-DD+. Lossless passthrough support is weaker or partial.
-   - The box goes in an **HDMI 2.1 port**. The TV's eARC port feeds the soundbar/AVR. **HDMI-CEC** lets the Hisense remote drive the box, so there is one remote for WAF.
-2. **Self-hosted web app on VIDAA (secondary "lite" client).** Install it as a launcher icon via vidaa-edge if that works on the firmware, otherwise use a browser bookmark. Use VIDAA's native player hand-off for DV titles.
-3. **Plex/Jellyfin's own VIDAA apps.** These are not used as our UI, but they confirm that HEVC/DV direct play works on this SoC.
-
-### 2.4 Decision
-
-Build **one shared home server ("Hub")** plus **two clients**:
-
-- **Primary:** a native **Android TV app** on an external streamer. This is the only way to hit G4 fully.
-- **Secondary (later phase):** a **VIDAA web app** that reuses the Hub APIs and design system. It gives a good-enough experience straight on the TV and is honest about its limits.
-
-> Open decision for Gary: confirm the streamer purchase (Shield Pro vs Ugoos) before Phase 1. See §9.
+| Limit | Workaround |
+|-------|------------|
+| No native install | Self-host the web app on the NAS. Install it as a launcher icon via vidaa-edge where it works, with a browser bookmark as fallback. Phase 0 tests both on this exact firmware. |
+| Store rejection | Not needed. The app is served from the home network and updates instantly when we deploy. |
+| Codec gaps (AV1, DV-in-MP4) | **Stream gateway** on the Hub: remux MP4 → MKV (no quality loss, near-zero CPU) for DV/HEVC, and transcode AV1 → HEVC only when nothing better exists. Source ranking prefers files the TV plays natively so conversion is rare. |
+| DV and frame-rate edge cases | **Native player hand-off** as a per-title fallback, chosen automatically when the probe says the browser path would lose DV or judder. |
+| Lossless audio | Prefer DD+ Atmos sources. For TrueHD/DTS-HD-only files, the Hub converts audio to E-AC-3 5.1/7.1 (keeps surround, loses Atmos height objects). The video is never touched. |
+| No background work | All recording, series link, downloads and EPG parsing run on the Hub. |
+| Weak TV CPU/RAM | Hub pre-slices EPG and artwork, sends small JSON pages, and pre-scales images. The UI engine renders on the GPU (WebGL). |
 
 ---
 
@@ -82,39 +78,40 @@ Build **one shared home server ("Hub")** plus **two clients**:
   AIOStreams    ───────────▶ │ EPG engine (merge, normalise, series IDs)                         │ │
   TorBox        ───────────▶ │ Scheduler + Recorder (series link, ffmpeg → NAS)                  │ │
   TMDB/TVDB     ───────────▶ │ Download manager (TorBox → NAS, rename, Jellyfin rescan)          │ │
-                         │   │ Stream gateway (remux/transcode fallback, connection-limit guard) │ │
+                         │   │ Stream gateway (remux, audio convert, transcode fallback)          │ │
                          │   │ User state (watch progress, favourites, profiles)                 │ │
-                         │   │ REST + WebSocket API                                              │ │
-                         │   └──────────────▲───────────────────────────▲────────────────────────┘ │
-                         │                  │                           │                          │
-                         │   ┌──────────────┴─────────┐     ┌───────────┴───────────┐              │
-                         │   │ Android TV app (Shield)│     │ VIDAA web app (lite)  │              │
-                         │   │ Compose for TV + Media3│     │ TS + Lightning/Solid  │              │
-                         │   └────────┬───────────────┘     └───────────────────────┘              │
-                         │            │ HDMI 2.1 (DV/HDR, AFR)                                       │
-                         │        Hisense 85U7STUK ──eARC──▶ Soundbar / AVR (Atmos)                 │
+                         │   │ Web app hosting + REST/WebSocket API                              │ │
+                         │   └──────────────────────────────▲────────────────────────────────────┘ │
+                         │                                  │ HTTP on LAN                          │
+                         │                 ┌────────────────┴──────────────┐                       │
+                         │                 │ UltimateTV web app on VIDAA   │                       │
+                         │                 │ (launcher icon or bookmark)   │                       │
+                         │                 └────────────────┬──────────────┘                       │
+                         │                     Hisense 85U7STUK ──eARC──▶ Soundbar / AVR (Atmos)    │
                          │   Jellyfin server (existing / on NAS) ◀── recordings & downloads         │
                          └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 3.1 Why a Hub?
 
-- **Recording and series link need an always-on process.** No TV app (VIDAA *or* Android) can be trusted to record while asleep.
-- **One brain, many screens.** EPG parsing, metadata matching and watch state live in one place, so both clients stay thin and consistent.
-- **Speed.** Big XMLTV files (50–200 MB) are parsed once on the server. Clients get pre-sliced, paged JSON, which is what makes the guide feel instant.
+- **Recording and series link need an always-on process.** A VIDAA web app stops when the TV sleeps.
+- **The TV's browser has gaps.** The Hub's stream gateway rewraps or converts the few files the TV can't play, so the person on the sofa never sees a playback error.
+- **Speed.** Big XMLTV files (50–200 MB) would choke the TV's browser. The Hub parses them once and serves pre-sliced, paged JSON, which is what makes the guide feel instant.
 - **Secrets stay off the TV.** Xtream credentials, TorBox and TMDB API keys live on the Hub.
+- **Updates without a store.** The Hub serves the web app, so a new version is live on the TV the next time it opens.
 
 ### 3.2 Tech choices
 
 | Component | Choice | Reason |
 |-----------|--------|--------|
-| Hub runtime | **Kotlin (Ktor)** or **TypeScript (Node/Fastify)** in Docker | Runs on Synology/Unraid/TrueNAS. Kotlin lets models be shared with the Android app. *Recommendation: Kotlin + Ktor, with shared `core` module.* |
-| Hub DB | SQLite (WAL) → Postgres if needed | Single household. Zero ops. |
-| Recorder | **ffmpeg** (`-c copy` to `.ts`/`.mkv`) | Lossless capture of the IPTV stream, with remux to MKV after recording. |
-| Android TV app | **Kotlin + Jetpack Compose for TV + Media3 (ExoPlayer)** with ffmpeg audio extension. **libmpv** fallback for awkward files | The best HDR/AFR/passthrough control on Android TV. Compose-for-TV gives focus handling and polish. |
-| VIDAA app | **TypeScript + Lightning JS 3 (or SolidJS + spatial nav)**, built to an ES2017 target | Lightning renders on WebGL for 60 fps on weak TV SoCs. |
+| Hub runtime | **TypeScript (Node + Fastify)** in Docker | Same language as the TV app, so API types and models are shared in one monorepo. Runs on Synology/Unraid/TrueNAS. |
+| Hub DB | SQLite (WAL) | Single household. Zero ops. |
+| Recorder & gateway | **ffmpeg** | `-c copy` for lossless recording and remux. Audio-only conversion to E-AC-3. Hardware transcode (Intel Quick Sync/VAAPI) if the NAS has it. |
+| TV app UI | **Lightning JS 3 (Blits)** | Renders on WebGL. Built for TV remotes and focus handling. Holds 60 fps on weak TV SoCs where DOM-heavy frameworks stutter. *Fallback: SolidJS + spatial navigation if Lightning misbehaves on this Chromium.* |
+| TV app playback | `<video>` + **hls.js / mpegts.js** for live, MSE for VOD, native player hand-off for edge cases | Covers HLS and MPEG-TS IPTV feeds plus direct file playback. |
+| Build target | ES2017 + polyfills, tested against the TV's exact Chromium version | VIDAA ships an older engine. |
 | Metadata | TMDB (films/series), TVDB (episode numbering), Fanart.tv (logos/clearart) | Rich artwork drives the "premium" feel. |
-| Design system | Shared tokens (colour, type, spacing, motion) in JSON → Compose theme + CSS | Both clients look like the same product. |
+| Design system | Tokens (colour, type, spacing, motion) in one JSON file | One source of truth for the TV app and the phone setup page. |
 
 ---
 
@@ -124,6 +121,7 @@ Build **one shared home server ("Hub")** plus **two clients**:
 
 - **Ingest:** M3U/M3U8 URLs (with `tvg-id`, `tvg-logo`, `group-title`). Xtream via `player_api.php` (`get_live_categories`, `get_live_streams`, `get_vod_streams`, `get_series`, `get_short_epg`, `xmltv.php`).
 - **Channel manager (set up once, hidden after):** merge multiple providers, dedupe channels, choose the preferred feed per channel (UHD > FHD > HD), auto-fallback to a backup feed on failure, and **Sky-style channel numbers** (101 BBC One, 102 BBC Two, …) with a UK-preset auto-numbering template.
+- **Playback on VIDAA:** ask Xtream for **HLS (`.m3u8`)** output where offered, which plays smoothly in the TV's browser via hls.js. Plain MPEG-TS feeds play via mpegts.js. If a feed fails in the browser, the Hub repackages it to HLS on the fly (copy, no re-encode).
 - **Catch-up / timeshift:** use Xtream `tv_archive` where the provider offers it. That gives "Start over" and the past seven days in the guide.
 - **Connection-limit guard:** the Hub knows the provider's max connections and arbitrates between live viewing and recordings (see conflicts, §5.3).
 - **Xtream VOD & series:** pulled into the unified Films / TV libraries with TMDB matching, so they look the same as Jellyfin content.
@@ -133,26 +131,28 @@ Build **one shared home server ("Hub")** plus **two clients**:
 - Sources: provider `xmltv.php`, extra XMLTV URLs (e.g. Freeview/Sky UK feeds such as epg.pw / iptv-org mappings), and per-channel overrides.
 - The Hub merges them, normalises time zones, maps `tvg-id` to channel, and enriches programmes with artwork (TMDB lookup by title + year/season/episode).
 - **Series identity** (the key to series link): use `<episode-num system="dd_progid">`, `xmltv_ns` and `<series-id>` (crid) when present. Otherwise use a normalised title + channel group + TMDB series ID.
-- Refresh every 6 h, with an immediate refresh on demand. Clients fetch **time windows** (e.g. 4 h × 50 channels) as compact JSON.
+- Refresh every 6 h, with an immediate refresh on demand. The TV fetches **time windows** (e.g. 4 h × 50 channels) as compact JSON, never the raw XMLTV.
 
 ### 4.3 VOD (unified)
 
 - A single **Films** and **TV** library across Xtream VOD, Jellyfin, NAS files and AIOStreams.
 - **"One title, many sources":** each title shows once. Behind it the Hub ranks sources (local NAS/Jellyfin first, then debrid, then Xtream) by quality, HDR format, audio format and availability.
+- **VIDAA-aware ranking:** the Hub uses the TV's probe results to prefer sources that play natively (HEVC in MKV, DV in MKV, DD+ Atmos audio) over ones needing conversion. A 4K DV MKV with DD+ Atmos beats a 4K AV1 file with TrueHD, even if the second one is "better" on paper.
 - WAF mode: **Play** chooses the best source automatically. A long-press or "More options" reveals the source list for power users.
 
 ### 4.4 Jellyfin client
 
 - Auth via Quick Connect (code shown on TV, approve on phone). No typing passwords with a remote.
 - Libraries, Continue Watching, Next Up, collections, and two-way progress sync.
-- **Direct play first.** Send the `DeviceProfile` that matches what the client can decode/passthrough, so Jellyfin only transcodes as a last resort. The Android profile allows HEVC/AV1/DV/TrueHD/DTS-HD. The VIDAA profile drops TrueHD/DTS and DV-in-MP4.
+- **Direct play first.** Send a `DeviceProfile` built from the probe: allow H.264/HEVC/VP9, DV in MKV, AAC/AC-3/E-AC-3/FLAC/Opus. Exclude AV1, DV in MP4, TrueHD and DTS-HD. Jellyfin then remuxes to MKV or converts only the audio instead of transcoding the whole file.
 - Intro/credits skip via Jellyfin's media segments API.
 
-### 4.5 AIOStreams URL & TorBox (Stremio/Nuvio-style)
+### 4.5 AIOStreams & TorBox (Stremio/Nuvio-style)
 
 - **AIOStreams** is a Stremio addon aggregator. The user pastes their configured AIOStreams manifest URL (`…/manifest.json`). The Hub speaks the **Stremio addon protocol** (`/catalog`, `/meta`, `/stream`) so any Stremio addon URL works, not just AIOStreams.
 - **TorBox:** API key stored on the Hub. Streams resolved by AIOStreams come back as TorBox cached links (direct HTTPS), which play like any other file.
-- **Nuvio-like UX:** TMDB-driven home rails (Trending, Popular, Because you watched…), then **one Play button** picks the best cached stream from the user's quality preferences (e.g. "4K DV > 4K HDR10 > 1080p, prefer Atmos, avoid CAM, max 60 GB"). Stream lists stay hidden unless asked for.
+- **Nuvio-like UX:** TMDB-driven home rails (Trending, Popular, Because you watched…), then **one Play button** picks the best cached stream from the user's quality preferences. The default rule for this TV is *"4K DV/HDR10+ in MKV > 4K HDR10 > 1080p, prefer DD+ Atmos, avoid AV1, TrueHD-only and CAM, max 60 GB"*. Stream lists stay hidden unless asked for.
+- AIOStreams can already filter and sort by codec, HDR type and audio format, so most of the VIDAA rules are pushed into the AIOStreams config and the Hub only re-checks.
 - **Save to NAS:** a "Download to library" action sends the item to TorBox (if not cached), and the Hub downloads it to the NAS (`/Movies/Title (Year)/…` Jellyfin naming), then triggers a Jellyfin library scan. Progress is shown in a Downloads screen.
 - Users are responsible for only accessing content they have the rights to. The app is a generic client and ships with no content sources.
 
@@ -160,10 +160,12 @@ Build **one shared home server ("Hub")** plus **two clients**:
 
 - The Hub watches mounted shares (SMB/NFS) and indexes them with metadata. In practice Jellyfin already does this. **Recommendation: let Jellyfin own NAS indexing**, and the Hub reads from Jellyfin. That avoids duplicate scanning.
 - The "uploaded/downloaded files" inbox is a `/Inbox` share. The Hub auto-renames and moves files into the library structure (FileBot-style rules), then triggers a rescan.
+- **Optional "TV-ready" pass:** when a file lands, the Hub can remux it to MKV and add a DD+ audio track if it only has TrueHD/DTS-HD. The original tracks are kept. Later plays then need no live conversion.
 
 ### 4.7 Unified search
 
-- One search box (voice via the remote mic on Android TV) that hits channels, EPG (now and next 7 days), Films/TV across all sources, and recordings.
+- One search box that hits channels, EPG (now and next 7 days), Films/TV across all sources, and recordings.
+- Typing with a remote is slow, so the search screen leads with **suggestions** (recent, trending, what's on now) and a large on-screen keyboard. A **phone search** option opens the same search on the phone via QR code, and results appear on the TV.
 - Result chips: **On now · Upcoming (Record) · Watch now · In your library**.
 
 ---
@@ -184,7 +186,7 @@ Build **one shared home server ("Hub")** plus **two clients**:
 - Left/right browse *next* programmes on this channel, and up/down browse *other* channels while the current one keeps playing (Sky "mini guide"). OK tunes, Red records.
 - Number keys give direct tuning (type "1-0-1"), with the channel name previewed as you type.
 - **Back once = previous channel** (Sky behaviour). Back twice = exit to Home.
-- Pause live TV with a 30–90 min buffer (Hub-side timeshift via the stream gateway, or local buffer on Android). The progress bar shows the buffer.
+- Pause live TV with a 30–90 min buffer held on the Hub (the TV browser can't buffer that much). The progress bar shows the buffer.
 
 **Full TV guide (grid)**
 - Layout: a **live preview window top-left** (the current channel keeps playing, like Sky Q), programme details top-right, and the grid below with roughly 7 channels × 2 hours visible.
@@ -192,6 +194,7 @@ Build **one shared home server ("Hub")** plus **two clients**:
 - Red dot = recording, stacked dots = series link, and a "↺" icon for catch-up available.
 - Fast travel: day jump (Prev/Next day keys or a date strip), "Now" jump, and channel-number jump.
 - Past programmes with catch-up show a **Play from start** button.
+- Rendering: only visible cells are drawn (virtualised grid) so the TV's browser stays smooth with hundreds of channels.
 
 **Programme card (details)**
 - Artwork hero, synopsis, S/E, cast, and quality badges.
@@ -210,7 +213,7 @@ Build **one shared home server ("Hub")** plus **two clients**:
 - **Robustness:** track schedule drift. If a programme moves within ±60 min (EPG update), move the recording. If a live stream drops, reconnect (and fall back to the backup feed). The recording is marked "incomplete" and the same episode is re-scheduled if it repeats within 7 days.
 - **Conflicts:** limited by the provider's max connections. Show a clear Sky-like prompt: "*You're recording 2 programmes at 9pm. Choose one to cancel.*" Auto-resolve with a repeat airing when one exists.
 - **Post-processing:** remux TS → MKV, add chapter marks at ad breaks (comskip, optional), write an NFO, place in `/Recordings/Series/Season NN/` and trigger a Jellyfin scan. Recordings are therefore also watchable from any Jellyfin client.
-- **Reminders:** a toast on the TV 2 min before, with "Watch now" / "Dismiss".
+- **Reminders:** a toast on the TV 2 min before, with "Watch now" / "Dismiss" (shown only while the app is open, since VIDAA has no background notifications).
 
 ### 5.4 Remote mapping (target)
 
@@ -219,63 +222,64 @@ Build **one shared home server ("Hub")** plus **two clients**:
 | OK | Select / show banner |
 | Back | Back / previous channel |
 | Guide (or Green) | TV guide |
-| Red / Record | Record (long-press = record series) |
+| Red | Record (long-press = record series) |
 | Yellow | Options (audio, subtitles, source) |
 | Blue | Planner |
 | Numbers | Direct channel entry |
 | Ch +/– | Zap |
 | Play/Pause | Pause live / VOD |
-| Mic | Voice search (Android) |
 
-Android over CEC forwards a reduced key set (colour keys are often missing). Every action must therefore also be reachable through the on-screen **Options** menu. The VIDAA web app reads key codes directly.
+The web app reads VIDAA key codes directly, so the Hisense remote works without CEC. The 2026 UK remote's exact key set (colour keys, Guide key, number pad) is confirmed in Phase 0. Every action is also reachable through the on-screen **Options** menu in case a key is reserved by the OS.
 
 ---
 
 ## 6. WAF design system
 
-- **Look:** dark, cinematic, artwork-led, with big type (minimum 28 sp body at 10 ft on 85"). One accent colour and a subtle glass/blur on overlays.
+- **Look:** dark, cinematic, artwork-led, with big type (minimum 28 px body at 10 ft on 85"). One accent colour and a subtle glass/blur on overlays (pre-rendered where the TV GPU struggles).
 - **Focus:** a clear scale+glow focus ring that never jumps unpredictably. Remember focus per row.
 - **Home layout:** a hero (Continue watching / what's on now) followed by rails: *Live now · Continue watching · Recently recorded · Next up · Films for tonight · New on TorBox*. The order is customisable and **the default is opinionated**.
 - **Zero jargon:** no "M3U", "codec", "transcode" or "debrid" outside Settings → Advanced. Badges use friendly labels ("Dolby Vision", "Atmos", "4K").
 - **Guardrails:** a confirm step for deleting recordings or cancelling series links, undo toasts, and no dead ends (every error screen has "Try another source" / "Back to guide").
-- **Speed budget:** cold start under 2 s to Home, channel zap under 1.5 s, guide open under 300 ms, focus move under 16 ms.
-- **Quiet onboarding:** one wizard for sources (scan QR on phone → paste URLs/keys in a phone web form), Jellyfin Quick Connect, and a channel-numbering template. Done in five minutes, never seen again.
+- **Speed budget:** cold start under 3 s to Home (web app shell cached by a service worker where VIDAA allows, otherwise served from the LAN), channel zap under 2 s, guide open under 300 ms, focus move under 16 ms.
+- **Quiet onboarding:** one wizard for sources (scan QR on phone → paste URLs/keys in a phone web form served by the Hub), Jellyfin Quick Connect, and a channel-numbering template. Done in five minutes, never seen again.
 - **Usability test:** before each phase ships, the WAF tester gets 5 tasks with no help ("Watch BBC One", "Record every episode of X", "Carry on the film you were watching", "Find a comedy film in 4K", "Delete a watched recording"). The pass mark is five out of five without asking.
 
 ---
 
-## 7. Picture & sound: using all the hardware
+## 7. Picture & sound: getting the most from VIDAA
 
 ### 7.1 Picture
 
-| Capability | How the app uses it |
-|------------|---------------------|
-| **Dolby Vision (IQ)** | Android: Media3 with DV decoder. Pass Profile 5/8.1 natively. For P7 (Blu-ray remux), play as P8 BL+RPU on Shield, or full FEL on Ugoos. VIDAA: prefer MKV containers and hand off to the native player for DV-in-MP4. |
-| **HDR10+ (Adaptive)** | Pass dynamic metadata through Media3 (`HDR10+` via HEVC SEI). The TV's Adaptive mode handles ambient light. |
-| **HDR10 / HLG** | Pass through untouched. HLG is important for BBC iPlayer-style UHD live sport via IPTV. |
-| **Auto Frame-Rate (AFR)** | Android: `Surface.setFrameRate()` / `Display.Mode` switching so 23.976 → 24p, 25 → 50 Hz (UK broadcast!) and 29.97 → 60 Hz. This removes judder, which matters a lot on a 144 Hz panel that would otherwise run at 60. |
-| **Auto dynamic range** | Switch to HDR only for HDR content (no SDR-in-HDR washout). The UI stays SDR. |
-| **Resolution** | Output 4K always and let the TV's AI upscaler handle SD/HD IPTV, which is better than the box's scaler. |
-| **Picture mode guidance** | First-run tip and Settings card: use **Filmmaker Mode** / **Dolby Vision Dark** for films, and turn off motion smoothing for film content. Leave **ALLM** on so the TV doesn't mistake the box for a game console. Note: TV picture settings can't be controlled by apps on VIDAA or Android, so the app *guides* the user here. |
-| **Deinterlacing** | Many UK IPTV feeds are 1080i50. Use the box's hardware deinterlacer (Media3 handles it via the decoder) and verify there's no combing. |
+| Capability | How the app uses it on VIDAA |
+|------------|------------------------------|
+| **Dolby Vision (IQ)** | Play DV in **MKV** in the browser player. The Hub remuxes DV-in-MP4 to MKV on the fly (copy, no quality loss). Profile 5 and 8 are expected to work. Profile 7 Blu-ray remuxes are tested in Phase 0, with native-player hand-off as the fallback. |
+| **HDR10+ (Adaptive)** | Passed through untouched in HEVC. The TV's Adaptive mode handles room light. Confirm in Phase 0 that the browser path keeps HDR10+ metadata. |
+| **HDR10 / HLG** | Pass through untouched. HLG matters for UHD live sport via IPTV. |
+| **Frame rate (24p, 50 Hz)** | Web apps can't request a display mode. Phase 0 checks whether VIDAA switches to 24p/50 Hz for browser video. If it doesn't, films go to the native player by default, where the TV handles it. |
+| **Native player hand-off** | Automatic for titles the probe marks as "better in native player" (e.g. DV P7, AV1, frame-rate-sensitive films). The app shows a one-line "Playing in TV player" note and resumes progress tracking when it returns. |
+| **Resolution** | Always send the highest resolution available and let the TV's AI upscaler handle SD/HD IPTV. |
+| **Picture mode guidance** | First-run tip and Settings card: use **Filmmaker Mode** / **Dolby Vision Dark** for films, and turn off motion smoothing for film content. Apps can't change TV picture settings, so the app *guides* the user here. |
+| **Interlaced IPTV** | Many UK IPTV feeds are 1080i50. Test the TV's deinterlacing in the browser player in Phase 0. If it combs, the Hub can deinterlace on the fly for those channels only. |
 
 ### 7.2 Sound
 
-| Capability | How the app uses it |
-|------------|---------------------|
-| **Dolby Atmos (DD+ JOC)** | Passthrough E-AC-3 untouched (Android `AudioTrack` encoded output, VIDAA native). The most common streaming Atmos format. |
-| **TrueHD Atmos / DTS-HD MA / DTS:X** | Android box only: bitstream passthrough via HDMI → TV → **eARC** → AVR/soundbar. The TV's eARC passes these from HDMI inputs even though it can't from its own apps. |
-| **TV speakers only** | If there's no external audio system, let the TV decode DD+/Atmos. Lossless tracks are decoded on the box to multichannel PCM. |
-| **Track choice** | Auto-select the best track (Atmos > 7.1 > 5.1 > stereo, in the user's language). Remember per-show overrides. |
-| **Lip-sync** | Per-device AV offset setting (with eARC this is usually automatic). |
-| **Night mode** | One toggle in Options to apply dynamic range compression (DRC) when decoding, for late-night WAF. |
+| Capability | How the app uses it on VIDAA |
+|------------|------------------------------|
+| **Dolby Atmos (DD+ JOC)** | Passed to the TV untouched. The TV decodes it or sends it over **eARC** to a soundbar/AVR. This is the main Atmos path. |
+| **TrueHD / DTS-HD MA** | Not playable as bitstream from VIDAA apps. Source ranking avoids TrueHD-only files where a DD+ Atmos version exists. Otherwise the Hub converts the audio to E-AC-3 5.1/7.1 (surround kept, Atmos height lost), or the optional "TV-ready" pass adds that track ahead of time. |
+| **DTS** | Hisense's DTS support varies by model and year. Phase 0 checks it. If unsupported, the Hub converts DTS to E-AC-3. |
+| **Track choice** | Auto-select the best track the TV can play (DD+ Atmos > DD+ 5.1 > AC-3 > stereo, in the user's language). Remember per-show overrides. |
+| **Lip-sync** | Set in the TV's audio settings, and eARC normally handles it automatically. |
+| **Night mode** | One toggle in Options that asks the Hub for a dynamic-range-compressed audio track for late-night WAF. |
 
 ### 7.3 Capability probe (Phase 0)
 
-A small diagnostic screen in both clients that reports what actually works on *this* TV and box:
-- VIDAA: `MediaSource.isTypeSupported()` across codec strings (avc1, hvc1/hev1, dvh1/dvhe, av01, vp09, ec-3, ac-3, mp4a, flac, opus), `navigator.requestMediaKeySystemAccess`, Chromium version (UA), `screen` size and devicePixelRatio, and remote key codes.
-- Android: `MediaCodecList`, `Display.getHdrCapabilities()`, supported display modes (refresh rates), `AudioManager` encodings for HDMI (`ENCODING_E_AC3_JOC`, `ENCODING_DOLBY_TRUEHD`, `ENCODING_DTS_HD`).
-- Results are uploaded to the Hub, which then builds the Jellyfin DeviceProfile and source-ranking rules automatically.
+A diagnostic page served by the Hub that runs in the TV's browser and reports what actually works on *this* TV:
+- `MediaSource.isTypeSupported()` and `video.canPlayType()` across codec strings (avc1, hvc1/hev1, dvh1/dvhe, av01, vp09, ec-3, ac-3, mp4a, flac, opus, dts).
+- `navigator.requestMediaKeySystemAccess` for DRM, Chromium version (UA), screen size, devicePixelRatio and WebGL support.
+- A test-clip matrix played for real (DV P5/P7/P8 in MKV and MP4, HDR10+, HLG, 24p/25p/50i, DD+ Atmos, TrueHD, DTS), with a person noting whether the TV's HDR/DV badge appears, whether it judders, and what the soundbar shows.
+- Every remote key's code.
+- Results are saved to the Hub, which then builds the Jellyfin DeviceProfile and source-ranking rules automatically.
 
 ---
 
@@ -283,13 +287,12 @@ A small diagnostic screen in both clients that reports what actually works on *t
 
 | Phase | Name | Scope | Exit criteria |
 |-------|------|-------|---------------|
-| **0** | Spike & probe (1–2 wks) | Repo scaffold (monorepo: `hub/`, `android/`, `vidaa/`, `design/`). Capability probe on the real Hisense + candidate box. Test-install a hello-world web app via vidaa-edge **and** bookmark on the actual firmware. Sample-play DV P5/P7/P8, HDR10+, TrueHD Atmos, 25p/50i IPTV. | Written capability matrix, with the box choice confirmed. |
-| **1** | Hub core + Live TV MVP (3–4 wks) | Hub: M3U/Xtream/XMLTV ingest, channel manager, EPG API. Android: Home, live player, mini guide banner, number tuning, previous channel, full guide grid with live preview. AFR + passthrough. | Watch live TV and use the guide daily. First WAF test (watch channel / use guide). |
-| **2** | Recording & series link (3–4 wks) | Scheduler, ffmpeg recorder to NAS, series link engine, conflicts, Planner screen, catch-up / start over, reminders, Jellyfin rescan hook. | A week of series links recorded without misses. WAF test (record series / play recording / delete). |
-| **3** | Unified VOD (4 wks) | Jellyfin client (Quick Connect, direct play profiles, skip intro), Xtream VOD/series, TMDB metadata, "one title many sources", Continue Watching across sources, unified search + voice. | Films/TV feel like one library. WAF test (continue film / find 4K comedy). |
-| **4** | AIOStreams, TorBox & NAS pipeline (3 wks) | Stremio addon protocol, AIOStreams URL, TorBox API, auto best-stream, Download to NAS with renaming + Jellyfin scan, Downloads screen, phone-friendly setup/remote web page. | One-press play from discovery rails. A downloaded film appears in the library automatically. |
-| **5** | Polish & WAF hardening (ongoing, 2–3 wks) | Motion design, artwork everywhere, skeleton loading, error recovery, performance budget enforcement, profiles (adult/kids), screensaver with artwork, backup/restore. | All 5 WAF tasks pass unaided. Crash-free for 30 days. |
-| **6** | VIDAA lite client (3–4 wks) | Lightning/Solid web app served by the Hub: Home, guide, live, Jellyfin/VOD with browser playback and native-player hand-off for DV, recordings playback. Install via vidaa-edge icon or bookmark. | Usable on the TV with no box, with known limits documented in-app. |
+| **0** | Spike & probe (1–2 wks) | Monorepo scaffold (`hub/`, `tv/`, `shared/`, `design/`). Capability probe and test-clip matrix on the real Hisense. Install a hello-world app via vidaa-edge **and** bookmark on the actual firmware. Check that Lightning JS runs at 60 fps on the TV. | A written capability matrix and confirmed install method. |
+| **1** | Hub core + Live TV MVP (3–4 wks) | Hub: M3U/Xtream/XMLTV ingest, channel manager, EPG API, HLS repackaging. TV app: Home, live player, mini guide banner, number tuning, previous channel, full guide grid with live preview. | Watch live TV and use the guide daily. First WAF test (watch channel / use guide). |
+| **2** | Recording & series link (3–4 wks) | Scheduler, ffmpeg recorder to NAS, series link engine, conflicts, Planner screen, catch-up / start over, Hub-side pause live, Jellyfin rescan hook. | A week of series links recorded without misses. WAF test (record series / play recording / delete). |
+| **3** | Unified VOD (4 wks) | Jellyfin client (Quick Connect, probe-based direct play, skip intro), Xtream VOD/series, TMDB metadata, "one title many sources", stream gateway (remux/audio convert), native-player hand-off, Continue Watching across sources, unified search with phone search. | Films/TV feel like one library, and no title fails to play. WAF test (continue film / find 4K comedy). |
+| **4** | AIOStreams, TorBox & NAS pipeline (3 wks) | Stremio addon protocol, AIOStreams URL, TorBox API, VIDAA-aware best stream, Download to NAS with renaming + "TV-ready" pass + Jellyfin scan, Downloads screen, phone-friendly setup/remote page. | One-press play from discovery rails. A downloaded film appears in the library automatically. |
+| **5** | Polish & WAF hardening (ongoing, 2–3 wks) | Motion design, artwork everywhere, skeleton loading, error recovery, performance budget enforcement, profiles (adult/kids), screensaver with artwork, backup/restore, firmware-update watch (re-test install after each VIDAA update). | All 5 WAF tasks pass unaided. Crash-free for 30 days. |
 
 Durations assume one developer working part-time with AI assistance. Phases 3 and 4 can swap if streaming discovery matters more than Jellyfin.
 
@@ -298,20 +301,20 @@ Durations assume one developer working part-time with AI assistance. Phases 3 an
 ```
 UltimateTV/
 ├── docs/            # this plan, ADRs, capability matrix
-├── design/          # tokens, Figma exports, screen specs
-├── hub/             # Kotlin/Ktor server + Dockerfile + docker-compose.yml
-├── shared/          # Kotlin multiplatform models & API client (hub + android)
-├── android/         # Android TV app (Compose for TV, Media3)
-└── vidaa/           # Web client (TypeScript, Lightning/Solid)
+├── design/          # tokens, screen specs
+├── shared/          # TypeScript API types & models (hub + tv)
+├── hub/             # Node/Fastify server, ffmpeg workers, Dockerfile + docker-compose.yml
+├── tv/              # VIDAA web app (Lightning JS)
+└── tools/probe/     # capability probe page and test-clip list
 ```
 
 ### 8.2 Engineering practices
 
-- ADRs in `docs/adr/` for each major decision (box choice, Hub language, UI framework).
-- CI with GitHub Actions: build Hub image, build Android APK, and lint/test the web client.
-- Golden-file tests for M3U/Xtream/XMLTV parsing and series-link matching (the riskiest logic).
-- Screenshot tests (Paparazzi/Roborazzi) for TV screens to protect polish.
-- Releases: the Hub via Docker image on GHCR, Android via sideloaded APK (Downloader app / ADB), with in-app update check against GitHub releases.
+- ADRs in `docs/adr/` for each major decision (VIDAA-only, UI engine, install method).
+- CI with GitHub Actions: build and test the Hub, build the TV app, lint/typecheck everything, and publish the Hub image to GHCR.
+- Golden-file tests for M3U/Xtream/XMLTV parsing, series-link matching and source ranking (the riskiest logic).
+- Screenshot tests in headless Chromium pinned to the TV's Chromium version, to protect polish.
+- Releases: one Docker image that contains both the Hub and the built TV app. Updating the container updates the TV.
 
 ---
 
@@ -319,19 +322,26 @@ UltimateTV/
 
 | Risk / question | Mitigation |
 |-----------------|------------|
-| **Box choice** (Shield Pro vs Ugoos AM6B+ vs Google TV Streamer) | Decide in Phase 0 after testing. Shield Pro is the default recommendation for UX + lossless audio. Ugoos only if DV P7 FEL remuxes matter. |
-| Is there a soundbar/AVR on eARC? | Changes how important lossless passthrough is. Ask Gary. |
-| Where does the Hub run? (Synology/Unraid/other, CPU for transcoding) | The NAS model decides whether transcoding fallback is feasible. Ask Gary. |
+| **VIDAA firmware update breaks the vidaa-edge launcher icon** | Bookmark fallback is always set up. The app itself keeps working because it's just a web page served by the Hub. Re-test after each firmware update (Phase 5). |
+| Browser player loses DV or doesn't switch frame rate | Native-player hand-off, chosen per title from the probe results. |
+| TV browser too slow for a rich UI | Lightning JS on WebGL, a virtualised guide grid, pre-scaled artwork and a strict speed budget. Phase 0 proves it before Phase 1 starts. |
+| No lossless Atmos | Accepted with this choice. DD+ Atmos is the format most streaming services use, so most content still has Atmos. |
+| Is there a soundbar/AVR on eARC? | Decides whether Atmos is decoded by the TV or the soundbar, and how much the DD+ preference matters. Ask Gary. |
+| Where does the Hub run? (NAS model, CPU, hardware transcoding) | Remux and audio conversion are cheap. Full video transcoding (AV1 → HEVC) needs a NAS with Quick Sync or similar, otherwise those titles go to the native player. Ask Gary. |
 | Existing Jellyfin server? | Assumed yes. If not, include it in the Hub docker-compose. |
 | IPTV provider connection limit | Determines how many simultaneous recordings + live are possible. |
-| VIDAA firmware updates break the vidaa-edge install | Bookmark fallback. The VIDAA client is a "nice to have", not critical path. |
-| CEC key forwarding gaps (colour/number keys) | On-screen Options for every action. Test the Hisense remote with the chosen box in Phase 0. Fall back to the box's own remote if needed. |
 | XMLTV quality for UK channels | Allow multiple EPG sources per channel with priority, plus manual mapping UI. |
 | Legal/content | The app is a neutral client. Sources and credentials are user-supplied, and no content or addon URLs are bundled. |
 
 ---
 
-## 10. Sources
+## 10. Upgrade path (if ever wanted)
+
+The Hub does all the heavy work and exposes a plain HTTP API. If lossless Atmos, Dolby Vision Profile 7 or guaranteed frame-rate switching ever matter more than having no box, an Android TV client (e.g. on an Nvidia Shield Pro) can be added against the same API. No Hub work would be redone, and recordings, series links and watch progress carry over.
+
+---
+
+## 11. Sources
 
 - Jellyfin forum: installing web apps on VIDAA (vidaa-edge, DNS method, debug mode no longer works on newer models, DV/codec issues): https://forum.jellyfin.org/printthread.php?tid=10066
 - stremio-vidaa-tv (VIDAA browser codec/DRM testing, native-player hand-off, install methods): https://github.com/NoobyGains/stremio-vidaa-tv
