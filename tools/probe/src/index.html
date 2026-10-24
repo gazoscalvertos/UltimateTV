@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UltimateTV Probe</title>
+<style>
+  /* Sized for 10-foot viewing: 1rem scales with the TV's viewport (30px at 1920 wide, 20px at 1280). */
+  :root {
+    --bg: #0b1018; --panel: #141c28; --line: #24324a; --fg: #eef3fb; --muted: #9fb0c8;
+    --accent: #3d8bfd; --focus: #ffffff; --yes: #3ecf7a; --maybe: #f2b33d; --no: #ff6b6b;
+    font-size: calc(100vw / 64);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+  body { font: 0.8rem/1.45 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; overflow-y: auto; }
+  header { display: flex; align-items: center; gap: 1.2rem; padding: 1rem 2rem 0.6rem; }
+  header h1 { font-size: 1.1rem; margin: 0; letter-spacing: 0.02em; }
+  header h1 span { color: var(--accent); }
+  #tabs { display: flex; gap: 0.5rem; }
+  #main { padding: 0.6rem 2rem 2rem; }
+  h2 { font-size: 0.95rem; margin: 0.8rem 0 0.4rem; }
+  h3 { font-size: 0.8rem; margin: 0.8rem 0 0.3rem; color: var(--muted); }
+  .lede { color: var(--muted); max-width: 46rem; margin: 0.2rem 0 0.6rem; }
+  .cols { display: grid; grid-template-columns: 1fr 1.2fr; gap: 2rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.65rem; }
+  td, th { padding: 0.18rem 0.5rem; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--muted); font-weight: 600; }
+  .s-probably { color: var(--yes); } .s-maybe { color: var(--maybe); } .s-no, .s-error { color: var(--no); }
+  .btn, .clip {
+    font: inherit; color: var(--fg); background: var(--panel); border: 2px solid var(--line);
+    border-radius: 0.4rem; padding: 0.4rem 0.9rem; cursor: pointer;
+    transition: transform 120ms ease, border-color 120ms ease;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); }
+  .btn.tab.active { border-color: var(--accent); }
+  .btn.chosen { background: #1f3d6b; border-color: var(--accent); }
+  .focusable:focus { outline: none; border-color: var(--focus); transform: scale(1.06); box-shadow: 0 0 0 0.15rem rgba(255,255,255,0.25); }
+  .actions { display: flex; gap: 0.8rem; margin-top: 1rem; }
+  .options { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .prompt { text-align: center; padding-top: 4rem; }
+  .prompt .big { font-size: 2.4rem; margin: 0.4rem 0; }
+  .step { color: var(--muted); }
+  .clips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+  .clip { display: flex; flex-direction: column; gap: 0.15rem; text-align: left; }
+  .clip span { font-size: 0.6rem; color: var(--muted); }
+  .clip .done { color: var(--yes); } .clip .todo { color: var(--maybe); }
+  .result { min-height: 1.2rem; }
+  .fps-box { position: fixed; bottom: 0.6rem; left: 50%; width: 1rem; height: 1rem; background: var(--accent); border-radius: 50%; }
+  #player { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; }
+  #player-hint { display: none; position: fixed; left: 2rem; bottom: 1.2rem; padding: 0.3rem 0.7rem; border-radius: 0.3rem; background: rgba(0,0,0,0.6); font-size: 0.6rem; }
+  body.playing #player, body.playing #player-hint { display: block; }
+  body.playing header, body.playing #main { visibility: hidden; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Ultimate<span>TV</span> probe</h1>
+    <nav id="tabs"></nav>
+  </header>
+  <main id="main"></main>
+  <video id="player" playsinline></video>
+  <div id="player-hint"></div>
+  <script src="probe.js"></script>
+</body>
+</html>
