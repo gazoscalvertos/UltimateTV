@@ -130,6 +130,10 @@ fi
   cd "$APP_DIR"
   npm ci --no-audit --no-fund --workspace box --workspace shared --include-workspace-root
   npx tsc -b box
+  # Electron fetches its binary on first run, which the TV session can't do (the app folder is
+  # root's), so fetch it now.
+  for _ in 1 2 3; do node node_modules/electron/install.js && break; sleep 5; done
+  node -e 'require("fs").accessSync(require("electron"))' || die "couldn't download Electron; check the box's internet and run this again"
   [ "$(node -p 'require("electron/package.json").version')" = "$ELECTRON_VERSION" ] || warn "Electron isn't $ELECTRON_VERSION"
 )
 chown -R root:root "$APP_DIR"
