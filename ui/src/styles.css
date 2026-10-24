@@ -428,6 +428,34 @@ kbd.key-blue {
   border-color: var(--good);
   color: var(--good);
 }
+/* Where a title plays from, coloured by source. */
+.badge-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  border-color: var(--accent);
+  color: var(--fg);
+  background: rgba(61, 139, 255, 0.18);
+}
+.badge-source .icon {
+  width: 1em;
+  height: 1em;
+}
+.badge-jellyfin,
+.badge-nas,
+.badge-recording {
+  border-color: #aa5cc3;
+  background: rgba(170, 92, 195, 0.2);
+}
+.badge-torbox,
+.badge-addon {
+  border-color: var(--accent-2);
+  background: rgba(0, 194, 209, 0.16);
+}
+.badge-xtream {
+  border-color: var(--amber);
+  background: rgba(242, 179, 61, 0.16);
+}
 
 .flag {
   display: inline-flex;
@@ -2008,4 +2036,50 @@ kbd.key-blue {
   color: #5a6378;
   font-weight: 400;
   font-size: 0.9rem;
+}
+
+/* Playback stats: a compact panel in the top left, over the video. */
+.stats-overlay {
+  position: absolute;
+  top: 2.5rem;
+  left: 2.5rem;
+  z-index: 40;
+  width: 34rem;
+  max-height: calc(100vh - 5rem);
+  overflow: hidden;
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius);
+  background: rgba(7, 11, 20, 0.82);
+  border: 1px solid var(--line);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.stats-overlay section + section {
+  margin-top: 0.9rem;
+}
+.stats-overlay h4 {
+  margin: 0 0 0.35rem;
+  color: var(--accent-2);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.stats-overlay dl {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 0.2rem 1rem;
+  margin: 0;
+}
+.stats-overlay dt {
+  color: var(--muted);
+}
+.stats-overlay dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.stats-hint {
+  margin: 1rem 0 0;
+  color: var(--dim);
+  font-size: 0.85rem;
 }

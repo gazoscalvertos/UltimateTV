@@ -62,6 +62,25 @@ export interface BoxInfo {
   audioDevice?: string;
 }
 
+/** Technical details of what's playing, for the stats overlay: labelled values in sections. */
+export interface PlaybackStats {
+  sections: { title: string; rows: [label: string, value: string][] }[];
+}
+
+/** The box's own software, for Settings › About: what it runs and whether there's an update. */
+export interface BoxSoftware {
+  /** The app commit the box runs. */
+  commit?: string;
+  /** When that commit was made (ISO). */
+  date?: string;
+  branch?: string;
+  /** The newest commit on the branch, when the box could check. */
+  latest?: string;
+  /** An update is running now; the TV app restarts when it finishes. */
+  updating: boolean;
+  lastUpdate?: { at: string; ok: boolean };
+}
+
 export interface BoxAgent {
   info(): Promise<BoxInfo>;
   play(options: PlayOptions): Promise<void>;
@@ -74,12 +93,18 @@ export interface BoxAgent {
   setSubtitleTrack(id: number | null): Promise<void>;
   setNightMode(on: boolean): Promise<void>;
   setLayout(layout: VideoLayout): Promise<void>;
+  /** Stats for the overlay; null when nothing is playing. */
+  stats(): Promise<PlaybackStats | null>;
   onState(listener: (state: PlayerState) => void): () => void;
   /** Called with true when the TV switches to the box's input, false when it goes to standby. */
   onPower(listener: (active: boolean) => void): () => void;
   /** Tells the TV (over CEC) to switch on and show the box. */
   wakeTv(): Promise<void>;
   reload(): Promise<void>;
+  /** The box's software; `check` also asks GitHub for the newest version. Null outside the box. */
+  software(check: boolean): Promise<BoxSoftware | null>;
+  /** Installs the latest app and OS updates, then restarts the TV app. */
+  update(): Promise<void>;
 }
 
 declare global {

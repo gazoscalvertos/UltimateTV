@@ -17,6 +17,7 @@ import { Cec } from "./cec.js";
 import { Display } from "./display.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
+import { Updates } from "./updates.js";
 
 const HUB_URL = (process.env.HUB_URL ?? "http://192.168.0.19:8095").replace(/\/$/, "");
 const CEC_DEVICE = process.env.CEC_DEVICE ?? "/dev/cec0";
@@ -50,6 +51,7 @@ async function main(): Promise<void> {
     return { width: b.width, height: b.height };
   };
   const player = new Player(mpv, display, screenSize, log);
+  const updates = new Updates(log);
 
   await mpv.start().catch((e: Error) => log(`mpv didn't start: ${e.message}`));
   await player.start().catch((e: Error) => log(e.message));
@@ -98,8 +100,11 @@ async function main(): Promise<void> {
     setSubtitleTrack: (id: never) => player.setSubtitleTrack(id),
     setNightMode: (on: never) => player.setNightMode(on),
     setLayout: (l: never) => player.setLayout(l),
+    stats: () => player.stats(),
     wakeTv: () => cec.wakeTv(),
     reload: async () => win?.webContents.reloadIgnoringCache(),
+    software: (check: never) => updates.status(Boolean(check)),
+    update: () => updates.start(),
   };
   ipcMain.handle("agent", async (e, method: string, ...args: unknown[]) => {
     if (!win || e.sender !== win.webContents) throw new Error("Not the TV window");
@@ -137,6 +142,14 @@ async function main(): Promise<void> {
     if (url.startsWith(HUB_URL) && code !== -3) {
       log(`UI didn't load (${desc})`);
       void win?.loadURL(offlinePage(desc));
+    }
+  });
+  // An error page from the Hub (an old Hub without the TV app gives 404) would be invisible in the
+  // transparent window, so show the offline page instead.
+  win.webContents.on("did-navigate", (_e, url, code) => {
+    if (url.startsWith(HUB_URL) && code >= 400) {
+      log(`UI didn't load (HTTP ${code} from ${url})`);
+      void win?.loadURL(offlinePage(`The Hub answered ${code}; update it`));
     }
   });
   win.webContents.on("render-process-gone", (_e, details) => {

@@ -3,7 +3,7 @@
 // audio and subtitle options, and Up Next.
 
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import type { NowNext } from "@ultimatetv/shared";
+import type { NowNext, PlaybackStats } from "@ultimatetv/shared";
 import { clockTime, digitOf } from "@ultimatetv/shared";
 import { agent } from "../agent";
 import { hub } from "../api";
@@ -13,7 +13,7 @@ import { openProgramme, recordFlow } from "../components/ProgrammeCard";
 import { Progress } from "../components/Rail";
 import { useKeys } from "../keys";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
-import { nav, now, openDialog, toast } from "../store";
+import { nav, now, openDialog, setShowStats, showStats, toast } from "../store";
 
 function fmt(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -21,6 +21,43 @@ function fmt(ms: number): string {
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   return h ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
+}
+
+/** The stats overlay: refreshed every second while it's on. */
+function StatsOverlay() {
+  const [stats, setStats] = createSignal<PlaybackStats | null>(null);
+  const load = () => void agent.stats().then(setStats, () => setStats(null));
+  load();
+  const timer = window.setInterval(load, 1000);
+  onCleanup(() => clearInterval(timer));
+  return (
+    <Show when={stats()}>
+      {(s) => (
+        <div class="stats-overlay">
+          <For each={s().sections}>
+            {(section) => (
+              <section>
+                <h4>{section.title}</h4>
+                <dl>
+                  <For each={section.rows}>
+                    {([label, value]) => (
+                      <>
+                        <dt>{label}</dt>
+                        <dd>{value}</dd>
+                      </>
+                    )}
+                  </For>
+                </dl>
+              </section>
+            )}
+          </For>
+          <p class="stats-hint">
+            <kbd class="key-blue" /> Hide stats
+          </p>
+        </div>
+      )}
+    </Show>
+  );
 }
 
 export function Player() {
@@ -142,6 +179,17 @@ export function Player() {
               Off
             </button>
           </div>
+          <h4>
+            <Icon name="info" /> Playback stats
+          </h4>
+          <div class="option-list">
+            <button class="option" classList={{ selected: showStats() }} data-focus onClick={() => (setShowStats(true), close())}>
+              On
+            </button>
+            <button class="option" classList={{ selected: !showStats() }} data-focus onClick={() => (setShowStats(false), close())}>
+              Off
+            </button>
+          </div>
         </DialogFrame>
       );
     });
@@ -200,6 +248,9 @@ export function Player() {
         return true;
       case "yellow":
         void options();
+        return true;
+      case "blue":
+        setShowStats(!showStats());
         return true;
       case "playPause":
       case "pause":
@@ -303,6 +354,10 @@ export function Player() {
         </div>
       </Show>
 
+      <Show when={showStats()}>
+        <StatsOverlay />
+      </Show>
+
       <Show when={digits()}>
         <div class="digits-overlay">{digits()}</div>
       </Show>
@@ -385,6 +440,9 @@ export function Player() {
                 <span class="osd-time">{duration() ? `-${fmt(duration() - st().positionMs)}` : ""}</span>
               </div>
               <div class="osd-meta">
+                <Show when={np()?.info.source}>
+                  <span class={`badge badge-source badge-${np()!.info.source!.kind}`}>From {np()!.info.source!.label}</span>
+                </Show>
                 <Show when={st().video}>
                   <span>
                     {st().video!.height >= 2000 ? "4K" : st().video!.height >= 1000 ? "HD" : "SD"}

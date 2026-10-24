@@ -65,7 +65,7 @@ install_packages() {
       kwin kscreen sddm plasma-workspace xorg-xwayland \
       mpv ffmpeg libva-utils vulkan-icd-loader mesa \
       pipewire pipewire-pulse pipewire-alsa wireplumber \
-      v4l-utils gcc \
+      v4l-utils gcc polkit \
       nodejs npm git rsync \
       gtk3 nss alsa-lib libxss libxkbcommon \
       noto-fonts inter-font ttf-dejavu
@@ -82,7 +82,7 @@ install_packages() {
       kwin-wayland kscreen sddm xwayland \
       mpv ffmpeg vainfo mesa-vulkan-drivers \
       pipewire pipewire-pulse pipewire-alsa wireplumber \
-      v4l-utils ir-keytable inputattach \
+      v4l-utils ir-keytable inputattach polkitd \
       nodejs npm git rsync ca-certificates \
       libgtk-3-0 libnss3 libasound2 libxss1 libxkbcommon0 \
       fonts-noto-core fonts-inter fonts-dejavu-core
@@ -130,9 +130,21 @@ fi
   cd "$APP_DIR"
   npm ci --no-audit --no-fund --workspace box --workspace shared --include-workspace-root
   npx tsc -b box
+  # Electron fetches its binary on first run, which the TV session can't do (the app folder is
+  # root's), so fetch it now.
+  for _ in 1 2 3; do node node_modules/electron/install.js && break; sleep 5; done
+  node -e 'require("fs").accessSync(require("electron"))' || die "couldn't download Electron; check the box's internet and run this again"
   [ "$(node -p 'require("electron/package.json").version')" = "$ELECTRON_VERSION" ] || warn "Electron isn't $ELECTRON_VERSION"
 )
 chown -R root:root "$APP_DIR"
+# What the box runs, for Settings › About and its update check.
+install -d /etc/ultimatetv
+{
+  echo "commit=$(git -C "$APP_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+  echo "date=$(git -C "$APP_DIR" log -1 --format=%cI 2>/dev/null || true)"
+  echo "branch=$BRANCH"
+  echo "repo=$REPO_URL"
+} > /etc/ultimatetv/version
 
 install -d /etc/ultimatetv
 if [ ! -f /etc/ultimatetv/box.env ]; then
@@ -224,6 +236,9 @@ if command -v snapper >/dev/null && snapper -c root list >/dev/null 2>&1; then
   snapper -c root create --description "before UltimateTV update" --cleanup-algorithm number
 fi
 if [ -x /usr/bin/pacman ]; then pacman -Syu --noconfirm; else apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y upgrade; fi
+# Pull the new app before running its installer, so the update runs the new installer.
+git -C $APP_DIR fetch --depth 1 origin $BRANCH
+git -C $APP_DIR reset --hard origin/$BRANCH
 SKIP_PACKAGES=1 HUB_URL="\$(sed -n 's/^HUB_URL=//p' /etc/ultimatetv/box.env)" TV_USER=$TV_USER APP_DIR=$APP_DIR BRANCH=$BRANCH bash $APP_DIR/tools/box/install.sh
 systemctl restart sddm
 EOF
@@ -250,6 +265,18 @@ Persistent=true
 
 [Install]
 WantedBy=timers.target
+EOF
+# Settings › About › Update now: the tv user may start the update service, and nothing else.
+install -d /etc/polkit-1/rules.d
+cat > /etc/polkit-1/rules.d/50-ultimatetv-update.rules <<EOF
+polkit.addRule(function (action, subject) {
+  if (action.id == "org.freedesktop.systemd1.manage-units" &&
+      action.lookup("unit") == "ultimatetv-update.service" &&
+      action.lookup("verb") == "start" &&
+      subject.user == "$TV_USER") {
+    return polkit.Result.YES;
+  }
+});
 EOF
 systemctl daemon-reload
 systemctl enable ultimatetv-update.timer >/dev/null

@@ -291,6 +291,8 @@ export interface PlaybackInfo {
   /** Content frame rate when known, so the box can switch the TV's refresh rate before playing. */
   fps?: number;
   quality?: StreamQuality;
+  /** Where it plays from, shown in the player ("Jellyfin", "TorBox", "IPTV"). */
+  source?: { kind: SourceKind; label: string };
   externalSubtitles: SubtitleTrack[];
   /** Report progress to this key. */
   progressKey: string;

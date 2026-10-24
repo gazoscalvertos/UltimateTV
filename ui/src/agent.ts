@@ -2,7 +2,7 @@
 // own window under this transparent UI. In a normal browser (development, screenshots) a <video>
 // element stands in; streams it can't decode (MPEG-TS, HEVC) show their artwork instead.
 
-import type { BoxAgent, BoxInfo, PlayerState, PlayOptions, VideoLayout } from "@ultimatetv/shared";
+import type { BoxAgent, BoxInfo, BoxSoftware, PlaybackStats, PlayerState, PlayOptions, VideoLayout } from "@ultimatetv/shared";
 
 class BrowserAgent implements BoxAgent {
   private video: HTMLVideoElement;
@@ -149,6 +149,17 @@ class BrowserAgent implements BoxAgent {
     else stage.removeAttribute("style");
   }
 
+  async stats(): Promise<PlaybackStats | null> {
+    if (this.state.status === "idle") return null;
+    const v = this.state.video;
+    return {
+      sections: [
+        { title: "Video", rows: [["Resolution", v ? `${v.width}×${v.height}` : "unknown"], ["Decoder", this.fake ? "none (the browser can't play this stream)" : "browser"]] },
+        { title: "Network", rows: [["Buffer", this.video.buffered.length ? `${(this.video.buffered.end(this.video.buffered.length - 1) - this.video.currentTime).toFixed(1)} s` : "0 s"]] },
+      ],
+    };
+  }
+
   onState(listener: (state: PlayerState) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -163,6 +174,12 @@ class BrowserAgent implements BoxAgent {
   async reload(): Promise<void> {
     location.reload();
   }
+
+  async software(): Promise<BoxSoftware | null> {
+    return null;
+  }
+
+  async update(): Promise<void> {}
 }
 
 export const agent: BoxAgent = window.ultimatetv ?? new BrowserAgent();

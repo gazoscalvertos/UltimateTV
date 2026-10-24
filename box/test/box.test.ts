@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { CecParser, powerFrom, type CecMessage } from "../src/cec.js";
 import { parseOutputs, pickMode, type Mode } from "../src/display.js";
 import { mpvArgs } from "../src/mpv.js";
-import { isHdr, marginsFor, tracksFrom } from "../src/player.js";
+import { isHdr, marginsFor, statsFrom, tracksFrom } from "../src/player.js";
+import { parseKeyValues, remoteCommit } from "../src/updates.js";
 
 const mode = (id: string, refreshRate: number, width = 3840, height = 2160): Mode => ({ id, width, height, refreshRate });
 const modes = [mode("1", 60), mode("2", 59.94), mode("3", 50), mode("4", 30), mode("5", 25), mode("6", 24), mode("7", 23.976), mode("8", 60, 1920, 1080)];
@@ -101,5 +102,48 @@ describe("mpv", () => {
     expect(isHdr({ gamma: "hlg" })).toBe(true);
     expect(isHdr({ gamma: "bt.1886" })).toBe(false);
     expect(isHdr(null)).toBe(false);
+  });
+});
+
+describe("playback stats", () => {
+  const props = {
+    "video-codec": "hevc (H.265 / HEVC)",
+    "video-params": { w: 3840, h: 2160, pixelformat: "p010", "hw-pixelformat": "vaapi", gamma: "pq", primaries: "bt.2020", colormatrix: "bt.2020-ncl" },
+    "hwdec-current": "vaapi",
+    "container-fps": 23.976,
+    "video-sync": "display-resample",
+    "display-fps": 23.976,
+    "frame-drop-count": 2,
+    "audio-codec": "eac3 (E-AC-3)",
+    "audio-params": { samplerate: 48000, "channel-count": 6, "hr-channels": "5.1" },
+    "audio-out-params": { format: "spdif-eac3", "channel-count": 8 },
+    "demuxer-cache-state": { "cache-duration": 12.34, "fw-bytes": 52428800, "raw-input-rate": 5_000_000 },
+    af: [],
+  };
+  const stats = statsFrom(props, { url: "http://user:secret@iptv.example:8080/movie/user/secret/1.mkv", display: { width: 3840, height: 2160, refreshHz: 23.976, hdr: true } });
+  const value = (section: string, label: string) => stats.sections.find((s) => s.title === section)?.rows.find((r) => r[0] === label)?.[1];
+
+  it("describes the picture, sound and network", () => {
+    expect(value("Video", "Resolution")).toBe("3840×2160 · vaapi/p010");
+    expect(value("Video", "Colour")).toBe("HDR10 (PQ) · bt.2020 · bt.2020-ncl");
+    expect(value("Video", "Decoder")).toBe("GPU (vaapi)");
+    expect(value("Display", "TV mode")).toBe("3840×2160 @ 23.976 Hz · HDR on");
+    expect(value("Display", "Dropped frames")).toBe("2 by the display · 0 by the decoder");
+    expect(value("Audio", "Output")).toBe("Passthrough to the TV (eac3)");
+    expect(value("Audio", "Night mode")).toBeUndefined();
+    expect(value("Network", "Download speed")).toBe("40.0 Mbit/s");
+  });
+
+  it("never shows the account details in a stream address", () => {
+    expect(value("Network", "Source")).toBe("iptv.example:8080");
+    expect(JSON.stringify(stats)).not.toContain("secret");
+  });
+});
+
+describe("box updates", () => {
+  it("reads the installed version and the newest commit on its branch", () => {
+    expect(parseKeyValues("commit=abc123\ndate=2026-10-24T19:00:00+01:00\nbranch=main\nrepo=https://github.com/x/y.git\n")).toEqual({ commit: "abc123", date: "2026-10-24T19:00:00+01:00", branch: "main", repo: "https://github.com/x/y.git" });
+    expect(remoteCommit("def456\trefs/heads/main\n999\trefs/heads/mainline\n", "main")).toBe("def456");
+    expect(remoteCommit("", "main")).toBeUndefined();
   });
 });
