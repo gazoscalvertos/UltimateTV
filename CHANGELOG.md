@@ -13,6 +13,10 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- TV Guide: the list follows the selected channel on every screen size. On a 21:9 monitor the
+  bottom rows used to sit off screen; the UI is now sized by the screen's height when it's wider
+  than 16:9, and the guide shows as many rows as fit.
+
 - Diagnostics: the box sends the Hub its recent log, a playback sample every 10 seconds (frame
   rate, screen mode, sync, dropped and late frames, buffer) and the screen's details. Read it all
   at `http://<hub>:8095/api/diagnostics?format=text` (or as JSON without `?format=text`).

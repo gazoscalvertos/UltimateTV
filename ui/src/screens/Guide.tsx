@@ -18,7 +18,8 @@ import { nav, now } from "../store";
 
 const SLOT = 30 * 60_000;
 const SPAN = 2 * 3_600_000; // Two hours across the grid, as on Sky.
-const ROWS = 7;
+/** Channel rows shown at most; fewer when the screen is too short for them all. */
+const MAX_ROWS = 7;
 const floorSlot = (ms: number) => Math.floor(ms / SLOT) * SLOT;
 
 const CATEGORIES: { id: string; label: string }[] = [
@@ -39,6 +40,7 @@ export function Guide() {
   const [row, setRow] = createSignal(0);
   const [top, setTop] = createSignal(0);
   const [digits, setDigits] = createSignal("");
+  const [rows, setRows] = createSignal(MAX_ROWS);
   const [loadRange, setLoadRange] = createSignal({ from: floorSlot(Date.now()) - 3 * 3_600_000, to: floorSlot(Date.now()) + 9 * 3_600_000 });
   const [guide, { refetch }] = createResource(
     () => ({ ...loadRange(), category: category() }),
@@ -53,7 +55,7 @@ export function Guide() {
   onCleanup(onHubEvent((e) => (e.type === "recordings.changed" || e.type === "guide.updated" ? void refetch() : undefined)));
 
   const channels = createMemo<Channel[]>(() => data()?.channels ?? []);
-  const visible = createMemo(() => channels().slice(top(), top() + ROWS));
+  const visible = createMemo(() => channels().slice(top(), top() + rows()));
   const channel = () => channels()[row()];
 
   const programmesOf = (id: string): Programme[] => data()?.programmes[id] ?? [];
@@ -79,7 +81,7 @@ export function Guide() {
   createEffect(
     on(row, (r) => {
       if (r < top()) setTop(r);
-      else if (r >= top() + ROWS) setTop(r - ROWS + 1);
+      else if (r >= top() + rows()) setTop(r - rows() + 1);
     }),
   );
   // Start on the channel that's playing.
@@ -89,7 +91,7 @@ export function Guide() {
       const i = live ? list.findIndex((c) => c.id === live) : -1;
       if (i >= 0 && row() === 0) {
         setRow(i);
-        setTop(Math.max(0, Math.min(i - 2, list.length - ROWS)));
+        setTop(Math.max(0, Math.min(i - 2, list.length - rows())));
       } else if (row() >= list.length) setRow(0);
     }),
   );
@@ -97,6 +99,18 @@ export function Guide() {
   // Live TV in the preview window.
   let preview!: HTMLDivElement;
   let grid!: HTMLDivElement;
+  // As many rows as fit the space under the preview, so the selected channel never goes off screen.
+  const fitRows = (el: HTMLDivElement) => {
+    const fit = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const n = Math.floor(el.clientHeight / (4.6 * rem + 1));
+      if (n > 0) setRows(Math.min(MAX_ROWS, n));
+      if (row() >= top() + rows()) setTop(Math.max(0, row() - rows() + 1));
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    onCleanup(() => observer.disconnect());
+  };
   const placePreview = () => {
     const r = preview.getBoundingClientRect();
     void agent.setLayout({ mode: "window", x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) });
@@ -189,10 +203,10 @@ export function Guide() {
         step(1);
         return true;
       case "channelUp":
-        setRow(Math.max(0, row() - ROWS));
+        setRow(Math.max(0, row() - rows()));
         return true;
       case "channelDown":
-        setRow(Math.min(channels().length - 1, row() + ROWS));
+        setRow(Math.min(channels().length - 1, row() + rows()));
         return true;
       case "ok":
       case "play":
@@ -295,7 +309,7 @@ export function Guide() {
             </Show>
           </div>
         </div>
-        <div class="gg-rows">
+        <div class="gg-rows" ref={fitRows}>
           <For each={visible()}>
             {(c) => {
               const isRow = () => channel()?.id === c.id;
