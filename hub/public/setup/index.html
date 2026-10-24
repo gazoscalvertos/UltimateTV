@@ -224,11 +224,16 @@ async function load() {
   $("#iptv-list").innerHTML = "";
   for (const src of s.iptv) {
     const li = document.createElement("li");
-    li.innerHTML = `<span>${src.name}<small>${src.kind === "xtream" ? "Xtream" : "M3U"} · ${src.host} · ${src.connections} connection${src.connections > 1 ? "s" : ""}</small></span>`;
+    li.innerHTML = `<span><span class="src-name"></span><small>${src.kind === "xtream" ? "Xtream" : "M3U"} · ${src.host} · ${src.connections} connection${src.connections > 1 ? "s" : ""}</small><small class="src-status"></small></span>`;
+    li.querySelector(".src-name").textContent = src.name;
+    li.querySelector(".src-status").textContent = sourceStatus(src.status);
     const b = document.createElement("button"); b.className = "secondary small"; b.textContent = "Remove";
     b.onclick = async () => { if (confirm(`Remove ${src.name}?`)) { await api(`/api/settings/iptv/${src.id}`, { method: "DELETE" }); load(); } };
     li.append(b); $("#iptv-list").append(li);
   }
+  // Keep checking while a source is still on its first load.
+  clearTimeout(load.again);
+  if (s.iptv.some((src) => !src.status)) load.again = setTimeout(() => load().catch(() => {}), 10_000);
   const g = $("#guide-form");
   g.numbering.value = s.numbering; g.filter.value = s.channelFilter;
   $("#jf-pill").textContent = s.jellyfin ? `Connected${s.jellyfin.serverName ? " to " + s.jellyfin.serverName : ""}` : "Not connected";
@@ -245,13 +250,25 @@ document.querySelectorAll("#iptv .tabs button").forEach((b) => (b.onclick = () =
   document.querySelectorAll("[data-for]").forEach((el) => (el.hidden = el.dataset.for !== kind));
 }));
 
+/** One line on how the source last loaded, so a broken login or an over-strict filter is visible here. */
+function sourceStatus(st) {
+  if (!st) return "Loading…";
+  const when = new Date(st.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (!st.ok) return `Problem at ${when}: ${st.error}`;
+  return `${st.visible} channel${st.visible === 1 ? "" : "s"} shown of ${st.streams} at ${when}`;
+}
+
 $("#iptv-form").onsubmit = async (e) => {
   e.preventDefault(); const f = e.target;
+  const button = f.querySelector("button[type=submit], button:not([type])");
+  if (button?.disabled) return;
   const body = f.kind.value === "xtream"
     ? { kind: "xtream", url: f.url.value, username: f.username.value, password: f.password.value, name: f.name.value, connections: Number(f.connections.value) }
     : { kind: "m3u", url: f.m3u.value, name: f.name.value, connections: Number(f.connections.value) };
+  if (button) button.disabled = true;
   try { await api("/api/settings/iptv", { method: "POST", body }); f.reset(); toast("Added. Channels and the guide are loading, which can take a few minutes."); load(); }
   catch (err) { toast(err.message, true); }
+  finally { if (button) button.disabled = false; }
 };
 
 $("#guide-form").onsubmit = async (e) => {

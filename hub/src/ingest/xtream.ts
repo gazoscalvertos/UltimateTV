@@ -62,6 +62,9 @@ export interface XtreamAuth {
   server_info?: { timezone?: string; url?: string; port?: string; server_protocol?: string };
 }
 
+/** Full lists from big panels (tens of thousands of entries) can take a while. */
+const LIST_TIMEOUT_MS = 120_000;
+
 export class XtreamClient {
   constructor(
     readonly source: XtreamSource,
@@ -88,7 +91,7 @@ export class XtreamClient {
   }
 
   liveStreams(): Promise<XtreamLiveStream[]> {
-    return fetchJson<XtreamLiveStream[]>(this.api("get_live_streams"), this.fetchImpl);
+    return fetchJson<XtreamLiveStream[]>(this.api("get_live_streams"), this.fetchImpl, {}, LIST_TIMEOUT_MS);
   }
 
   vodCategories(): Promise<XtreamCategory[]> {
@@ -96,7 +99,7 @@ export class XtreamClient {
   }
 
   vodStreams(): Promise<XtreamVodStream[]> {
-    return fetchJson<XtreamVodStream[]>(this.api("get_vod_streams"), this.fetchImpl);
+    return fetchJson<XtreamVodStream[]>(this.api("get_vod_streams"), this.fetchImpl, {}, LIST_TIMEOUT_MS);
   }
 
   vodInfo(id: number | string): Promise<{ info?: Record<string, unknown>; movie_data?: XtreamVodStream }> {
@@ -104,7 +107,7 @@ export class XtreamClient {
   }
 
   series(): Promise<XtreamSeries[]> {
-    return fetchJson<XtreamSeries[]>(this.api("get_series"), this.fetchImpl);
+    return fetchJson<XtreamSeries[]>(this.api("get_series"), this.fetchImpl, {}, LIST_TIMEOUT_MS);
   }
 
   seriesInfo(id: number | string): Promise<XtreamSeriesInfo> {
