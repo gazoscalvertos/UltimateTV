@@ -139,6 +139,14 @@ async function main(): Promise<void> {
       void win?.loadURL(offlinePage(desc));
     }
   });
+  // An error page from the Hub (an old Hub without the TV app gives 404) would be invisible in the
+  // transparent window, so show the offline page instead.
+  win.webContents.on("did-navigate", (_e, url, code) => {
+    if (url.startsWith(HUB_URL) && code >= 400) {
+      log(`UI didn't load (HTTP ${code} from ${url})`);
+      void win?.loadURL(offlinePage(`The Hub answered ${code}; update it`));
+    }
+  });
   win.webContents.on("render-process-gone", (_e, details) => {
     log(`UI crashed (${details.reason}); reloading`);
     void player.stop();
