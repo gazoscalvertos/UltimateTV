@@ -5,9 +5,9 @@
 # finishes (start from the disk), this exits too and the firmware moves on to the disk.
 :retry
 dhcp || goto retry
-chain tftp://${proxydhcp/dhcp-server}/boot.ipxe && exit ||
-chain tftp://${next-server}/boot.ipxe && exit ||
-chain tftp://${66:string}/boot.ipxe && exit ||
+isset ${proxydhcp/dhcp-server} && chain tftp://${proxydhcp/dhcp-server}/boot.ipxe && exit ||
+isset ${next-server} && chain tftp://${next-server}/boot.ipxe && exit ||
+isset ${66:string} && chain tftp://${66:string}/boot.ipxe && exit ||
 echo Couldn't reach the UltimateTV PXE server. Starting from the disk in 10 seconds.
 sleep 10
 exit
