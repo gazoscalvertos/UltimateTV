@@ -149,7 +149,7 @@ probe() {
     for m in "${missing[@]}"; do echo "- $m"; done
     # The backticks below are Markdown, not command substitution.
     # shellcheck disable=SC2016
-    printf '\nArch: `sudo pacman -S --needed pciutils libva-utils mpv v4l-utils alsa-utils usbutils linuxconsole`\n'
+    printf '\nArch: `sudo pacman -S --needed pciutils libva-utils mpv v4l-utils alsa-utils usbutils` (inputattach: build it from the linuxconsoletools release, as tools/box/install.sh does)\n'
     # shellcheck disable=SC2016
     printf 'Debian: `sudo apt install pciutils vainfo mpv v4l-utils edid-decode alsa-utils usbutils inputattach`\n'
   fi
