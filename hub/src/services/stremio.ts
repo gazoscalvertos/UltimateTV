@@ -26,9 +26,16 @@ export interface AddonStream {
   behaviorHints?: { filename?: string; videoSize?: number; bingeGroup?: string; notWebReady?: boolean; proxyHeaders?: { request?: Record<string, string> } };
 }
 
-/** Turns `…/manifest.json` (or the bare base URL) into the addon's base URL. */
+/**
+ * Turns `…/manifest.json`, the addon's `…/configure` page or the bare base URL into the addon's
+ * base URL. `stremio://` links (Stremio's install button) are the same address over https.
+ */
 export function addonBase(url: string): string {
-  return url.replace(/\/manifest\.json(\?.*)?$/, "").replace(/\/+$/, "");
+  return url
+    .trim()
+    .replace(/^stremio:\/\//i, "https://")
+    .replace(/\/(manifest\.json|configure)\/?(\?.*)?$/, "")
+    .replace(/\/+$/, "");
 }
 
 export class AddonClient {
