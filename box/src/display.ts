@@ -22,7 +22,16 @@ export interface Output {
   modes: Mode[];
   hdr?: boolean;
   hdrCapable?: boolean;
+  /** Variable refresh rate (FreeSync/VRR), and KWin's policy for it: never, always or automatic. */
+  vrrCapable?: boolean;
+  vrrPolicy?: VrrPolicy;
 }
+
+export type VrrPolicy = "never" | "always" | "automatic";
+const VRR_POLICIES: VrrPolicy[] = ["never", "always", "automatic"];
+/** libkscreen's capability flags, when kscreen-doctor gives them as a number. */
+const CAP_VRR = 0x2;
+const CAP_HDR = 0x8;
 
 /** Reads `kscreen-doctor -j`. Shapes vary a little between Plasma releases, so this is forgiving. */
 export function parseOutputs(json: string): Output[] {
@@ -32,11 +41,21 @@ export function parseOutputs(json: string): Output[] {
       const size = (m.size as { width?: number; height?: number }) ?? {};
       return { id: String(m.id), width: Number(size.width ?? 0), height: Number(size.height ?? 0), refreshRate: Number(m.refreshRate ?? 0) };
     });
-    const caps = Array.isArray(o.capabilities) ? (o.capabilities as unknown[]).map(String) : [];
     const out: Output = { name: String(o.name), enabled: Boolean(o.enabled), connected: Boolean(o.connected), currentModeId: String(o.currentModeId ?? ""), modes };
     if (typeof o.hdr === "boolean") out.hdr = o.hdr;
     else if (o.hdr && typeof o.hdr === "object" && "enabled" in o.hdr) out.hdr = Boolean((o.hdr as { enabled: unknown }).enabled);
-    if (caps.length) out.hdrCapable = caps.some((c) => /hdr|highdynamicrange/i.test(c));
+    // Capabilities come as a list of names or as libkscreen's bit flags, depending on the release.
+    if (Array.isArray(o.capabilities) && o.capabilities.length) {
+      const caps = (o.capabilities as unknown[]).map(String);
+      out.hdrCapable = caps.some((c) => /hdr|highdynamicrange/i.test(c));
+      out.vrrCapable = caps.some((c) => /vrr|variablerefresh|adaptivesync/i.test(c));
+    } else if (typeof o.capabilities === "number") {
+      out.hdrCapable = Boolean(o.capabilities & CAP_HDR);
+      out.vrrCapable = Boolean(o.capabilities & CAP_VRR);
+    }
+    const policy = o.vrrPolicy ?? o.vrrpolicy;
+    if (typeof policy === "number" && VRR_POLICIES[policy]) out.vrrPolicy = VRR_POLICIES[policy];
+    else if (typeof policy === "string" && VRR_POLICIES.includes(policy.toLowerCase() as VrrPolicy)) out.vrrPolicy = policy.toLowerCase() as VrrPolicy;
     return out;
   });
 }
@@ -66,6 +85,7 @@ function score(hz: number, film: boolean): number {
 export class Display {
   private restoreMode: { output: string; modeId: string } | null = null;
   private restoreHdr: { output: string; on: boolean } | null = null;
+  private restoreVrr: { output: string; policy: VrrPolicy } | null = null;
 
   constructor(private readonly log: (line: string) => void) {}
 
@@ -81,15 +101,36 @@ export class Display {
     return output && mode ? { output, mode } : null;
   }
 
-  async prepare(fps: number | undefined, hdr: boolean): Promise<void> {
+  /**
+   * Puts the screen in the right mode for a video. Returns how its frame rate is matched: "mode"
+   * (a refresh rate that's a multiple of it), "vrr" (variable refresh, for screens with no such
+   * mode, e.g. a 50/60/100 Hz monitor playing 24p film) or null (it isn't: expect judder).
+   */
+  async prepare(fps: number | undefined, hdr: boolean): Promise<"mode" | "vrr" | null> {
     const tv = await this.tv();
-    if (!tv) return;
+    if (!tv) return null;
     const args: string[] = [];
+    let sync: "mode" | "vrr" | null = null;
     if (fps) {
       const mode = pickMode(tv.output.modes, tv.mode, fps);
-      if (mode && mode.id !== tv.mode.id) {
-        this.restoreMode ??= { output: tv.output.name, modeId: tv.mode.id };
-        args.push(`output.${tv.output.name}.mode.${mode.id}`);
+      if (mode) {
+        sync = "mode";
+        if (mode.id !== tv.mode.id) {
+          this.restoreMode ??= { output: tv.output.name, modeId: tv.mode.id };
+          args.push(`output.${tv.output.name}.mode.${mode.id}`);
+        }
+      } else {
+        const rates = [...new Set(tv.output.modes.filter((m) => m.width === tv.mode.width && m.height === tv.mode.height).map((m) => Math.round(m.refreshRate * 1000) / 1000))].join(", ");
+        if (tv.output.vrrCapable) {
+          sync = "vrr";
+          this.log(`No mode fits ${fps} fps at ${tv.mode.width}×${tv.mode.height} (${rates} Hz): using variable refresh`);
+          if (tv.output.vrrPolicy !== "always") {
+            this.restoreVrr ??= { output: tv.output.name, policy: tv.output.vrrPolicy ?? "automatic" };
+            args.push(`output.${tv.output.name}.vrrpolicy.always`);
+          }
+        } else {
+          this.log(`No mode fits ${fps} fps at ${tv.mode.width}×${tv.mode.height} (${rates} Hz), and no variable refresh: expect judder`);
+        }
       }
     }
     if (tv.output.hdrCapable !== false && tv.output.hdr !== undefined && tv.output.hdr !== hdr) {
@@ -97,10 +138,13 @@ export class Display {
       args.push(`output.${tv.output.name}.hdr.${hdr ? "enable" : "disable"}`, `output.${tv.output.name}.wcg.${hdr ? "enable" : "disable"}`);
     }
     if (args.length) await this.apply(args);
+    return sync;
   }
 
   async restore(): Promise<void> {
     const args: string[] = [];
+    if (this.restoreVrr) args.push(`output.${this.restoreVrr.output}.vrrpolicy.${this.restoreVrr.policy}`);
+    this.restoreVrr = null;
     if (this.restoreMode) args.push(`output.${this.restoreMode.output}.mode.${this.restoreMode.modeId}`);
     if (this.restoreHdr) args.push(`output.${this.restoreHdr.output}.hdr.${this.restoreHdr.on ? "enable" : "disable"}`, `output.${this.restoreHdr.output}.wcg.${this.restoreHdr.on ? "enable" : "disable"}`);
     this.restoreMode = null;

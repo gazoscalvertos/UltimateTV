@@ -41,7 +41,9 @@ export function mpvArgs(o: MpvOptions): string[] {
     "--video-sync=display-resample",
     "--interpolation=no",
     "--deband=yes",
-    "--scale=ewa_lanczossharp",
+    // spline36: sharp, and light enough for Intel UHD graphics at 4K (ewa_lanczossharp kept a
+    // 3440×1440 screen's GPU near its limit).
+    "--scale=spline36",
     // Sound: Dolby Digital (Plus) and DTS go to the TV untouched; everything else is decoded.
     "--audio-spdif=ac3,eac3,dts",
     "--audio-channels=auto",
