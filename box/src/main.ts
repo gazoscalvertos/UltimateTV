@@ -53,6 +53,7 @@ const offlinePage = (reason: string) =>
 async function main(): Promise<void> {
   await app.whenReady();
   const display = new Display(log, process.env.CUSTOM_MODES !== "0");
+  await display.unscaled().catch((e: Error) => log(`Couldn't unscale the screen: ${e.message}`));
   const mpv = new Mpv({ socket: path.join(RUNTIME, "ultimatetv-mpv.sock"), log, ...(process.env.AUDIO_DEVICE ? { audioDevice: process.env.AUDIO_DEVICE } : {}), extraArgs: (process.env.MPV_ARGS ?? "").split(/\s+/).filter(Boolean) });
   const cec = new Cec(CEC_DEVICE, log);
   const screenSize = () => {

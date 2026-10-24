@@ -224,6 +224,14 @@ export class Player {
       if (event === "end-file") this.log(`mpv end-file: ${msg.reason ?? "?"}${msg.file_error ? ` (${msg.file_error})` : ""}`);
       else if (event === "file-loaded" || event === "seek" || event === "playback-restart") this.log(`mpv ${event}`);
       if (event === "start-file") this.loading = true;
+      // No frame rate from the Hub (live TV, some addons): match the screen once mpv knows it.
+      if (event === "file-loaded" && this.options && !this.options.fps && this.match === undefined) {
+        this.match = null;
+        void this.mpv
+          .get<number>("container-fps")
+          .then((fps) => (typeof fps === "number" && fps > 0 ? this.matchLate(fps) : undefined))
+          .catch(() => undefined);
+      }
       if (event === "file-loaded" || event === "playback-restart") this.loading = false;
       if (event === "end-file" && msg.reason === "error") {
         this.error = msg.file_error ?? "The stream didn't play";
@@ -333,6 +341,16 @@ export class Player {
     await this.mpv.command("loadfile", o.url, "replace", -1, opts.join(","));
     for (const s of o.subtitles ?? []) await this.mpv.command("sub-add", s.url, "auto", s.label, s.lang).catch(() => undefined);
     await this.mpv.set("pause", false);
+  }
+
+  private async matchLate(fps: number): Promise<void> {
+    const options = this.options;
+    const match = await this.display.prepare(fps, false);
+    if (this.options !== options) return;
+    this.match = match;
+    const sync = match === "mode" ? "display-resample" : "audio";
+    this.log(`Frame rate ${fps} fps from the stream: screen match ${match ?? "none"}, video-sync ${sync}`);
+    await this.mpv.set("video-sync", sync).catch(() => undefined);
   }
 
   async stop(): Promise<void> {

@@ -25,6 +25,8 @@ export interface Output {
   /** Variable refresh rate (FreeSync/VRR), and KWin's policy for it: never, always or automatic. */
   vrrCapable?: boolean;
   vrrPolicy?: VrrPolicy;
+  /** KWin's scale for the output (2.7 and the like on a 4K TV by default). */
+  scale?: number;
 }
 
 export type VrrPolicy = "never" | "always" | "automatic";
@@ -42,6 +44,7 @@ export function parseOutputs(json: string): Output[] {
       return { id: String(m.id), width: Number(size.width ?? 0), height: Number(size.height ?? 0), refreshRate: Number(m.refreshRate ?? 0) };
     });
     const out: Output = { name: String(o.name), enabled: Boolean(o.enabled), connected: Boolean(o.connected), currentModeId: String(o.currentModeId ?? ""), modes };
+    if (typeof o.scale === "number" && o.scale > 0) out.scale = o.scale;
     if (typeof o.hdr === "boolean") out.hdr = o.hdr;
     else if (o.hdr && typeof o.hdr === "object" && "enabled" in o.hdr) out.hdr = Boolean((o.hdr as { enabled: unknown }).enabled);
     // Capabilities come as a list of names or as libkscreen's bit flags, depending on the release.
@@ -245,6 +248,19 @@ export class Display {
     this.custom.add(added.id);
     output.modes = after!.modes;
     return pickMode([added], current, fps);
+  }
+
+  /**
+   * Sets the TV's output to scale 1. KDE picks a fractional scale for a 4K TV (2.7), which makes
+   * the compositor resample the whole picture every frame; the TV app sizes itself to the screen,
+   * so it needs no scaling.
+   */
+  async unscaled(): Promise<void> {
+    const tv = await this.tv();
+    if (tv?.output.scale !== undefined && tv.output.scale !== 1) {
+      this.log(`The screen was scaled ×${tv.output.scale}: setting it to ×1`);
+      await this.apply([`output.${tv.output.name}.scale.1`]);
+    }
   }
 
   async restore(): Promise<void> {
