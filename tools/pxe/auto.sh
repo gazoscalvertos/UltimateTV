@@ -127,6 +127,12 @@ cat >/usr/local/sbin/ultimatetv-firstboot <<'EOF'
 set -euo pipefail
 . /root/box.conf
 for _ in $(seq 1 60); do curl -fsS --max-time 5 https://github.com >/dev/null && break; sleep 5; done
+# A private repository needs a token; git keeps it for the weekly updates too (root only).
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  git config --global credential.helper store
+  umask 077
+  echo "https://x-access-token:${GITHUB_TOKEN}@github.com" >/root/.git-credentials
+fi
 rm -rf /opt/ultimatetv
 git clone --depth 1 --branch "${BRANCH:-main}" "${REPO_URL:-https://github.com/gazoscalvertos/UltimateTV.git}" /opt/ultimatetv
 HUB_URL="$HUB_URL" BRANCH="${BRANCH:-main}" bash /opt/ultimatetv/tools/box/install.sh

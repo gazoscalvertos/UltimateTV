@@ -78,7 +78,7 @@ EOF
 # HTTP: the install settings for auto.sh.
 {
   echo "# UltimateTV box install settings, written by the PXE server."
-  for v in HUB_URL BRANCH BOX_HOSTNAME TIMEZONE KEYMAP LOCALE ADMIN_USER ADMIN_PASSWORD_HASH ADMIN_SSH_KEY TARGET_DISK ARCH_MIRROR; do
+  for v in HUB_URL BRANCH BOX_HOSTNAME TIMEZONE KEYMAP LOCALE ADMIN_USER ADMIN_PASSWORD_HASH ADMIN_SSH_KEY TARGET_DISK ARCH_MIRROR GITHUB_TOKEN; do
     printf '%s=%q\n' "$v" "${!v:-}"
   done
   printf 'REPO_URL=%q\n' "${REPO_URL:-https://github.com/gazoscalvertos/UltimateTV.git}"

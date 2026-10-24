@@ -37,6 +37,7 @@ In `.env`:
 | `ADMIN_USER`, `ADMIN_PASSWORD_HASH` | Your login on the box, with the `$6$...` line from `openssl passwd -6`. Wrap the hash in single quotes so the `$` signs survive. |
 | `ADMIN_SSH_KEY` | Optional: your SSH public key, for logging in without the password |
 | `HUB_URL` | `http://192.168.0.19:8095` |
+| `GITHUB_TOKEN` | Only while the repository is private: a fine-grained token with read-only **Contents** access to it, so the box can download the app and its updates |
 
 The first build compiles iPXE and takes a few minutes. The server uses UDP ports 67, 69 and 4011 and TCP port 8097 on the LXC. Nothing else there should be using them.
 
