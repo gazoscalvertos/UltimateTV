@@ -275,7 +275,10 @@ export class Ingestor {
    */
   async refreshGuide(now = Date.now()): Promise<{ programmes: number }> {
     const channels = this.channels.list(true);
-    if (channels.length === 0) return { programmes: 0 };
+    if (channels.length === 0) {
+      this.log.warn("No channels yet, so the guide wasn't loaded; it loads once an IPTV source gives channels");
+      return { programmes: 0 };
+    }
     const run = now;
     const claimed = new Map<string, string>(); // channel id → guide URL that supplied it
     let total = 0;
@@ -283,6 +286,7 @@ export class Ingestor {
     for (const url of this.guideUrls()) {
       const matcher = new EpgMatcher(channels);
       let batch: Programme[] = [];
+      let fromUrl = 0;
       try {
         const stream = await fetchStream(url, this.fetchImpl);
         await parseXmltv(stream, {
@@ -295,6 +299,7 @@ export class Ingestor {
               claimed.set(channelId, url);
               batch.push(toProgramme(channelId, p));
               total++;
+              fromUrl++;
             }
             if (batch.length >= 2000) {
               this.guide.upsert(batch, run);
@@ -303,8 +308,9 @@ export class Ingestor {
           },
         });
         this.guide.upsert(batch, run);
+        this.log.info({ url: redactUrl(url), programmes: fromUrl }, fromUrl ? "Guide source loaded" : "Guide source loaded but matched none of our channels");
       } catch (err) {
-        this.log.warn({ url: redactUrl(url), err: String(err) }, "Guide source failed to load");
+        this.log.warn({ url: redactUrl(url), err: describeError(err) }, "Guide source failed to load");
       }
     }
     this.guide.dropStale(claimed.keys(), run, now);

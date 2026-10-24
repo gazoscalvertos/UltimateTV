@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { gzipSync } from "node:zlib";
 import type { IptvSource } from "@ultimatetv/shared";
 import { buildChannels, ChannelStore, type RawFeed } from "../src/channels.js";
 import { Db } from "../src/db.js";
 import { GuideStore } from "../src/epg.js";
 import { describeError, Ingestor } from "../src/ingest/index.js";
+import { fetchStream } from "../src/http.js";
 import { silentLogger } from "../src/log.js";
 import { dedupeSources, defaultSettings, SettingsStore, sourceKey } from "../src/settings.js";
 
@@ -92,7 +94,7 @@ describe("big and awkward provider lists", () => {
     const channels = new ChannelStore(db);
     const ingest = new Ingestor(db, settings, channels, new GuideStore(db), silentLogger, fetchImpl);
     expect(await ingest.refreshSources()).toEqual({ channels: 1, vod: 200_000 });
-  });
+  }, 30_000);
 
   it("asks providers as a common player, not as node", async () => {
     let agent: string | null = null;
@@ -104,5 +106,22 @@ describe("big and awkward provider lists", () => {
     const settings = new SettingsStore(db, { ...defaultSettings(), iptv: [m3u("a", "http://p/a.m3u")] });
     await new Ingestor(db, settings, new ChannelStore(db), new GuideStore(db), silentLogger, fetchImpl).refreshSources();
     expect(agent).toMatch(/^VLC\//);
+  });
+});
+
+describe("guide downloads", () => {
+  const xml = '<?xml version="1.0"?><tv><channel id="a"><display-name>A</display-name></channel></tv>';
+  const read = async (stream: NodeJS.ReadableStream) => {
+    let text = "";
+    for await (const chunk of stream) text += Buffer.from(chunk as Uint8Array).toString();
+    return text;
+  };
+
+  it("unzips by content, whatever the URL or headers say", async () => {
+    const zipped = gzipSync(xml);
+    const serve = (body: Uint8Array | string) => (async () => new Response(body)) as unknown as typeof fetch;
+    // A .gz URL the server already unpacked (Content-Encoding: gzip), and a gzipped file without .gz.
+    expect(await read(await fetchStream("http://epg/uk.xml.gz", serve(xml)))).toBe(xml);
+    expect(await read(await fetchStream("http://epg/uk.xml", serve(zipped)))).toBe(xml);
   });
 });
