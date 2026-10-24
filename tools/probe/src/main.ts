@@ -179,31 +179,64 @@ function renderDevice() {
 
 // ---------- 2. remote keys ----------
 
+// The VIDAA browser can run in cursor mode, where OK and the arrows drive an on-screen pointer and never
+// reach the page as key presses. The wizard therefore also listens for clicks, offers on-screen buttons
+// that work with the pointer, and shows every input event as it arrives.
+
+const EVENT_LOG_LIMIT = 60;
+const eventLog: string[] = [];
+let sawPointer = false;
+
+function logEvent(text: string) {
+  eventLog.push(text);
+  if (eventLog.length > EVENT_LOG_LIMIT) eventLog.shift();
+  report.eventLog = eventLog.slice();
+  const live = document.getElementById("live-event");
+  if (live) live.textContent = `Last input received: ${text}`;
+}
+
 function renderKeys() {
   if (keyWizard) {
     const name = REMOTE_KEYS[keyWizard.index] ?? "";
-    const skipHint = keyWizard.index === 0 ? "" : "If your remote doesn't have this key, press OK to skip.";
-    setChildren(main, 
+    setChildren(main,
       el("div", { class: "prompt" }, [
         el("p", { class: "step", text: `Key ${keyWizard.index + 1} of ${REMOTE_KEYS.length}` }),
         el("h2", { class: "big", text: `Press ${name}` }),
-        el("p", { text: skipHint }),
+        el("p", { class: "live", text: "Last input received: nothing yet" }),
+        el("div", { class: "actions center" }, [
+          button("Nothing happened / not on remote", () => recordWizardKey(null), "wizard-btn"),
+          button("Stop", stopKeyWizard, "wizard-btn"),
+        ]),
+        el("p", {
+          class: "step",
+          text: "If the screen shows a pointer, point at a button and press OK to choose it.",
+        }),
       ]),
     );
+    const live = main.querySelector(".live");
+    if (live) live.id = "live-event";
     return;
   }
 
   const recorded = report.keys.length > 0;
-  setChildren(main, 
+  const keyRows = report.keys.map((k) =>
+    el("tr", {}, [
+      el("td", { text: k.name }),
+      el("td", { text: k.via === "click" ? "click only (cursor mode)" : k.keyCode === null ? "not received" : String(k.keyCode) }),
+    ]),
+  );
+  setChildren(main,
     el("p", {
       class: "lede",
       text: "The app needs to know which code each button on your Hisense remote sends. You'll be asked to press each one in turn.",
     }),
-    recorded
-      ? el("table", {}, report.keys.map((k) =>
-          el("tr", {}, [el("td", { text: k.name }), el("td", { text: k.keyCode === null ? "not on remote" : String(k.keyCode) })]),
-        ))
+    sawPointer
+      ? el("p", {
+          class: "lede warn",
+          text: "The browser is in cursor mode, so OK and the arrows may move a pointer instead of reaching the page. That's useful to know. Record what you can.",
+        })
       : el("span"),
+    recorded ? el("table", {}, keyRows) : el("span"),
     el("div", { class: "actions" }, [
       button(recorded ? "Record keys again" : "Start", startKeyWizard, "primary"),
       button("Next: test clips", () => showTab("clips")),
@@ -217,21 +250,45 @@ function startKeyWizard() {
   renderKeys();
 }
 
+function stopKeyWizard() {
+  if (!keyWizard) return;
+  report.keys = keyWizard.results;
+  keyWizard = null;
+  renderKeys();
+}
+
+function recordWizardKey(result: Omit<KeyResult, "name"> | null) {
+  if (!keyWizard) return;
+  const name = REMOTE_KEYS[keyWizard.index] ?? "";
+  keyWizard.results.push(result ? { name, ...result } : { name, keyCode: null });
+  keyWizard.index += 1;
+  if (keyWizard.index >= REMOTE_KEYS.length) {
+    stopKeyWizard();
+    return;
+  }
+  renderKeys();
+}
+
 function handleWizardKey(e: KeyboardEvent) {
   if (!keyWizard) return;
   e.preventDefault();
-  const name = REMOTE_KEYS[keyWizard.index] ?? "";
-  const okCode = keyWizard.results[0]?.keyCode ?? KEY_ENTER;
-  const skipped = keyWizard.index > 0 && e.keyCode === okCode;
-  keyWizard.results.push(
-    skipped ? { name, keyCode: null } : { name, keyCode: e.keyCode, key: e.key || undefined, code: e.code || undefined },
-  );
-  keyWizard.index += 1;
-  if (keyWizard.index >= REMOTE_KEYS.length) {
-    report.keys = keyWizard.results;
-    keyWizard = null;
+  // Once OK is known as a real key, pressing it again skips keys the remote doesn't have.
+  const ok = keyWizard.results[0];
+  if (keyWizard.index > 0 && ok?.via === "key" && e.keyCode === ok.keyCode) {
+    recordWizardKey(null);
+    return;
   }
-  renderKeys();
+  recordWizardKey({ keyCode: e.keyCode, key: e.key || undefined, code: e.code || undefined, via: "key" });
+}
+
+/** A click that didn't land on a wizard button means the key being asked for acts as a pointer click. */
+function handleWizardClick(e: MouseEvent) {
+  if (!keyWizard) return;
+  const target = e.target as HTMLElement | null;
+  if (target?.closest(".wizard-btn")) return;
+  e.preventDefault();
+  e.stopPropagation();
+  recordWizardKey({ keyCode: null, via: "click" });
 }
 
 // ---------- 3. test clips ----------
@@ -427,6 +484,20 @@ async function sendReport(result: HTMLElement) {
 
 // ---------- input ----------
 
+for (const type of ["keydown", "keyup"] as const) {
+  document.addEventListener(type, (e) => logEvent(`${type} ${e.keyCode} ${e.key || "-"}`), true);
+}
+for (const type of ["mousedown", "click", "wheel", "contextmenu"] as const) {
+  document.addEventListener(type, () => logEvent(type), true);
+}
+document.addEventListener("mousemove", () => {
+  if (!sawPointer) {
+    sawPointer = true;
+    logEvent("mousemove (cursor mode)");
+  }
+}, true);
+document.addEventListener("click", handleWizardClick, true);
+
 document.addEventListener("keydown", (e) => {
   if (keyWizard) return handleWizardKey(e);
   if (playing) {
@@ -448,6 +519,14 @@ document.addEventListener("keydown", (e) => {
     }
   }
 });
+
+// In cursor mode OK arrives as a click, so a click anywhere while a clip plays stops it.
+document.addEventListener("click", (e) => {
+  if (playing && !keyWizard) {
+    e.preventDefault();
+    stopClip();
+  }
+}, true);
 
 // ---------- start ----------
 

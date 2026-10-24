@@ -80,6 +80,8 @@ export interface KeyResult {
   keyCode: number | null;
   key?: string;
   code?: string;
+  /** "click" when the key only produced a mouse click, e.g. OK in the VIDAA browser's cursor mode. */
+  via?: "key" | "click";
 }
 
 export interface ClipResult {
@@ -115,6 +117,8 @@ export interface ProbeReport {
   drm: Record<string, boolean>;
   keys: KeyResult[];
   clips: ClipResult[];
+  /** Raw input events the page received, oldest first, e.g. "keydown 13 Enter" or "click". */
+  eventLog?: string[];
 }
 
 const SUPPORT_VALUES: Support[] = ["probably", "maybe", "no", "error"];
@@ -183,9 +187,16 @@ export function renderMatrix(report: ProbeReport): string {
   lines.push("## Remote keys", "");
   lines.push("| Key | keyCode | key / code |", "|-----|---------|------------|");
   for (const k of report.keys) {
-    lines.push(`| ${k.name} | ${k.keyCode ?? "not on remote"} | ${[k.key, k.code].filter(Boolean).join(" / ") || "-"} |`);
+    const code = k.via === "click" ? "click only (cursor mode)" : (k.keyCode ?? "not received");
+    lines.push(`| ${k.name} | ${code} | ${[k.key, k.code].filter(Boolean).join(" / ") || "-"} |`);
   }
   lines.push("");
+
+  if (report.eventLog && report.eventLog.length > 0) {
+    lines.push("## Input events received", "", "```");
+    lines.push(...report.eventLog);
+    lines.push("```", "");
+  }
 
   lines.push("## Test clips", "");
   if (report.clips.length === 0) {

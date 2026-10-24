@@ -36,7 +36,9 @@ describe("renderMatrix", () => {
     expect(md).toContain("# Capability matrix: Living room 85U7");
     expect(md).toContain("| HEVC Main10 (MKV) | Yes | Yes |");
     expect(md).toContain("| AV1 Main 10-bit L5.1 | No | No |");
-    expect(md).toContain("| Guide | not on remote | - |");
+    expect(md).toContain("| Guide | not received | - |");
+    expect(md).toContain("| Back | click only (cursor mode) | - |");
+    expect(md).toContain("keydown 13 Enter");
     expect(md).toContain("| dv-p8.mkv | Yes | 3840×2160 | - | dolby-vision | smooth | atmos |");
   });
 });

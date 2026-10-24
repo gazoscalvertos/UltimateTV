@@ -23,7 +23,9 @@ export function sampleReport(): ProbeReport {
     keys: [
       { name: "OK", keyCode: 13, key: "Enter" },
       { name: "Guide", keyCode: null },
+      { name: "Back", keyCode: null, via: "click" },
     ],
+    eventLog: ["keydown 13 Enter", "click"],
     clips: [{ clip: "dv-p8.mkv", played: true, videoWidth: 3840, videoHeight: 2160, hdrBadge: "dolby-vision", motion: "smooth", audio: "atmos" }],
   };
 }
