@@ -162,7 +162,8 @@ const toast = (msg, bad) => { const t = $("#toast"); t.textContent = msg; t.clas
 let token = "";
 try { token = sessionStorage.getItem("utv-token") || ""; } catch {}
 async function api(path, opts = {}, retried = false) {
-  const headers = { "Content-Type": "application/json" };
+  // Only with a body: Fastify rejects an empty body labelled JSON, which broke every Remove button.
+  const headers = opts.body ? { "Content-Type": "application/json" } : {};
   if (token) headers["X-Profile-Token"] = token;
   const res = await fetch(path, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
   const data = await res.json().catch(() => ({}));
@@ -228,7 +229,11 @@ async function load() {
     li.querySelector(".src-name").textContent = src.name;
     li.querySelector(".src-status").textContent = sourceStatus(src.status);
     const b = document.createElement("button"); b.className = "secondary small"; b.textContent = "Remove";
-    b.onclick = async () => { if (confirm(`Remove ${src.name}?`)) { await api(`/api/settings/iptv/${src.id}`, { method: "DELETE" }); load(); } };
+    b.onclick = async () => {
+      if (!confirm(`Remove ${src.name}?`)) return;
+      try { await api(`/api/settings/iptv/${src.id}`, { method: "DELETE" }); toast(`Removed ${src.name}.`); load(); }
+      catch (err) { toast(err.message, true); }
+    };
     li.append(b); $("#iptv-list").append(li);
   }
   // Keep checking while a source is still on its first load.
