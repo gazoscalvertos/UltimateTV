@@ -84,7 +84,17 @@ EOF
   printf 'REPO_URL=%q\n' "${REPO_URL:-https://github.com/gazoscalvertos/UltimateTV.git}"
 } > /srv/http/box.conf
 
-cat > /etc/dnsmasq.d/ultimatetv.conf <<EOF
+if [ "${PXE_DHCP:-proxy}" = off ]; then
+  # Files only: another DHCP server (AdGuard Home) sends the box here with options 66 and 67.
+  cat > /etc/dnsmasq.d/ultimatetv.conf <<EOF
+port=0
+user=root
+interface=$iface
+enable-tftp
+tftp-root=/srv/tftp
+EOF
+else
+  cat > /etc/dnsmasq.d/ultimatetv.conf <<EOF
 # Proxy DHCP: the router still gives out addresses; we only add where to boot from. Replies go to
 # 255.255.255.255, because the box has no address yet and some LXCs give their card a /32.
 port=0
@@ -97,6 +107,7 @@ enable-tftp
 tftp-root=/srv/tftp
 log-dhcp
 EOF
+fi
 
 echo "UltimateTV PXE server on $iface ($network/$prefix): menu for ${BOX_MAC:-no machines}, web on $server"
 busybox httpd -f -p "$PXE_HTTP_PORT" -h /srv/http &

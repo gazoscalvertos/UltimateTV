@@ -41,6 +41,19 @@ In `.env`:
 
 The first build compiles iPXE and takes a few minutes. The server uses UDP ports 67, 69 and 4011 and TCP port 8097 on the LXC. Nothing else there should be using them.
 
+### If AdGuard Home hands out your addresses
+
+When AdGuard Home is your DHCP server, it holds the DHCP port, so the PXE server can't add the boot details itself. Instead, AdGuard tells the box where to boot, and the PXE server only serves the files:
+
+1. In `tools/pxe/.env`, set `PXE_DHCP=off`, then run `docker compose up -d --build`.
+2. Stop AdGuard (`docker stop adguard`). In `AdGuardHome.yaml`, under `dhcp:` › `dhcpv4:`, set `options` to:
+   ```yaml
+       options:
+         - 66 text 192.168.0.19
+         - 67 text ipxe.efi
+   ```
+   Then run `docker start adguard`. Every device gets these two options, but only machines that network-boot use them.
+
 ## 2. Set up the GMKtec
 
 1. Plug the box into the network by cable, using the Ethernet port you'll keep using.
