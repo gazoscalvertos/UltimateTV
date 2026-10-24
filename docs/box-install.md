@@ -4,9 +4,9 @@ The box is any x86_64 mini PC on the TV's HDMI (ours is a GMKtec NucBox K7 Plus)
 
 ## 1. Install Arch Linux
 
-Use `archinstall` from the Arch ISO:
+The easiest way is over the network: the PXE server on the Docker LXC installs Arch and everything below with no questions asked ([pxe.md](pxe.md)). To do it by hand instead, use `archinstall` from the Arch ISO on a USB stick:
 
-- **Disk:** btrfs, with the default subvolumes. The installer then turns on snapshots before every update, so a bad update can be rolled back from the boot menu.
+- **Disk:** btrfs, with the default subvolumes. The installer then takes a snapshot before every update, so a bad update can be rolled back.
 - **Profile:** Minimal. The installer adds KWin and everything else it needs.
 - **Audio:** PipeWire.
 - **Network:** wired Ethernet if you can (NetworkManager is fine for Wi-Fi).
@@ -51,4 +51,5 @@ Until the adapter arrives, use the phone remote, or a USB keyboard (arrows, Ente
 - **"Can't reach the Hub":** check `HUB_URL` in `/etc/ultimatetv/box.env`, then `sudo systemctl restart sddm`.
 - **No sound on Dolby films:** set `AUDIO_DEVICE` in `box.env` to the HDMI output from `mpv --audio-device=help`.
 - **A probe report for anything else:** `bash /opt/ultimatetv/tools/box/probe.sh` writes a report of what the box and TV can do.
-- **Roll back an update:** pick the snapshot from before the update in the boot menu, or `sudo snapper -c root list` and `sudo snapper -c root rollback <number>`.
+- **Roll back an update:** over SSH, `sudo snapper -c root list` to find the snapshot from before the update, then `sudo snapper -c root undochange <number>..0` and reboot.
+- **Start again from scratch:** reinstall over the network ([pxe.md](pxe.md)).

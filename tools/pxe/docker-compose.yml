@@ -1,0 +1,16 @@
+# The PXE server for reinstalling the UltimateTV box over the network. Run it on the Docker LXC:
+#
+#   cd tools/pxe && cp .env.example .env   # fill in BOX_MAC and the admin login
+#   docker compose up -d --build
+#
+# It needs the host's network to hear the box's boot broadcast (UDP 67, 4011 and 69, and
+# HTTP on PXE_HTTP_PORT). The router keeps handing out addresses as before.
+services:
+  pxe:
+    build: .
+    image: ultimatetv-pxe
+    container_name: ultimatetv-pxe
+    network_mode: host
+    cap_add: [NET_ADMIN]
+    restart: unless-stopped
+    env_file: .env

@@ -21,7 +21,7 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md). See [
 
 1. **Hub:** `docker compose up -d --build` on the Docker LXC, with `HUB_PORT=8095` in `.env` ([docs/phase0/proxmox-setup.md](docs/phase0/proxmox-setup.md)).
 2. **Sources:** open `http://<hub>:8095/setup/` on a phone or laptop and add the IPTV login, Jellyfin, AIOStreams and TorBox.
-3. **Box:** install Arch Linux on the mini PC, then run the installer ([docs/box-install.md](docs/box-install.md)):
+3. **Box:** netboot it from the PXE server on the Docker LXC, which installs everything unattended ([docs/pxe.md](docs/pxe.md)). Or install Arch Linux by hand and run the installer ([docs/box-install.md](docs/box-install.md)):
    ```sh
    git clone https://github.com/gazoscalvertos/UltimateTV.git && cd UltimateTV
    sudo HUB_URL=http://192.168.0.19:8095 bash tools/box/install.sh
@@ -50,6 +50,7 @@ In a normal browser the keyboard is the remote: arrows, Enter (OK), Escape (Back
 | `box/` | The box shell: Electron, mpv control, display modes, HDMI-CEC |
 | `android/` | The phone remote as an Android app |
 | `tools/box/` | Box installer and probe |
+| `tools/pxe/` | PXE server for reinstalling the box over the network |
 | `tools/screenshots/` | Screenshot capture |
 | `tools/probe/`, `tools/clips/`, `tools/iptv/` | Phase 0 tools |
 | `docs/` | Plan, decisions, guides and screenshots |
