@@ -20,6 +20,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
   `docs/diagnostics.md`.
 - Playback on screens with no refresh rate that fits the video (24p film on a 50/60/100 Hz
   monitor) no longer resamples to the screen, which mistimed and dropped frames all the time.
+- Screens with no refresh rate that fits a film and no variable refresh (the Huawei monitor over
+  HDMI) get a custom mode at a whole multiple of the film's frame rate, e.g. 71.928 Hz for 24p:
+  three refreshes a frame, no judder. It's checked the screen takes it and added only once;
+  `CUSTOM_MODES=0` in `/etc/ultimatetv/box.env` turns it off.
+- AIOStreams links ending in `/configure` (as DuckStreams hands out) and `stremio://` links work.
 - The stats overlay says how the screen was matched to the video's frame rate.
 
 ## 0.2.0 (2026-10-24)
