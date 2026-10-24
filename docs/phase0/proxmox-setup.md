@@ -6,6 +6,15 @@ Phase 0 only needs two things: the N150's graphics chip inside the Docker LXC, a
 
 ## 1. Pass the graphics chip into the Docker LXC
 
+**First check the host has it.** On the host, `ls -ln /dev/dri` must list `renderD128`. If `/dev/dri` doesn't exist, the host has no graphics driver for the N150 (`lspci -nnk -s 00:02.0` shows no "Kernel driver in use"). Proxmox 8.4's default 6.8 kernel doesn't load i915 for the N150 (`8086:46d4`). Install the opt-in kernel and reboot the host:
+
+```sh
+apt update && apt install proxmox-kernel-6.14
+reboot
+```
+
+Containers with `onboot: 0` (Jellyfin here) need starting again afterwards. To go back, choose 6.8 in the boot menu, or run `proxmox-boot-tool kernel pin <old version>`.
+
 Jellyfin (101) already has it. The Docker LXC (107) already allows all devices (`lxc.cgroup2.devices.allow: a`) but doesn't mount `/dev/dri`.
 
 **host:** add the same two mount lines Jellyfin uses to 107's config. Put them **above** any `[snapshot]` section, because lines after a `[...]` header belong to that snapshot and are ignored. Open the file with `nano /etc/pve/lxc/107.conf` and add:
