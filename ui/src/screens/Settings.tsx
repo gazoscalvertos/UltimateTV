@@ -49,6 +49,7 @@ export function Settings() {
   const [profiles, { refetch: refetchProfiles }] = createResource(() => hub.profiles());
   const [status] = createResource(() => hub.status());
   const [box] = createResource(() => agent.info());
+  const [section, setSection] = createSignal("profiles");
   // The box's software, checked against GitHub when About is opened.
   const [software, { refetch: refetchSoftware }] = createResource(
     () => section() === "about",
@@ -79,7 +80,6 @@ export function Settings() {
       errorToast(err);
     }
   };
-  const [section, setSection] = createSignal("profiles");
   onCleanup(onHubEvent((e) => (e.type === "profiles.changed" ? void refetchProfiles() : undefined)));
 
   const save = async (patch: Partial<Pick<PublicSettings, "recording" | "playback">>) => {
