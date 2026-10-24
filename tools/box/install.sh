@@ -42,13 +42,30 @@ say "Installing UltimateTV on ${PRETTY_NAME:-$distro} for the Hub at $HUB_URL"
 # --------------------------------------------------------------------------------------------
 # Packages: KWin (Wayland, HDR), mpv, PipeWire, the GPU's video drivers, CEC tools and Node.
 
+# inputattach starts the Pulse-Eight CEC adapter's kernel driver. Arch moved it to the AUR, so it's
+# built here from the linuxconsoletools release (one C file).
+build_inputattach() {
+  command -v inputattach >/dev/null && return
+  local v=1.8.1 sum=4da29745c782b7db18f5f37c49e77bf163121dd3761e2fc7636fa0cbf35c2456 tmp
+  tmp="$(mktemp -d)"
+  if curl -fsSL --retry 3 -o "$tmp/lct.tar.bz2" "https://downloads.sourceforge.net/project/linuxconsole/linuxconsoletools-$v.tar.bz2" \
+    && echo "$sum  $tmp/lct.tar.bz2" | sha256sum -c --quiet \
+    && tar -xjf "$tmp/lct.tar.bz2" -C "$tmp" \
+    && gcc -O2 -funsigned-char -w -o /usr/local/bin/inputattach "$tmp/linuxconsoletools-$v/utils/inputattach.c" -lm; then
+    :
+  else
+    warn "couldn't build inputattach, so the Pulse-Eight CEC adapter won't start; the phone remote still works"
+  fi
+  rm -rf "$tmp"
+}
+
 install_packages() {
   if [ "$distro" = arch ]; then
     pacman -Syu --needed --noconfirm \
       kwin kscreen sddm plasma-workspace xorg-xwayland \
       mpv ffmpeg libva-utils vulkan-icd-loader mesa \
       pipewire pipewire-pulse pipewire-alsa wireplumber \
-      v4l-utils linuxconsoletools \
+      v4l-utils gcc \
       nodejs npm git rsync \
       gtk3 nss alsa-lib libxss libxkbcommon \
       noto-fonts inter-font ttf-dejavu
@@ -56,6 +73,7 @@ install_packages() {
     if lspci 2>/dev/null | grep -qi 'vga.*intel'; then pacman -S --needed --noconfirm intel-media-driver vulkan-intel; fi
     if lspci 2>/dev/null | grep -qi 'vga.*\(amd\|ati\)'; then pacman -S --needed --noconfirm libva-mesa-driver vulkan-radeon; fi
     if findmnt -n -o FSTYPE / | grep -qx btrfs; then pacman -S --needed --noconfirm snapper snap-pac; fi
+    build_inputattach
   else
     export DEBIAN_FRONTEND=noninteractive
     sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true
