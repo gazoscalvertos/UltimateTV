@@ -75,6 +75,7 @@ EOF
 cat > /etc/dnsmasq.d/ultimatetv.conf <<EOF
 # Proxy DHCP: the router still gives out addresses; we only add where to boot from.
 port=0
+user=root
 dhcp-range=$LAN_SUBNET,proxy
 pxe-service=x86-64_EFI,"UltimateTV",ipxe
 pxe-service=BC_EFI,"UltimateTV",ipxe
