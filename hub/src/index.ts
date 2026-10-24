@@ -1,8 +1,9 @@
 import { loadConfig } from "./config.js";
+import { LogRing } from "./diagnostics.js";
 import { buildServer } from "./server.js";
 
 const config = loadConfig();
-const app = await buildServer(config, { logger: true, env: process.env });
+const app = await buildServer(config, { logger: true, logRing: new LogRing(), env: process.env });
 const ctx = app.hub;
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

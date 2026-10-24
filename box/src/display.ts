@@ -60,6 +60,36 @@ export function parseOutputs(json: string): Output[] {
   });
 }
 
+type OutputCaps = Pick<Output, "vrrCapable" | "vrrPolicy" | "hdrCapable" | "hdr">;
+
+/**
+ * Variable refresh and HDR as `kscreen-doctor -o` lists them ("Vrr: incapable", "Vrr: Automatic",
+ * "HDR: enabled"). Some Plasma releases leave both out of the JSON, so this fills the gaps.
+ */
+export function parseOutputText(text: string): Map<string, OutputCaps> {
+  const plain = text.replace(/\x1b\[[0-9;]*m/g, "");
+  const out = new Map<string, OutputCaps>();
+  for (const block of plain.split(/(?=^Output:)/m)) {
+    const name = /^Output:\s+\S+\s+(\S+)/.exec(block)?.[1];
+    if (!name) continue;
+    const info: OutputCaps = {};
+    const vrr = /\bVrr:\s*(\w+)/i.exec(block)?.[1]?.toLowerCase();
+    if (vrr === "incapable") info.vrrCapable = false;
+    else if (vrr && VRR_POLICIES.includes(vrr as VrrPolicy)) {
+      info.vrrCapable = true;
+      info.vrrPolicy = vrr as VrrPolicy;
+    }
+    const hdr = /\bHDR:\s*(\w+)/.exec(block)?.[1]?.toLowerCase();
+    if (hdr === "incapable") info.hdrCapable = false;
+    else if (hdr === "enabled" || hdr === "disabled") {
+      info.hdrCapable = true;
+      info.hdr = hdr === "enabled";
+    }
+    out.set(name, info);
+  }
+  return out;
+}
+
 /**
  * The best mode for a frame rate at the current resolution: an exact multiple of the frame rate,
  * preferring 23.976/24 Hz for film and 50/59.94 Hz for TV-rate video. Null when nothing fits.
@@ -91,7 +121,21 @@ export class Display {
 
   async outputs(): Promise<Output[]> {
     const { stdout } = await run("kscreen-doctor", ["-j"], { timeout: 5000 });
-    return parseOutputs(stdout);
+    const outputs = parseOutputs(stdout);
+    if (outputs.some((o) => o.vrrCapable === undefined || o.hdrCapable === undefined)) {
+      const text = await run("kscreen-doctor", ["-o"], { timeout: 5000 })
+        .then((r) => parseOutputText(r.stdout))
+        .catch(() => new Map<string, OutputCaps>());
+      for (const o of outputs) {
+        const t = text.get(o.name);
+        if (!t) continue;
+        if (o.vrrCapable === undefined && t.vrrCapable !== undefined) o.vrrCapable = t.vrrCapable;
+        if (o.vrrPolicy === undefined && t.vrrPolicy) o.vrrPolicy = t.vrrPolicy;
+        if (o.hdrCapable === undefined && t.hdrCapable !== undefined) o.hdrCapable = t.hdrCapable;
+        if (o.hdr === undefined && t.hdr !== undefined) o.hdr = t.hdr;
+      }
+    }
+    return outputs;
   }
 
   /** The output the TV is on: the first connected, enabled one (the box has only the TV). */
@@ -129,7 +173,7 @@ export class Display {
             args.push(`output.${tv.output.name}.vrrpolicy.always`);
           }
         } else {
-          this.log(`No mode fits ${fps} fps at ${tv.mode.width}×${tv.mode.height} (${rates} Hz), and no variable refresh: expect judder`);
+          this.log(`No mode fits ${fps} fps at ${tv.mode.width}×${tv.mode.height} (${rates} Hz), and no variable refresh (capability ${tv.output.vrrCapable ?? "not reported"}): expect judder`);
         }
       }
     }

@@ -90,3 +90,8 @@ export function safeFileName(name: string): string {
     .trim()
     .replace(/\.+$/, "");
 }
+
+/** Cuts every address in a line down to its host: IPTV addresses carry the account's username and password, Jellyfin's an API key. */
+export function redactUrls(line: string): string {
+  return line.replace(/\b(https?|rtmp|rtsp|udp):\/\/([^/\s"'?#]+)[^\s"']*/gi, (_m, scheme: string, host: string) => `${scheme}://${host.replace(/^[^@]*@/, "")}/…`);
+}

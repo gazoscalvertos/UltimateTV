@@ -13,6 +13,7 @@ import type { HubConfig } from "./config.js";
 import { ConnectionBusyError } from "./connections.js";
 import { HubContext } from "./context.js";
 import { demoArt, seedDemo } from "./demo.js";
+import { BoxReportStore, cleanBoxReport, renderDiagnostics, type LogRing } from "./diagnostics.js";
 import { Library, NotAllowedError } from "./library.js";
 import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
@@ -27,6 +28,8 @@ export interface ServerDeps {
   /** Overridable in tests so they don't shell out to ffmpeg/vainfo. */
   systemReport?: () => Promise<SystemReport>;
   logger?: boolean;
+  /** Keeps the Hub's recent log lines for /api/diagnostics (with `logger`). */
+  logRing?: LogRing;
   context?: HubContext;
   env?: NodeJS.ProcessEnv;
 }
@@ -38,7 +41,7 @@ export const HUB_BUILD = { commit: process.env.GIT_COMMIT || undefined, date: pr
 type Req<P = Record<string, string>, Q = Record<string, string | undefined>, B = unknown> = FastifyRequest<{ Params: P; Querystring: Q; Body: B }>;
 
 export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Promise<FastifyInstance & { hub: HubContext }> {
-  const app = Fastify({ logger: deps.logger ?? false, bodyLimit: 2 * 1024 * 1024 });
+  const app = Fastify({ logger: deps.logger ? (deps.logRing ? { stream: deps.logRing.stream } : true) : false, bodyLimit: 2 * 1024 * 1024 });
   const log: Logger = app.log;
   const ctx = deps.context ?? new HubContext({ dataDir: config.dataDir, mediaRoot: config.mediaRoot, env: deps.env ?? {}, log });
   if (config.demo) seedDemo(ctx, config);
@@ -103,6 +106,21 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.get("/api/health", async () => ({ ok: true, version: HUB_VERSION, ...HUB_BUILD }));
   app.get("/api/system", async () => getSystem());
   app.get("/api/clips", async () => ({ clips: await listClips(config.clipsDir) }));
+
+  // Diagnostics: the box reports its log, playback samples and screen details here.
+  const boxReports = new BoxReportStore(path.join(config.dataDir, "diagnostics"));
+  await boxReports.load();
+  app.post("/api/diagnostics/box", { bodyLimit: 8 * 1024 * 1024 }, async (req, reply) => {
+    const report = cleanBoxReport(req.body);
+    if (!report) return reply.code(400).send({ error: "Not a box report" });
+    await boxReports.save(report, req.ip);
+    return { ok: true };
+  });
+  app.get("/api/diagnostics", async (req: Req<Record<string, string>, { format?: string }>, reply) => {
+    const hub = { version: HUB_VERSION, ...(HUB_BUILD.commit ? { commit: HUB_BUILD.commit } : {}), ...(HUB_BUILD.date ? { builtAt: HUB_BUILD.date } : {}), uptimeS: Math.round(process.uptime()), log: deps.logRing?.list() ?? [] };
+    if (req.query.format === "text") return reply.type("text/plain; charset=utf-8").send(renderDiagnostics(hub, boxReports.get()));
+    return { hub, box: boxReports.get() };
+  });
 
   app.get("/api/status", async (): Promise<HubStatus> => {
     const s = ctx.settings.get();

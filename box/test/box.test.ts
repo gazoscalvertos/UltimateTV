@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { CecParser, powerFrom, type CecMessage } from "../src/cec.js";
-import { parseOutputs, pickMode, type Mode } from "../src/display.js";
+import { parseOutputText, parseOutputs, pickMode, type Mode } from "../src/display.js";
 import { mpvArgs } from "../src/mpv.js";
-import { isHdr, marginsFor, statsFrom, tracksFrom } from "../src/player.js";
+import { redact, Ring, summariseKscreen } from "../src/diagnostics.js";
+import { isHdr, marginsFor, sampleFrom, statsFrom, tracksFrom } from "../src/player.js";
 import { parseKeyValues, remoteCommit } from "../src/updates.js";
 
 const mode = (id: string, refreshRate: number, width = 3840, height = 2160): Mode => ({ id, width, height, refreshRate });
@@ -160,5 +161,46 @@ describe("variable refresh", () => {
     const monitor = [mode("a", 100, 3440, 1440), mode("b", 60, 3440, 1440), mode("c", 50, 3440, 1440)];
     expect(pickMode(monitor, monitor[0]!, 23.976)).toBeNull();
     expect(pickMode(monitor, monitor[0]!, 25)?.id).toBe("c");
+  });
+});
+
+describe("diagnostics", () => {
+  it("cuts addresses to their host, dropping IPTV logins and API keys", () => {
+    expect(redact("Playing http://user:pw@iptv.example:8080/live/user/pw/123.ts now")).toBe("Playing http://iptv.example:8080/… now");
+    expect(redact("GET http://192.168.0.23:8096/Videos/1/stream?api_key=secret")).toBe("GET http://192.168.0.23:8096/…");
+  });
+
+  it("keeps only the newest entries", () => {
+    const ring = new Ring<number>(3);
+    for (let i = 1; i <= 5; i++) ring.push(i);
+    expect(ring.list()).toEqual([3, 4, 5]);
+  });
+
+  it("cuts kscreen-doctor's mode lists to their refresh rates", () => {
+    const json = JSON.stringify({ outputs: [{ name: "HDMI-A-1", capabilities: 0, modes: [{ id: "1", size: { width: 3440, height: 1440 }, refreshRate: 99.982 }] }] });
+    expect(summariseKscreen(json)).toEqual({ outputs: [{ name: "HDMI-A-1", capabilities: 0, modes: ["1: 3440×1440@99.982"] }] });
+  });
+
+  it("samples playback compactly, with the stream's host only", () => {
+    const s = sampleFrom(
+      { "video-params": { w: 1920, h: 1040, gamma: "bt.1886" }, "container-fps": 23.976, "hwdec-current": "vaapi", "video-sync": "audio", "display-fps": 99.982, "frame-drop-count": 3, "decoder-frame-drop-count": 0, "vo-delayed-frame-count": 4, "mistimed-frame-count": 0, avsync: 0.008, "demuxer-cache-state": { "cache-duration": 60.1, "raw-input-rate": 275000 } },
+      { url: "http://192.168.0.23:8096/Videos/1/stream?api_key=x", status: "playing", positionS: 61.4, match: null, display: { width: 3440, height: 1440, refreshHz: 99.982 } },
+    );
+    expect(s).toMatchObject({ source: "192.168.0.23:8096", status: "playing", positionS: 61, match: null, video: { width: 1920, height: 1040, fps: 23.976, hwdec: "vaapi" }, display: { mode: "3440×1440@99.982", sync: "audio" }, frames: { dropped: 3, decoderDropped: 0, delayed: 4, mistimed: 0 }, avsyncMs: 8, bufferS: 60.1, inputKbps: 2200 });
+  });
+
+  it("says in the overlay when nothing could match the screen to the film", () => {
+    const stats = statsFrom({ "video-sync": "audio" }, { match: null });
+    const display = stats.sections.find((x) => x.title === "Display")!;
+    expect(display.rows[0]).toEqual(["Frame rate match", "None: no fitting refresh rate or variable refresh (expect judder)"]);
+  });
+});
+
+describe("kscreen-doctor's text listing", () => {
+  it("reads variable refresh and HDR, which some Plasma releases leave out of the JSON", () => {
+    const text = "\x1b[01;32mOutput: \x1b[0;0m1 HDMI-A-1 enabled connected priority 1 HDMI Modes: 1:3440x1440@100*! Geometry: 0,0 3440x1440 Scale: 1 Rotation: 1 Overscan: 0 Vrr: incapable RgbRange: Automatic HDR: incapable\nOutput: 2 DP-1 enabled connected Vrr: Automatic HDR: disabled\n";
+    const out = parseOutputText(text);
+    expect(out.get("HDMI-A-1")).toEqual({ vrrCapable: false, hdrCapable: false });
+    expect(out.get("DP-1")).toEqual({ vrrCapable: true, vrrPolicy: "automatic", hdrCapable: true, hdr: false });
   });
 });
