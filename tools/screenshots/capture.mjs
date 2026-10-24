@@ -167,6 +167,11 @@ try {
   await wait(2000);
   await key("ArrowUp");
   await shot("19-film-playing");
+  // The playback stats overlay (blue button).
+  await key("b");
+  await wait(1500);
+  await shot("24-playback-stats");
+  await key("b");
   await key("Escape");
 
   // Kids profile.

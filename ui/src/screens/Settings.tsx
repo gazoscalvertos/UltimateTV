@@ -10,7 +10,7 @@ import { askPin, askText, choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
-import { errorToast, toast } from "../store";
+import { errorToast, setShowStats, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 
 function Row(props: { label: string; value?: JSX.Element; hint?: string; onSelect?: () => void; icon?: string }) {
@@ -48,6 +48,36 @@ export function Settings() {
   const [profiles, { refetch: refetchProfiles }] = createResource(() => hub.profiles());
   const [status] = createResource(() => hub.status());
   const [box] = createResource(() => agent.info());
+  // The box's software, checked against GitHub when About is opened.
+  const [software, { refetch: refetchSoftware }] = createResource(
+    () => section() === "about",
+    (open) => (open ? agent.software(true).catch(() => null) : Promise.resolve(null)),
+  );
+  const updateState = () => {
+    const sw = software();
+    if (!sw) return software.loading ? "Checking…" : "";
+    if (sw.updating) return "Updating now…";
+    if (!sw.latest) return "Couldn't check";
+    return sw.latest === sw.commit ? "Up to date" : "Update available";
+  };
+  const updateBox = async () => {
+    const sw = software();
+    if (!sw || sw.updating) return;
+    const upToDate = Boolean(sw.latest && sw.latest === sw.commit);
+    const ok = await confirm(
+      upToDate ? "Update anyway?" : "Update the box now?",
+      `${upToDate ? "The app is up to date, but this also installs the latest system updates. " : ""}It takes a few minutes. The TV goes blank for a moment at the end while the app restarts.`,
+      "Update now",
+    );
+    if (!ok) return;
+    try {
+      await agent.update();
+      toast("Updating the box. The app restarts by itself when it's done.", "good");
+      window.setTimeout(() => void refetchSoftware(), 3000);
+    } catch (err) {
+      errorToast(err);
+    }
+  };
   const [section, setSection] = createSignal("profiles");
   onCleanup(onHubEvent((e) => (e.type === "profiles.changed" ? void refetchProfiles() : undefined)));
 
@@ -185,6 +215,7 @@ export function Settings() {
               <Row label="Audio language" value={playback().preferredAudioLang.toUpperCase()} onSelect={() => void save({ playback: { ...playback(), preferredAudioLang: cycle(["eng", "spa", "fra", "deu", "ita", "pol"], playback().preferredAudioLang) } })} />
               <Row label="Play the next episode automatically" value={playback().autoplayNext ? "On" : "Off"} onSelect={() => void save({ playback: { ...playback(), autoplayNext: !playback().autoplayNext } })} />
               <Row label="When the TV turns on" value={playback().startOn === "live" ? "Live TV" : "Home"} onSelect={() => void save({ playback: { ...playback(), startOn: playback().startOn === "live" ? "home" : "live" } })} />
+              <Row label="Playback stats" hint="Show the stream, picture and sound details over the video. The blue button turns them on and off while watching" value={showStats() ? "On" : "Off"} onSelect={() => setShowStats(!showStats())} />
               <Row label="Largest file to stream" hint="Bigger versions are moved down the list" value={`${playback().maxSizeGb} GB`} onSelect={() => void save({ playback: { ...playback(), maxSizeGb: cycle([20, 40, 60, 100], playback().maxSizeGb) } })} />
             </Show>
 
@@ -252,6 +283,20 @@ export function Settings() {
               <Row label="Box" value={box() ? `${box()!.hostname ?? box()!.kind} · ${box()!.version}` : ""} />
               <Show when={box()?.display}>
                 <Row label="Display" value={`${box()!.display!.name} · ${box()!.display!.width}×${box()!.display!.height} @ ${box()!.display!.refreshHz} Hz${box()!.display!.hdr ? " · HDR" : ""}`} />
+              </Show>
+              <Show when={software()}>
+                {(sw) => (
+                  <>
+                    <Row label="Box software" value={`${sw().commit ? sw().commit!.slice(0, 7) : "unknown"}${sw().date ? ` · ${new Date(sw().date!).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}${sw().branch && sw().branch !== "main" ? ` · ${sw().branch}` : ""}`} />
+                    <Row
+                      label="Update the box"
+                      hint={sw().lastUpdate ? `Last update ${new Date(sw().lastUpdate!.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${sw().lastUpdate!.ok ? "" : " (it failed)"}. It also updates itself every Monday at 4 am` : "It also updates itself every Monday at 4 am"}
+                      value={updateState()}
+                      icon="download"
+                      onSelect={() => void updateBox()}
+                    />
+                  </>
+                )}
               </Show>
               <Row label="TV remote (HDMI-CEC)" value={<Status ok={Boolean(box()?.cec?.connected)} text={box()?.cec?.connected ? "Connected" : "Not connected"} />} />
               <Show when={status()?.diskTotalBytes}>

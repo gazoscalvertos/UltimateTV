@@ -71,9 +71,18 @@ export class Library {
     return channels.map((channel) => ({ channel, ...this.ctx.guide.nowNext(channel.id, at) }));
   }
 
+  /**
+   * TMDB for the discovery rails (popular, trending, genres), only when an addon such as
+   * AIOStreams can find a stream for any title. Without one, those titles mostly can't play, so
+   * Films and TV show just the library and IPTV.
+   */
+  private discovery() {
+    return this.ctx.addons().length ? this.ctx.tmdb() : null;
+  }
+
   async home(now = Date.now(), f: ContentFilter = NO_FILTER): Promise<HomeScreen> {
     const jf = this.ctx.jellyfin();
-    const tmdb = this.ctx.tmdb();
+    const tmdb = this.discovery();
     const channels = f.channels(this.ctx.channels.list());
     const favourites = channels.filter((c) => c.favourite);
     const liveChannels = (favourites.length >= 6 ? favourites : [...favourites, ...channels.filter((c) => !c.favourite)]).slice(0, 16);
@@ -144,7 +153,7 @@ export class Library {
   /** Films or TV landing page: library first, then discovery by genre. */
   async browse(kind: TitleKind, f: ContentFilter = NO_FILTER): Promise<Rail[]> {
     const jf = this.ctx.jellyfin();
-    const tmdb = this.ctx.tmdb();
+    const tmdb = this.discovery();
     const rails: Rail[] = [];
     const max = f.jellyfinMaxRating();
     if (jf) {
@@ -338,7 +347,7 @@ export class Library {
         }
         if (item && item.Type !== "Series") {
           for (const src of item.MediaSources ?? []) {
-            candidates.push({ id: `jellyfin:${item.Id}:${src.Id}`, kind: "jellyfin", label: "Your library", detail: src.Path?.split("/").pop() ?? src.Container ?? "", quality: jellyfinQuality(src), ready: true, url: jf.streamUrl(item.Id, src.Id), downloadable: false });
+            candidates.push({ id: `jellyfin:${item.Id}:${src.Id}`, kind: "jellyfin", label: "Jellyfin", detail: src.Path?.split("/").pop() ?? src.Container ?? "", quality: jellyfinQuality(src), ready: true, url: jf.streamUrl(item.Id, src.Id), downloadable: false });
           }
         }
       } catch (err) {

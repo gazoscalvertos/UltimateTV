@@ -116,3 +116,23 @@ const align = () => {
 };
 setTimeout(align, 60_000 - (Date.now() % 60_000) + 50);
 setInterval(() => setNow(Date.now()), 15_000);
+
+/** The playback stats overlay, remembered on this TV (it's for checking picture and sound). */
+const statsKey = "utv-stats";
+const readStats = () => {
+  try {
+    return localStorage.getItem(statsKey) === "1";
+  } catch {
+    return false;
+  }
+};
+const [showStats, setShowStatsSignal] = createSignal(readStats());
+export { showStats };
+export function setShowStats(on: boolean): void {
+  setShowStatsSignal(on);
+  try {
+    localStorage.setItem(statsKey, on ? "1" : "0");
+  } catch {
+    // No storage: it lasts until the app reloads.
+  }
+}

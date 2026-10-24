@@ -17,6 +17,7 @@ import { Cec } from "./cec.js";
 import { Display } from "./display.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
+import { Updates } from "./updates.js";
 
 const HUB_URL = (process.env.HUB_URL ?? "http://192.168.0.19:8095").replace(/\/$/, "");
 const CEC_DEVICE = process.env.CEC_DEVICE ?? "/dev/cec0";
@@ -50,6 +51,7 @@ async function main(): Promise<void> {
     return { width: b.width, height: b.height };
   };
   const player = new Player(mpv, display, screenSize, log);
+  const updates = new Updates(log);
 
   await mpv.start().catch((e: Error) => log(`mpv didn't start: ${e.message}`));
   await player.start().catch((e: Error) => log(e.message));
@@ -98,8 +100,11 @@ async function main(): Promise<void> {
     setSubtitleTrack: (id: never) => player.setSubtitleTrack(id),
     setNightMode: (on: never) => player.setNightMode(on),
     setLayout: (l: never) => player.setLayout(l),
+    stats: () => player.stats(),
     wakeTv: () => cec.wakeTv(),
     reload: async () => win?.webContents.reloadIgnoringCache(),
+    software: (check: never) => updates.status(Boolean(check)),
+    update: () => updates.start(),
   };
   ipcMain.handle("agent", async (e, method: string, ...args: unknown[]) => {
     if (!win || e.sender !== win.webContents) throw new Error("Not the TV window");

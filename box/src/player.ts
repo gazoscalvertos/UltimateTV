@@ -1,7 +1,7 @@
 // The box side of the BoxAgent contract: plays with mpv, follows its properties into a
 // PlayerState for the UI, and puts the TV in the right picture mode for each video.
 
-import type { AudioTrack, PlayerState, PlayOptions, SubTrack, VideoLayout } from "@ultimatetv/shared";
+import type { AudioTrack, PlaybackStats, PlayerState, PlayOptions, SubTrack, VideoLayout } from "@ultimatetv/shared";
 import type { Display } from "./display.js";
 import type { Mpv } from "./mpv.js";
 
@@ -16,7 +16,7 @@ type MpvTrack = {
   external?: boolean;
 };
 
-type VideoParams = { w?: number; h?: number; gamma?: string; primaries?: string; colormatrix?: string } | null;
+type VideoParams = { w?: number; h?: number; gamma?: string; primaries?: string; colormatrix?: string; pixelformat?: string; "hw-pixelformat"?: string } | null;
 
 const WATCHED = ["time-pos", "duration", "pause", "paused-for-cache", "core-idle", "eof-reached", "idle-active", "track-list", "video-params", "container-fps", "hwdec-current", "audio-codec-name", "audio-params", "demuxer-cache-state", "current-ao"];
 
@@ -54,6 +54,87 @@ export function marginsFor(layout: VideoLayout, screen: { width: number; height:
   return [clamp(layout.x / screen.width), clamp(1 - (layout.x + layout.width) / screen.width), clamp(layout.y / screen.height), clamp(1 - (layout.y + layout.height) / screen.height)];
 }
 
+/** The mpv properties the stats overlay reads. */
+export const STATS_PROPS = [
+  "video-codec", "video-params", "hwdec-current", "container-fps", "estimated-vf-fps", "video-bitrate",
+  "display-fps", "video-sync", "frame-drop-count", "decoder-frame-drop-count", "vo-delayed-frame-count", "mistimed-frame-count", "avsync",
+  "audio-codec", "audio-params", "audio-out-params", "current-ao", "audio-device", "audio-bitrate", "af",
+  "demuxer-cache-state", "cache-speed", "file-format",
+] as const;
+
+const bits = (bps: unknown) => (typeof bps === "number" && bps > 0 ? (bps >= 1e6 ? `${(bps / 1e6).toFixed(1)} Mbit/s` : `${Math.round(bps / 1e3)} kbit/s`) : undefined);
+const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+
+/**
+ * The overlay's sections from mpv's properties, the TV's current mode and the stream's address
+ * (only its host is shown: IPTV addresses carry the account's username and password).
+ */
+export function statsFrom(p: Record<string, unknown>, extra: { url?: string; display?: { width: number; height: number; refreshHz: number; hdr: boolean } | null }): PlaybackStats {
+  const rows = (list: [string, string | undefined][]) => list.filter((r): r is [string, string] => Boolean(r[1]));
+  const vp = p["video-params"] as VideoParams;
+  const fps = num(p["container-fps"]);
+  const est = num(p["estimated-vf-fps"]);
+  const hdr = vp?.gamma === "pq" ? "HDR10 (PQ)" : vp?.gamma === "hlg" ? "HLG" : vp?.gamma ? `SDR (${vp.gamma})` : undefined;
+  const ap = p["audio-params"] as { format?: string; samplerate?: number; "channel-count"?: number; "hr-channels"?: string } | undefined;
+  const out = p["audio-out-params"] as { format?: string; "channel-count"?: number } | undefined;
+  const passthrough = Boolean(out?.format?.startsWith("spdif"));
+  const cache = p["demuxer-cache-state"] as { "cache-duration"?: number; "fw-bytes"?: number; "raw-input-rate"?: number } | undefined;
+  let host: string | undefined;
+  try {
+    if (extra.url) host = new URL(extra.url).host;
+  } catch {
+    host = undefined;
+  }
+  const d = extra.display;
+  const drops = [num(p["frame-drop-count"]), num(p["decoder-frame-drop-count"])];
+  const avsync = num(p["avsync"]);
+  return {
+    sections: [
+      {
+        title: "Video",
+        rows: rows([
+          ["Codec", typeof p["video-codec"] === "string" ? p["video-codec"] : undefined],
+          ["Resolution", vp?.w && vp.h ? `${vp.w}×${vp.h}${vp.pixelformat ? ` · ${vp["hw-pixelformat"] ? `${vp["hw-pixelformat"]}/` : ""}${vp.pixelformat}` : ""}` : undefined],
+          ["Frame rate", fps ? `${fps.toFixed(3)} fps${est && Math.abs(est - fps) > 0.05 ? ` (measured ${est.toFixed(2)})` : ""}` : undefined],
+          ["Colour", hdr ? `${hdr}${vp?.primaries ? ` · ${vp.primaries}` : ""}${vp?.colormatrix ? ` · ${vp.colormatrix}` : ""}` : undefined],
+          ["Decoder", vp ? (typeof p["hwdec-current"] === "string" && p["hwdec-current"] && p["hwdec-current"] !== "no" ? `GPU (${p["hwdec-current"]})` : "CPU (software)") : undefined],
+          ["Bitrate", bits(p["video-bitrate"])],
+        ]),
+      },
+      {
+        title: "Display",
+        rows: rows([
+          ["TV mode", d ? `${d.width}×${d.height} @ ${d.refreshHz.toFixed(3)} Hz${d.hdr ? " · HDR on" : " · HDR off"}` : undefined],
+          ["Sync", typeof p["video-sync"] === "string" ? `${p["video-sync"]}${num(p["display-fps"]) ? ` at ${num(p["display-fps"])!.toFixed(3)} Hz` : ""}` : undefined],
+          ["Dropped frames", drops.some((x) => x !== undefined) ? `${drops[0] ?? 0} by the display · ${drops[1] ?? 0} by the decoder` : undefined],
+          ["Late frames", num(p["vo-delayed-frame-count"]) !== undefined ? `${num(p["vo-delayed-frame-count"])} delayed · ${num(p["mistimed-frame-count"]) ?? 0} mistimed` : undefined],
+          ["A/V sync", avsync !== undefined ? `${Math.round(avsync * 1000)} ms` : undefined],
+        ]),
+      },
+      {
+        title: "Audio",
+        rows: rows([
+          ["Codec", typeof p["audio-codec"] === "string" ? p["audio-codec"] : undefined],
+          ["Channels", ap ? `${ap["hr-channels"] ?? `${ap["channel-count"] ?? "?"} channels`}${ap.samplerate ? ` · ${ap.samplerate / 1000} kHz` : ""}` : undefined],
+          ["Output", out ? (passthrough ? `Passthrough to the TV (${out.format!.replace(/^spdif-/, "")})` : `Decoded (${out.format ?? "PCM"}, ${out["channel-count"] ?? "?"} channels)`) : undefined],
+          ["Device", typeof p["current-ao"] === "string" ? `${p["current-ao"]}${typeof p["audio-device"] === "string" && p["audio-device"] !== "auto" ? ` · ${p["audio-device"]}` : ""}` : undefined],
+          ["Bitrate", bits(p["audio-bitrate"])],
+          ["Night mode", Array.isArray(p["af"]) && p["af"].length ? "On" : undefined],
+        ]),
+      },
+      {
+        title: "Network",
+        rows: rows([
+          ["Source", host],
+          ["Container", typeof p["file-format"] === "string" ? p["file-format"] : undefined],
+          ["Buffer", cache?.["cache-duration"] !== undefined ? `${cache["cache-duration"].toFixed(1)} s${cache["fw-bytes"] ? ` · ${(cache["fw-bytes"] / 1024 ** 2).toFixed(1)} MB` : ""}` : undefined],
+          ["Download speed", bits((cache?.["raw-input-rate"] ?? num(p["cache-speed"]) ?? 0) * 8)],
+        ]),
+      },
+    ].filter((s) => s.rows.length),
+  };
+}
+
 export class Player {
   private props: Record<string, unknown> = {};
   private listeners = new Set<(s: PlayerState) => void>();
@@ -63,6 +144,7 @@ export class Player {
   private loading = false;
   private timer: NodeJS.Timeout | undefined;
   private hdrSet = false;
+  private displayCache: { at: number; value: Awaited<ReturnType<Display["tv"]>> } | null = null;
 
   constructor(
     private readonly mpv: Mpv,
@@ -137,6 +219,16 @@ export class Player {
     }
     if (this.error) state.error = this.error;
     return state;
+  }
+
+  async stats(): Promise<PlaybackStats | null> {
+    if (!this.options) return null;
+    const values = await Promise.all(STATS_PROPS.map((name) => this.mpv.get(name).catch(() => undefined)));
+    const props = Object.fromEntries(STATS_PROPS.map((name, i) => [name, values[i]]));
+    // kscreen-doctor is slow to ask every second, and the mode only changes when playback starts.
+    if (!this.displayCache || Date.now() - this.displayCache.at > 5000) this.displayCache = { at: Date.now(), value: await this.display.tv() };
+    const tv = this.displayCache.value;
+    return statsFrom(props, { url: this.options.url, display: tv ? { width: tv.mode.width, height: tv.mode.height, refreshHz: tv.mode.refreshRate, hdr: Boolean(tv.output.hdr) } : null });
   }
 
   onState(listener: (s: PlayerState) => void): () => void {

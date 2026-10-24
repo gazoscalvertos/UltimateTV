@@ -4,7 +4,6 @@
 import { createEffect, createResource, createSignal, For, Show } from "solid-js";
 import type { Episode, TitleDetails, TitleRef } from "@ultimatetv/shared";
 import { durationLabel, episodeLabel, formatBytes } from "@ultimatetv/shared";
-import { agent } from "../agent";
 import { hub, type StreamRow } from "../api";
 import { DialogFrame } from "../components/Dialog";
 import { Icon } from "../components/Icon";
@@ -14,7 +13,7 @@ import { useKeys } from "../keys";
 import { play } from "../player";
 import { errorToast, isKids, openDialog, toast } from "../store";
 
-const SOURCE_NAMES: Record<string, string> = { jellyfin: "Your library", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
+const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
 
 function refOf(d: TitleDetails): TitleRef {
   const ref: TitleRef = { id: d.id, kind: d.kind, name: d.name };
@@ -86,7 +85,9 @@ export function Details(props: { id: string }) {
     },
   );
 
-  const badges = () => streams()?.streams[0]?.badges ?? [];
+  // What Play will use: the Hub picks the first ready version, else the best one.
+  const primary = () => streams()?.streams.find((s) => s.ready) ?? streams()?.streams[0];
+  const badges = () => primary()?.badges ?? [];
   const playMain = (fromStart = false) => {
     const title = d()!;
     if (title.kind === "series") {
@@ -95,9 +96,7 @@ export function Details(props: { id: string }) {
       if (ep) playEpisode(ep);
       return;
     }
-    void play({ kind: "title", id: title.id }, { title: refOf(title) }).then(async (ok) => {
-      if (ok && fromStart) await agent.seek(0, "absolute");
-    });
+    void play({ kind: "title", id: title.id }, { title: refOf(title), fromStart });
   };
   const playEpisode = (e: Episode) => void play({ kind: "title", id: d()!.id, episodeId: `s${e.season}e${e.episode}` }, { title: refOf(d()!) });
 
@@ -149,6 +148,14 @@ export function Details(props: { id: string }) {
                   </Show>
                 </p>
                 <p class="details-badges">
+                  <Show when={primary()}>
+                    {(p) => (
+                      <span class={`badge badge-source badge-${p().kind}`}>
+                        <Icon name="play" /> From {p().label || SOURCE_NAMES[p().kind]}
+                        {p().ready ? "" : " · needs fetching"}
+                      </span>
+                    )}
+                  </Show>
                   <For each={badges()}>{(b) => <span class="badge">{b}</span>}</For>
                   <Show when={t().inLibrary}>
                     <span class="badge badge-library">In your library</span>

@@ -25,8 +25,11 @@ contextBridge.exposeInMainWorld("ultimatetv", {
   setSubtitleTrack: call("setSubtitleTrack"),
   setNightMode: call("setNightMode"),
   setLayout: call("setLayout"),
+  stats: call("stats"),
   wakeTv: call("wakeTv"),
   reload: call("reload"),
+  software: call("software"),
+  update: call("update"),
   onState: (listener: (s: unknown) => void) => subscribe("agent:state", listener),
   onPower: (listener: (active: unknown) => void) => subscribe("agent:power", listener),
 });

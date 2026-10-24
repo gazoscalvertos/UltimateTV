@@ -68,7 +68,7 @@ async function resolve(req: PlaybackRequest): Promise<PlaybackInfo | null> {
  * Plays something. `fullscreen` (the default) opens the player screen; the guide passes false to
  * keep its preview window.
  */
-export async function play(req: PlaybackRequest, opts: { fullscreen?: boolean; title?: TitleRef } = {}): Promise<boolean> {
+export async function play(req: PlaybackRequest, opts: { fullscreen?: boolean; title?: TitleRef; fromStart?: boolean } = {}): Promise<boolean> {
   let info: PlaybackInfo | null;
   try {
     info = await resolve(req);
@@ -77,6 +77,8 @@ export async function play(req: PlaybackRequest, opts: { fullscreen?: boolean; t
     return false;
   }
   if (!info) return false;
+  // Start again: ignore the resume point (seeking after loading races the player opening the file).
+  if (opts.fromStart && !info.live) info = { ...info, startMs: 0 };
   await report("stop");
   const s = (await hub.settings().catch(() => null))?.playback;
   await agent.play({

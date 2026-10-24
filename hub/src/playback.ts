@@ -142,6 +142,7 @@ export class Playback {
       live: false,
       startMs: 0,
       quality: chosen.quality,
+      source: { kind: chosen.kind, label: chosen.label },
       externalSubtitles: [],
       progressKey: `title:${req.id}${req.episodeId ? `|${req.episodeId}` : ""}`,
       skip: [],
