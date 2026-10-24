@@ -4,30 +4,107 @@
 // can be looked into from anything on the network without access to the box's or the Hub's
 // files.
 
-import { mkdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { redactUrls, type BoxDiagnostics, type PlaybackSample } from "@ultimatetv/shared";
 
 const MAX_LINES = 1000;
 
-/** Keeps the Hub's last log lines. Its `stream` goes to Fastify's logger and copies to stdout. */
+/**
+ * A log file that rolls over at `maxBytes`, keeping `keep` older files (name.1 the newest), so it
+ * never takes more than (keep + 1) × maxBytes of disk: 50 MB with the defaults.
+ */
+export class RollingFile {
+  private size: number;
+
+  constructor(
+    readonly file: string,
+    private readonly maxBytes = 10 * 1024 * 1024,
+    private readonly keep = 4,
+  ) {
+    mkdirSync(path.dirname(file), { recursive: true });
+    this.size = existsSync(file) ? statSync(file).size : 0;
+  }
+
+  append(text: string): void {
+    if (!text) return;
+    const bytes = Buffer.byteLength(text);
+    try {
+      if (this.size > 0 && this.size + bytes > this.maxBytes) this.roll();
+      appendFileSync(this.file, text);
+      this.size += bytes;
+    } catch {
+      // A full or read-only disk mustn't take the Hub down with it.
+    }
+  }
+
+  private roll(): void {
+    for (let i = this.keep - 1; i >= 1; i--) if (existsSync(`${this.file}.${i}`)) renameSync(`${this.file}.${i}`, `${this.file}.${i + 1}`);
+    renameSync(this.file, `${this.file}.1`);
+    this.size = 0;
+  }
+
+  /** The last `count` lines, reaching back into the rolled files when the current one is short. */
+  async tail(count: number): Promise<string[]> {
+    const out: string[] = [];
+    for (let i = 0; i <= this.keep && out.length < count; i++) {
+      const text = await readFile(i === 0 ? this.file : `${this.file}.${i}`, "utf8").catch(() => null);
+      if (text === null) continue;
+      const lines = text.split("\n").filter(Boolean);
+      out.unshift(...lines.slice(-(count - out.length)));
+    }
+    return out;
+  }
+}
+
+const LEVELS: Record<string, number> = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
+
+/**
+ * Takes the Hub's log (pino's JSON lines, through `stream`). Everything at the logger's level
+ * (debug by default) goes to the rolling file; info and up also go to stdout (docker logs) and to
+ * the last-1000-lines ring that /api/diagnostics shows.
+ */
 export class LogRing {
   private lines: string[] = [];
+  private readonly stdoutLevel: number;
+
+  constructor(private readonly opts: { file?: RollingFile; stdoutLevel?: string } = {}) {
+    this.stdoutLevel = LEVELS[opts.stdoutLevel ?? "info"] ?? 30;
+  }
 
   readonly stream = {
     write: (msg: string) => {
-      process.stdout.write(msg);
-      this.add(msg);
+      for (const raw of msg.split("\n")) {
+        if (!raw.trim()) continue;
+        const level = LogRing.level(raw);
+        if (level >= this.stdoutLevel) process.stdout.write(`${raw}\n`);
+        if (LogRing.routine(raw)) continue;
+        const line = redactUrls(LogRing.format(raw));
+        this.opts.file?.append(`${line}\n`);
+        if (level >= 30) this.push(line);
+      }
     },
   };
 
   add(msg: string): void {
     for (const raw of msg.split("\n")) {
       if (!raw.trim() || LogRing.routine(raw)) continue;
-      this.lines.push(redactUrls(LogRing.format(raw)));
+      this.push(redactUrls(LogRing.format(raw)));
     }
+  }
+
+  private push(line: string): void {
+    this.lines.push(line);
     if (this.lines.length > MAX_LINES) this.lines.splice(0, this.lines.length - MAX_LINES);
+  }
+
+  static level(raw: string): number {
+    try {
+      return Number((JSON.parse(raw) as { level?: number }).level ?? 30);
+    } catch {
+      return 30;
+    }
   }
 
   list(): string[] {
@@ -69,7 +146,11 @@ export class BoxReportStore {
   private latest: StoredBoxReport | null = null;
   private readonly file: string;
 
-  constructor(dir: string) {
+  /** `logs` keeps every box log line and playback sample, not just the latest report's. */
+  constructor(
+    dir: string,
+    private readonly logs?: { box: RollingFile; playback: RollingFile },
+  ) {
     mkdirSync(dir, { recursive: true });
     this.file = path.join(dir, "box.json");
   }
@@ -81,6 +162,15 @@ export class BoxReportStore {
   }
 
   async save(report: BoxDiagnostics, from: string): Promise<void> {
+    if (this.logs) {
+      // Reports overlap: write only what's new since the last one.
+      const prev = this.latest?.report;
+      const lastLine = prev?.log.at(-1);
+      const start = lastLine === undefined ? -1 : report.log.lastIndexOf(lastLine);
+      this.logs.box.append(report.log.slice(start + 1).map((l) => `${l}\n`).join(""));
+      const lastSample = prev?.samples.at(-1)?.at ?? "";
+      this.logs.playback.append(report.samples.filter((x) => x.at > lastSample).map((x) => `${JSON.stringify(x)}\n`).join(""));
+    }
     this.latest = { receivedAt: new Date().toISOString(), from, report };
     await writeFile(this.file, JSON.stringify(this.latest)).catch(() => undefined);
   }

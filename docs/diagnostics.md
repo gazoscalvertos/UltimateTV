@@ -9,6 +9,20 @@ curl -s http://192.168.0.19:8095/api/diagnostics?format=text | less
 
 Without `?format=text` the same comes back as JSON.
 
+## Rolling logs
+
+The Hub also keeps detailed logs on disk, in its data volume (`data/logs`), each rolling over at
+10 MB with four older files kept, so each takes at most 50 MB:
+
+| Log | What | Read it |
+|---|---|---|
+| `hub.log` | Everything the Hub logs, debug level and up (`LOG_LEVEL` in `.env` changes it) | `curl -s 'http://192.168.0.19:8095/api/diagnostics/logs/hub?lines=2000'` |
+| `box.log` | Every line of the box's log, as its reports arrive | `…/api/diagnostics/logs/box` |
+| `playback.jsonl` | Every 10-second playback sample, one JSON object a line | `…/api/diagnostics/logs/playback` |
+
+`lines` defaults to 500 and goes up to 50,000. `docker logs` shows info and up, and rolls over at
+10 MB with three files kept.
+
 ## What's in it
 
 - **Hub**: version, commit, uptime and its last 1000 log lines (routine requests left out).

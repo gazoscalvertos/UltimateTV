@@ -13,7 +13,7 @@ import type { HubConfig } from "./config.js";
 import { ConnectionBusyError } from "./connections.js";
 import { HubContext } from "./context.js";
 import { demoArt, seedDemo } from "./demo.js";
-import { BoxReportStore, cleanBoxReport, renderDiagnostics, type LogRing } from "./diagnostics.js";
+import { BoxReportStore, cleanBoxReport, renderDiagnostics, RollingFile, type LogRing } from "./diagnostics.js";
 import { Library, NotAllowedError } from "./library.js";
 import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
@@ -41,7 +41,9 @@ export const HUB_BUILD = { commit: process.env.GIT_COMMIT || undefined, date: pr
 type Req<P = Record<string, string>, Q = Record<string, string | undefined>, B = unknown> = FastifyRequest<{ Params: P; Querystring: Q; Body: B }>;
 
 export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Promise<FastifyInstance & { hub: HubContext }> {
-  const app = Fastify({ logger: deps.logger ? (deps.logRing ? { stream: deps.logRing.stream } : true) : false, bodyLimit: 2 * 1024 * 1024 });
+  // With a log ring the logger runs at LOG_LEVEL (debug by default): the rolling file in
+  // data/logs gets everything, docker logs info and up.
+  const app = Fastify({ logger: deps.logger ? (deps.logRing ? { level: deps.env?.LOG_LEVEL ?? "debug", stream: deps.logRing.stream } : true) : false, bodyLimit: 2 * 1024 * 1024 });
   const log: Logger = app.log;
   const ctx = deps.context ?? new HubContext({ dataDir: config.dataDir, mediaRoot: config.mediaRoot, env: deps.env ?? {}, log });
   if (config.demo) seedDemo(ctx, config);
@@ -108,13 +110,22 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.get("/api/clips", async () => ({ clips: await listClips(config.clipsDir) }));
 
   // Diagnostics: the box reports its log, playback samples and screen details here.
-  const boxReports = new BoxReportStore(path.join(config.dataDir, "diagnostics"));
+  const logsDir = path.join(config.dataDir, "logs");
+  const logFiles = { hub: new RollingFile(path.join(logsDir, "hub.log")), box: new RollingFile(path.join(logsDir, "box.log")), playback: new RollingFile(path.join(logsDir, "playback.jsonl")) };
+  const boxReports = new BoxReportStore(path.join(config.dataDir, "diagnostics"), logFiles);
   await boxReports.load();
   app.post("/api/diagnostics/box", { bodyLimit: 8 * 1024 * 1024 }, async (req, reply) => {
     const report = cleanBoxReport(req.body);
     if (!report) return reply.code(400).send({ error: "Not a box report" });
     await boxReports.save(report, req.ip);
     return { ok: true };
+  });
+  // The rolling logs on disk: hub, box or playback, the last `lines` lines (500 by default).
+  app.get("/api/diagnostics/logs/:name", async (req: Req<{ name: string }, { lines?: string }>, reply) => {
+    const file = logFiles[req.params.name as keyof typeof logFiles];
+    if (!file) return reply.code(404).send({ error: "Logs are hub, box or playback" });
+    const lines = Math.min(Math.max(Number(req.query.lines) || 500, 1), 50_000);
+    return reply.type("text/plain; charset=utf-8").send(`${(await file.tail(lines)).join("\n")}\n`);
   });
   app.get("/api/diagnostics", async (req: Req<Record<string, string>, { format?: string }>, reply) => {
     const hub = { version: HUB_VERSION, ...(HUB_BUILD.commit ? { commit: HUB_BUILD.commit } : {}), ...(HUB_BUILD.date ? { builtAt: HUB_BUILD.date } : {}), uptimeS: Math.round(process.uptime()), log: deps.logRing?.list() ?? [] };

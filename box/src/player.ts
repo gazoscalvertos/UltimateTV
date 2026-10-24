@@ -212,6 +212,7 @@ export class Player {
   async start(): Promise<void> {
     this.mpv.on("property", (name: string, value: unknown) => {
       this.props[name] = value;
+      if ((name === "paused-for-cache" && value === true) || (name === "hwdec-current" && value)) this.log(`mpv ${name}: ${JSON.stringify(value)}`);
       if (name === "video-params" && this.options && !this.hdrSet && value) {
         // Switch the TV into HDR once we know the video is HDR.
         this.hdrSet = true;
@@ -220,6 +221,8 @@ export class Player {
       this.schedule();
     });
     this.mpv.on("event", (event: string, msg: { reason?: string; file_error?: string }) => {
+      if (event === "end-file") this.log(`mpv end-file: ${msg.reason ?? "?"}${msg.file_error ? ` (${msg.file_error})` : ""}`);
+      else if (event === "file-loaded" || event === "seek" || event === "playback-restart") this.log(`mpv ${event}`);
       if (event === "start-file") this.loading = true;
       if (event === "file-loaded" || event === "playback-restart") this.loading = false;
       if (event === "end-file" && msg.reason === "error") {
