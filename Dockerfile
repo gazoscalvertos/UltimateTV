@@ -1,22 +1,31 @@
-# UltimateTV Hub: API, probe page and (later) the TV app, plus ffmpeg with Intel Quick Sync.
+# UltimateTV Hub: API, the TV app, the setup page and phone remote, the probe page, plus ffmpeg
+# with Intel Quick Sync.
 
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
+# The box shell's Electron isn't needed in the Hub image.
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 COPY package.json package-lock.json tsconfig.base.json tsconfig.json ./
 COPY shared/package.json shared/
 COPY hub/package.json hub/
+COPY ui/package.json ui/
+COPY box/package.json box/
 COPY tools/probe/package.json tools/probe/
 RUN npm ci
 COPY shared shared
 COPY hub hub
+COPY ui ui
 COPY tools/probe tools/probe
-RUN npm run build
+RUN npm run build -w shared && npm run build -w tools/probe && npm run build -w hub && npm run build -w ui
 
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 COPY package.json package-lock.json ./
 COPY shared/package.json shared/
 COPY hub/package.json hub/
+COPY ui/package.json ui/
+COPY box/package.json box/
 COPY tools/probe/package.json tools/probe/
 RUN npm ci --omit=dev
 
@@ -34,6 +43,8 @@ COPY --from=build /app/shared/package.json shared/
 COPY --from=build /app/shared/dist shared/dist
 COPY --from=build /app/hub/package.json hub/
 COPY --from=build /app/hub/dist hub/dist
+COPY --from=build /app/hub/public hub/public
+COPY --from=build /app/ui/dist ui/dist
 COPY --from=build /app/tools/probe/dist tools/probe/dist
 COPY tools/clips/make-test-clips.sh /usr/local/bin/make-test-clips
 COPY tools/iptv/check-catchup.mjs tools/iptv/check-catchup.mjs

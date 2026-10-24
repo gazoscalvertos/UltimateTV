@@ -126,4 +126,14 @@ describe("hub API", () => {
     expect(root.headers.location).toBe("/probe/");
     expect((await app.inject("/probe/")).body).toContain("<title>Probe</title>");
   });
+
+  it("takes key presses and text from the phone remote", async () => {
+    await start();
+    expect((await app.inject({ method: "POST", url: "/api/remote/key", payload: { action: "ok" } })).statusCode).toBe(200);
+    expect((await app.inject({ method: "POST", url: "/api/remote/key", payload: { action: "digit7" } })).statusCode).toBe(200);
+    expect((await app.inject({ method: "POST", url: "/api/remote/key", payload: { action: "rm -rf" } })).statusCode).toBe(400);
+    expect((await app.inject({ method: "POST", url: "/api/remote/text", payload: { text: "harbour" } })).json()).toEqual({ ok: true });
+    const qr = await app.inject("/api/remote/qr.svg");
+    expect(qr.headers["content-type"]).toContain("image/svg+xml");
+  });
 });

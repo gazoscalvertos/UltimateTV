@@ -14,8 +14,9 @@ import type {
   TitleKind,
   TitleRef,
 } from "@ultimatetv/shared";
-import { normaliseTitle, parseQuality, qualityBadges, rankStreams, startOfDay } from "@ultimatetv/shared";
+import { episodeLabel, normaliseTitle, parseQuality, qualityBadges, rankStreams, startOfDay } from "@ultimatetv/shared";
 import type { HubContext } from "./context.js";
+import { demoSeasons } from "./demo.js";
 import type { VodEntry } from "./ingest/index.js";
 import { type ContentFilter, NO_FILTER } from "./profiles.js";
 import { XtreamClient } from "./ingest/xtream.js";
@@ -129,7 +130,14 @@ export class Library {
 
     const heroSource = continueItems.find((t) => t.backdrop) ?? trending.find((t) => t.backdrop) ?? latestMovies.map((i) => jf!.toTitleRef(i)).find((t) => t.backdrop);
     const home: HomeScreen = { rails };
-    if (heroSource) home.hero = { ...heroSource, action: continueItems.includes(heroSource) ? "resume" : "watch" };
+    if (heroSource) {
+      home.hero = { ...heroSource, action: continueItems.includes(heroSource) ? "resume" : "watch" };
+      const d = await this.details(heroSource.id, f).catch(() => null);
+      if (d?.overview) home.hero.overview = d.overview;
+      if (d?.logo && !home.hero.logo) home.hero.logo = d.logo;
+      const meta = [d?.year, d?.certification, d?.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ");
+      if (meta) home.hero.subtitle = meta;
+    }
     return home;
   }
 
@@ -263,7 +271,7 @@ export class Library {
       if (e.rating) d.rating = e.rating;
       const p = this.ctx.progress.get(`title:${id}`);
       if (p && !p.watched) d.resumeMs = p.positionMs;
-      if (e.kind === "series") d.seasons = await this.xtreamSeasons(e);
+      if (e.kind === "series") d.seasons = demo ? demoSeasons(e.upstreamId) : await this.xtreamSeasons(e);
       return d;
     }
     throw new Error(`Unknown title ${id}`);
@@ -345,6 +353,8 @@ export class Library {
         const url = e.url ?? client?.movieUrl(e.upstreamId, e.ext);
         const demo = e.sourceId === "demo";
         if (url) candidates.push({ id: `xtream:${e.id}`, kind: demo ? "nas" : "xtream", label: demo ? "Your library" : "IPTV", detail: e.name, quality: vodQuality(e), ready: true, url, downloadable: !demo });
+      } else if (ep && e.sourceId === "demo" && e.url) {
+        candidates.push({ id: `xtream:${e.id}:s${ep.season}e${ep.episode}`, kind: "nas", label: "Your library", detail: `${e.name} ${episodeLabel(ep.season, ep.episode)}`, quality: vodQuality(e), ready: true, url: e.url, downloadable: false });
       } else if (ep && client) {
         const seasons = await this.xtreamSeasons(e);
         const found = seasons.find((s) => s.season === ep.season)?.episodes.find((x) => x.episode === ep.episode);

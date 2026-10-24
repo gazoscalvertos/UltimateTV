@@ -307,6 +307,8 @@ Every action is also reachable from the on-screen **Options** menu, so a key the
 
 ## 8. Phased roadmap
 
+**Status (2026-10-24):** Gary asked for the whole app to be built ahead of testing on the real hardware. The code for phases 1 to 5 is written and tested against a demo Hub in a browser: Hub, TV UI, box shell and installer, profiles with a Kids lock, and a phone remote (web and Android, added because the CEC adapter is a week away). Nothing has run on the box or with the real IPTV yet; [TESTING.md](TESTING.md) is the test run.
+
 | Phase | Name | Scope | Exit criteria |
 |-------|------|-------|---------------|
 | **0** | Server spike & TV probe ✓ | Monorepo, Hub skeleton in Docker on Proxmox, test-clip generator, IPTV catch-up checker, VIDAA capability probe. | Done. VIDAA ruled out as the client (§2). |

@@ -300,6 +300,10 @@ export interface PlaybackInfo {
   next?: PlaybackRequest & { name: string };
   /** Shown before an interrupting action, e.g. a recording that would stop. */
   warning?: string;
+  /** Still or backdrop shown while the stream starts. */
+  artwork?: string;
+  /** Channel logo for the live banner. */
+  logo?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -445,4 +449,7 @@ export type HubEvent =
   | { type: "connection.conflict"; message: string; recording?: Recording }
   | { type: "settings.changed" }
   | { type: "profiles.changed" }
-  | { type: "toast"; message: string };
+  | { type: "toast"; message: string }
+  /** From the phone remote: a key press, or text typed on the phone. */
+  | { type: "remote.key"; action: string }
+  | { type: "remote.text"; text: string };

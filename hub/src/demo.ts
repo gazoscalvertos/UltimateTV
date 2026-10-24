@@ -3,7 +3,7 @@
 
 import { existsSync } from "node:fs";
 import path from "node:path";
-import type { Channel, ChannelCategory, Programme, Recording, SeriesLink, TitleRef } from "@ultimatetv/shared";
+import type { Channel, ChannelCategory, Episode, Programme, Recording, Season, SeriesLink, TitleRef } from "@ultimatetv/shared";
 import { normaliseTitle } from "@ultimatetv/shared";
 import type { StoredFeed } from "./channels.js";
 import type { HubConfig } from "./config.js";
@@ -370,4 +370,29 @@ function demoProgramme(c: Channel, start: number, mins: number, title: string, e
   if (year) p.year = year;
   if (p.season !== undefined && p.episode !== undefined) p.episodeKey = `${p.seriesKey}|s${p.season}e${p.episode}`;
   return p;
+}
+
+const EPISODE_NAMES = ["The Arrival", "Low Tide", "Old Debts", "The Last Stop", "Undertow", "Lights Out", "Crossing", "Home Waters", "The Long Night", "Safe Harbour", "Second Chances", "Full Circle"];
+
+/** Two series of six episodes for each demo series, with stills and a little watch history. */
+export function demoSeasons(slug: string): Season[] {
+  return [1, 2].map((season) => ({
+    season,
+    name: `Series ${season}`,
+    episodes: Array.from({ length: 6 }, (_, i) => {
+      const episode = i + 1;
+      const ep: Episode = {
+        id: `demo:episode:${slug}:${season}:${episode}`,
+        season,
+        episode,
+        name: EPISODE_NAMES[(season - 1) * 6 + i]!,
+        overview: DESCRIPTIONS[(season * 7 + episode) % DESCRIPTIONS.length]!,
+        still: `/api/art/still/${slug}-s${season}e${episode}.svg`,
+        runtimeMin: 58,
+      };
+      if (season === 1 && episode < 4) ep.watched = true;
+      if (season === 1 && episode === 4) ep.progress = 0.36;
+      return ep;
+    }),
+  }));
 }

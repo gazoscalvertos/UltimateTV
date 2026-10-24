@@ -14,6 +14,8 @@ export interface HubConfig {
   uiDir: string;
   /** Phone setup page. */
   setupDir: string;
+  /** The phone remote (installable on Android). */
+  remoteDir?: string;
   /** Default library root when settings don't say (the Hub container's view of the NAS). */
   mediaRoot: string;
   /** Fill the Hub with made-up channels, guide and library for screenshots and trying the UI. */
@@ -33,6 +35,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     probeDir: env.PROBE_DIR ?? path.resolve(here, "../../tools/probe/dist"),
     uiDir: env.UI_DIR ?? path.resolve(here, "../../ui/dist"),
     setupDir: env.SETUP_DIR ?? path.resolve(here, "../public/setup"),
+    remoteDir: env.REMOTE_DIR ?? path.resolve(here, "../public/remote"),
     mediaRoot: env.MEDIA_ROOT ?? "/mnt/nas",
     demo: env.DEMO === "1" || env.DEMO === "true",
   };

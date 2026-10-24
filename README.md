@@ -1,19 +1,33 @@
 # UltimateTV
 
-A polished, Sky-style TV app for the Hisense 85U7STUK, running on a Linux mini PC plugged into the TV: live IPTV/Xtream with EPG and series link, VOD, Jellyfin, AIOStreams/TorBox and local NAS files in one place.
+A polished, Sky-style TV app for the Hisense 85U7STUK, running on a Linux mini PC plugged into the TV. Live IPTV/Xtream with a full EPG and series link, recordings to the NAS, films and TV from Jellyfin, IPTV VOD and AIOStreams/TorBox in one library, profiles with a locked-down Kids profile, and a phone remote.
 
-See [docs/PLAN.md](docs/PLAN.md) for the product and technical plan.
+![Home](docs/screenshots/02-home.png)
 
-## Phase 0: set up the server and probe the box
+| | | |
+|---|---|---|
+| ![TV Guide](docs/screenshots/04-guide.png) | ![Live TV](docs/screenshots/07-live-banner.png) | ![Film details](docs/screenshots/10-film-details.png) |
+| ![Series](docs/screenshots/12-series-details.png) | ![Recordings](docs/screenshots/14-recordings.png) | ![Kids](docs/screenshots/20-kids-home.png) |
 
-The Hub runs in Docker on the home server ([docs/phase0](docs/phase0/README.md)). A probe script checks what a Linux box on the TV can do ([docs/phase0/box-probe.md](docs/phase0/box-probe.md)).
+All the screenshots are in [docs/screenshots](docs/screenshots/README.md). See [docs/PLAN.md](docs/PLAN.md) for the product and technical plan, and [docs/TESTING.md](docs/TESTING.md) for the end-to-end test run.
 
-```sh
-cp .env.example .env   # set RENDER_GID
-docker compose up -d --build
-docker compose exec hub make-test-clips
-# then on the box: HUB_URL=http://<server-ip>:8080 bash tools/box/probe.sh
-```
+## How it fits together
+
+- **The Hub** runs in Docker on the home server. It reads the IPTV playlist and EPG, records to the NAS, talks to Jellyfin, AIOStreams and TorBox, and serves the TV app, the setup page and the phone remote.
+- **The box** (the GMKtec mini PC) boots straight into the TV app: an Electron window over mpv, with HDR, refresh rate matching and Dolby passthrough. The TV remote works through a Pulse-Eight USB-CEC adapter.
+- **The phone remote** works over Wi-Fi from any Android phone, as a web app or a small installable app.
+
+## Setting it up
+
+1. **Hub:** `docker compose up -d --build` on the Docker LXC, with `HUB_PORT=8095` in `.env` ([docs/phase0/proxmox-setup.md](docs/phase0/proxmox-setup.md)).
+2. **Sources:** open `http://<hub>:8095/setup/` on a phone or laptop and add the IPTV login, Jellyfin, AIOStreams and TorBox.
+3. **Box:** install Arch Linux on the mini PC, then run the installer ([docs/box-install.md](docs/box-install.md)):
+   ```sh
+   git clone https://github.com/gazoscalvertos/UltimateTV.git && cd UltimateTV
+   sudo HUB_URL=http://192.168.0.19:8095 bash tools/box/install.sh
+   ```
+4. **Phone remote:** scan the code in Settings › Phone remote, or install the Android app ([docs/phone-remote.md](docs/phone-remote.md)).
+5. **Profiles:** set a PIN on the adult profile so the children stay in Kids ([docs/profiles.md](docs/profiles.md)).
 
 ## Development
 
@@ -21,16 +35,21 @@ docker compose exec hub make-test-clips
 npm install
 npm run typecheck && npm test
 npm run build
-DATA_DIR=./data CLIPS_DIR=./test-clips npm run dev:hub
+DEMO=1 npm run dev:hub          # a Hub full of demo channels, films and recordings
+npm run dev -w ui               # the TV app at http://localhost:5173/app/, keyboard as the remote
+npm run screenshots             # regenerates docs/screenshots from the demo Hub
 ```
+
+In a normal browser the keyboard is the remote: arrows, Enter (OK), Escape (Back), F1–F4 (red, green, yellow, blue), F5 (Guide), F6 (Info), PageUp/PageDown (channels) and digits. Streams the browser can't decode show their artwork with a running clock instead.
 
 | Folder | What it is |
 |--------|------------|
-| `shared/` | Types and logic shared by the Hub and the TV (probe report, capability matrix) |
-| `hub/` | The home server: API, probe hosting, Quick Sync checks |
-| `tools/box/` | Box probe (and, from Phase 0b, the installer) |
-| `tools/probe/` | The VIDAA browser probe from Phase 0 (kept as a record) |
-| `tools/clips/` | Test clip generator |
-| `tools/iptv/` | IPTV catch-up checker |
-| `ui/` | The TV UI (from Phase 1) |
-| `docs/` | Plan, decisions and Phase 0 guides |
+| `shared/` | Types and logic shared by the Hub, the UI and the box (domain model, key map) |
+| `hub/` | The home server: sources, EPG, recorder, series link, profiles, API; plus the setup page and phone remote in `hub/public/` |
+| `ui/` | The TV app (SolidJS), served by the Hub at `/app/` |
+| `box/` | The box shell: Electron, mpv control, display modes, HDMI-CEC |
+| `android/` | The phone remote as an Android app |
+| `tools/box/` | Box installer and probe |
+| `tools/screenshots/` | Screenshot capture |
+| `tools/probe/`, `tools/clips/`, `tools/iptv/` | Phase 0 tools |
+| `docs/` | Plan, decisions, guides and screenshots |

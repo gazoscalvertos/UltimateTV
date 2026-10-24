@@ -5,3 +5,6 @@ dist/
 .env
 /test-clips/
 docker-compose.override.yml
+android/.gradle/
+android/**/build/
+android/local.properties

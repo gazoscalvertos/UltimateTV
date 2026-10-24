@@ -1,0 +1,20 @@
+{
+  "name": "@ultimatetv/ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The TV interface: SolidJS, driven by the remote",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ultimatetv/shared": "0.1.0",
+    "solid-js": "1.9.17"
+  },
+  "devDependencies": {
+    "vite": "7.3.7",
+    "vite-plugin-solid": "2.11.14"
+  }
+}

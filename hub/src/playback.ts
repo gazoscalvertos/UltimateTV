@@ -75,6 +75,8 @@ export class Playback {
       skip: [],
     };
     if (now) info.subtitle = now.title;
+    if (now?.image) info.artwork = now.image;
+    if (channel.logo) info.logo = channel.logo;
     return info;
   }
 
@@ -95,6 +97,7 @@ export class Playback {
       externalSubtitles: [],
       progressKey: `programme:${p.id}`,
       skip: [],
+      ...(p.image ? { artwork: p.image } : {}),
     };
   }
 
@@ -118,6 +121,7 @@ export class Playback {
       externalSubtitles: [],
       progressKey: `recording:${id}`,
       skip: [],
+      ...(p.image ? { artwork: p.image } : {}),
     };
   }
 
@@ -143,6 +147,8 @@ export class Playback {
       skip: [],
     };
     if (chosen.headers) info.headers = chosen.headers;
+    const artwork = details.backdrop ?? details.poster;
+    if (artwork) info.artwork = artwork;
     if (info.url.startsWith("/")) info.url = hubBase + info.url;
     if (ep) {
       const season = details.seasons?.find((s) => s.season === ep.season);

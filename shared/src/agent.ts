@@ -40,6 +40,8 @@ export interface PlayOptions {
   startMs?: number;
   fps?: number;
   title?: string;
+  /** Shown while the stream starts (and by the browser stand-in when it can't decode the stream). */
+  artwork?: string;
   subtitles?: { url: string; lang: string; label: string }[];
   preferredAudioLang?: string;
   preferredSubtitleLang?: string;

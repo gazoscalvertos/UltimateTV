@@ -1,5 +1,5 @@
 // Remote keys → app actions. On the box the Hisense remote arrives over HDMI-CEC, and the
-// installer's keymap (tools/box/cec-keymap.toml) turns CEC buttons into ordinary keys:
+// installer's keymap (tools/box/files/cec-keymap.toml) turns CEC buttons into ordinary keys:
 // arrows, Enter, Escape, F1–F4 for the colour keys, digits, PageUp/PageDown for channels and
 // F5–F9 for Guide, Info, Rewind, Fast forward and Record. A keyboard works the same way, and the
 // TV-style codes (403–406, 415, 19, …) are accepted too so the UI also runs on a TV browser.

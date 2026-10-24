@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=UltimateTV
+Comment=The TV app, full screen
+Exec=/usr/local/bin/ultimatetv-session
+Type=Application
+DesktopNames=KDE

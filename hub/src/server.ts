@@ -216,6 +216,28 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return reply.type("image/svg+xml").send(svg);
   });
 
+  // -------------------------------------------------------------------------
+  // Phone remote: key presses and typed text go to the TV over the event socket.
+
+  const REMOTE_ACTIONS = new Set([
+    "up", "down", "left", "right", "ok", "back", "red", "green", "yellow", "blue", "guide", "info", "play", "pause", "playPause", "stop",
+    "rewind", "fastForward", "record", "channelUp", "channelDown", "home", "digit0", "digit1", "digit2", "digit3", "digit4", "digit5", "digit6", "digit7", "digit8", "digit9",
+  ]);
+  app.post("/api/remote/key", async (req: Req<Record<string, string>, Record<string, string>, { action?: string }>, reply) => {
+    const action = String(req.body?.action ?? "");
+    if (!REMOTE_ACTIONS.has(action)) return reply.code(400).send({ error: "Unknown key" });
+    ctx.events.emit({ type: "remote.key", action });
+    return { ok: true };
+  });
+  app.post("/api/remote/text", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
+    ctx.events.emit({ type: "remote.text", text: String(req.body?.text ?? "").slice(0, 120) });
+    return { ok: true };
+  });
+  app.get("/api/remote/qr.svg", async (req, reply) => {
+    const svg = await QRCode.toString(`${hubBase(req)}/remote/`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    return reply.type("image/svg+xml").send(svg);
+  });
+
   // Jellyfin sign-in: Quick Connect (a code on the TV, approved on the phone) or name and password.
   app.post("/api/jellyfin/quickconnect", async (req: Req<Record<string, string>, Record<string, string>, { url: string }>) => {
     const client = new JellyfinClient({ url: req.body.url.trim() }, ctx.fetchImpl);
@@ -525,6 +547,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   await serveDir(config.probeDir, "/probe/", "Probe page not built. Run `npm run build` first.", true);
   await serveDir(config.uiDir, "/app/", "TV app not built. Run `npm run build` first.");
   await serveDir(config.setupDir, "/setup/", "Setup page missing.");
+  if (config.remoteDir) await serveDir(config.remoteDir, "/remote/", "Phone remote missing.");
 
   // Test clips are served with range requests so players can seek.
   if (existsSync(config.clipsDir)) {

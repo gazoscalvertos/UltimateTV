@@ -2,17 +2,20 @@
   "name": "ultimatetv",
   "private": true,
   "version": "0.1.0",
-  "description": "Sky-style TV app for VIDAA (Hisense 85U7STUK) with a home Hub server",
+  "description": "Sky-style TV app for a Linux mini PC on the TV, with a home Hub server",
   "workspaces": [
     "shared",
     "hub",
+    "ui",
+    "box",
     "tools/probe"
   ],
   "scripts": {
-    "build": "npm run build -w shared && npm run build -w tools/probe && npm run build -w hub",
-    "typecheck": "tsc -b && tsc -p tools/probe/tsconfig.json",
+    "build": "npm run build -w shared && npm run build -w tools/probe && npm run build -w hub && npm run build -w box && npm run build -w ui",
+    "typecheck": "tsc -b && tsc -p tools/probe/tsconfig.json && tsc -p ui --noEmit",
     "test": "vitest run",
-    "dev:hub": "npm run dev -w hub"
+    "dev:hub": "npm run dev -w hub",
+    "screenshots": "node tools/screenshots/capture.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

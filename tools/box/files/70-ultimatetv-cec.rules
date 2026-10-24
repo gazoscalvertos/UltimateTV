@@ -1,0 +1,6 @@
+# Pulse-Eight USB-CEC adapter: attach the kernel's pulse8-cec driver when it's plugged in.
+SUBSYSTEM=="tty", KERNEL=="ttyACM[0-9]*", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="1001", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ultimatetv-cec-attach@%k.service"
+SUBSYSTEM=="tty", KERNEL=="ttyACM[0-9]*", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="1002", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ultimatetv-cec-attach@%k.service"
+# The CEC device belongs to the tv user's session; the remote's keys load our keymap.
+SUBSYSTEM=="cec", KERNEL=="cec[0-9]*", GROUP="video", MODE="0660"
+ACTION=="add", SUBSYSTEM=="rc", DRIVERS=="pulse8-cec", RUN+="/usr/bin/ir-keytable -s $name -c -w /etc/rc_keymaps/ultimatetv-cec.toml"

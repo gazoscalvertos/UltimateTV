@@ -1,0 +1,9 @@
+[Unit]
+Description=Pulse-Eight USB-CEC adapter on %I
+BindsTo=dev-%i.device
+After=dev-%i.device
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/inputattach --pulse8-cec /dev/%I
+Restart=on-failure
