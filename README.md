@@ -19,7 +19,7 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md). See [
 
 ## Setting it up
 
-1. **Hub:** `docker compose up -d --build` on the Docker LXC, with `HUB_PORT=8095` in `.env` ([docs/phase0/proxmox-setup.md](docs/phase0/proxmox-setup.md)).
+1. **Hub:** `docker compose up -d --build` on the Docker LXC, with `HUB_PORT=8095` in `.env` ([docs/phase0/proxmox-setup.md](docs/phase0/proxmox-setup.md)). Update it later with `bash tools/hub/update.sh` (see [CHANGELOG.md](CHANGELOG.md)).
 2. **Sources:** open `http://<hub>:8095/setup/` on a phone or laptop and add the IPTV login, Jellyfin, AIOStreams and TorBox.
 3. **Box:** netboot it from the PXE server on the Docker LXC, which installs everything unattended ([docs/pxe.md](docs/pxe.md)). Or install Arch Linux by hand and run the installer ([docs/box-install.md](docs/box-install.md)):
    ```sh

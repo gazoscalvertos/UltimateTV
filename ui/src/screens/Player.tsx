@@ -5,7 +5,7 @@
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import type { NowNext, PlaybackStats } from "@ultimatetv/shared";
 import { clockTime, digitOf } from "@ultimatetv/shared";
-import { agent } from "../agent";
+import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { DialogFrame } from "../components/Dialog";
 import { Icon } from "../components/Icon";
@@ -26,7 +26,10 @@ function fmt(ms: number): string {
 /** The stats overlay: refreshed every second while it's on. */
 function StatsOverlay() {
   const [stats, setStats] = createSignal<PlaybackStats | null>(null);
-  const load = () => void agent.stats().then(setStats, () => setStats(null));
+  const load = () =>
+    agentHas("stats")
+      ? void agent.stats().then(setStats, () => setStats(null))
+      : setStats({ sections: [{ title: "Box", rows: [["Stats", "This box needs a one-off update first (see Settings › About)"]] }] });
   load();
   const timer = window.setInterval(load, 1000);
   onCleanup(() => clearInterval(timer));

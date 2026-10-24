@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { sampleReport } from "../../shared/test/fixtures.js";
 import type { HubConfig } from "../src/config.js";
-import { buildServer } from "../src/server.js";
+import { buildServer, HUB_VERSION } from "../src/server.js";
 import type { SystemReport } from "../src/system.js";
 
 const fakeSystem: SystemReport = {
@@ -42,11 +42,21 @@ afterEach(async () => {
 });
 
 describe("hub API", () => {
+  it("never caches the TV app's page, so the TV picks up a Hub update", async () => {
+    const uiDir = path.join(tmp, "ui");
+    await mkdir(path.join(uiDir, "assets"), { recursive: true });
+    await writeFile(path.join(uiDir, "index.html"), "<!doctype html>");
+    await writeFile(path.join(uiDir, "assets", "index-abc.js"), "");
+    await start({ uiDir });
+    expect((await app.inject({ url: "/app/" })).headers["cache-control"]).toBe("no-cache");
+    expect((await app.inject({ url: "/app/assets/index-abc.js" })).headers["cache-control"]).toContain("immutable");
+  });
+
   it("reports health", async () => {
     await start();
     const res = await app.inject("/api/health");
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true, version: "0.1.0" });
+    expect(res.json()).toEqual({ ok: true, version: HUB_VERSION });
   });
 
   it("returns the system report", async () => {

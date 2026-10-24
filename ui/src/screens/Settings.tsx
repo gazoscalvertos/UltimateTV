@@ -4,7 +4,7 @@
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
 import type { Certification, Profile, PublicSettings } from "@ultimatetv/shared";
 import { CERTIFICATIONS } from "@ultimatetv/shared";
-import { agent } from "../agent";
+import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
@@ -41,6 +41,7 @@ function Status(props: { ok: boolean; text: string }) {
   );
 }
 
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const cycle = <T,>(list: readonly T[], value: T): T => list[(list.indexOf(value) + 1) % list.length]!;
 
 export function Settings() {
@@ -51,7 +52,7 @@ export function Settings() {
   // The box's software, checked against GitHub when About is opened.
   const [software, { refetch: refetchSoftware }] = createResource(
     () => section() === "about",
-    (open) => (open ? agent.software(true).catch(() => null) : Promise.resolve(null)),
+    (open) => (open && agentHas("software") ? agent.software(true).catch(() => null) : Promise.resolve(null)),
   );
   const updateState = () => {
     const sw = software();
@@ -279,15 +280,21 @@ export function Settings() {
 
             <Show when={section() === "about"}>
               <h2>About</h2>
-              <Row label="Hub" value={`UltimateTV ${status()?.version ?? ""}${status()?.demo ? " · demo mode" : ""}`} />
+              <Row label="Hub" value={`UltimateTV ${status()?.version ?? ""}${status()?.commit ? ` · ${status()!.commit}` : ""}${status()?.builtAt ? ` · ${shortDate(status()!.builtAt!)}` : ""}${status()?.demo ? " · demo mode" : ""}`} />
               <Row label="Box" value={box() ? `${box()!.hostname ?? box()!.kind} · ${box()!.version}` : ""} />
+              <Show when={box()?.kind === "box" && !agentHas("software")}>
+                <Row label="Box software" value="Needs a one-off update" hint="This box's software is too old to update itself from here. Over SSH, run: cd /opt/ultimatetv && sudo git pull && sudo bash tools/box/install.sh" />
+              </Show>
+              <Show when={software()?.commit && status()?.commit && !software()!.commit!.startsWith(status()!.commit!)}>
+                <Row label="Versions" value="The box and Hub differ" hint="Update whichever is older: the box here, the Hub with tools/hub/update.sh on the server" />
+              </Show>
               <Show when={box()?.display}>
                 <Row label="Display" value={`${box()!.display!.name} · ${box()!.display!.width}×${box()!.display!.height} @ ${box()!.display!.refreshHz} Hz${box()!.display!.hdr ? " · HDR" : ""}`} />
               </Show>
               <Show when={software()}>
                 {(sw) => (
                   <>
-                    <Row label="Box software" value={`${sw().commit ? sw().commit!.slice(0, 7) : "unknown"}${sw().date ? ` · ${new Date(sw().date!).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}${sw().branch && sw().branch !== "main" ? ` · ${sw().branch}` : ""}`} />
+                    <Row label="Box software" value={`${sw().commit ? sw().commit!.slice(0, 7) : "unknown"}${sw().date ? ` · ${shortDate(sw().date!)}` : ""}${sw().branch && sw().branch !== "main" ? ` · ${sw().branch}` : ""}`} />
                     <Row
                       label="Update the box"
                       hint={sw().lastUpdate ? `Last update ${new Date(sw().lastUpdate!.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${sw().lastUpdate!.ok ? "" : " (it failed)"}. It also updates itself every Monday at 4 am` : "It also updates itself every Monday at 4 am"}

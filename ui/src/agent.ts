@@ -183,4 +183,9 @@ class BrowserAgent implements BoxAgent {
 }
 
 export const agent: BoxAgent = window.ultimatetv ?? new BrowserAgent();
+/**
+ * Whether the box shell has a method. The UI comes from the Hub and can be newer than the shell
+ * installed on the box, so methods added later may be missing until the box is updated.
+ */
+export const agentHas = (method: keyof BoxAgent): boolean => typeof (agent as unknown as Record<string, unknown>)[method] === "function";
 export const onBox = Boolean(window.ultimatetv);
