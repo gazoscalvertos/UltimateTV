@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+/data/
+.env
+/test-clips/
+docker-compose.override.yml
+android/.gradle/
+android/**/build/
+android/local.properties
+tools/pxe/arch-cache/

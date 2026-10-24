@@ -1,0 +1,426 @@
+// Full-screen playback. Live TV gets Sky's banner (now/next, browse other channels with up/down
+// without changing, channel numbers); films, episodes and recordings get a seek bar, skip intro,
+// audio and subtitle options, and Up Next.
+
+import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
+import type { NowNext } from "@ultimatetv/shared";
+import { clockTime, digitOf } from "@ultimatetv/shared";
+import { agent } from "../agent";
+import { hub } from "../api";
+import { DialogFrame } from "../components/Dialog";
+import { Icon } from "../components/Icon";
+import { openProgramme, recordFlow } from "../components/ProgrammeCard";
+import { Progress } from "../components/Rail";
+import { useKeys } from "../keys";
+import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
+import { nav, now, openDialog, toast } from "../store";
+
+function fmt(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
+}
+
+export function Player() {
+  const live = () => nowPlaying()?.info.live ?? false;
+  const [osd, setOsd] = createSignal(true);
+  const [browse, setBrowse] = createSignal<string | null>(null);
+  const [showNext, setShowNext] = createSignal(false);
+  const [digits, setDigits] = createSignal("");
+  const [upNext, setUpNext] = createSignal<number | null>(null);
+  let hideTimer: number | undefined;
+  let digitTimer: number | undefined;
+  let upNextTimer: number | undefined;
+
+  const poke = (ms = 5000) => {
+    setOsd(true);
+    clearTimeout(hideTimer);
+    hideTimer = window.setTimeout(() => {
+      if (playerState().status !== "paused") {
+        setOsd(false);
+        setBrowse(null);
+        setShowNext(false);
+      }
+    }, ms);
+  };
+
+  onMount(() => {
+    void agent.setLayout({ mode: "fullscreen" });
+    poke();
+  });
+  onCleanup(() => {
+    clearTimeout(hideTimer);
+    clearTimeout(digitTimer);
+    clearInterval(upNextTimer);
+    if (nav.current().name !== "guide") void stopPlayback();
+  });
+
+  // Now/next for the banner: the channel playing, or the one being browsed.
+  const bannerChannelId = () => browse() ?? liveChannelId();
+  const [nn, { refetch }] = createResource(bannerChannelId, async (id) => (await hub.nowNext([id])).items[0] as NowNext | undefined);
+  createEffect(on(() => Math.floor(now() / 60_000), () => void refetch(), { defer: true }));
+
+  // Up Next when an episode ends.
+  createEffect(
+    on(
+      () => playerState().status,
+      (status) => {
+        const np = nowPlaying();
+        if (status !== "ended" || !np || np.info.live) return;
+        if (np.info.next) {
+          setUpNext(10);
+          clearInterval(upNextTimer);
+          upNextTimer = window.setInterval(() => {
+            const n = (upNext() ?? 0) - 1;
+            setUpNext(n);
+            if (n <= 0) {
+              clearInterval(upNextTimer);
+              setUpNext(null);
+              void play(np.info.next!, np.title ? { title: np.title } : {});
+            }
+          }, 1000);
+        } else nav.back();
+      },
+    ),
+  );
+
+  const skip = createMemo(() => {
+    const np = nowPlaying();
+    const pos = playerState().positionMs;
+    return np?.info.skip.find((s) => pos >= s.startMs && pos < s.endMs - 2000);
+  });
+
+  const tune = (id: string) => {
+    setBrowse(null);
+    setShowNext(false);
+    void play({ kind: "channel", id }).then(() => poke());
+  };
+
+  const options = () =>
+    openDialog((close) => {
+      const st = playerState();
+      return (
+        <DialogFrame close={() => close()} class="options-panel">
+          <h2>Options</h2>
+          <h4>
+            <Icon name="speaker" /> Audio
+          </h4>
+          <div class="option-list">
+            <For each={st.audioTracks}>
+              {(t) => (
+                <button class="option" classList={{ selected: t.selected }} data-focus onClick={() => void agent.setAudioTrack(t.id).then(() => close())}>
+                  {[t.title ?? t.lang ?? `Track ${t.id}`, t.codec?.toUpperCase(), t.channels ? `${t.channels > 2 ? `${t.channels - 1}.1` : "Stereo"}` : ""].filter(Boolean).join(" · ")}
+                </button>
+              )}
+            </For>
+          </div>
+          <h4>
+            <Icon name="subtitles" /> Subtitles
+          </h4>
+          <div class="option-list">
+            <button class="option" classList={{ selected: !st.subtitleTracks.some((t) => t.selected) }} data-focus onClick={() => void agent.setSubtitleTrack(null).then(() => close())}>
+              Off
+            </button>
+            <For each={st.subtitleTracks}>
+              {(t) => (
+                <button class="option" classList={{ selected: t.selected }} data-focus onClick={() => void agent.setSubtitleTrack(t.id).then(() => close())}>
+                  {t.title ?? t.lang ?? `Track ${t.id}`}
+                </button>
+              )}
+            </For>
+          </div>
+          <h4>
+            <Icon name="moon" /> Night mode
+          </h4>
+          <div class="option-list">
+            <button class="option" data-focus onClick={() => void agent.setNightMode(true).then(() => (toast("Night mode on: quieter loud bits, clearer speech"), close()))}>
+              On
+            </button>
+            <button class="option" data-focus onClick={() => void agent.setNightMode(false).then(() => close())}>
+              Off
+            </button>
+          </div>
+        </DialogFrame>
+      );
+    });
+
+  useKeys((a) => {
+    const np = nowPlaying();
+    if (!np) {
+      if (a === "back") nav.back();
+      return true;
+    }
+    const st = playerState();
+    if (upNext() !== null) {
+      if (a === "ok") {
+        clearInterval(upNextTimer);
+        setUpNext(null);
+        void play(np.info.next!, np.title ? { title: np.title } : {});
+      } else if (a === "back") {
+        clearInterval(upNextTimer);
+        setUpNext(null);
+        nav.back();
+      }
+      return true;
+    }
+    const d = digitOf(a);
+    if (live() && d !== null) {
+      const next = (digits() + d).slice(-3);
+      setDigits(next);
+      clearTimeout(digitTimer);
+      const go = () => {
+        const c = channelByNumber(Number(next));
+        setDigits("");
+        if (c) tune(c.id);
+        else toast(`There's no channel ${next}`);
+      };
+      digitTimer = window.setTimeout(go, next.length >= 3 ? 300 : 2000);
+      return true;
+    }
+    switch (a) {
+      case "back":
+        if (osd() && (browse() || showNext())) {
+          setBrowse(null);
+          setShowNext(false);
+          return true;
+        }
+        if (osd() && live()) {
+          setOsd(false);
+          return true;
+        }
+        nav.back() || nav.reset({ name: "home" });
+        return true;
+      case "guide":
+        nav.push({ name: "guide" });
+        return true;
+      case "home":
+        nav.reset({ name: "home" });
+        return true;
+      case "yellow":
+        void options();
+        return true;
+      case "playPause":
+      case "pause":
+      case "play": {
+        const pause = a === "pause" || (a === "playPause" && st.status !== "paused");
+        void agent.pause(pause);
+        if (!pause && live() && a === "play" && st.behindLiveMs) void agent.goLive();
+        poke(pause ? 60_000 : 4000);
+        return true;
+      }
+      case "rewind":
+        void agent.seek(-30_000, "relative");
+        poke();
+        return true;
+      case "fastForward":
+        void agent.seek(live() ? 30_000 : 60_000, "relative");
+        poke();
+        return true;
+    }
+
+    if (live()) {
+      switch (a) {
+        case "up":
+        case "down": {
+          const from = browse() ?? liveChannelId();
+          const c = stepChannel(from, a === "up" ? 1 : -1);
+          if (osd() && c) setBrowse(c.id);
+          setShowNext(false);
+          poke(8000);
+          return true;
+        }
+        case "left":
+        case "right":
+          setShowNext(a === "right");
+          poke(8000);
+          return true;
+        case "channelUp":
+        case "channelDown": {
+          const c = stepChannel(liveChannelId(), a === "channelUp" ? 1 : -1);
+          if (c) tune(c.id);
+          return true;
+        }
+        case "ok":
+          if (browse() && browse() !== liveChannelId()) tune(browse()!);
+          else if (osd()) setOsd(false);
+          else poke();
+          return true;
+        case "info": {
+          const p = showNext() ? nn()?.next : nn()?.now;
+          if (p) void openProgramme(p);
+          return true;
+        }
+        case "record":
+        case "red": {
+          const p = showNext() ? nn()?.next : nn()?.now;
+          if (p) void recordFlow(p);
+          return true;
+        }
+      }
+      return true;
+    }
+
+    // Films, episodes, recordings.
+    switch (a) {
+      case "ok":
+        if (!osd() && skip()) {
+          void agent.seek(skip()!.endMs, "absolute");
+          return true;
+        }
+        void agent.pause(st.status !== "paused");
+        poke(st.status === "paused" ? 4000 : 60_000);
+        return true;
+      case "left":
+        void agent.seek(-10_000, "relative");
+        poke();
+        return true;
+      case "right":
+        void agent.seek(30_000, "relative");
+        poke();
+        return true;
+      case "up":
+      case "info":
+        poke();
+        return true;
+      case "down":
+        void options();
+        return true;
+    }
+    return true;
+  });
+
+  const banner = () => nn();
+  const browsing = () => browse() !== null && browse() !== liveChannelId();
+  const progress = (start: number, end: number) => (now() - start) / (end - start);
+
+  return (
+    <div class="screen player" data-layer>
+      <Show when={playerState().status === "loading" || playerState().status === "buffering"}>
+        <div class="player-spinner">
+          <div class="spinner" />
+        </div>
+      </Show>
+
+      <Show when={digits()}>
+        <div class="digits-overlay">{digits()}</div>
+      </Show>
+
+      {/* Live banner */}
+      <Show when={live() && osd()}>
+        <div class="banner">
+          <div class="banner-channel">
+            <span class="banner-number">{channelById(bannerChannelId())?.number}</span>
+            <Show when={channelById(bannerChannelId())?.logo} fallback={<span class="banner-name">{channelById(bannerChannelId())?.name}</span>}>
+              <img class="banner-logo" src={channelById(bannerChannelId())!.logo} alt="" />
+            </Show>
+            <Show when={browsing()}>
+              <span class="flag">Press OK to watch</span>
+            </Show>
+          </div>
+          <Show when={banner()} fallback={<div class="banner-body">{nowPlaying()?.info.subtitle ?? ""}</div>}>
+            {(b) => (
+              <div class="banner-body">
+                <div class="banner-row" classList={{ dim: showNext() }}>
+                  <span class="banner-when">Now</span>
+                  <span class="banner-title">{b().now?.title ?? "No information"}</span>
+                  <Show when={b().now}>
+                    <span class="banner-time">
+                      {clockTime(b().now!.start)}–{clockTime(b().now!.end)}
+                    </span>
+                  </Show>
+                </div>
+                <Show when={b().now}>
+                  <Progress value={progress(b().now!.start, b().now!.end)} class="banner-progress" />
+                </Show>
+                <div class="banner-row" classList={{ dim: !showNext() }}>
+                  <span class="banner-when">Next</span>
+                  <span class="banner-title">{b().next?.title ?? ""}</span>
+                  <Show when={b().next}>
+                    <span class="banner-time">{clockTime(b().next!.start)}</span>
+                  </Show>
+                </div>
+                <p class="banner-description">{(showNext() ? b().next : b().now)?.description ?? ""}</p>
+                <Show when={!browsing() && playerState().status === "paused"}>
+                  <p class="banner-paused">
+                    <Icon name="pause" /> Paused · press Play to carry on
+                  </p>
+                </Show>
+              </div>
+            )}
+          </Show>
+          <div class="banner-hints">
+            <span>
+              <kbd>▲▼</kbd> Other channels
+            </span>
+            <span>
+              <kbd class="key-red" /> Record
+            </span>
+            <span>
+              <kbd class="key-yellow" /> Options
+            </span>
+          </div>
+        </div>
+      </Show>
+
+      {/* On-demand OSD */}
+      <Show when={!live() && osd()}>
+        {(() => {
+          const st = playerState;
+          const np = nowPlaying;
+          const duration = () => st().durationMs ?? np()?.info.durationMs ?? 0;
+          return (
+            <div class="osd">
+              <div class="osd-title">
+                <h2>{np()?.info.title}</h2>
+                <Show when={np()?.info.subtitle}>
+                  <p>{np()!.info.subtitle}</p>
+                </Show>
+              </div>
+              <div class="osd-bar">
+                <Icon name={st().status === "paused" ? "pause" : "play"} class="osd-state" />
+                <span class="osd-time">{fmt(st().positionMs)}</span>
+                <Progress value={duration() ? st().positionMs / duration() : 0} class="osd-progress" />
+                <span class="osd-time">{duration() ? `-${fmt(duration() - st().positionMs)}` : ""}</span>
+              </div>
+              <div class="osd-meta">
+                <Show when={st().video}>
+                  <span>
+                    {st().video!.height >= 2000 ? "4K" : st().video!.height >= 1000 ? "HD" : "SD"}
+                    {st().video!.hdr && st().video!.hdr !== "SDR" ? ` · ${st().video!.hdr}` : ""}
+                  </span>
+                </Show>
+                <Show when={duration()}>
+                  <span>Ends at {clockTime(Date.now() + duration() - st().positionMs)}</span>
+                </Show>
+                <span>
+                  <kbd>◀▶</kbd> Skip back and forward
+                </span>
+                <span>
+                  <kbd class="key-yellow" /> Audio and subtitles
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+      </Show>
+
+      <Show when={!live() && skip() && upNext() === null}>
+        <button class="skip-button" data-focus>
+          Skip {skip()!.kind === "credits" ? "credits" : skip()!.kind} <kbd>OK</kbd>
+        </button>
+      </Show>
+
+      <Show when={upNext() !== null && nowPlaying()?.info.next}>
+        <div class="up-next">
+          <p class="up-next-label">Up next in {upNext()}</p>
+          <h3>{nowPlaying()!.info.next!.name}</h3>
+          <p>
+            <kbd>OK</kbd> Play now · <kbd>Back</kbd> Stop
+          </p>
+        </div>
+      </Show>
+    </div>
+  );
+}

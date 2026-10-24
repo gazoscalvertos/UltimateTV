@@ -1,0 +1,26 @@
+# UltimateTV Hub on the Proxmox Docker container. See docs/phase0/proxmox-setup.md.
+services:
+  hub:
+    build: .
+    image: ultimatetv-hub:latest
+    container_name: ultimatetv-hub
+    restart: unless-stopped
+    ports:
+      - "${HUB_PORT:-8080}:8080"
+    environment:
+      TZ: ${TZ:-Europe/London}
+    volumes:
+      - hub-data:/data
+      # Phase 0 test clips. Kept out of the Jellyfin library so they don't show up there.
+      - ${CLIPS_HOST_DIR:-./test-clips}:/clips
+      # From Phase 2, the media libraries are mounted here at the same paths Jellyfin uses
+      # (see docker-compose.override.example.yml).
+    devices:
+      # The N150's graphics chip, for Quick Sync. Comment this out if /dev/dri isn't in the Docker LXC yet.
+      - /dev/dri:/dev/dri
+    group_add:
+      # Group that owns /dev/dri/renderD128 inside the Docker LXC (check with: ls -ln /dev/dri).
+      - "${RENDER_GID:-104}"
+
+volumes:
+  hub-data:

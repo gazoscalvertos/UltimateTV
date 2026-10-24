@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#070b14">
+<meta name="mobile-web-app-capable" content="yes">
+<title>UltimateTV Remote</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root { --bg: #070b14; --panel: #121b2e; --panel-2: #1a2640; --fg: #f3f6fb; --muted: #8d99b0; --accent: #3d8bff; --accent-2: #00c2d1; color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 16px/1.3 Inter, "Noto Sans", Roboto, system-ui, sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+  body { display: flex; flex-direction: column; padding: env(safe-area-inset-top) 18px calc(env(safe-area-inset-bottom) + 14px); }
+  header { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; }
+  .mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .conn { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #66728a; }
+  .conn.ok .dot { background: #35c27a; box-shadow: 0 0 8px #35c27a; }
+  .conn.bad .dot { background: #ff5468; }
+  main { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 14px; max-width: 420px; width: 100%; margin: 0 auto; }
+  button { font: inherit; color: inherit; border: 0; background: var(--panel); border-radius: 16px; touch-action: manipulation; transition: transform .08s, background .08s; }
+  button:active, button.down { transform: scale(.93); background: var(--panel-2); }
+  .row { display: grid; gap: 12px; }
+  .r3 { grid-template-columns: repeat(3, 1fr); }
+  .r4 { grid-template-columns: repeat(4, 1fr); }
+  .r3 button, .r4 button { height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; color: var(--muted); }
+  .r3 button svg, .r4 button svg { width: 24px; height: 24px; color: var(--fg); }
+  .pad { position: relative; width: min(78vw, 300px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #1c2944, #0f1729); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 18px 40px rgba(0,0,0,.45); touch-action: none; }
+  .pad button { position: absolute; background: transparent; border-radius: 0; color: var(--fg); display: grid; place-items: center; }
+  .pad button:active, .pad button.down { background: rgba(255,255,255,.07); transform: none; }
+  .pad .up { top: 0; left: 30%; width: 40%; height: 30%; border-radius: 50% 50% 0 0 / 70% 70% 0 0; }
+  .pad .down { bottom: 0; left: 30%; width: 40%; height: 30%; border-radius: 0 0 50% 50% / 0 0 70% 70%; }
+  .pad .left { left: 0; top: 30%; width: 30%; height: 40%; border-radius: 50% 0 0 50% / 50% 0 0 50%; }
+  .pad .right { right: 0; top: 30%; width: 30%; height: 40%; border-radius: 0 50% 50% 0 / 0 50% 50% 0; }
+  .pad .ok { left: 31%; top: 31%; width: 38%; height: 38%; border-radius: 50%; background: linear-gradient(145deg, #2a3a5e, #1a2640); box-shadow: 0 6px 16px rgba(0,0,0,.4); font-weight: 800; font-size: 18px; letter-spacing: .05em; }
+  .pad .ok:active, .pad .ok.down { background: var(--accent); }
+  .pad svg { width: 30px; height: 30px; }
+  .colours button { height: 40px; }
+  .c-red { background: #c62d37 !important; } .c-green { background: #23944a !important; } .c-yellow { background: #d9a91f !important; } .c-blue { background: #275fc0 !important; }
+  .media { grid-template-columns: 1fr 1fr 1.3fr 1fr 1fr; }
+  .media button { height: 54px; display: grid; place-items: center; }
+  .media svg { width: 26px; height: 26px; }
+  .media .rec svg { color: #ff3b4e; }
+  .ch { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .rocker { display: flex; align-items: center; justify-content: space-between; background: var(--panel); border-radius: 16px; overflow: hidden; }
+  .rocker button { flex: 1; height: 54px; border-radius: 0; background: transparent; font-size: 22px; font-weight: 700; }
+  .rocker span { font-size: 12px; color: var(--muted); padding: 0 4px; }
+  .text { display: flex; gap: 10px; }
+  .text input { flex: 1; min-width: 0; height: 50px; border-radius: 14px; border: 1px solid rgba(255,255,255,.1); background: var(--panel); color: var(--fg); padding: 0 14px; font: inherit; font-size: 16px; }
+  .text button { width: 64px; background: var(--accent); font-weight: 700; }
+  .numbers { display: none; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .numbers.show { display: grid; }
+  .numbers button { height: 50px; font-size: 22px; font-weight: 700; }
+  .install { display: none; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-weight: 700; height: 46px; }
+  .install.show { display: block; }
+  .hint { text-align: center; color: var(--muted); font-size: 12px; margin: 0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="mark">U</span>TV Remote</div>
+  <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">Connecting…</span><button id="change-hub" hidden style="height:30px;padding:0 10px;font-size:12px;margin-left:6px">Change Hub</button></div>
+</header>
+<main>
+  <button class="install" id="install">Install as an app</button>
+
+  <div class="row r3">
+    <button data-key="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg>Home</button>
+    <button data-key="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 10v9"/></svg>Guide</button>
+    <button data-key="info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>Info</button>
+  </div>
+
+  <div class="pad" id="pad">
+    <button class="up" data-key="up" data-repeat aria-label="Up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
+    <button class="left" data-key="left" data-repeat aria-label="Left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <button class="ok" data-key="ok">OK</button>
+    <button class="right" data-key="right" data-repeat aria-label="Right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <button class="down" data-key="down" data-repeat aria-label="Down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+  </div>
+
+  <div class="row r3">
+    <button data-key="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>Back</button>
+    <button id="num-toggle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="6" r="1.8"/><circle cx="12" cy="6" r="1.8"/><circle cx="18" cy="6" r="1.8"/><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/><circle cx="6" cy="18" r="1.8"/><circle cx="12" cy="18" r="1.8"/><circle cx="18" cy="18" r="1.8"/></svg>123</button>
+    <button data-key="yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Options</button>
+  </div>
+
+  <div class="numbers" id="numbers">
+    <button data-key="digit1">1</button><button data-key="digit2">2</button><button data-key="digit3">3</button>
+    <button data-key="digit4">4</button><button data-key="digit5">5</button><button data-key="digit6">6</button>
+    <button data-key="digit7">7</button><button data-key="digit8">8</button><button data-key="digit9">9</button>
+    <span></span><button data-key="digit0">0</button><span></span>
+  </div>
+
+  <div class="row r4 colours">
+    <button class="c-red" data-key="red" aria-label="Red"></button>
+    <button class="c-green" data-key="green" aria-label="Green"></button>
+    <button class="c-yellow" data-key="yellow" aria-label="Yellow"></button>
+    <button class="c-blue" data-key="blue" aria-label="Blue"></button>
+  </div>
+
+  <div class="row media">
+    <button data-key="rewind" aria-label="Rewind"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 6l-7 6 7 6zM20 6l-7 6 7 6z"/></svg></button>
+    <button class="rec" data-key="record" aria-label="Record"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg></button>
+    <button data-key="playPause" aria-label="Play or pause"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 5.5v13l9-6.5zM15 5h3v14h-3zM19.5 5h2v14h-2z"/></svg></button>
+    <button data-key="stop" aria-label="Stop"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg></button>
+    <button data-key="fastForward" aria-label="Fast forward"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 6l7 6-7 6zM4 6l7 6-7 6z"/></svg></button>
+  </div>
+
+  <div class="ch">
+    <div class="rocker"><button data-key="channelDown" aria-label="Channel down">−</button><span>CH</span><button data-key="channelUp" aria-label="Channel up">+</button></div>
+    <div class="rocker"><button data-key="back" aria-label="Exit">Exit</button></div>
+  </div>
+
+  <form class="text" id="text">
+    <input id="text-input" placeholder="Type to search on the TV" autocomplete="off" enterkeyhint="search">
+    <button type="submit">Send</button>
+  </form>
+  <p class="hint">Hold an arrow to keep moving.</p>
+</main>
+<script>
+const conn = document.getElementById("conn");
+const connText = document.getElementById("conn-text");
+const setConn = (state, text) => { conn.className = "conn " + state; connText.textContent = text; };
+
+async function send(path, body) {
+  try {
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(res.statusText);
+    setConn("ok", "Connected");
+  } catch {
+    setConn("bad", "Can't reach the Hub");
+  }
+}
+const press = (action) => {
+  if (navigator.vibrate) navigator.vibrate(12);
+  void send("/api/remote/key", { action });
+};
+
+// Buttons: press on touch down (feels instant); arrows repeat while held.
+for (const b of document.querySelectorAll("[data-key]")) {
+  let timer, repeat;
+  const start = (e) => {
+    e.preventDefault();
+    b.classList.add("down");
+    press(b.dataset.key);
+    if (b.hasAttribute("data-repeat")) timer = setTimeout(() => (repeat = setInterval(() => press(b.dataset.key), 140)), 420);
+  };
+  const end = () => { b.classList.remove("down"); clearTimeout(timer); clearInterval(repeat); };
+  b.addEventListener("pointerdown", start);
+  for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, end);
+}
+
+// Swipe on the pad as well as tapping its arrows.
+let swipe = null;
+const pad = document.getElementById("pad");
+pad.addEventListener("touchstart", (e) => { const t = e.touches[0]; swipe = { x: t.clientX, y: t.clientY }; }, { passive: true });
+pad.addEventListener("touchend", (e) => {
+  if (!swipe) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+  swipe = null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 40) return;
+  press(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
+});
+
+document.getElementById("num-toggle").addEventListener("click", () => document.getElementById("numbers").classList.toggle("show"));
+document.getElementById("text").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = document.getElementById("text-input");
+  void send("/api/remote/text", { text: input.value });
+  input.blur();
+});
+
+// Check the Hub is there.
+fetch("/api/health").then((r) => (r.ok ? setConn("ok", "Connected") : setConn("bad", "Hub error"))).catch(() => setConn("bad", "Can't reach the Hub"));
+
+// Install prompt (Chrome on Android). Over plain http Chrome offers Add to Home screen from its menu instead.
+let deferred;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; document.getElementById("install").classList.add("show"); });
+document.getElementById("install").addEventListener("click", async () => { if (deferred) { deferred.prompt(); deferred = null; document.getElementById("install").classList.remove("show"); } });
+if ("serviceWorker" in navigator && window.isSecureContext) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+// Inside the Android app: let it switch Hub.
+if (window.UltimateTVApp) {
+  const b = document.getElementById("change-hub");
+  b.hidden = false;
+  b.addEventListener("click", () => window.UltimateTVApp.changeHub());
+}
+
+// Keep the screen awake while the remote is open.
+async function wake() { try { await navigator.wakeLock?.request("screen"); } catch {} }
+document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && wake());
+wake();
+</script>
+</body>
+</html>

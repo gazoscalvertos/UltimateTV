@@ -1,0 +1,235 @@
+// A film or series: artwork, the best version ready to play, every other version (library,
+// IPTV, TorBox via AIOStreams), seasons and episodes, and Save to NAS.
+
+import { createEffect, createResource, createSignal, For, Show } from "solid-js";
+import type { Episode, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import { durationLabel, episodeLabel, formatBytes } from "@ultimatetv/shared";
+import { agent } from "../agent";
+import { hub, type StreamRow } from "../api";
+import { DialogFrame } from "../components/Dialog";
+import { Icon } from "../components/Icon";
+import { Progress } from "../components/Rail";
+import { TopBar } from "../components/TopBar";
+import { useKeys } from "../keys";
+import { play } from "../player";
+import { errorToast, isKids, openDialog, toast } from "../store";
+
+const SOURCE_NAMES: Record<string, string> = { jellyfin: "Your library", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
+
+function refOf(d: TitleDetails): TitleRef {
+  const ref: TitleRef = { id: d.id, kind: d.kind, name: d.name };
+  if (d.year) ref.year = d.year;
+  if (d.poster) ref.poster = d.poster;
+  if (d.backdrop) ref.backdrop = d.backdrop;
+  if (d.genres.length) ref.genres = d.genres;
+  if (d.certification) ref.certification = d.certification;
+  return ref;
+}
+
+/** Every way to play it, best first, with what makes each one different. */
+export function chooseVersion(title: TitleDetails, episodeId?: string): Promise<void> {
+  return openDialog<void>((close) => {
+    const [streams] = createResource(() => hub.streams(title.id, episodeId));
+    return (
+      <DialogFrame close={() => close()} wide class="versions">
+        <h2>Choose a version</h2>
+        <p class="dialog-message">The best one is picked for you when you press Play. Ready means it starts straight away.</p>
+        <Show when={streams()} fallback={<div class="spinner" />}>
+          <Show when={streams()!.streams.length} fallback={<p class="empty">No versions found yet.</p>}>
+            <div class="version-list">
+              <For each={streams()!.streams}>
+                {(s: StreamRow, i) => (
+                  <button
+                    class="version"
+                    data-focus
+                    data-autofocus={i() === 0 ? "" : undefined}
+                    onClick={() => {
+                      close();
+                      void play({ kind: "title", id: title.id, streamId: s.id, ...(episodeId ? { episodeId } : {}) }, { title: refOf(title) });
+                    }}
+                  >
+                    <span class="version-source">{s.label || SOURCE_NAMES[s.kind]}</span>
+                    <span class="version-badges">
+                      <For each={s.badges}>{(b) => <span class="badge">{b}</span>}</For>
+                    </span>
+                    <span class="version-detail">{s.detail}</span>
+                    <span class="version-size">{s.quality.sizeBytes ? formatBytes(s.quality.sizeBytes) : ""}</span>
+                    <span class="version-ready" classList={{ ready: s.ready }}>{s.ready ? "Ready" : "Needs fetching"}</span>
+                  </button>
+                )}
+              </For>
+            </div>
+          </Show>
+        </Show>
+      </DialogFrame>
+    );
+  });
+}
+
+export function Details(props: { id: string }) {
+  const [d] = createResource(() => props.id, (id) => hub.title(id));
+  const [streams] = createResource(
+    () => (d()?.kind === "movie" ? d()!.id : null),
+    (id) => hub.streams(id).catch(() => ({ streams: [] as StreamRow[] })),
+  );
+  const [season, setSeason] = createSignal<number | null>(null);
+  createEffect(() => {
+    const s = d()?.seasons;
+    if (s?.length && season() === null) setSeason(s.find((x) => x.season > 0)?.season ?? s[0]!.season);
+  });
+  const [episodes] = createResource(
+    () => (d() && season() !== null ? { id: d()!.id, n: season()! } : null),
+    async (k) => {
+      const local = d()!.seasons?.find((s) => s.season === k.n);
+      if (local?.episodes.length) return local.episodes;
+      return (await hub.season(k.id, k.n).catch(() => null))?.episodes ?? [];
+    },
+  );
+
+  const badges = () => streams()?.streams[0]?.badges ?? [];
+  const playMain = (fromStart = false) => {
+    const title = d()!;
+    if (title.kind === "series") {
+      const eps = episodes() ?? [];
+      const ep = eps.find((e) => !e.watched) ?? eps[0];
+      if (ep) playEpisode(ep);
+      return;
+    }
+    void play({ kind: "title", id: title.id }, { title: refOf(title) }).then(async (ok) => {
+      if (ok && fromStart) await agent.seek(0, "absolute");
+    });
+  };
+  const playEpisode = (e: Episode) => void play({ kind: "title", id: d()!.id, episodeId: `s${e.season}e${e.episode}` }, { title: refOf(d()!) });
+
+  const save = async () => {
+    try {
+      await hub.download(d()!.id);
+      toast(`Saving ${d()!.name} to the NAS. Follow it in Recordings › Downloads.`, "good");
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+
+  useKeys((a) => {
+    if (a === "yellow" && d()) {
+      void chooseVersion(d()!);
+      return true;
+    }
+    if (a === "play" && d()) {
+      playMain();
+      return true;
+    }
+    return false;
+  });
+
+  return (
+    <div class="screen details" data-layer>
+      <Show when={d()} fallback={<div class="spinner" />}>
+        {(t) => (
+          <>
+            <div class="details-bg">
+              <Show when={t().backdrop ?? t().poster}>
+                <img src={t().backdrop ?? t().poster} alt="" />
+              </Show>
+            </div>
+            <TopBar />
+            <div class="page" data-scroll-y="120">
+              <section class="details-main" data-row>
+                <Show when={t().logo} fallback={<h1 class="details-title">{t().name}</h1>}>
+                  <img class="details-logo" src={t().logo} alt={t().name} />
+                </Show>
+                <p class="details-meta">
+                  <For each={[t().year, t().certification, t().runtimeMin ? durationLabel(t().runtimeMin! * 60_000) : null, t().kind === "series" && t().seasons?.some((s) => s.season > 0) ? `${t().seasons!.filter((s) => s.season > 0).length} series` : null, t().genres.slice(0, 3).join(", ")].filter(Boolean)}>
+                    {(m) => <span>{m}</span>}
+                  </For>
+                  <Show when={t().rating}>
+                    <span class="rating">
+                      <Icon name="star" /> {t().rating}
+                    </span>
+                  </Show>
+                </p>
+                <p class="details-badges">
+                  <For each={badges()}>{(b) => <span class="badge">{b}</span>}</For>
+                  <Show when={t().inLibrary}>
+                    <span class="badge badge-library">In your library</span>
+                  </Show>
+                </p>
+                <Show when={t().overview}>
+                  <p class="details-overview">{t().overview}</p>
+                </Show>
+                <Show when={t().cast.length}>
+                  <p class="details-cast">Starring {t().cast.slice(0, 4).join(", ")}</p>
+                </Show>
+                <div class="details-actions" data-focus-group>
+                  <button class="btn btn-primary btn-large" data-focus data-autofocus onClick={() => playMain()}>
+                    <Icon name="play" /> {t().resumeMs ? `Resume (${durationLabel(t().resumeMs!)})` : "Play"}
+                  </button>
+                  <Show when={t().resumeMs}>
+                    <button class="btn btn-large" data-focus onClick={() => playMain(true)}>
+                      <Icon name="restart" /> Start again
+                    </button>
+                  </Show>
+                  <Show when={t().kind === "movie"}>
+                    <button class="btn btn-large" data-focus onClick={() => void chooseVersion(t())}>
+                      <Icon name="list" /> Versions
+                    </button>
+                  </Show>
+                  <Show when={t().kind === "movie" && !isKids() && !t().inLibrary && streams()?.streams.some((s) => s.downloadable)}>
+                    <button class="btn btn-large" data-focus onClick={() => void save()}>
+                      <Icon name="download" /> Save to NAS
+                    </button>
+                  </Show>
+                </div>
+              </section>
+
+              <Show when={t().kind === "series" && t().seasons?.length}>
+                <section class="seasons" data-row>
+                  <div class="season-tabs" data-focus-group data-scroll-x="96">
+                    <For each={t().seasons}>
+                      {(s) => (
+                        <button class="chip" classList={{ active: season() === s.season }} data-focus onFocus={() => setSeason(s.season)} onClick={() => setSeason(s.season)}>
+                          {s.name}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </section>
+                <section class="rail" data-row>
+                  <div class="rail-track episodes" data-scroll-x="96" data-focus-group>
+                    <Show when={episodes()} fallback={<div class="spinner" />}>
+                      <For each={episodes()}>
+                        {(e) => (
+                          <button class="card card-wide card-episode" data-focus onClick={() => playEpisode(e)}>
+                            <div class="card-art">
+                              <Show when={e.still} fallback={<div class="card-fallback">{episodeLabel(e.season, e.episode)}</div>}>
+                                <img src={e.still} alt="" loading="lazy" />
+                              </Show>
+                              <Show when={e.watched}>
+                                <span class="card-badge">
+                                  <Icon name="check" /> Watched
+                                </span>
+                              </Show>
+                              <Show when={e.progress}>
+                                <Progress value={e.progress!} class="card-progress" />
+                              </Show>
+                            </div>
+                            <div class="card-label">
+                              <span class="card-title">
+                                {e.episode}. {e.name}
+                              </span>
+                              <span class="card-sub card-overview">{e.overview ?? ""}</span>
+                            </div>
+                          </button>
+                        )}
+                      </For>
+                    </Show>
+                  </div>
+                </section>
+              </Show>
+            </div>
+          </>
+        )}
+      </Show>
+    </div>
+  );
+}

@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  # The box shell's Electron binary isn't needed to typecheck, test or build.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Check the probe bundle parses as ES2017
+        run: npx esbuild tools/probe/dist/probe.js --target=es2017 --log-level=error > /dev/null
+
+  box-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck tools/box/*.sh tools/pxe/*.sh
+      - name: Installer files are where the installer expects them
+        run: |
+          for f in cec-keymap.toml 51-ultimatetv-hdmi.conf 70-ultimatetv-cec.rules ultimatetv-cec-attach@.service ultimatetv.desktop kwinrulesrc kwinrc kscreenlockerrc; do
+            test -f "tools/box/files/$f" || { echo "missing $f"; exit 1; }
+          done
+      - name: Probe runs on a machine with no display or CEC
+        run: bash tools/box/probe.sh /tmp/probe.md && grep -q "## Missing tools" /tmp/probe.md
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build Hub image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ultimatetv-hub:ci
+      - name: Smoke test the image
+        run: |
+          docker run -d --name hub -p 8080:8080 ultimatetv-hub:ci
+          for i in $(seq 1 20); do curl -fsS localhost:8080/api/health && break; sleep 1; done
+          curl -fsS localhost:8080/api/system
+          curl -fsS localhost:8080/probe/ | grep -q "UltimateTV Probe"
+          curl -fsS localhost:8080/app/ | grep -q "UltimateTV"
+          curl -fsS localhost:8080/setup/ | grep -q "UltimateTV"
+          curl -fsS localhost:8080/remote/ | grep -q "UltimateTV"
+          docker exec hub sh -c 'make-test-clips /tmp/clips 1 && test -f /tmp/clips/clips.json'
+          docker exec hub node --check tools/iptv/check-catchup.mjs
+          docker rm -f hub
+
+  pxe-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the PXE server image (compiles iPXE)
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/pxe
+          push: false
+          load: true
+          tags: ultimatetv-pxe:ci
+      - name: It writes the boot menu and install settings, and serves them
+        run: |
+          ip="$(hostname -I | awk '{print $1}')"
+          docker run -d --name pxe -e PXE_IP="$ip" -e PXE_HTTP_PORT=18097 \
+            -e BOX_MAC=AA:BB:CC:DD:EE:FF -e ADMIN_PASSWORD_HASH='$6$x$y' -e HUB_URL=http://hub:8095 --network host --cap-add NET_ADMIN ultimatetv-pxe:ci
+          # The first start downloads the Arch installer (about 1 GB) before serving.
+          for i in $(seq 1 300); do curl -fsS localhost:18097/box.conf && break; sleep 1; done
+          curl -fsS localhost:18097/auto.sh -o /tmp/auto.sh && grep -q "Unattended Arch Linux install" /tmp/auto.sh
+          test "$(docker inspect -f '{{.State.Running}}' pxe)" = true
+          docker exec pxe grep -q "iseq \${mac} aa:bb:cc:dd:ee:ff" /srv/tftp/boot.ipxe
+          docker exec pxe test -s /srv/tftp/ipxe.efi
+          curl -fsSI localhost:18097/arch/boot/x86_64/vmlinuz-linux
+          curl -fsSI localhost:18097/arch/x86_64/airootfs.sfs
+      - name: PXE server log
+        if: always()
+        run: docker logs pxe || true
+
+  android-remote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Build the phone remote APK
+        working-directory: android
+        run: gradle --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ultimatetv-remote-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

@@ -1,0 +1,19 @@
+{
+  "name": "@ultimatetv/box",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The shell on the mini PC: shows the TV UI full screen over mpv, and talks to the TV over HDMI-CEC",
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "electron dist/main.js"
+  },
+  "dependencies": {
+    "electron": "44.6.0"
+  },
+  "devDependencies": {
+    "@ultimatetv/shared": "0.1.0"
+  },
+  "desktopName": "ultimatetv.desktop"
+}

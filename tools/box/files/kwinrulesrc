@@ -1,0 +1,33 @@
+[General]
+count=2
+rules=ultimatetv-ui,ultimatetv-video
+
+[ultimatetv-ui]
+Description=UltimateTV UI on top
+wmclass=ultimatetv
+wmclassmatch=1
+above=true
+aboverule=2
+fullscreen=true
+fullscreenrule=2
+noborder=true
+noborderrule=2
+skiptaskbar=true
+skiptaskbarrule=2
+fsplevel=4
+fsplevelrule=2
+
+[ultimatetv-video]
+Description=UltimateTV video underneath
+wmclass=ultimatetv-video
+wmclassmatch=1
+below=true
+belowrule=2
+fullscreen=true
+fullscreenrule=2
+noborder=true
+noborderrule=2
+skiptaskbar=true
+skiptaskbarrule=2
+acceptfocus=false
+acceptfocusrule=2
