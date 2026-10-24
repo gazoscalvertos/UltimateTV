@@ -1,0 +1,14 @@
+# Copy to docker-compose.override.yml from Phase 2 onwards, when the Hub starts writing
+# recordings and downloads. Each library must appear inside the Hub at the SAME path
+# Jellyfin uses, so a file the Hub writes is the file Jellyfin scans.
+#
+# Example for Gary's setup:
+#   Jellyfin LXC sees  /storage_non_critical/video          at /mnt/nas
+#                      /mnt/pve/Flexible/docker/video       at /mnt/nas2
+#   Docker LXC sees    /storage_non_critical                at /mnt/nas
+#                      /mnt/pve/Flexible/docker             at /mnt/nas-flexible
+services:
+  hub:
+    volumes:
+      - /mnt/nas/video:/mnt/nas
+      - /mnt/nas-flexible/video:/mnt/nas2

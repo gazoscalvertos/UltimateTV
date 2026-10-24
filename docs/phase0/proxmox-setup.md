@@ -1,89 +1,83 @@
 # Hub setup on Proxmox (Intel N150)
 
-This assumes the current setup: a Proxmox host, Jellyfin in one LXC container, Docker in another, and SMB/SFTP shares for media. Commands marked **host** run in the Proxmox host shell. Commands marked **docker CT** run inside the Docker container.
+This setup has a Proxmox host, Jellyfin in one LXC container (101) and Docker in another (107). Both are privileged containers created by the community helper scripts, and both mount host folders with `lxc.mount.entry` lines. Commands marked **host** run in the Proxmox shell. Commands marked **docker LXC** run inside container 107.
 
-## 1. Share the media folder between Jellyfin and Docker
+Phase 0 only needs two things: the N150's graphics chip inside the Docker LXC, and a folder for test clips. The media libraries are wired up in Phase 2 (see the end of this page).
 
-Jellyfin and the Hub must see the same files at the **same path**, so a recording the Hub writes is the file Jellyfin scans. Pick the host folder that already holds your media (examples use `/tank/media`) and the path Jellyfin already uses inside its container (examples use `/media`).
+## 1. Pass the graphics chip into the Docker LXC
 
-**host:** check what Jellyfin already has, then give the Docker container the same mount. Replace `<docker-ctid>` with the Docker container's ID, and use the next free `mpN` number.
+Jellyfin (101) already has it. The Docker LXC (107) already allows all devices (`lxc.cgroup2.devices.allow: a`) but doesn't mount `/dev/dri`.
 
-```sh
-pct config <jellyfin-ctid> | grep '^mp'
-pct set <docker-ctid> -mp1 /tank/media,mp=/media
-```
-
-Make the folders the Hub will write to:
+**host:** add the same mount line Jellyfin uses to the end of 107's config:
 
 ```sh
-mkdir -p /tank/media/Recordings /tank/media/Inbox /tank/media/test-clips
+echo 'lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir' >> /etc/pve/lxc/107.conf
+pct reboot 107
 ```
 
-**Permissions:** unprivileged containers shift user IDs by 100000. If Jellyfin can't read files the Hub writes, give both containers the same owner ID mapping, or make the media folders group-writable for a shared group. Phase 0 checks this with a test file (step 5).
+Rebooting 107 restarts every Docker app in it for a minute or so.
 
-## 2. Pass the N150's graphics chip into the Docker container
+> While you're in that file: there's a leftover template line `lxc.cgroup2.devices.allow: c <major>:<minor> rwm`. It isn't needed, because the `a` line already allows everything. It's safe to delete.
 
-Jellyfin probably already has this. The Docker container needs the same.
-
-**host:** find the render device and its group ID:
+**docker LXC:** check the device is there and note the group number:
 
 ```sh
 ls -ln /dev/dri
-# crw-rw---- 1 0 104 226, 128 … renderD128   ← 104 is the render group on the host
+# crw-rw---- 1 0 104 226, 128 … renderD128   ← 104 goes in RENDER_GID
 ```
 
-On Proxmox 8.2 or later, add the device in the container's config (UI: *Container → Resources → Add → Device Passthrough*, path `/dev/dri/renderD128`, GID `104` or whatever the container's `render` group is). Or from the shell:
+## 2. Start the Hub
+
+**docker LXC:**
 
 ```sh
-pct set <docker-ctid> -dev0 /dev/dri/renderD128,gid=104
-pct reboot <docker-ctid>
-```
-
-**docker CT:** check the device is there and note its group ID for `RENDER_GID`:
-
-```sh
-ls -ln /dev/dri
-```
-
-## 3. Start the Hub
-
-**docker CT:**
-
-```sh
-git clone https://github.com/gazoscalvertos/UltimateTV.git
+cd /containers            # or wherever you keep compose projects
+git clone -b claude/project-thread-at31u9 https://github.com/gazoscalvertos/UltimateTV.git
 cd UltimateTV
-cp .env.example .env      # set MEDIA_DIR=/media and RENDER_GID from step 2
+cp .env.example .env
+nano .env                 # set RENDER_GID to the number from step 1
 docker compose up -d --build
-docker compose logs -f hub   # wait for "UltimateTV Hub ready"
+docker compose logs -f hub   # wait for "UltimateTV Hub ready", then Ctrl+C
 ```
 
-Give the Docker container a fixed IP (DHCP reservation in your router) so the TV bookmark never breaks.
+Once the PR is merged, use `git pull` on `main` instead of the branch.
 
-## 4. Check Quick Sync from the Hub
+If the repo is private, `git clone` asks for a username and password. Use your GitHub username and a personal access token as the password.
 
-Open `http://<server-ip>:8080/api/system` in a browser. You want:
+## 3. Check Quick Sync from the Hub
+
+Open `http://192.168.0.19:8080/api/system` in a browser on any computer. You want:
 
 ```json
 "renderNode": "/dev/dri/renderD128",
 "checks": { "av1HardwareDecode": true, "hevcHardwareEncode": true, "hevc10HardwareEncode": true }
 ```
 
-The same checks show on the probe's *Send report* tab. If `renderNode` is `null`, step 2 didn't take effect. If the render node is there but the checks are `false`, run `docker compose exec hub vainfo --display drm --device /dev/dri/renderD128` and share the output.
-
-## 5. Check Jellyfin can see what the Hub writes
-
-**docker CT:**
+If `renderNode` is `null`, step 1 didn't take effect. If the render node is there but the checks are `false`, send the output of:
 
 ```sh
-docker compose exec hub sh -c 'echo test > /media/Recordings/hub-write-test.txt'
+docker compose exec hub vainfo --display drm --device /dev/dri/renderD128
 ```
 
-**Jellyfin container:** `cat /media/Recordings/hub-write-test.txt` should print `test`. Then delete the file.
-
-## 6. Make the test clips
+## 4. Make the test clips
 
 ```sh
 docker compose exec hub make-test-clips
 ```
 
-This writes about 13 clips (20 s each) plus `clips.json` to `/media/test-clips`. It takes roughly 10 minutes on the N150 because the 4K HEVC and AV1 clips are encoded in software. See [test-clips.md](test-clips.md) for adding real Dolby Vision samples.
+This writes about 13 clips (20 s each) and `clips.json` to `./test-clips` next to the compose file. It takes roughly 10 minutes on the N150, because the 4K HEVC and AV1 clips are encoded in software. The folder isn't in Jellyfin's library, so the clips won't appear there. To add real Dolby Vision samples, copy them into `./test-clips` (see [test-clips.md](test-clips.md)).
+
+## 5. Run the probe on the TV
+
+See [README.md](README.md), step 3 onwards. The TV address is `http://192.168.0.19:8080/`.
+
+## Later (Phase 2): shared media paths
+
+The Hub will write recordings and downloads where Jellyfin can scan them. Each library must be at the **same path** inside the Hub as inside Jellyfin:
+
+| Host folder | Jellyfin (101) sees it at | Docker LXC (107) sees it at | Hub container must see it at |
+|-------------|---------------------------|-----------------------------|------------------------------|
+| `/storage_non_critical/video` | `/mnt/nas` | `/mnt/nas/video` | `/mnt/nas` |
+| `/mnt/pve/Flexible/docker/video` | `/mnt/nas2` | `/mnt/nas-flexible/video` | `/mnt/nas2` |
+
+`docker-compose.override.example.yml` already has these two mounts. Copy it to `docker-compose.override.yml` when Phase 2 lands. Both LXCs are privileged, so file ownership matches and Jellyfin can read what the Hub writes.

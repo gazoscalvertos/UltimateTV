@@ -40,4 +40,5 @@ jobs:
           curl -fsS localhost:8080/api/system
           curl -fsS localhost:8080/probe/ | grep -q "UltimateTV Probe"
           docker exec hub sh -c 'make-test-clips /tmp/clips 1 && test -f /tmp/clips/clips.json'
+          docker exec hub node --check tools/iptv/check-catchup.mjs
           docker rm -f hub

@@ -27,7 +27,7 @@ RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /
  && apt-get install -y --no-install-recommends ffmpeg vainfo intel-media-va-driver-non-free python3 bash ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-ENV NODE_ENV=production PORT=8080 DATA_DIR=/data CLIPS_DIR=/media/test-clips PROBE_DIR=/app/tools/probe/dist
+ENV NODE_ENV=production PORT=8080 DATA_DIR=/data CLIPS_DIR=/clips PROBE_DIR=/app/tools/probe/dist
 COPY --from=deps /app/node_modules node_modules
 COPY --from=build /app/package.json ./
 COPY --from=build /app/shared/package.json shared/
@@ -36,6 +36,7 @@ COPY --from=build /app/hub/package.json hub/
 COPY --from=build /app/hub/dist hub/dist
 COPY --from=build /app/tools/probe/dist tools/probe/dist
 COPY tools/clips/make-test-clips.sh /usr/local/bin/make-test-clips
+COPY tools/iptv/check-catchup.mjs tools/iptv/check-catchup.mjs
 EXPOSE 8080
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"

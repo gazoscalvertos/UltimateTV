@@ -1,6 +1,6 @@
 # Test clips
 
-The probe plays every video file in `/media/test-clips`. `clips.json` in the same folder gives each file a friendly title and says what it tests, and sets the order.
+The probe plays every video file in the test-clips folder (`./test-clips` next to `docker-compose.yml`, which is `/clips` inside the Hub). `clips.json` in the same folder gives each file a friendly title and says what it tests, and sets the order.
 
 ## Generated clips
 

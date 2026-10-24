@@ -19,7 +19,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     port: Number(env.PORT ?? 8080),
     host: env.HOST ?? "0.0.0.0",
     dataDir: env.DATA_DIR ?? path.resolve(here, "../../data"),
-    clipsDir: env.CLIPS_DIR ?? "/media/test-clips",
+    clipsDir: env.CLIPS_DIR ?? "/clips",
     probeDir: env.PROBE_DIR ?? path.resolve(here, "../../tools/probe/dist"),
   };
 }

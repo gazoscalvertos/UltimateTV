@@ -5,7 +5,7 @@ Goal: find out what this exact TV and server can really do before building the a
 ## Steps
 
 1. **Set up the Hub** on the Proxmox Docker container: [proxmox-setup.md](proxmox-setup.md).
-2. **Make test clips**: `docker compose exec hub make-test-clips` (about 10 minutes on the N150). Add real Dolby Vision and HDR10+ samples by hand: [test-clips.md](test-clips.md).
+2. **Make test clips**: `docker compose exec hub make-test-clips` (about 10 minutes on the N150). They land in `./test-clips` next to the compose file. Add real Dolby Vision and HDR10+ samples by hand: [test-clips.md](test-clips.md).
 3. **Open the probe on the TV.** In the VIDAA browser, go to `http://<server-ip>:8080/` and bookmark it. Then try the vidaa-edge launcher icon method: [vidaa-install.md](vidaa-install.md).
 4. **Run the four probe steps** with the TV remote:
    1. *TV check* runs by itself (formats, DRM, screen, GPU, UI frame rate).

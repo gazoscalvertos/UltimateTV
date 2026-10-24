@@ -5,7 +5,7 @@
 # for those by hand (see docs/phase0/test-clips.md).
 set -euo pipefail
 
-OUT="${1:-${CLIPS_DIR:-/media/test-clips}}"
+OUT="${1:-${CLIPS_DIR:-/clips}}"
 SECS="${2:-20}"
 mkdir -p "$OUT"
 ENCODERS="$(ffmpeg -hide_banner -encoders 2>/dev/null)"

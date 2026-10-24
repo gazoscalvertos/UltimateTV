@@ -9,16 +9,17 @@ services:
       - "${HUB_PORT:-8080}:8080"
     environment:
       TZ: ${TZ:-Europe/London}
-      CLIPS_DIR: /media/test-clips
     volumes:
       - hub-data:/data
-      # The same media folder Jellyfin sees, at the same path inside both containers.
-      - ${MEDIA_DIR:-/media}:/media
+      # Phase 0 test clips. Kept out of the Jellyfin library so they don't show up there.
+      - ${CLIPS_HOST_DIR:-./test-clips}:/clips
+      # From Phase 2, the media libraries are mounted here at the same paths Jellyfin uses
+      # (see docker-compose.override.example.yml).
     devices:
-      # The N150's graphics chip, for Quick Sync. Remove this if /dev/dri isn't passed into the container yet.
+      # The N150's graphics chip, for Quick Sync. Comment this out if /dev/dri isn't in the Docker LXC yet.
       - /dev/dri:/dev/dri
     group_add:
-      # Group that owns /dev/dri/renderD128 inside this container (check with: ls -n /dev/dri).
+      # Group that owns /dev/dri/renderD128 inside the Docker LXC (check with: ls -ln /dev/dri).
       - "${RENDER_GID:-104}"
 
 volumes:
