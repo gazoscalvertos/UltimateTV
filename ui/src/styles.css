@@ -20,7 +20,9 @@
   --radius: 0.75rem;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --gg-channel-w: 15rem;
-  font-size: calc(100vw / 120);
+  /* Sized for 16:9 (120 × 67.5 rem). Wider screens, like a 21:9 monitor, are sized by their
+     height instead, so nothing falls off the bottom. */
+  font-size: min(calc(100vw / 120), calc(100vh / 67.5));
   color-scheme: dark;
 }
 
@@ -974,6 +976,8 @@ kbd.key-blue {
 .gg-rows {
   position: relative;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 .gg-row {
   display: flex;
