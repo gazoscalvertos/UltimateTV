@@ -51,6 +51,8 @@ describe("Jellyfin", () => {
 describe("Stremio addons", () => {
   it("normalises addon URLs and turns AIOStreams results into candidates", () => {
     expect(addonBase("https://aio.example/stremio/abc/manifest.json")).toBe("https://aio.example/stremio/abc");
+    expect(addonBase("https://aio.example/stremio/abc/eyJp/configure")).toBe("https://aio.example/stremio/abc/eyJp");
+    expect(addonBase("stremio://aio.example/stremio/abc/manifest.json")).toBe("https://aio.example/stremio/abc");
     const cached = streamToCandidate({ name: "[TB⚡] AIOStreams 4K", description: "Movie 2160p WEB-DL DV HDR10 DDP5.1 Atmos\n💾 18.2 GB", url: "https://aio.example/play/1" }, "AIOStreams", 0)!;
     expect(cached).toMatchObject({ kind: "torbox", ready: true, label: "TorBox", quality: { height: 2160, hdr: "dv", dvProfile: 8, audio: "atmos" } });
     const uncached = streamToCandidate({ name: "[TB⏳] AIOStreams 1080p", title: "Movie 1080p", url: "https://aio.example/play/2" }, "AIOStreams", 1)!;
