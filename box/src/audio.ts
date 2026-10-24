@@ -35,6 +35,14 @@ export function hdmiProfile(card: PactlCard): string | null {
 export class Audio {
   constructor(private readonly log: (line: string) => void) {}
 
+  /**
+   * Full volume on the box's output: the TV's remote sets the volume. (The HDMI output took over
+   * the analog output's 40%, which left everything quiet.)
+   */
+  async fullVolume(): Promise<void> {
+    await run("wpctl", ["set-volume", "@DEFAULT_AUDIO_SINK@", "1.0"], { timeout: 5000 }).catch((e: Error) => this.log(`Couldn't set the volume: ${e.message}`));
+  }
+
   /** Moves the sound to the connected HDMI output if it isn't there. Safe to call before every play. */
   async useHdmi(): Promise<void> {
     const cards = await run("pactl", ["-f", "json", "list", "cards"], { timeout: 5000 })
@@ -45,6 +53,7 @@ export class Audio {
       if (!profile) continue;
       this.log(`Sound: switching ${card.name} from ${card.active_profile ?? "?"} to ${profile}`);
       await run("pactl", ["set-card-profile", card.name, profile], { timeout: 5000 }).catch((e: Error) => this.log(`Couldn't switch the sound to HDMI: ${e.message}`));
+      await this.fullVolume();
     }
   }
 }

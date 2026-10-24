@@ -22,7 +22,7 @@
   .conn.bad .dot { background: #ff5468; }
   main { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 14px; max-width: 420px; width: 100%; margin: 0 auto; }
   button { font: inherit; color: inherit; border: 0; background: var(--panel); border-radius: 16px; touch-action: manipulation; transition: transform .08s, background .08s; }
-  button:active, button.down { transform: scale(.93); background: var(--panel-2); }
+  button:active, button.pressed { transform: scale(.93); background: var(--panel-2); }
   .row { display: grid; gap: 12px; }
   .r3 { grid-template-columns: repeat(3, 1fr); }
   .r4 { grid-template-columns: repeat(4, 1fr); }
@@ -30,13 +30,13 @@
   .r3 button svg, .r4 button svg { width: 24px; height: 24px; color: var(--fg); }
   .pad { position: relative; width: min(78vw, 300px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #1c2944, #0f1729); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 18px 40px rgba(0,0,0,.45); touch-action: none; }
   .pad button { position: absolute; background: transparent; border-radius: 0; color: var(--fg); display: grid; place-items: center; }
-  .pad button:active, .pad button.down { background: rgba(255,255,255,.07); transform: none; }
+  .pad button:active, .pad button.pressed { background: rgba(255,255,255,.07); transform: none; }
   .pad .up { top: 0; left: 30%; width: 40%; height: 30%; border-radius: 50% 50% 0 0 / 70% 70% 0 0; }
   .pad .down { bottom: 0; left: 30%; width: 40%; height: 30%; border-radius: 0 0 50% 50% / 0 0 70% 70%; }
   .pad .left { left: 0; top: 30%; width: 30%; height: 40%; border-radius: 50% 0 0 50% / 50% 0 0 50%; }
   .pad .right { right: 0; top: 30%; width: 30%; height: 40%; border-radius: 0 50% 50% 0 / 0 50% 50% 0; }
   .pad .ok { left: 31%; top: 31%; width: 38%; height: 38%; border-radius: 50%; background: linear-gradient(145deg, #2a3a5e, #1a2640); box-shadow: 0 6px 16px rgba(0,0,0,.4); font-weight: 800; font-size: 18px; letter-spacing: .05em; }
-  .pad .ok:active, .pad .ok.down { background: var(--accent); }
+  .pad .ok:active, .pad .ok.pressed { background: var(--accent); }
   .pad svg { width: 30px; height: 30px; }
   .colours button { height: 40px; }
   .c-red { background: #c62d37 !important; } .c-green { background: #23944a !important; } .c-yellow { background: #d9a91f !important; } .c-blue { background: #275fc0 !important; }
@@ -139,16 +139,17 @@ const press = (action) => {
   void send("/api/remote/key", { action });
 };
 
-// Buttons: press on touch down (feels instant); arrows repeat while held.
+// Buttons: press on touch down (feels instant); arrows repeat while held. The pressed look is its
+// own class: the Down arrow's class is "down", and sharing it moved buttons around the pad.
 for (const b of document.querySelectorAll("[data-key]")) {
   let timer, repeat;
   const start = (e) => {
     e.preventDefault();
-    b.classList.add("down");
+    b.classList.add("pressed");
     press(b.dataset.key);
     if (b.hasAttribute("data-repeat")) timer = setTimeout(() => (repeat = setInterval(() => press(b.dataset.key), 140)), 420);
   };
-  const end = () => { b.classList.remove("down"); clearTimeout(timer); clearInterval(repeat); };
+  const end = () => { b.classList.remove("pressed"); clearTimeout(timer); clearInterval(repeat); };
   b.addEventListener("pointerdown", start);
   for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, end);
 }
