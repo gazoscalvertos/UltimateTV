@@ -105,6 +105,22 @@ export function pickMode(modes: Mode[], current: Mode, fps: number): Mode | null
   return fits[0]!.m;
 }
 
+/**
+ * A refresh rate to add as a custom mode when the screen has none that fits a frame rate: the
+ * lowest whole multiple of it within the range of the modes the screen already has at this size,
+ * so the screen is known to take its timing and the signal stays within what it and the cable
+ * carry. 24p on a 50/60/100 Hz monitor gets 71.928 Hz, three refreshes a frame; a 60 Hz-only TV
+ * gets nothing. Null when no multiple fits.
+ */
+export function customRate(modes: Mode[], current: Mode, fps: number): number | null {
+  const rates = modes.filter((m) => m.width === current.width && m.height === current.height).map((m) => m.refreshRate);
+  if (!rates.length) return null;
+  const min = Math.min(...rates) - 0.01;
+  const max = Math.max(...rates) + 0.01;
+  for (let k = 1; fps * k <= max; k++) if (fps * k >= min) return Math.round(fps * k * 1000) / 1000;
+  return null;
+}
+
 function score(hz: number, film: boolean): number {
   // Film: the frame rate itself (24p). TV-rate video: 50 or 59.94/60 is what TVs handle best,
   // then the lowest multiple above that.
@@ -117,7 +133,18 @@ export class Display {
   private restoreHdr: { output: string; on: boolean } | null = null;
   private restoreVrr: { output: string; policy: VrrPolicy } | null = null;
 
-  constructor(private readonly log: (line: string) => void) {}
+  /** Custom modes added since the box started, and those the screen wouldn't take (not tried again). */
+  private readonly custom = new Set<string>();
+  private readonly rejected = new Set<string>();
+
+  /**
+   * @param customModes add a custom mode when nothing fits a video and there's no variable refresh
+   * (CUSTOM_MODES=0 in box.env turns it off). It stays in KWin's settings, so it's added only once.
+   */
+  constructor(
+    private readonly log: (line: string) => void,
+    private readonly customModes = true,
+  ) {}
 
   async outputs(): Promise<Output[]> {
     const { stdout } = await run("kscreen-doctor", ["-j"], { timeout: 5000 });
@@ -156,7 +183,21 @@ export class Display {
     const args: string[] = [];
     let sync: "mode" | "vrr" | null = null;
     if (fps) {
-      const mode = pickMode(tv.output.modes, tv.mode, fps);
+      let mode = pickMode(tv.output.modes.filter((m) => !this.rejected.has(m.id)), tv.mode, fps);
+      if (!mode && !tv.output.vrrCapable && this.customModes) mode = await this.addCustomMode(tv.output, tv.mode, fps);
+      if (mode && mode.id !== tv.mode.id && this.custom.has(mode.id)) {
+        // A new custom mode is only known to work once the screen has taken it.
+        this.restoreMode ??= { output: tv.output.name, modeId: tv.mode.id };
+        await this.apply([`output.${tv.output.name}.mode.${mode.id}`]);
+        const now = await this.tv();
+        if (now?.mode.id !== mode.id) {
+          this.log(`The screen didn't take the ${mode.refreshRate} Hz mode: staying at ${tv.mode.refreshRate} Hz`);
+          this.rejected.add(mode.id);
+          mode = null;
+        } else {
+          tv.mode = now.mode;
+        }
+      }
       if (mode) {
         sync = "mode";
         if (mode.id !== tv.mode.id) {
@@ -183,6 +224,27 @@ export class Display {
     }
     if (args.length) await this.apply(args);
     return sync;
+  }
+
+  /**
+   * Adds a reduced-blanking custom mode at a whole multiple of the frame rate (see customRate) and
+   * returns it, or null. Full blanking needs a faster signal, which this screen's driver refused.
+   */
+  private async addCustomMode(output: Output, current: Mode, fps: number): Promise<Mode | null> {
+    const hz = customRate(output.modes, current, fps);
+    if (!hz) return null;
+    const before = new Set(output.modes.map((m) => m.id));
+    this.log(`No mode fits ${fps} fps and there's no variable refresh: adding a ${hz} Hz mode`);
+    await this.apply([`output.${output.name}.addCustomMode.${current.width}.${current.height}.${Math.round(hz * 1000)}.reduced`]);
+    const after = (await this.outputs().catch(() => [])).find((o) => o.name === output.name);
+    const added = after?.modes.find((m) => !before.has(m.id) && m.width === current.width && m.height === current.height && Math.abs(m.refreshRate - hz) / hz < 0.002);
+    if (!added) {
+      this.log("The custom mode didn't appear");
+      return null;
+    }
+    this.custom.add(added.id);
+    output.modes = after!.modes;
+    return pickMode([added], current, fps);
   }
 
   async restore(): Promise<void> {

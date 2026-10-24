@@ -7,6 +7,7 @@
 //   AUDIO_DEVICE  mpv's --audio-device, when the default isn't the TV's HDMI output
 //   MPV_ARGS      extra mpv arguments, space separated
 //   SUSPEND_WHEN_TV_OFF  1 to suspend the box a minute after the TV goes to standby
+//   CUSTOM_MODES  0 to never add a custom refresh rate for films the screen has no mode for
 
 import { execFile } from "node:child_process";
 import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "electron";
@@ -49,7 +50,7 @@ const offlinePage = (reason: string) =>
 
 async function main(): Promise<void> {
   await app.whenReady();
-  const display = new Display(log);
+  const display = new Display(log, process.env.CUSTOM_MODES !== "0");
   const mpv = new Mpv({ socket: path.join(RUNTIME, "ultimatetv-mpv.sock"), log, ...(process.env.AUDIO_DEVICE ? { audioDevice: process.env.AUDIO_DEVICE } : {}), extraArgs: (process.env.MPV_ARGS ?? "").split(/\s+/).filter(Boolean) });
   const cec = new Cec(CEC_DEVICE, log);
   const screenSize = () => {
