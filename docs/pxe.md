@@ -55,6 +55,7 @@ You can watch it on the TV. When it says it's restarting into the new system, le
 
 ## If something goes wrong
 
+- **The log says "failed to bind DHCP server socket: Address already in use".** Something else on the LXC holds UDP port 67. On Gary's LXC it's AdGuard Home's compose file publishing `67:67/udp`. If AdGuard's own DHCP is off (Settings › DHCP settings), delete that port line, then run `docker compose up -d` for AdGuard and the PXE server. Don't stop AdGuard itself: the house, and the box's install, use it for DNS.
 - **The box doesn't find the PXE server.** Check `docker logs ultimatetv-pxe` for DHCP lines when the box boots. If there are none, the LXC isn't hearing the broadcast. Check that the container uses host networking, and that the LXC is on the same bridge as the box (`vmbr0`).
 - **It shows "isn't set up as an UltimateTV box".** The MAC it shows isn't in `BOX_MAC`. Add it, then run `docker compose up -d`.
 - **The install stops with an error.** The screen shows what failed, and `/root/install.log` has the details. Press Enter for a shell. The installer starts afresh each time, so after fixing the cause, netboot and choose Reinstall again.
