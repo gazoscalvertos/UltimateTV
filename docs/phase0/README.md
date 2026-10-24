@@ -1,5 +1,7 @@
 # Phase 0: spike & probe
 
+> **Update 2026-10-24:** the VIDAA probe ruled out the TV's browser as the app (see [capability-matrix.md](capability-matrix.md) and [ADR 0002](../adr/0002-linux-mini-pc-client.md)). The app now runs on a Linux mini PC. **Next: [box-probe.md](box-probe.md) (Phase 0b).** The server steps below (Hub, clips, catch-up) still apply. The TV-browser steps are kept as a record.
+
 Goal: find out what this exact TV and server can really do before building the app. Exit criteria: a written capability matrix, a confirmed install method, and a list of IPTV channels with catch-up.
 
 ## Steps

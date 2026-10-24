@@ -21,6 +21,14 @@ jobs:
       - name: Check the probe bundle parses as ES2017
         run: npx esbuild tools/probe/dist/probe.js --target=es2017 --log-level=error > /dev/null
 
+  box-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck tools/box/*.sh
+      - name: Probe runs on a machine with no display or CEC
+        run: bash tools/box/probe.sh /tmp/probe.md && grep -q "## Missing tools" /tmp/probe.md
+
   docker:
     runs-on: ubuntu-latest
     steps:

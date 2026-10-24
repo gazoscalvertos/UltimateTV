@@ -1,6 +1,6 @@
 # ADR 0001: Run on the VIDAA TV only, backed by a home Hub
 
-- Status: accepted (2026-10-24)
+- Status: **superseded** by [ADR 0002](0002-linux-mini-pc-client.md) (2026-10-24)
 - Decider: Gary
 
 ## Context
