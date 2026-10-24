@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { hdmiProfile } from "../src/audio.js";
 import { CecParser, powerFrom, type CecMessage } from "../src/cec.js";
 import { parseOutputText, parseOutputs, pickMode, type Mode } from "../src/display.js";
 import { mpvArgs } from "../src/mpv.js";
@@ -202,5 +203,32 @@ describe("kscreen-doctor's text listing", () => {
     const out = parseOutputText(text);
     expect(out.get("HDMI-A-1")).toEqual({ vrrCapable: false, hdrCapable: false });
     expect(out.get("DP-1")).toEqual({ vrrCapable: true, vrrPolicy: "automatic", hdrCapable: true, hdr: false });
+  });
+});
+
+describe("sound to the TV", () => {
+  const card = (active: string, hdmi0 = "available") => ({
+    name: "alsa_card.pci-0000_00_1f.3",
+    active_profile: active,
+    profiles: { "output:analog-stereo": { available: true }, "output:hdmi-stereo": { available: true }, "output:hdmi-surround71": { available: true }, "output:hdmi-stereo-extra1": { available: false }, off: { available: true } },
+    ports: {
+      "analog-output-headphones": { availability: "not available", profiles: ["output:analog-stereo"] },
+      "hdmi-output-0": { availability: hdmi0, profiles: ["output:hdmi-stereo", "output:hdmi-surround71", "output:hdmi-stereo+input:analog-stereo"] },
+      "hdmi-output-1": { availability: "not available", profiles: ["output:hdmi-stereo-extra1"] },
+    },
+  });
+
+  it("moves an analog card to the connected HDMI output, in stereo", () => {
+    expect(hdmiProfile(card("output:analog-stereo"))).toBe("output:hdmi-stereo");
+    expect(hdmiProfile(card("off"))).toBe("output:hdmi-stereo");
+  });
+
+  it("leaves a card alone when it already plays to the TV, or no TV is connected", () => {
+    expect(hdmiProfile(card("output:hdmi-surround71"))).toBeNull();
+    expect(hdmiProfile(card("output:analog-stereo", "not available"))).toBeNull();
+  });
+
+  it("moves off an HDMI output the TV isn't on", () => {
+    expect(hdmiProfile(card("output:hdmi-stereo-extra1"))).toBe("output:hdmi-stereo");
   });
 });

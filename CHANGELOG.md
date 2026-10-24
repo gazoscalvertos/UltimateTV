@@ -13,6 +13,14 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Sound reaches the TV: the box moves the sound card to the connected HDMI output's stereo
+  profile at start and before each play (WirePlumber had picked the analog headphone output).
+  Dolby and DTS still pass through. `HDMI_AUDIO=0` in box.env turns it off.
+- The TV's output runs at scale ×1 (KDE picked ×2.7 on the 4K Hisense, which made the
+  compositor resample every frame).
+- Live TV and other streams without a frame rate from the Hub switch the screen's refresh rate
+  once mpv reads it from the stream.
+
 - TV Guide: the list follows the selected channel on every screen size. On a 21:9 monitor the
   bottom rows used to sit off screen; the UI is now sized by the screen's height when it's wider
   than 16:9, and the guide shows as many rows as fit.
