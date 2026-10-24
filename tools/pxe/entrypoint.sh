@@ -77,8 +77,10 @@ goto ${target}
 exit
 
 :install
+# BOOTIF tells the installer which network port netbooted (the K7 Plus has two), and
+# net.ifnames=0 stops udev renaming the ports while the installer is bringing them up.
 echo Starting the Arch Linux installer from ${server}
-kernel ${server}/arch/boot/x86_64/vmlinuz-linux initrd=initramfs-linux.img archisobasedir=arch archiso_http_srv=${server}/ ip=dhcp script=${server}/auto.sh || goto failed
+kernel ${server}/arch/boot/x86_64/vmlinuz-linux initrd=initramfs-linux.img archisobasedir=arch archiso_http_srv=${server}/ ip=dhcp BOOTIF=01-${netX/mac:hexhyp} net.ifnames=0 script=${server}/auto.sh || goto failed
 initrd ${server}/arch/boot/x86_64/initramfs-linux.img || goto failed
 boot || goto failed
 
