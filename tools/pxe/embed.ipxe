@@ -3,8 +3,12 @@
 # The server's address comes from its proxy DHCP reply, or (when another DHCP server such as
 # AdGuard Home points the box here instead) from that server's next-server or option 66. When the menu
 # finishes (start from the disk), this exits too and the firmware moves on to the disk.
+# The firmware's own netboot already got an address from the PXE server, and iPXE keeps it, so
+# only ask again when there's none (asking again can pick up the router's reply instead, which
+# points at the router rather than here).
 :retry
-dhcp || goto retry
+ifopen ||
+isset ${ip} || dhcp || goto retry
 isset ${proxydhcp/dhcp-server} && chain tftp://${proxydhcp/dhcp-server}/boot.ipxe && exit ||
 isset ${next-server} && chain tftp://${next-server}/boot.ipxe && exit ||
 isset ${66:string} && chain tftp://${66:string}/boot.ipxe && exit ||
