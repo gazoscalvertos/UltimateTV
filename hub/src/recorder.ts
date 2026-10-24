@@ -12,7 +12,7 @@ import { catchupUrl, type CatchupContext } from "./catchup.js";
 import type { ChannelStore } from "./channels.js";
 import { ConnectionBusyError, type ConnectionGuard } from "./connections.js";
 import type { EventBus } from "./events.js";
-import { fetchOk, redactUrl, type Fetch } from "./http.js";
+import { fetchOk, IPTV_USER_AGENT, redactUrl, type Fetch } from "./http.js";
 import type { Logger } from "./log.js";
 import { nfoFor, recordingPath, type RecordingStore } from "./recordings.js";
 import type { LiveRelay } from "./relay.js";
@@ -150,7 +150,7 @@ export class Recorder {
     let r = this.update(rec, { status: "recording", error: undefined });
     this.active.set(rec.id, { stop: () => abort.abort() });
     try {
-      const res = await fetchOk(url, this.d.fetchImpl ?? fetch, { signal: abort.signal, headers: { "User-Agent": "UltimateTV/1.0" } }, 6 * 3_600_000);
+      const res = await fetchOk(url, this.d.fetchImpl ?? fetch, { signal: abort.signal, headers: { "User-Agent": IPTV_USER_AGENT } }, 6 * 3_600_000);
       if (!res.body) throw new Error("empty response");
       await pipeline(Readable.fromWeb(res.body as import("node:stream/web").ReadableStream<Uint8Array>), createWriteStream(tmp));
     } catch (err) {

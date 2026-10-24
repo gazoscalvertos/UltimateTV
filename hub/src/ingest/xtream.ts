@@ -1,7 +1,7 @@
 // Xtream Codes API client (player_api.php). Credentials never leave the Hub.
 
 import type { XtreamSource } from "@ultimatetv/shared";
-import { fetchJson, type Fetch } from "../http.js";
+import { fetchJson, withUserAgent, type Fetch } from "../http.js";
 
 export interface XtreamCategory {
   category_id: string;
@@ -68,8 +68,12 @@ const LIST_TIMEOUT_MS = 120_000;
 export class XtreamClient {
   constructor(
     readonly source: XtreamSource,
-    private fetchImpl: Fetch = fetch,
-  ) {}
+    fetchImpl: Fetch = fetch,
+  ) {
+    this.fetchImpl = withUserAgent(fetchImpl);
+  }
+
+  private fetchImpl: Fetch;
 
   private get base(): string {
     return this.source.url.replace(/\/+$/, "");

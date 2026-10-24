@@ -5,7 +5,7 @@ import { normaliseTitle } from "@ultimatetv/shared";
 import { buildChannels, ChannelStore, type RawFeed } from "../channels.js";
 import type { Db } from "../db.js";
 import { EpgMatcher, GuideStore, toProgramme } from "../epg.js";
-import { fetchOk, fetchStream, redactUrl, type Fetch } from "../http.js";
+import { fetchOk, fetchStream, redactUrl, withUserAgent, type Fetch } from "../http.js";
 import type { Logger } from "../log.js";
 import { dedupeSources, type SettingsStore } from "../settings.js";
 import { parseM3u } from "./m3u.js";
@@ -74,8 +74,12 @@ export class Ingestor {
     private channels: ChannelStore,
     private guide: GuideStore,
     private log: Logger,
-    private fetchImpl: Fetch = fetch,
-  ) {}
+    fetchImpl: Fetch = fetch,
+  ) {
+    this.fetchImpl = withUserAgent(fetchImpl);
+  }
+
+  private fetchImpl: Fetch;
 
   sourceMeta(sourceId: string): SourceMeta | undefined {
     return this.db.getKv<SourceMeta>(`source:${sourceId}`);
@@ -116,8 +120,9 @@ export class Ingestor {
     for (const source of dedupeSources(s.iptv)) {
       try {
         const result = source.kind === "xtream" ? await this.loadXtream(source) : await this.loadM3u(source);
-        raw.push(...result.feeds);
-        vod.push(...result.vod);
+        // Not push(...list): a big VOD catalogue has more entries than a call can take as arguments.
+        for (const f of result.feeds) raw.push(f);
+        for (const v of result.vod) vod.push(v);
         loaded.set(source.id, result.feeds.length);
         this.log.info({ source: source.name, kind: source.kind, streams: result.feeds.length, vod: result.vod.length }, "IPTV source loaded");
         if (result.feeds.length === 0) this.setStatus(source.id, { at: Date.now(), ok: false, streams: 0, error: "The provider sent no live channels" });

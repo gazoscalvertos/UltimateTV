@@ -102,8 +102,11 @@ export interface BuildOptions {
 export function buildChannels(raw: RawFeed[], options: BuildOptions): { channels: Channel[]; feeds: StoredFeed[] } {
   const groups = new Map<string, Group>();
   raw.forEach((f, index) => {
-    const key = normaliseChannelName(f.name);
-    if (!key) return;
+    // Grouped by the id-safe slug: names that differ only in punctuation ("E4+1" / "E4 1") would
+    // otherwise become two channels with the same id.
+    const name = normaliseChannelName(f.name);
+    if (!name) return;
+    const key = slug(name);
     const height = heightFromName(f.name);
     const visible = !options.filter || options.filter.test(f.group ?? "") || options.filter.test(f.name);
     let g = groups.get(key);
@@ -125,13 +128,13 @@ export function buildChannels(raw: RawFeed[], options: BuildOptions): { channels
   const ordered = [...groups.values()].sort((a, b) => a.providerNumber - b.providerNumber);
   const pending: Group[] = [];
   for (const g of ordered) {
-    const id = slug(g.key);
+    const id = g.key;
     if (!options.existing.has(id)) pending.push(g);
   }
   const assigned = assignNumbers(pending, options.numbering, used);
 
   for (const g of ordered) {
-    const id = slug(g.key);
+    const id = g.key;
     const prev = options.existing.get(id);
     const number = prev?.number ?? assigned.get(g) ?? 9999;
     // Best feed first: highest resolution, then provider order. UHD feeds go after FHD because many UHD
@@ -152,7 +155,7 @@ export function buildChannels(raw: RawFeed[], options: BuildOptions): { channels
       if (f.catchupSource) stored.catchupSource = f.catchupSource;
       return stored;
     });
-    feeds.push(...channelFeeds);
+    for (const f of channelFeeds) feeds.push(f);
     const channel: Channel = {
       id,
       number,
@@ -199,7 +202,7 @@ function assignNumbers(groups: Group[], numbering: "uk" | "provider", used: Set<
     byCategory.set(g.category, list);
   }
   for (const [cat, list] of byCategory) {
-    const leaders = UK_LEADERS[cat] ?? [];
+    const leaders = (UK_LEADERS[cat] ?? []).map(slug);
     const rank = (g: Group) => {
       const i = leaders.indexOf(g.key);
       return i === -1 ? leaders.length : i;

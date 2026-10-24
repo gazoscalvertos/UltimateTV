@@ -4,7 +4,7 @@
 import { PassThrough, Readable } from "node:stream";
 import type { ChannelStore, StoredFeed } from "./channels.js";
 import { ConnectionGuard, type LeaseKind } from "./connections.js";
-import { redactUrl, type Fetch } from "./http.js";
+import { IPTV_USER_AGENT, redactUrl, type Fetch } from "./http.js";
 import type { Logger } from "./log.js";
 
 export interface RelayConsumer {
@@ -123,7 +123,7 @@ export class LiveRelay {
       const abort = new AbortController();
       session.abort = abort;
       try {
-        const res = await this.fetchImpl(feed.url, { signal: abort.signal, headers: { "User-Agent": "UltimateTV/1.0" } });
+        const res = await this.fetchImpl(feed.url, { signal: abort.signal, headers: { "User-Agent": IPTV_USER_AGENT } });
         if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
         const body = Readable.fromWeb(res.body as import("node:stream/web").ReadableStream<Uint8Array>);
         for await (const chunk of body) {

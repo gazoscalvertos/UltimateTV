@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { IptvSource } from "@ultimatetv/shared";
-import { ChannelStore } from "../src/channels.js";
+import { buildChannels, ChannelStore, type RawFeed } from "../src/channels.js";
 import { Db } from "../src/db.js";
 import { GuideStore } from "../src/epg.js";
 import { describeError, Ingestor } from "../src/ingest/index.js";
@@ -71,5 +71,38 @@ describe("loading IPTV sources", () => {
   it("explains network errors instead of a bare 'fetch failed'", () => {
     const err = new TypeError("fetch failed", { cause: Object.assign(new Error("getaddrinfo ENOTFOUND iptv.example"), { code: "ENOTFOUND" }) });
     expect(describeError(err)).toBe("fetch failed (ENOTFOUND)");
+  });
+});
+
+describe("big and awkward provider lists", () => {
+  it("merges names that only differ in punctuation into one channel", () => {
+    const raw: RawFeed[] = [
+      { sourceId: "a", upstreamId: "1", name: "E4+1", url: "http://s/1", catchupDays: 0 },
+      { sourceId: "a", upstreamId: "2", name: "E4 1", url: "http://s/2", catchupDays: 0 },
+    ];
+    const built = buildChannels(raw, { numbering: "uk", filter: null, existing: new Map() });
+    expect(new Set(built.channels.map((c) => c.id)).size).toBe(built.channels.length);
+  });
+
+  it("loads a source with a catalogue bigger than a function call's argument limit", async () => {
+    const movies = Array.from({ length: 200_000 }, (_, i) => `#EXTINF:-1,Film ${i}\nhttp://p/movie/u/p/${i}.mkv`).join("\n");
+    const fetchImpl = (async () => new Response(`#EXTM3U\n#EXTINF:-1,BBC One\nhttp://p/live/u/p/1.ts\n${movies}`)) as typeof fetch;
+    const db = new Db(":memory:");
+    const settings = new SettingsStore(db, { ...defaultSettings(), iptv: [m3u("a", "http://p/big.m3u")], channelFilter: "" });
+    const channels = new ChannelStore(db);
+    const ingest = new Ingestor(db, settings, channels, new GuideStore(db), silentLogger, fetchImpl);
+    expect(await ingest.refreshSources()).toEqual({ channels: 1, vod: 200_000 });
+  });
+
+  it("asks providers as a common player, not as node", async () => {
+    let agent: string | null = null;
+    const fetchImpl = (async (_url: string, init?: RequestInit) => {
+      agent = new Headers(init?.headers).get("user-agent");
+      return new Response("#EXTM3U\n#EXTINF:-1,BBC One\nhttp://p/1.ts");
+    }) as unknown as typeof fetch;
+    const db = new Db(":memory:");
+    const settings = new SettingsStore(db, { ...defaultSettings(), iptv: [m3u("a", "http://p/a.m3u")] });
+    await new Ingestor(db, settings, new ChannelStore(db), new GuideStore(db), silentLogger, fetchImpl).refreshSources();
+    expect(agent).toMatch(/^VLC\//);
   });
 });
