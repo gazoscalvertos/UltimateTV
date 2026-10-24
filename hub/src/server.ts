@@ -20,7 +20,7 @@ import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
 import { ContentFilter } from "./profiles.js";
 import { ReportStore } from "./reports.js";
 import { JellyfinClient } from "./services/jellyfin.js";
-import { publicSettings } from "./settings.js";
+import { publicSettings, sourceKey } from "./settings.js";
 import { sendFile } from "./streaming.js";
 import { systemReport, type SystemReport } from "./system.js";
 
@@ -170,7 +170,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // -------------------------------------------------------------------------
   // Settings and setup
 
-  app.get("/api/settings", async (req) => publicSettings(ctx.settings.get(), setupUrl(req)));
+  app.get("/api/settings", async (req) => publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id)));
 
   app.put("/api/settings", async (req: Req<Record<string, string>, Record<string, string>, Partial<Settings>>) => {
     const body = req.body ?? {};
@@ -196,7 +196,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ctx.events.emit({ type: "settings.changed" });
     const refresh = body.xmltvUrls !== undefined || body.channelFilter !== undefined || body.numbering !== undefined;
     if (refresh) void ctx.ingest.refreshAll().then(() => ctx.events.emit({ type: "guide.updated" }));
-    return publicSettings(ctx.settings.get(), setupUrl(req));
+    return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
   });
 
   app.post("/api/settings/iptv", async (req: Req<Record<string, string>, Record<string, string>, Partial<IptvSource>>, reply) => {
@@ -212,17 +212,24 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       if (!b.url) return reply.code(400).send({ error: "Playlist URL is needed" });
       source = { id, kind: "m3u", name: b.name || "Playlist", url: b.url.trim(), connections };
     }
+    const existing = ctx.settings.get().iptv.find((s) => sourceKey(s) === sourceKey(source));
+    if (existing) return reply.code(409).send({ error: `That source is already added as "${existing.name}"` });
     ctx.settings.update({ iptv: [...ctx.settings.get().iptv, source] });
     void ctx.ingest.refreshAll().then(() => {
       ctx.scheduler.replan();
       ctx.events.emit({ type: "guide.updated" });
     });
-    return reply.code(201).send(publicSettings(ctx.settings.get(), setupUrl(req)));
+    return reply.code(201).send(publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id)));
   });
 
   app.delete("/api/settings/iptv/:id", async (req: Req<{ id: string }>) => {
     ctx.settings.update({ iptv: ctx.settings.get().iptv.filter((s) => s.id !== req.params.id) });
-    return publicSettings(ctx.settings.get(), setupUrl(req));
+    // Drop the removed source's channels (a no-op for a duplicate, whose twin still supplies them).
+    void ctx.ingest.refreshAll().then(() => {
+      ctx.scheduler.replan();
+      ctx.events.emit({ type: "guide.updated" });
+    });
+    return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
   });
 
   app.post("/api/refresh", async () => {

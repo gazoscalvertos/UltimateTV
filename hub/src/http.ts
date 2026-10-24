@@ -15,6 +15,21 @@ export class HttpError extends Error {
   }
 }
 
+/**
+ * IPTV panels often refuse clients they don't recognise (Node's fetch says "node"), so every request
+ * to a provider presents itself as a common player.
+ */
+export const IPTV_USER_AGENT = "VLC/3.0.21 LibVLC/3.0.21";
+
+/** Wraps a fetch so requests carry IPTV_USER_AGENT unless they set their own. */
+export function withUserAgent(fetchImpl: Fetch, userAgent = IPTV_USER_AGENT): Fetch {
+  return ((input: string | URL | Request, init: RequestInit = {}) => {
+    const headers = new Headers(init.headers);
+    if (!headers.has("User-Agent")) headers.set("User-Agent", userAgent);
+    return fetchImpl(input, { ...init, headers });
+  }) as Fetch;
+}
+
 /** Removes credentials from URLs before they reach logs or error messages. */
 export function redactUrl(url: string): string {
   return url

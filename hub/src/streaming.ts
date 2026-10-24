@@ -8,7 +8,7 @@ import { Readable } from "node:stream";
 import { randomBytes } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { ConnectionBusyError, type ConnectionGuard } from "./connections.js";
-import type { Fetch } from "./http.js";
+import { IPTV_USER_AGENT, type Fetch } from "./http.js";
 
 const TYPES: Record<string, string> = {
   ".mkv": "video/x-matroska",
@@ -77,7 +77,7 @@ export class StreamProxy {
         throw err;
       }
     }
-    const headers: Record<string, string> = { "User-Agent": "UltimateTV/1.0", ...target.headers };
+    const headers: Record<string, string> = { "User-Agent": IPTV_USER_AGENT, ...target.headers };
     if (request.headers.range) headers.Range = request.headers.range;
     const abort = new AbortController();
     request.raw.on("close", () => abort.abort());

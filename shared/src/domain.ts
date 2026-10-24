@@ -378,6 +378,17 @@ export interface M3uSource {
 
 export type IptvSource = XtreamSource | M3uSource;
 
+/** How a source's last load went, shown next to it on the phone page. */
+export interface IptvSourceStatus {
+  at: number;
+  ok: boolean;
+  /** Live streams the provider listed, before the channel filter. */
+  streams?: number;
+  /** Of those, the channels the filter lets through. */
+  visible?: number;
+  error?: string;
+}
+
 export interface Settings {
   iptv: IptvSource[];
   xmltvUrls: string[];
@@ -413,7 +424,7 @@ export interface Settings {
 
 /** Settings as the UI sees them: secrets replaced by a flag saying they're set. */
 export interface PublicSettings {
-  iptv: { id: Id; kind: "xtream" | "m3u"; name: string; connections: number; host: string }[];
+  iptv: { id: Id; kind: "xtream" | "m3u"; name: string; connections: number; host: string; status?: IptvSourceStatus }[];
   xmltvCount: number;
   jellyfin?: { url: string; serverName?: string };
   tmdb: boolean;

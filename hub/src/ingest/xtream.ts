@@ -1,7 +1,7 @@
 // Xtream Codes API client (player_api.php). Credentials never leave the Hub.
 
 import type { XtreamSource } from "@ultimatetv/shared";
-import { fetchJson, type Fetch } from "../http.js";
+import { fetchJson, withUserAgent, type Fetch } from "../http.js";
 
 export interface XtreamCategory {
   category_id: string;
@@ -62,11 +62,18 @@ export interface XtreamAuth {
   server_info?: { timezone?: string; url?: string; port?: string; server_protocol?: string };
 }
 
+/** Full lists from big panels (tens of thousands of entries) can take a while. */
+const LIST_TIMEOUT_MS = 120_000;
+
 export class XtreamClient {
   constructor(
     readonly source: XtreamSource,
-    private fetchImpl: Fetch = fetch,
-  ) {}
+    fetchImpl: Fetch = fetch,
+  ) {
+    this.fetchImpl = withUserAgent(fetchImpl);
+  }
+
+  private fetchImpl: Fetch;
 
   private get base(): string {
     return this.source.url.replace(/\/+$/, "");
@@ -88,7 +95,7 @@ export class XtreamClient {
   }
 
   liveStreams(): Promise<XtreamLiveStream[]> {
-    return fetchJson<XtreamLiveStream[]>(this.api("get_live_streams"), this.fetchImpl);
+    return fetchJson<XtreamLiveStream[]>(this.api("get_live_streams"), this.fetchImpl, {}, LIST_TIMEOUT_MS);
   }
 
   vodCategories(): Promise<XtreamCategory[]> {
@@ -96,7 +103,7 @@ export class XtreamClient {
   }
 
   vodStreams(): Promise<XtreamVodStream[]> {
-    return fetchJson<XtreamVodStream[]>(this.api("get_vod_streams"), this.fetchImpl);
+    return fetchJson<XtreamVodStream[]>(this.api("get_vod_streams"), this.fetchImpl, {}, LIST_TIMEOUT_MS);
   }
 
   vodInfo(id: number | string): Promise<{ info?: Record<string, unknown>; movie_data?: XtreamVodStream }> {
@@ -104,7 +111,7 @@ export class XtreamClient {
   }
 
   series(): Promise<XtreamSeries[]> {
-    return fetchJson<XtreamSeries[]>(this.api("get_series"), this.fetchImpl);
+    return fetchJson<XtreamSeries[]>(this.api("get_series"), this.fetchImpl, {}, LIST_TIMEOUT_MS);
   }
 
   seriesInfo(id: number | string): Promise<XtreamSeriesInfo> {
