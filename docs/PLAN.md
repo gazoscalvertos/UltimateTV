@@ -1,6 +1,6 @@
 # UltimateTV: Product & Technical Plan
 
-> Status: **Draft v2** (2026-10-24). This is a plan, not code yet.
+> Status: **Draft v3** (2026-10-24). This is a plan, not code yet.
 > Target hardware: **Hisense 85" 85U7STUK** (2026 U7 Mini-LED, VIDAA OS). **The app runs on the TV itself, with no external streaming box.**
 > North star: **the best picture and sound VIDAA can deliver, wrapped in a UI that passes the Wife Acceptance Factor (WAF).**
 
@@ -19,6 +19,15 @@
 **Out of scope for v1:** multi-user profiles with parental PINs (v2), mobile apps (a companion web remote is in Phase 4), casting.
 
 **Decision log:** Gary chose **VIDAA TV only, no external box** (2026-10-24). This plan is built around that choice. The server design keeps an Android TV box as a cheap upgrade path later (§10), and nothing in this plan has to be thrown away to take it.
+
+### 1.1 Household setup (confirmed 2026-10-24)
+
+| Item | Setup | What it means for the plan |
+|------|-------|----------------------------|
+| Playback device | The TV itself (VIDAA web app) | §2.3 workarounds apply everywhere. |
+| Audio | **TV speakers, no soundbar** | The TV decodes all audio. DD+ Atmos plays through the TV's virtualised Atmos. Lossless audio doesn't matter for these speakers, so converting TrueHD/DTS costs nothing audible. Dialogue clarity and night mode matter more (§7.2). |
+| Storage / server | A Linux machine with **SMB and SFTP** shares | The Hub runs on this machine (Docker or a native systemd service) and writes recordings and downloads straight to its disks. If that machine can't run services, a small always-on mini PC on the LAN runs the Hub and mounts the shares over SMB. |
+| IPTV | **One connection** on the current plan (the provider sells 4- and 5-connection plans) | Only one live stream at a time across watching *and* recording. The series link engine is designed around this (§5.3), and upgrading to a multi-connection plan unlocks Sky-style "record two, watch a third". |
 
 ---
 
@@ -71,7 +80,7 @@
 ```
                          ┌───────────────────────────── Home network ─────────────────────────────┐
   Internet sources       │                                                                         │
-  ─────────────────      │   ┌──────────────────────── UltimateTV Hub (Docker on NAS) ───────────┐ │
+  ─────────────────      │   ┌────────────────── UltimateTV Hub (Linux server, SMB/SFTP) ────────┐ │
   IPTV (M3U)    ───────────▶ │ Source adapters: M3U · Xtream · XMLTV · Jellyfin · Stremio addon  │ │
   Xtream Codes  ───────────▶ │                  (AIOStreams URL) · TorBox API · NAS filesystem   │ │
   XMLTV EPG     ───────────▶ │ Catalog & metadata (TMDB/TVDB match, artwork)                     │ │
@@ -87,8 +96,8 @@
                          │                 │ UltimateTV web app on VIDAA   │                       │
                          │                 │ (launcher icon or bookmark)   │                       │
                          │                 └────────────────┬──────────────┘                       │
-                         │                     Hisense 85U7STUK ──eARC──▶ Soundbar / AVR (Atmos)    │
-                         │   Jellyfin server (existing / on NAS) ◀── recordings & downloads         │
+                         │                     Hisense 85U7STUK (TV speakers, Atmos decoded by TV)  │
+                         │   Jellyfin server (existing or on the server) ◀── recordings & downloads         │
                          └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -104,7 +113,7 @@
 
 | Component | Choice | Reason |
 |-----------|--------|--------|
-| Hub runtime | **TypeScript (Node + Fastify)** in Docker | Same language as the TV app, so API types and models are shared in one monorepo. Runs on Synology/Unraid/TrueNAS. |
+| Hub runtime | **TypeScript (Node + Fastify)** in Docker, or as a native systemd service | Same language as the TV app, so API types and models are shared in one monorepo. Runs on Gary's Linux file server alongside the SMB/SFTP shares. |
 | Hub DB | SQLite (WAL) | Single household. Zero ops. |
 | Recorder & gateway | **ffmpeg** | `-c copy` for lossless recording and remux. Audio-only conversion to E-AC-3. Hardware transcode (Intel Quick Sync/VAAPI) if the NAS has it. |
 | TV app UI | **Lightning JS 3 (Blits)** | Renders on WebGL. Built for TV remotes and focus handling. Holds 60 fps on weak TV SoCs where DOM-heavy frameworks stutter. *Fallback: SolidJS + spatial navigation if Lightning misbehaves on this Chromium.* |
@@ -123,7 +132,7 @@
 - **Channel manager (set up once, hidden after):** merge multiple providers, dedupe channels, choose the preferred feed per channel (UHD > FHD > HD), auto-fallback to a backup feed on failure, and **Sky-style channel numbers** (101 BBC One, 102 BBC Two, …) with a UK-preset auto-numbering template.
 - **Playback on VIDAA:** ask Xtream for **HLS (`.m3u8`)** output where offered, which plays smoothly in the TV's browser via hls.js. Plain MPEG-TS feeds play via mpegts.js. If a feed fails in the browser, the Hub repackages it to HLS on the fly (copy, no re-encode).
 - **Catch-up / timeshift:** use Xtream `tv_archive` where the provider offers it. That gives "Start over" and the past seven days in the guide.
-- **Connection-limit guard:** the Hub knows the provider's max connections and arbitrates between live viewing and recordings (see conflicts, §5.3).
+- **Connection-limit guard:** the Hub owns the provider connection (currently **one**) and is the only thing that opens streams. When watching and recording the same channel, it shares one upstream stream between the TV and the recorder. See §5.3 for how series link works within one connection.
 - **Xtream VOD & series:** pulled into the unified Films / TV libraries with TMDB matching, so they look the same as Jellyfin content.
 
 ### 4.2 EPG
@@ -158,7 +167,7 @@
 
 ### 4.6 Local NAS files
 
-- The Hub watches mounted shares (SMB/NFS) and indexes them with metadata. In practice Jellyfin already does this. **Recommendation: let Jellyfin own NAS indexing**, and the Hub reads from Jellyfin. That avoids duplicate scanning.
+- The Hub runs on the Linux file server, so it reads and writes the library disks directly. Other machines drop files in over **SMB or SFTP**. It indexes them with metadata. In practice Jellyfin already does this. **Recommendation: let Jellyfin own NAS indexing**, and the Hub reads from Jellyfin. That avoids duplicate scanning.
 - The "uploaded/downloaded files" inbox is a `/Inbox` share. The Hub auto-renames and moves files into the library structure (FileBot-style rules), then triggers a rescan.
 - **Optional "TV-ready" pass:** when a file lands, the Hub can remux it to MKV and add a DD+ audio track if it only has TrueHD/DTS-HD. The original tracks are kept. Later plays then need no live conversion.
 
@@ -211,7 +220,12 @@
 - **Rule:** `{seriesKey, channelScope (this|any|group), newOnly, keepLatest N, paddingStart/End, preferredQuality}`.
 - **Matching:** on every EPG refresh, find upcoming airings with the same `seriesKey`. Dedupe episodes already recorded (by S/E, crid, or subtitle+description hash). Prefer HD/UHD airings and avoid +1 channels unless the other airing clashes.
 - **Robustness:** track schedule drift. If a programme moves within ±60 min (EPG update), move the recording. If a live stream drops, reconnect (and fall back to the backup feed). The recording is marked "incomplete" and the same episode is re-scheduled if it repeats within 7 days.
-- **Conflicts:** limited by the provider's max connections. Show a clear Sky-like prompt: "*You're recording 2 programmes at 9pm. Choose one to cancel.*" Auto-resolve with a repeat airing when one exists.
+- **Working with one IPTV connection** (current plan). One connection means one live channel at a time, so the engine uses these strategies in order:
+  1. **Record from catch-up instead of live.** If the channel has `tv_archive`, the recording is fetched from catch-up after it airs, at a time the TV isn't in use (overnight by default). Live viewing is untouched. This should cover most UK channels on providers with catch-up.
+  2. **Share the stream.** If you're watching the channel that's recording, the Hub sends the same stream to the TV and the recorder.
+  3. **Use a repeat airing** (e.g. +1 channel or a later showing) when one fits around what's being watched.
+  4. **Ask, Sky-style.** Only when none of the above work: "*Silent Witness is recording on BBC One at 9pm. Switching channel will stop the recording. Switch anyway?*" A recording in progress is never stopped silently.
+- **Conflicts between recordings** use the same order. With one connection, two live-only recordings at the same time is a real clash, and the prompt shows which one to keep. Upgrading the IPTV plan to 4–5 connections removes almost all of this, and the engine needs no change because the connection count is a setting.
 - **Post-processing:** remux TS → MKV, add chapter marks at ad breaks (comskip, optional), write an NFO, place in `/Recordings/Series/Season NN/` and trigger a Jellyfin scan. Recordings are therefore also watchable from any Jellyfin client.
 - **Reminders:** a toast on the TV 2 min before, with "Watch now" / "Dismiss" (shown only while the app is open, since VIDAA has no background notifications).
 
@@ -265,19 +279,19 @@ The web app reads VIDAA key codes directly, so the Hisense remote works without 
 
 | Capability | How the app uses it on VIDAA |
 |------------|------------------------------|
-| **Dolby Atmos (DD+ JOC)** | Passed to the TV untouched. The TV decodes it or sends it over **eARC** to a soundbar/AVR. This is the main Atmos path. |
-| **TrueHD / DTS-HD MA** | Not playable as bitstream from VIDAA apps. Source ranking avoids TrueHD-only files where a DD+ Atmos version exists. Otherwise the Hub converts the audio to E-AC-3 5.1/7.1 (surround kept, Atmos height lost), or the optional "TV-ready" pass adds that track ahead of time. |
+| **Dolby Atmos (DD+ JOC)** | Passed to the TV untouched and decoded by the TV, which renders it as virtual Atmos on its own speakers. This is the main Atmos path. (If a soundbar is added later, the same stream goes out over eARC with no app change.) |
+| **TrueHD / DTS-HD MA** | Not playable as bitstream from VIDAA apps. With TV speakers the loss is inaudible. Source ranking prefers DD+ Atmos versions. Otherwise the Hub converts the audio to E-AC-3 5.1 (the TV downmixes it), or the optional "TV-ready" pass adds that track ahead of time. |
+| **TV speakers** | The first-run tips suggest the TV's dialogue enhancement and a sound mode for films versus TV. Apps can't change TV audio settings, so the app only guides. |
 | **DTS** | Hisense's DTS support varies by model and year. Phase 0 checks it. If unsupported, the Hub converts DTS to E-AC-3. |
 | **Track choice** | Auto-select the best track the TV can play (DD+ Atmos > DD+ 5.1 > AC-3 > stereo, in the user's language). Remember per-show overrides. |
-| **Lip-sync** | Set in the TV's audio settings, and eARC normally handles it automatically. |
-| **Night mode** | One toggle in Options that asks the Hub for a dynamic-range-compressed audio track for late-night WAF. |
+| **Night mode** | One toggle in Options that asks the Hub for a dynamic-range-compressed audio track, with dialogue lifted. This matters more on TV speakers, where loud action and quiet speech are hard to balance late at night. |
 
 ### 7.3 Capability probe (Phase 0)
 
 A diagnostic page served by the Hub that runs in the TV's browser and reports what actually works on *this* TV:
 - `MediaSource.isTypeSupported()` and `video.canPlayType()` across codec strings (avc1, hvc1/hev1, dvh1/dvhe, av01, vp09, ec-3, ac-3, mp4a, flac, opus, dts).
 - `navigator.requestMediaKeySystemAccess` for DRM, Chromium version (UA), screen size, devicePixelRatio and WebGL support.
-- A test-clip matrix played for real (DV P5/P7/P8 in MKV and MP4, HDR10+, HLG, 24p/25p/50i, DD+ Atmos, TrueHD, DTS), with a person noting whether the TV's HDR/DV badge appears, whether it judders, and what the soundbar shows.
+- A test-clip matrix played for real (DV P5/P7/P8 in MKV and MP4, HDR10+, HLG, 24p/25p/50i, DD+ Atmos, TrueHD, DTS), with a person noting whether the TV's HDR/DV badge appears, whether it judders, and what the TV reports as the audio format (Settings → Sound).
 - Every remote key's code.
 - Results are saved to the Hub, which then builds the Jellyfin DeviceProfile and source-ranking rules automatically.
 
@@ -287,7 +301,7 @@ A diagnostic page served by the Hub that runs in the TV's browser and reports wh
 
 | Phase | Name | Scope | Exit criteria |
 |-------|------|-------|---------------|
-| **0** | Spike & probe (1–2 wks) | Monorepo scaffold (`hub/`, `tv/`, `shared/`, `design/`). Capability probe and test-clip matrix on the real Hisense. Install a hello-world app via vidaa-edge **and** bookmark on the actual firmware. Check that Lightning JS runs at 60 fps on the TV. | A written capability matrix and confirmed install method. |
+| **0** | Spike & probe (1–2 wks) | Monorepo scaffold (`hub/`, `tv/`, `shared/`, `design/`). Capability probe and test-clip matrix on the real Hisense. Install a hello-world app via vidaa-edge **and** bookmark on the actual firmware. Check that Lightning JS runs at 60 fps on the TV. List which IPTV channels have catch-up (drives recording with one connection). Check the Linux server CPU for transcoding. | A written capability matrix, confirmed install method and a catch-up channel list. |
 | **1** | Hub core + Live TV MVP (3–4 wks) | Hub: M3U/Xtream/XMLTV ingest, channel manager, EPG API, HLS repackaging. TV app: Home, live player, mini guide banner, number tuning, previous channel, full guide grid with live preview. | Watch live TV and use the guide daily. First WAF test (watch channel / use guide). |
 | **2** | Recording & series link (3–4 wks) | Scheduler, ffmpeg recorder to NAS, series link engine, conflicts, Planner screen, catch-up / start over, Hub-side pause live, Jellyfin rescan hook. | A week of series links recorded without misses. WAF test (record series / play recording / delete). |
 | **3** | Unified VOD (4 wks) | Jellyfin client (Quick Connect, probe-based direct play, skip intro), Xtream VOD/series, TMDB metadata, "one title many sources", stream gateway (remux/audio convert), native-player hand-off, Continue Watching across sources, unified search with phone search. | Films/TV feel like one library, and no title fails to play. WAF test (continue film / find 4K comedy). |
@@ -325,11 +339,10 @@ UltimateTV/
 | **VIDAA firmware update breaks the vidaa-edge launcher icon** | Bookmark fallback is always set up. The app itself keeps working because it's just a web page served by the Hub. Re-test after each firmware update (Phase 5). |
 | Browser player loses DV or doesn't switch frame rate | Native-player hand-off, chosen per title from the probe results. |
 | TV browser too slow for a rich UI | Lightning JS on WebGL, a virtualised guide grid, pre-scaled artwork and a strict speed budget. Phase 0 proves it before Phase 1 starts. |
-| No lossless Atmos | Accepted with this choice. DD+ Atmos is the format most streaming services use, so most content still has Atmos. |
-| Is there a soundbar/AVR on eARC? | Decides whether Atmos is decoded by the TV or the soundbar, and how much the DD+ preference matters. Ask Gary. |
-| Where does the Hub run? (NAS model, CPU, hardware transcoding) | Remux and audio conversion are cheap. Full video transcoding (AV1 → HEVC) needs a NAS with Quick Sync or similar, otherwise those titles go to the native player. Ask Gary. |
-| Existing Jellyfin server? | Assumed yes. If not, include it in the Hub docker-compose. |
-| IPTV provider connection limit | Determines how many simultaneous recordings + live are possible. |
+| No lossless Atmos | Accepted with this choice, and inaudible on TV speakers. DD+ Atmos is the format most streaming services use, so most content still has Atmos. |
+| Can the Linux file server run the Hub? (CPU, Docker, hardware transcoding) | Remux and audio conversion are cheap and run on almost anything. Full video transcoding (AV1 → HEVC) needs Intel Quick Sync or similar, otherwise those titles go to the native player. Ask Gary for the machine's CPU. If it can't run services, use a mini PC (e.g. Intel N100) that mounts the SMB shares. |
+| Existing Jellyfin server? | Ask Gary. If there isn't one, run it on the same Linux server alongside the Hub. |
+| **One IPTV connection** | Catch-up-based recording, stream sharing and repeat airings (§5.3). Phase 0 checks which channels have catch-up. A 4–5 connection plan is the easy fix if clashes annoy. |
 | XMLTV quality for UK channels | Allow multiple EPG sources per channel with priority, plus manual mapping UI. |
 | Legal/content | The app is a neutral client. Sources and credentials are user-supplied, and no content or addon URLs are bundled. |
 
