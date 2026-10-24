@@ -11,6 +11,17 @@ the commit they were built from in Settings › About, so you can tell exactly w
 - **Box**: Settings › About › Update the box, or wait for Monday 4 am. Over SSH:
   `sudo systemctl start ultimatetv-update`.
 
+## Unreleased
+
+- Diagnostics: the box sends the Hub its recent log, a playback sample every 10 seconds (frame
+  rate, screen mode, sync, dropped and late frames, buffer) and the screen's details. Read it all
+  at `http://<hub>:8095/api/diagnostics?format=text` (or as JSON without `?format=text`).
+  Addresses are cut to their host, so IPTV logins and API keys never appear. See
+  `docs/diagnostics.md`.
+- Playback on screens with no refresh rate that fits the video (24p film on a 50/60/100 Hz
+  monitor) no longer resamples to the screen, which mistimed and dropped frames all the time.
+- The stats overlay says how the screen was matched to the video's frame rate.
+
 ## 0.2.0 (2026-10-24)
 
 The first install on the real box.

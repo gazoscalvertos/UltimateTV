@@ -147,3 +147,45 @@ describe("hub API", () => {
     expect(qr.headers["content-type"]).toContain("image/svg+xml");
   });
 });
+
+describe("diagnostics", () => {
+  const report = {
+    at: "2026-10-24T21:00:00.000Z",
+    hostname: "ultimatetv",
+    uptimeS: 600,
+    load: [0.5, 0.4, 0.3],
+    memory: { totalMb: 64000, freeMb: 60000 },
+    software: { commit: "abc1234" },
+    info: {},
+    kscreen: { json: { outputs: [] }, text: "Output: 1 HDMI-A-1" },
+    now: null,
+    samples: [
+      { at: "2026-10-24T20:59:50.000Z", status: "playing", frames: { dropped: 10, delayed: 20, mistimed: 5 } },
+      { at: "2026-10-24T21:00:00.000Z", status: "playing", frames: { dropped: 12, delayed: 26, mistimed: 5 } },
+    ],
+    log: ["2026-10-24T20:59:00Z Playing http://user:pw@iptv.example/live/user/pw/1.ts"],
+  };
+
+  it("keeps the box's latest report and shows it as JSON and text, without logins", async () => {
+    await start();
+    expect((await app.inject({ method: "GET", url: "/api/diagnostics" })).json()).toMatchObject({ hub: { version: HUB_VERSION }, box: null });
+    expect((await app.inject({ method: "POST", url: "/api/diagnostics/box", payload: { nope: 1 } })).statusCode).toBe(400);
+    expect((await app.inject({ method: "POST", url: "/api/diagnostics/box", payload: report })).statusCode).toBe(200);
+    const json = (await app.inject({ method: "GET", url: "/api/diagnostics" })).json();
+    expect(json.box.report.hostname).toBe("ultimatetv");
+    expect(json.box.report.log[0]).toBe("2026-10-24T20:59:00Z Playing http://iptv.example/…");
+    const text = (await app.inject({ method: "GET", url: "/api/diagnostics?format=text" })).body;
+    expect(text).toContain("Output: 1 HDMI-A-1");
+    expect(text).toContain("drop 12+2");
+    expect(text).toContain("late 26+6");
+    expect(text).not.toContain("pw");
+  });
+
+  it("survives a Hub restart", async () => {
+    await start();
+    await app.inject({ method: "POST", url: "/api/diagnostics/box", payload: report });
+    await app.close();
+    await start();
+    expect((await app.inject({ method: "GET", url: "/api/diagnostics" })).json().box.report.hostname).toBe("ultimatetv");
+  });
+});

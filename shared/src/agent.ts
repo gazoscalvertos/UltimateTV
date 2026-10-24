@@ -67,6 +67,41 @@ export interface PlaybackStats {
   sections: { title: string; rows: [label: string, value: string][] }[];
 }
 
+/** One playback measurement, taken every 10 seconds while something plays (counters are mpv's running totals). */
+export interface PlaybackSample {
+  at: string;
+  /** The stream's host only. */
+  source?: string;
+  status?: string;
+  positionS?: number;
+  video?: { codec?: string; width?: number; height?: number; fps?: number; measuredFps?: number; hwdec?: string; bitrate?: number; hdr?: string };
+  /** What the box did to match the screen to the video: a fitting mode, variable refresh, or nothing. */
+  match?: "mode" | "vrr" | null;
+  display?: { mode?: string; refreshHz?: number; sync?: string; displayFps?: number };
+  frames?: { dropped?: number; decoderDropped?: number; delayed?: number; mistimed?: number };
+  avsyncMs?: number;
+  bufferS?: number;
+  inputKbps?: number;
+}
+
+/** What the box sends the Hub for diagnosis (GET /api/diagnostics on the Hub shows it). */
+export interface BoxDiagnostics {
+  at: string;
+  hostname: string;
+  uptimeS: number;
+  load: number[];
+  memory: { totalMb: number; freeMb: number };
+  software: unknown;
+  info: unknown;
+  /** kscreen-doctor's view of the screens: JSON (modes cut down) and the text listing. */
+  kscreen: { json: unknown; text: string };
+  /** A sample taken as the report was made, or null when nothing plays. */
+  now: PlaybackSample | null;
+  samples: PlaybackSample[];
+  /** The box's recent log lines, addresses cut to their host. */
+  log: string[];
+}
+
 /** The box's own software, for Settings › About: what it runs and whether there's an update. */
 export interface BoxSoftware {
   /** The app commit the box runs. */

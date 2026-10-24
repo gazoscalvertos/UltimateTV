@@ -1,7 +1,7 @@
 // The box side of the BoxAgent contract: plays with mpv, follows its properties into a
 // PlayerState for the UI, and puts the TV in the right picture mode for each video.
 
-import type { AudioTrack, PlaybackStats, PlayerState, PlayOptions, SubTrack, VideoLayout } from "@ultimatetv/shared";
+import type { AudioTrack, PlaybackSample, PlaybackStats, PlayerState, PlayOptions, SubTrack, VideoLayout } from "@ultimatetv/shared";
 import type { Display } from "./display.js";
 import type { Mpv } from "./mpv.js";
 
@@ -69,7 +69,7 @@ const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : u
  * The overlay's sections from mpv's properties, the TV's current mode and the stream's address
  * (only its host is shown: IPTV addresses carry the account's username and password).
  */
-export function statsFrom(p: Record<string, unknown>, extra: { url?: string; display?: { width: number; height: number; refreshHz: number; hdr: boolean } | null }): PlaybackStats {
+export function statsFrom(p: Record<string, unknown>, extra: { url?: string; display?: { width: number; height: number; refreshHz: number; hdr: boolean } | null; match?: ScreenMatch }): PlaybackStats {
   const rows = (list: [string, string | undefined][]) => list.filter((r): r is [string, string] => Boolean(r[1]));
   const vp = p["video-params"] as VideoParams;
   const fps = num(p["container-fps"]);
@@ -105,6 +105,7 @@ export function statsFrom(p: Record<string, unknown>, extra: { url?: string; dis
         title: "Display",
         rows: rows([
           ["TV mode", d ? `${d.width}×${d.height} @ ${d.refreshHz.toFixed(3)} Hz${d.hdr ? " · HDR on" : " · HDR off"}` : undefined],
+          ["Frame rate match", extra.match === undefined ? undefined : MATCH_LABELS[String(extra.match)]],
           ["Sync", typeof p["video-sync"] === "string" ? `${p["video-sync"]}${num(p["display-fps"]) ? ` at ${num(p["display-fps"])!.toFixed(3)} Hz` : ""}` : undefined],
           ["Dropped frames", drops.some((x) => x !== undefined) ? `${drops[0] ?? 0} by the display · ${drops[1] ?? 0} by the decoder` : undefined],
           ["Late frames", num(p["vo-delayed-frame-count"]) !== undefined ? `${num(p["vo-delayed-frame-count"])} delayed · ${num(p["mistimed-frame-count"]) ?? 0} mistimed` : undefined],
@@ -135,6 +136,60 @@ export function statsFrom(p: Record<string, unknown>, extra: { url?: string; dis
   };
 }
 
+/** How the screen was matched to the video's frame rate (see Display.prepare); undefined when the frame rate wasn't known. */
+export type ScreenMatch = "mode" | "vrr" | null | undefined;
+const MATCH_LABELS: Record<string, string> = {
+  mode: "Screen switched to a fitting refresh rate",
+  vrr: "Variable refresh",
+  null: "None: no fitting refresh rate or variable refresh (expect judder)",
+};
+
+/** A compact playback measurement for the diagnostics log, from the same mpv properties as the overlay. */
+export function sampleFrom(p: Record<string, unknown>, extra: { url?: string; status?: string; positionS?: number; match?: ScreenMatch; display?: { width: number; height: number; refreshHz: number } | null }): PlaybackSample {
+  const vp = p["video-params"] as VideoParams;
+  const cache = p["demuxer-cache-state"] as { "cache-duration"?: number; "raw-input-rate"?: number } | undefined;
+  const avsync = num(p["avsync"]);
+  const sample: PlaybackSample = { at: new Date().toISOString() };
+  try {
+    if (extra.url) sample.source = new URL(extra.url).host;
+  } catch {
+    // not a URL
+  }
+  if (extra.status) sample.status = extra.status;
+  if (extra.positionS !== undefined) sample.positionS = Math.round(extra.positionS);
+  if (vp?.w) {
+    const hw = p["hwdec-current"];
+    sample.video = {
+      ...(typeof p["video-codec"] === "string" ? { codec: p["video-codec"] } : {}),
+      width: vp.w,
+      ...(vp.h ? { height: vp.h } : {}),
+      ...(num(p["container-fps"]) ? { fps: num(p["container-fps"])! } : {}),
+      ...(num(p["estimated-vf-fps"]) ? { measuredFps: Math.round(num(p["estimated-vf-fps"])! * 1000) / 1000 } : {}),
+      hwdec: typeof hw === "string" && hw ? hw : "no",
+      ...(num(p["video-bitrate"]) ? { bitrate: num(p["video-bitrate"])! } : {}),
+      ...(vp.gamma ? { hdr: vp.gamma } : {}),
+    };
+  }
+  if (extra.match !== undefined) sample.match = extra.match;
+  const d = extra.display;
+  sample.display = {
+    ...(d ? { mode: `${d.width}×${d.height}@${d.refreshHz.toFixed(3)}`, refreshHz: d.refreshHz } : {}),
+    ...(typeof p["video-sync"] === "string" ? { sync: p["video-sync"] } : {}),
+    ...(num(p["display-fps"]) ? { displayFps: num(p["display-fps"])! } : {}),
+  };
+  sample.frames = {
+    ...(num(p["frame-drop-count"]) !== undefined ? { dropped: num(p["frame-drop-count"])! } : {}),
+    ...(num(p["decoder-frame-drop-count"]) !== undefined ? { decoderDropped: num(p["decoder-frame-drop-count"])! } : {}),
+    ...(num(p["vo-delayed-frame-count"]) !== undefined ? { delayed: num(p["vo-delayed-frame-count"])! } : {}),
+    ...(num(p["mistimed-frame-count"]) !== undefined ? { mistimed: num(p["mistimed-frame-count"])! } : {}),
+  };
+  if (avsync !== undefined) sample.avsyncMs = Math.round(avsync * 1000);
+  if (cache?.["cache-duration"] !== undefined) sample.bufferS = Math.round(cache["cache-duration"] * 10) / 10;
+  const rate = cache?.["raw-input-rate"] ?? num(p["cache-speed"]);
+  if (rate !== undefined) sample.inputKbps = Math.round((rate * 8) / 1000);
+  return sample;
+}
+
 export class Player {
   private props: Record<string, unknown> = {};
   private listeners = new Set<(s: PlayerState) => void>();
@@ -145,6 +200,7 @@ export class Player {
   private timer: NodeJS.Timeout | undefined;
   private hdrSet = false;
   private displayCache: { at: number; value: Awaited<ReturnType<Display["tv"]>> } | null = null;
+  private match: ScreenMatch;
 
   constructor(
     private readonly mpv: Mpv,
@@ -221,14 +277,26 @@ export class Player {
     return state;
   }
 
-  async stats(): Promise<PlaybackStats | null> {
-    if (!this.options) return null;
+  private async statsProps(): Promise<{ props: Record<string, unknown>; tv: Awaited<ReturnType<Display["tv"]>> }> {
     const values = await Promise.all(STATS_PROPS.map((name) => this.mpv.get(name).catch(() => undefined)));
     const props = Object.fromEntries(STATS_PROPS.map((name, i) => [name, values[i]]));
     // kscreen-doctor is slow to ask every second, and the mode only changes when playback starts.
     if (!this.displayCache || Date.now() - this.displayCache.at > 5000) this.displayCache = { at: Date.now(), value: await this.display.tv() };
-    const tv = this.displayCache.value;
-    return statsFrom(props, { url: this.options.url, display: tv ? { width: tv.mode.width, height: tv.mode.height, refreshHz: tv.mode.refreshRate, hdr: Boolean(tv.output.hdr) } : null });
+    return { props, tv: this.displayCache.value };
+  }
+
+  async stats(): Promise<PlaybackStats | null> {
+    if (!this.options) return null;
+    const { props, tv } = await this.statsProps();
+    return statsFrom(props, { url: this.options.url, match: this.match, display: tv ? { width: tv.mode.width, height: tv.mode.height, refreshHz: tv.mode.refreshRate, hdr: Boolean(tv.output.hdr) } : null });
+  }
+
+  /** A measurement for the diagnostics log, or null when nothing plays. */
+  async sample(): Promise<PlaybackSample | null> {
+    if (!this.options) return null;
+    const { props, tv } = await this.statsProps();
+    const s = this.state();
+    return sampleFrom(props, { url: this.options.url, status: s.status, positionS: s.positionMs / 1000, match: this.match, display: tv ? { width: tv.mode.width, height: tv.mode.height, refreshHz: tv.mode.refreshRate } : null });
   }
 
   onState(listener: (s: PlayerState) => void): () => void {
@@ -244,10 +312,13 @@ export class Player {
     this.hdrSet = false;
     this.schedule();
     // Match the TV's refresh rate before the first frame, so the switch happens on a black screen.
-    // With variable refresh the screen follows mpv's frames, so mpv times them to the audio rather
-    // than resampling to a fixed display rate.
-    const sync = o.fps ? await this.display.prepare(o.fps, false) : null;
-    await this.mpv.set("video-sync", sync === "vrr" ? "audio" : "display-resample").catch(() => undefined);
+    // Resampling to the display only works when its rate is a whole multiple of the video's. With
+    // variable refresh the screen follows mpv's frames, and with no match at all (24p on a 100 Hz
+    // screen) resampling mistimes and drops frames all the time, so mpv times frames to the audio.
+    this.match = o.fps ? await this.display.prepare(o.fps, false) : undefined;
+    const sync = this.match === "mode" || this.match === undefined ? "display-resample" : "audio";
+    this.log(`Playing ${o.fps ? `${o.fps} fps` : "unknown frame rate"}: screen match ${this.match ?? "not tried"}, video-sync ${sync}`);
+    await this.mpv.set("video-sync", sync).catch(() => undefined);
     const opts: string[] = [];
     if (o.startMs) opts.push(`start=${(o.startMs / 1000).toFixed(3)}`);
     if (o.headers && Object.keys(o.headers).length) opts.push(`http-header-fields=${Object.entries(o.headers).map(([k, v]) => `${k}: ${v.replace(/,/g, "\\,")}`).join(",")}`);
@@ -263,6 +334,7 @@ export class Player {
 
   async stop(): Promise<void> {
     this.options = null;
+    this.match = undefined;
     this.error = undefined;
     this.loading = false;
     await this.mpv.command("stop").catch(() => undefined);

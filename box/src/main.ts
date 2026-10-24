@@ -14,6 +14,7 @@ import os from "node:os";
 import path from "node:path";
 import type { BoxInfo, PlayerState } from "@ultimatetv/shared";
 import { Cec } from "./cec.js";
+import { Diagnostics } from "./diagnostics.js";
 import { Display } from "./display.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
@@ -24,7 +25,12 @@ const CEC_DEVICE = process.env.CEC_DEVICE ?? "/dev/cec0";
 const RUNTIME = process.env.XDG_RUNTIME_DIR ?? os.tmpdir();
 const VERSION: string = require("../package.json").version;
 
-const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`);
+const diagnostics = new Diagnostics(HUB_URL);
+const log = (line: string) => {
+  const stamped = `${new Date().toISOString()} ${line}`;
+  console.log(stamped);
+  diagnostics.record(stamped);
+};
 
 // Wayland where there is one (KDE), and the class KWin's rules use to keep this window on top.
 app.commandLine.appendSwitch("ozone-platform-hint", "auto");
@@ -60,8 +66,15 @@ async function main(): Promise<void> {
   const send = (channel: string, value: unknown) => {
     if (win && !win.isDestroyed()) win.webContents.send(channel, value);
   };
+  let lastStatus: PlayerState["status"] | undefined;
   player.onState((s: PlayerState) => {
     send("agent:state", s);
+    // Report to the Hub as playback starts and ends, so a diagnosis sees both.
+    if (s.status !== lastStatus && (s.status === "playing" || s.status === "idle" || s.status === "error" || s.status === "ended")) {
+      log(`Player ${s.status}${s.error ? `: ${s.error}` : ""}`);
+      setTimeout(() => void diagnostics.send(), s.status === "playing" ? 5000 : 0);
+    }
+    lastStatus = s.status;
     // Keep the screen awake while something plays.
     const playing = s.status === "playing" || s.status === "buffering" || s.status === "loading";
     if (playing && blocker === null) blocker = powerSaveBlocker.start("prevent-display-sleep");
@@ -106,6 +119,8 @@ async function main(): Promise<void> {
     software: (check: never) => updates.status(Boolean(check)),
     update: () => updates.start(),
   };
+  diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!() });
+
   ipcMain.handle("agent", async (e, method: string, ...args: unknown[]) => {
     if (!win || e.sender !== win.webContents) throw new Error("Not the TV window");
     const fn = methods[method];
@@ -167,6 +182,7 @@ async function main(): Promise<void> {
 
   app.on("window-all-closed", () => app.quit());
   app.on("before-quit", () => {
+    diagnostics.stop();
     cec.stop();
     void display.restore();
     void mpv.stop();
