@@ -8,10 +8,16 @@ Phase 0 only needs two things: the N150's graphics chip inside the Docker LXC, a
 
 Jellyfin (101) already has it. The Docker LXC (107) already allows all devices (`lxc.cgroup2.devices.allow: a`) but doesn't mount `/dev/dri`.
 
-**host:** add the same mount line Jellyfin uses to the end of 107's config:
+**host:** add the same two mount lines Jellyfin uses to 107's config. Put them **above** any `[snapshot]` section, because lines after a `[...]` header belong to that snapshot and are ignored. Open the file with `nano /etc/pve/lxc/107.conf` and add:
+
+```
+lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
+lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file
+```
+
+Then restart the container from the host. Restarting from inside it doesn't reload the config.
 
 ```sh
-echo 'lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir' >> /etc/pve/lxc/107.conf
 pct reboot 107
 ```
 
