@@ -22,15 +22,25 @@ Downsides: it opens inside the browser, so the browser's own bar may show, and t
 
 The VIDAA guide's developer route: open `hisense://debug` in the browser, enter a name and the app URL (`http://<server-ip>:8095/`), and press install. The app then appears on the Apps page. Community reports say newer firmware no longer allows this, but it costs 30 seconds to try.
 
-## Route 3: vidaa-edge launcher icon (community tool, fragile)
+## Route 3: community app-store page (fragile)
 
-The community *vidaa-edge* project installs a hosted web app as a proper launcher icon. You temporarily point the TV's DNS at a helper running on your network, open `vidaahub.com` on the TV, and add the app's URL. Steps change between releases, so follow the project's current README rather than a copy here.
+On this firmware `hisense://debug` is blocked (tested 2026-10-24). The remaining route uses the TV's hidden `Hisense_installApp()` function, which only works on a page served as `vidaahub.com`. The community project [camellan/vidaa-appstore](https://github.com/camellan/vidaa-appstore) does this by running a small DNS and web server on your network that answers for `vidaahub.com`.
 
-Things to note during the test:
+Known limits (from the Jellyfin forum thread, 2025–2026): on VIDAA U7.6+ / VIDAA OS 9 firmware the install may appear to succeed while no icon appears, or `Hisense_installApp` may be missing. If that happens here, installing apps on this TV isn't possible without a firmware downgrade, which we won't do.
+
+Steps (run inside the Docker LXC, 192.168.0.19, or any always-on Linux machine):
+
+1. Get the tool: `git clone https://github.com/camellan/vidaa-appstore.git && cd vidaa-appstore && pip3 install dnslib`
+2. Edit `config.json`: set `server_address` to `192.168.0.19`, and point the `vidaahub.com` DNS record at it. Port 53 must be free (`ss -lunp | grep :53`).
+3. Add UltimateTV to the `apps` array in `index-en.html`, copying an existing line:
+   `{category:'my',appid:'ultimatetv',name:'UltimateTV',url:'http://192.168.0.19:8095/',text:'UltimateTV'},`
+4. Run `sudo python3 server.py`.
+5. On the TV: *Settings → Network → Network configuration → DNS*, set it to manual `192.168.0.19`.
+6. In the TV browser, open `https://vidaahub.com/`, accept the certificate warning, and press **install** next to UltimateTV.
+7. Set the TV's DNS back to automatic, stop the server, restart the TV, and look for the icon under Apps.
+
+Things to record:
 
 - VIDAA version (*Settings → Support → System Info*) and whether the icon appears.
-- Whether the app opens full screen with no browser bar.
-- Whether the Back key reaches the app (the probe's *Remote keys* step shows this).
-- Set the TV's DNS back to automatic afterwards, and check the icon still works.
-
-Record the outcome in `docs/phase0/capability-matrix.md`. Re-test after each VIDAA firmware update.
+- Whether the app opens full screen with no pointer.
+- The probe's *Remote keys* results from the installed app: do the arrows, OK, Back and media keys arrive?
