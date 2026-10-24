@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="test">
+  <channel id="bbc1.uk"><display-name>BBC One</display-name><icon src="http://logo/bbc1.png"/></channel>
+  <channel id="c4.uk"><display-name>Channel 4 HD</display-name></channel>
+  <channel id="unknown.de"><display-name>Das Erste</display-name></channel>
+  <programme start="20261024200000 +0100" stop="20261024210000 +0100" channel="bbc1.uk">
+    <title lang="en">Silent Witness</title>
+    <sub-title>The Lost &amp; Found: Part 1</sub-title>
+    <desc>Nikki investigates.</desc>
+    <category>Drama</category>
+    <episode-num system="xmltv_ns">27.2.0/2</episode-num>
+    <new/>
+  </programme>
+  <programme start="20261024210000 +0100" stop="20261024220000 +0100" channel="bbc1.uk">
+    <title>News at Ten</title><category>News</category>
+  </programme>
+  <programme start="20261024200000 +0100" stop="20261024220000 +0100" channel="c4.uk">
+    <title>Film: The Big Heist</title><category>Film</category><date>1998</date>
+    <previously-shown/>
+    <rating system="BBFC"><value>15</value></rating>
+  </programme>
+  <programme start="20261024200000 +0100" stop="20261024210000 +0100" channel="unknown.de">
+    <title>Tagesschau</title>
+  </programme>
+</tv>

@@ -1,0 +1,99 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { GuideWindow, HomeScreen, PlaybackInfo, TitleDetails } from "@ultimatetv/shared";
+import type { HubConfig } from "../src/config.js";
+import { buildServer } from "../src/server.js";
+
+let tmp: string;
+let app: Awaited<ReturnType<typeof buildServer>>;
+
+beforeAll(async () => {
+  tmp = await mkdtemp(path.join(os.tmpdir(), "utv-api-"));
+  const config: HubConfig = {
+    port: 8095,
+    host: "127.0.0.1",
+    dataDir: path.join(tmp, "data"),
+    clipsDir: path.join(tmp, "clips"),
+    probeDir: path.join(tmp, "probe"),
+    uiDir: path.join(tmp, "ui"),
+    setupDir: path.join(tmp, "setup"),
+    mediaRoot: path.join(tmp, "media"),
+    demo: true,
+  };
+  app = await buildServer(config, { systemReport: async () => ({ ffmpeg: null, hwaccels: [], renderNode: null, vaapi: { available: false, driver: null, profiles: [] }, checks: { av1HardwareDecode: false, hevcHardwareEncode: false, hevc10HardwareEncode: false } }) });
+});
+
+afterAll(async () => {
+  await app.close();
+  await rm(tmp, { recursive: true, force: true });
+});
+
+describe("Hub API in demo mode", () => {
+  it("serves the guide with Sky-style numbers and recording marks", async () => {
+    const res = await app.inject("/api/guide?from=" + (Date.now() - 3_600_000) + "&to=" + (Date.now() + 6 * 3_600_000));
+    const g = res.json<GuideWindow>();
+    expect(g.channels[0]).toMatchObject({ number: 101, name: "BBC One" });
+    expect(Object.keys(g.programmes)).toHaveLength(g.channels.length);
+    expect(g.programmes["bbc-one"]!.length).toBeGreaterThan(3);
+    const sport = await app.inject("/api/guide?category=sport");
+    expect(sport.json<GuideWindow>().channels.every((c) => c.category === "sport")).toBe(true);
+  });
+
+  it("builds the home screen", async () => {
+    const home = (await app.inject("/api/home")).json<HomeScreen>();
+    const ids = home.rails.map((r) => r.id);
+    expect(ids).toContain("live");
+    expect(ids).toContain("continue");
+    expect(ids).toContain("recordings");
+    expect(home.hero?.name).toBe("Copper Sky");
+  });
+
+  it("shows title details, streams and plays them", async () => {
+    const d = (await app.inject("/api/titles/" + encodeURIComponent("demo:movie:copper-sky"))).json<TitleDetails>();
+    expect(d).toMatchObject({ name: "Copper Sky", year: 2024, inLibrary: true, resumeMs: 48 * 60_000 });
+    const streams = (await app.inject("/api/titles/" + encodeURIComponent("demo:movie:copper-sky") + "/streams")).json<{ streams: { badges: string[] }[] }>();
+    expect(streams.streams[0]!.badges).toEqual(expect.arrayContaining(["4K", "Atmos"]));
+    const play = await app.inject({ method: "POST", url: "/api/play", payload: { kind: "title", id: "demo:movie:copper-sky" }, headers: { host: "hub.lan:8095" } });
+    const info = play.json<PlaybackInfo>();
+    expect(info.url).toMatch(/^http:\/\/hub\.lan:8095\/clips\//);
+    expect(info.startMs).toBe(48 * 60_000);
+  });
+
+  it("plays a channel through the relay URL", async () => {
+    const res = await app.inject({ method: "POST", url: "/api/play", payload: { kind: "channel", id: "bbc-one" }, headers: { host: "hub.lan:8095" } });
+    expect(res.json<PlaybackInfo>()).toMatchObject({ url: "http://hub.lan:8095/api/live/bbc-one.ts", live: true, title: "BBC One" });
+  });
+
+  it("lists recordings, series links and the clash", async () => {
+    const r = (await app.inject("/api/recordings")).json<{ recordings: unknown[]; seriesLinks: { title: string }[]; conflicts: { message: string }[] }>();
+    expect(r.recordings.length).toBeGreaterThan(5);
+    expect(r.seriesLinks[0]!.title).toBe("Harbour Lights");
+  });
+
+  it("searches channels, the guide and titles", async () => {
+    const res = (await app.inject("/api/search?q=harbour")).json<{ results: { kind: string; name: string }[] }>();
+    const kinds = new Set(res.results.map((x) => x.kind));
+    expect(kinds.has("title")).toBe(true);
+    expect([...kinds].some((k) => k === "upcoming" || k === "on-now")).toBe(true);
+    const ch = (await app.inject("/api/search?q=bbc")).json<{ results: { kind: string }[] }>();
+    expect(ch.results[0]!.kind).toBe("channel");
+  });
+
+  it("serves generated artwork and the setup QR code", async () => {
+    const art = await app.inject("/api/art/poster/copper-sky.svg");
+    expect(art.headers["content-type"]).toContain("image/svg+xml");
+    expect(art.body).toContain("COPPER");
+    const qr = await app.inject("/api/setup/qr.svg");
+    expect(qr.body).toContain("<svg");
+  });
+
+  it("keeps secrets out of the public settings", async () => {
+    await app.inject({ method: "PUT", url: "/api/settings", payload: { tmdbApiKey: "secret-key", addonUrls: ["https://aiostreams.example.com/stremio/abc123/eyJzZWNyZXQ/manifest.json"] } });
+    const s = await app.inject("/api/settings");
+    expect(s.body).not.toContain("secret-key");
+    expect(s.body).not.toContain("eyJzZWNyZXQ");
+    expect(s.json()).toMatchObject({ tmdb: true, addons: [{ name: "AIOStreams" }] });
+  });
+});

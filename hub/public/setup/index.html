@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>UltimateTV setup</title>
+<style>
+  :root {
+    --bg: #0b1220; --card: #131c2e; --line: #24324d; --fg: #eef3fb; --muted: #9aa8c2;
+    --accent: #4f8cff; --ok: #35c27a; --warn: #f2b33d; --bad: #ff6b6b; --radius: 14px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; }
+  header { display: flex; align-items: center; gap: 12px; margin: 8px 0 20px; }
+  .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #4f8cff, #8a5cff); display: grid; place-items: center; font-weight: 800; }
+  h1 { font-size: 22px; margin: 0; }
+  h1 small { display: block; font-size: 14px; color: var(--muted); font-weight: 400; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
+  h2 { font-size: 17px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .hint { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 12px 0 4px; }
+  input, select, textarea { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: #0d1526; color: var(--fg); font: inherit; }
+  textarea { min-height: 80px; resize: vertical; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button { margin-top: 14px; width: 100%; padding: 13px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font: 600 16px/1 inherit; cursor: pointer; }
+  button.secondary { background: transparent; border: 1px solid var(--line); color: var(--fg); }
+  button.small { width: auto; margin: 0; padding: 8px 12px; font-size: 14px; }
+  .pill { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: #22304d; color: var(--muted); font-weight: 600; }
+  .pill.ok { background: rgba(53, 194, 122, .15); color: var(--ok); }
+  .list { list-style: none; padding: 0; margin: 8px 0 0; }
+  .list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .list li span small { display: block; color: var(--muted); font-size: 13px; }
+  .tabs { display: flex; gap: 8px; margin: 6px 0 4px; }
+  .tabs button { margin: 0; }
+  .code { font: 700 38px/1 ui-monospace, Menlo, monospace; letter-spacing: 6px; text-align: center; padding: 18px; border-radius: 12px; background: #0d1526; margin-top: 12px; }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); max-width: 608px; margin: 0 auto; padding: 14px 16px; border-radius: 12px; background: #1d2a44; border: 1px solid var(--line); transform: translateY(150%); transition: transform .25s ease; }
+  #toast.show { transform: none; }
+  #toast.bad { border-color: var(--bad); }
+  .status { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { background: #0d1526; border-radius: 10px; padding: 10px; text-align: center; }
+  .stat b { display: block; font-size: 20px; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo">U</div>
+    <h1>UltimateTV setup<small>Sources and accounts for the TV. Changes appear on the TV straight away.</small></h1>
+  </header>
+
+  <section>
+    <div class="status">
+      <div class="stat"><b id="st-channels">–</b><span>channels</span></div>
+      <div class="stat"><b id="st-programmes">–</b><span>guide entries</span></div>
+      <div class="stat"><b id="st-connections">–</b><span>IPTV connections</span></div>
+    </div>
+  </section>
+
+  <section id="iptv">
+    <h2>Live TV <span class="pill" id="iptv-pill">Not set up</span></h2>
+    <p class="hint">Your IPTV provider's details. They stay on the home server and never reach the TV.</p>
+    <ul class="list" id="iptv-list"></ul>
+    <div class="tabs">
+      <button class="secondary small" data-kind="xtream" type="button">Xtream login</button>
+      <button class="secondary small" data-kind="m3u" type="button">M3U playlist</button>
+    </div>
+    <form id="iptv-form">
+      <input type="hidden" name="kind" value="xtream">
+      <div data-for="xtream">
+        <label>Server address</label><input name="url" placeholder="http://provider.example:8080" inputmode="url" autocomplete="off">
+        <div class="row">
+          <div><label>Username</label><input name="username" autocomplete="off" autocapitalize="none"></div>
+          <div><label>Password</label><input name="password" type="password" autocomplete="off"></div>
+        </div>
+      </div>
+      <div data-for="m3u" hidden>
+        <label>Playlist URL</label><input name="m3u" placeholder="https://…/playlist.m3u" inputmode="url">
+      </div>
+      <div class="row">
+        <div><label>Name</label><input name="name" placeholder="IPTV"></div>
+        <div><label>Connections on your plan</label><input name="connections" type="number" min="1" max="10" value="1"></div>
+      </div>
+      <button>Add and load channels</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>TV guide</h2>
+    <p class="hint">Your provider's guide is used automatically. Add extra XMLTV links here, one per line; earlier ones win.</p>
+    <form id="guide-form">
+      <label>Extra XMLTV URLs</label><textarea name="xmltv" placeholder="https://…/epg.xml.gz"></textarea>
+      <div class="row">
+        <div><label>Channel numbers</label><select name="numbering"><option value="uk">Sky-style (101 BBC One…)</option><option value="provider">Provider's order</option></select></div>
+        <div><label>Show channels from groups matching</label><input name="filter" placeholder="UK"></div>
+      </div>
+      <button>Save guide settings</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Jellyfin <span class="pill" id="jf-pill">Not connected</span></h2>
+    <p class="hint">Your films and series library. Quick Connect is easiest: approve the code in any Jellyfin app.</p>
+    <form id="jf-form">
+      <label>Jellyfin address</label><input name="url" value="http://192.168.0.23:8096" inputmode="url">
+      <div class="tabs"><button class="small" type="button" id="jf-qc">Use Quick Connect</button><button class="secondary small" type="button" id="jf-pw-toggle">Name and password</button></div>
+      <div id="jf-code" hidden><div class="code" id="jf-code-value">······</div><p class="hint" style="margin-top:8px">In Jellyfin: your profile → Quick Connect → enter this code.</p></div>
+      <div id="jf-pw" hidden>
+        <div class="row">
+          <div><label>Username</label><input name="username" autocapitalize="none"></div>
+          <div><label>Password</label><input name="password" type="password"></div>
+        </div>
+        <button>Sign in</button>
+      </div>
+    </form>
+  </section>
+
+  <section>
+    <h2>Films and series sources</h2>
+    <p class="hint">TMDB gives artwork and discovery rails. AIOStreams finds streams, and TorBox plays and downloads them.</p>
+    <form id="vod-form">
+      <label>TMDB API key <span class="pill" id="tmdb-pill">Not set</span></label><input name="tmdb" placeholder="Leave blank to keep the current key" autocomplete="off">
+      <label>AIOStreams (or any Stremio addon) manifest URLs, one per line</label><textarea name="addons" placeholder="https://…/manifest.json"></textarea>
+      <ul class="list" id="addon-list"></ul>
+      <label>TorBox API key <span class="pill" id="torbox-pill">Not set</span></label><input name="torbox" placeholder="Leave blank to keep the current key" autocomplete="off">
+      <button>Save</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Where things are saved</h2>
+    <p class="hint">Folders as the home server sees them. Use the same ones Jellyfin scans so recordings and downloads show up there.</p>
+    <form id="lib-form">
+      <label>Films</label><input name="moviesPath">
+      <label>TV series</label><input name="tvPath">
+      <label>Recordings</label><input name="recordingsPath">
+      <label>Inbox (files dropped here are tidied into the library)</label><input name="inboxPath">
+      <button>Save folders</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Profiles and PIN <span class="pill" id="profiles-pill"></span></h2>
+    <p class="hint">Kids profiles only see kids' channels and titles rated up to their limit. Set a PIN on the Family profile to stop anyone switching out of Kids, or changing settings, without it.</p>
+    <div id="profiles-list"></div>
+    <form id="pin-form">
+      <label>New 4-digit PIN for Family</label><input name="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off">
+      <button>Set PIN</button>
+      <button type="button" class="secondary" id="pin-clear">Remove PIN</button>
+    </form>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const toast = (msg, bad) => { const t = $("#toast"); t.textContent = msg; t.className = "show" + (bad ? " bad" : ""); clearTimeout(t._h); t._h = setTimeout(() => (t.className = ""), 3500); };
+let token = "";
+try { token = sessionStorage.getItem("utv-token") || ""; } catch {}
+async function api(path, opts = {}, retried = false) {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["X-Profile-Token"] = token;
+  const res = await fetch(path, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  // Once a PIN is set, changes from the phone need a grown-up's PIN too.
+  if (res.status === 403 && data.code === "pin" && !retried) {
+    const pin = prompt("Enter a grown-up's PIN to make changes");
+    if (pin) {
+      const unlock = await fetch("/api/profiles/admin-unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
+      const u = await unlock.json().catch(() => ({}));
+      if (!unlock.ok) throw new Error(u.error || "That PIN isn't right");
+      token = u.token;
+      try { sessionStorage.setItem("utv-token", token); } catch {}
+      return api(path, opts, true);
+    }
+  }
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+const CERTS = ["U", "PG", "12", "12A", "15", "18"];
+async function loadProfiles() {
+  const { profiles, locked } = await api("/api/profiles");
+  $("#profiles-pill").textContent = locked ? "PIN on" : "No PIN";
+  $("#profiles-pill").className = "pill" + (locked ? " ok" : "");
+  const list = $("#profiles-list");
+  list.innerHTML = "";
+  for (const p of profiles) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const name = document.createElement("span");
+    name.textContent = `${p.name} (${p.kind === "kids" ? "Kids" : "Adult"})`;
+    row.append(name);
+    if (p.kind === "kids") {
+      const sel = document.createElement("select");
+      for (const c of CERTS) sel.add(new Option(`Up to ${c}`, c, false, c === p.maxCertification));
+      sel.onchange = () => api(`/api/profiles/${p.id}`, { method: "PATCH", body: { maxCertification: sel.value } }).then(() => toast("Saved")).catch((e) => toast(e.message, true));
+      row.append(sel);
+    }
+    list.append(row);
+  }
+}
+$("#pin-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const pin = e.target.pin.value.trim();
+  try { await api("/api/profiles/family", { method: "PATCH", body: { pin } }); e.target.reset(); toast("PIN set"); loadProfiles(); } catch (err) { toast(err.message, true); }
+};
+$("#pin-clear").onclick = async () => {
+  try { await api("/api/profiles/family", { method: "PATCH", body: { pin: null } }); toast("PIN removed"); loadProfiles(); } catch (err) { toast(err.message, true); }
+};
+
+async function load() {
+  loadProfiles().catch(() => {});
+  const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);
+  $("#st-channels").textContent = st.channels;
+  $("#st-programmes").textContent = st.programmes > 9999 ? Math.round(st.programmes / 1000) + "k" : st.programmes;
+  $("#st-connections").textContent = `${st.connections.used}/${st.connections.limit}`;
+  $("#iptv-pill").textContent = s.iptv.length ? `${s.iptv.length} source${s.iptv.length > 1 ? "s" : ""}` : "Not set up";
+  $("#iptv-pill").className = "pill" + (s.iptv.length ? " ok" : "");
+  $("#iptv-list").innerHTML = "";
+  for (const src of s.iptv) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${src.name}<small>${src.kind === "xtream" ? "Xtream" : "M3U"} · ${src.host} · ${src.connections} connection${src.connections > 1 ? "s" : ""}</small></span>`;
+    const b = document.createElement("button"); b.className = "secondary small"; b.textContent = "Remove";
+    b.onclick = async () => { if (confirm(`Remove ${src.name}?`)) { await api(`/api/settings/iptv/${src.id}`, { method: "DELETE" }); load(); } };
+    li.append(b); $("#iptv-list").append(li);
+  }
+  const g = $("#guide-form");
+  g.numbering.value = s.numbering; g.filter.value = s.channelFilter;
+  $("#jf-pill").textContent = s.jellyfin ? `Connected${s.jellyfin.serverName ? " to " + s.jellyfin.serverName : ""}` : "Not connected";
+  $("#jf-pill").className = "pill" + (s.jellyfin ? " ok" : "");
+  if (s.jellyfin) $("#jf-form").url.value = s.jellyfin.url;
+  for (const [id, on] of [["#tmdb-pill", s.tmdb], ["#torbox-pill", s.torbox]]) { $(id).textContent = on ? "Set" : "Not set"; $(id).className = "pill" + (on ? " ok" : ""); }
+  $("#addon-list").innerHTML = s.addons.map((a) => `<li><span>${a.name}<small>${a.url}</small></span></li>`).join("");
+  const lib = $("#lib-form");
+  for (const k of ["moviesPath", "tvPath", "recordingsPath", "inboxPath"]) lib[k].value = s.library[k];
+}
+
+document.querySelectorAll("#iptv .tabs button").forEach((b) => (b.onclick = () => {
+  const kind = b.dataset.kind; $("#iptv-form").kind.value = kind;
+  document.querySelectorAll("[data-for]").forEach((el) => (el.hidden = el.dataset.for !== kind));
+}));
+
+$("#iptv-form").onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target;
+  const body = f.kind.value === "xtream"
+    ? { kind: "xtream", url: f.url.value, username: f.username.value, password: f.password.value, name: f.name.value, connections: Number(f.connections.value) }
+    : { kind: "m3u", url: f.m3u.value, name: f.name.value, connections: Number(f.connections.value) };
+  try { await api("/api/settings/iptv", { method: "POST", body }); f.reset(); toast("Added. Channels and the guide are loading, which can take a few minutes."); load(); }
+  catch (err) { toast(err.message, true); }
+};
+
+$("#guide-form").onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target;
+  const body = { numbering: f.numbering.value, channelFilter: f.filter.value };
+  if (f.xmltv.value.trim()) body.xmltvUrls = f.xmltv.value.split(/\s+/).filter(Boolean);
+  try { await api("/api/settings", { method: "PUT", body }); toast("Saved. The guide is reloading."); load(); } catch (err) { toast(err.message, true); }
+};
+
+$("#vod-form").onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target; const body = {};
+  if (f.tmdb.value.trim()) body.tmdbApiKey = f.tmdb.value.trim();
+  if (f.torbox.value.trim()) body.torboxApiKey = f.torbox.value.trim();
+  if (f.addons.value.trim()) body.addonUrls = f.addons.value.split(/\s+/).filter(Boolean);
+  try { await api("/api/settings", { method: "PUT", body }); f.reset(); toast("Saved."); load(); } catch (err) { toast(err.message, true); }
+};
+
+$("#lib-form").onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target; const library = {};
+  for (const k of ["moviesPath", "tvPath", "recordingsPath", "inboxPath"]) if (f[k].value.trim()) library[k] = f[k].value.trim();
+  try { await api("/api/settings", { method: "PUT", body: { library } }); toast("Folders saved."); } catch (err) { toast(err.message, true); }
+};
+
+$("#jf-pw-toggle").onclick = () => { $("#jf-pw").hidden = false; $("#jf-code").hidden = true; };
+$("#jf-form").onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target;
+  try { await api("/api/jellyfin/login", { method: "POST", body: { url: f.url.value, username: f.username.value, password: f.password.value } }); toast("Jellyfin connected."); load(); }
+  catch (err) { toast(err.message, true); }
+};
+$("#jf-qc").onclick = async () => {
+  const url = $("#jf-form").url.value;
+  try {
+    const { code, secret } = await api("/api/jellyfin/quickconnect", { method: "POST", body: { url } });
+    $("#jf-code").hidden = false; $("#jf-pw").hidden = true; $("#jf-code-value").textContent = code;
+    for (let i = 0; i < 100; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const s = await api(`/api/jellyfin/quickconnect/${encodeURIComponent(secret)}?url=${encodeURIComponent(url)}`);
+      if (s.authenticated) { $("#jf-code").hidden = true; toast("Jellyfin connected."); load(); return; }
+    }
+  } catch (err) { toast(err.message.includes("401") ? "Quick Connect is turned off on this Jellyfin server. Use name and password." : err.message, true); }
+};
+
+load().catch((err) => toast(err.message, true));
+</script>
+</body>
+</html>
