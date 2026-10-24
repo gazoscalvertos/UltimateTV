@@ -63,6 +63,24 @@ export function describeError(err: unknown): string {
   return detail && !err.message.includes(detail) ? `${err.message} (${detail})` : err.message;
 }
 
+/** Logs each provider and guide request at debug level: host and path only, never the query (it holds logins). */
+function logRequests(fetchImpl: Fetch, log: Logger): Fetch {
+  return (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    const where = `${url.host}${redactUrl(url.pathname)}`;
+    const action = url.searchParams.get("action") ?? undefined;
+    const started = Date.now();
+    try {
+      const res = await fetchImpl(input, init);
+      log.debug({ url: where, action, status: res.status, bytes: Number(res.headers.get("content-length")) || undefined, ms: Date.now() - started }, "IPTV/guide request");
+      return res;
+    } catch (err) {
+      log.debug({ url: where, action, err: describeError(err), ms: Date.now() - started }, "IPTV/guide request failed");
+      throw err;
+    }
+  }) as Fetch;
+}
+
 export class Ingestor {
   private running: Promise<unknown> | null = null;
   /** A refresh asked for while one was running; the running one may have read old settings. */
@@ -76,7 +94,7 @@ export class Ingestor {
     private log: Logger,
     fetchImpl: Fetch = fetch,
   ) {
-    this.fetchImpl = withUserAgent(fetchImpl);
+    this.fetchImpl = logRequests(withUserAgent(fetchImpl), log);
   }
 
   private fetchImpl: Fetch;
@@ -275,7 +293,10 @@ export class Ingestor {
    */
   async refreshGuide(now = Date.now()): Promise<{ programmes: number }> {
     const channels = this.channels.list(true);
-    if (channels.length === 0) return { programmes: 0 };
+    if (channels.length === 0) {
+      this.log.warn("No channels yet, so the guide wasn't loaded; it loads once an IPTV source gives channels");
+      return { programmes: 0 };
+    }
     const run = now;
     const claimed = new Map<string, string>(); // channel id → guide URL that supplied it
     let total = 0;
@@ -283,6 +304,7 @@ export class Ingestor {
     for (const url of this.guideUrls()) {
       const matcher = new EpgMatcher(channels);
       let batch: Programme[] = [];
+      let fromUrl = 0;
       try {
         const stream = await fetchStream(url, this.fetchImpl);
         await parseXmltv(stream, {
@@ -295,6 +317,7 @@ export class Ingestor {
               claimed.set(channelId, url);
               batch.push(toProgramme(channelId, p));
               total++;
+              fromUrl++;
             }
             if (batch.length >= 2000) {
               this.guide.upsert(batch, run);
@@ -303,8 +326,9 @@ export class Ingestor {
           },
         });
         this.guide.upsert(batch, run);
+        this.log.info({ url: redactUrl(url), programmes: fromUrl }, fromUrl ? "Guide source loaded" : "Guide source loaded but matched none of our channels");
       } catch (err) {
-        this.log.warn({ url: redactUrl(url), err: String(err) }, "Guide source failed to load");
+        this.log.warn({ url: redactUrl(url), err: describeError(err) }, "Guide source failed to load");
       }
     }
     this.guide.dropStale(claimed.keys(), run, now);

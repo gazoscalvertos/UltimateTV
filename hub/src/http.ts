@@ -53,8 +53,22 @@ export async function fetchJson<T>(url: string, fetchImpl: Fetch = fetch, init: 
 export async function fetchStream(url: string, fetchImpl: Fetch = fetch, timeoutMs = 300_000): Promise<NodeJS.ReadableStream> {
   const res = await fetchOk(url, fetchImpl, {}, timeoutMs);
   if (!res.body) throw new Error(`Empty response from ${redactUrl(url)}`);
-  const body = Readable.fromWeb(res.body as import("node:stream/web").ReadableStream<Uint8Array>);
-  const gz = /\.gz($|\?)/i.test(url) || /gzip/i.test(res.headers.get("content-type") ?? "");
-  // fetch already undoes Content-Encoding: gzip, so only a gzipped *file* needs gunzipping here.
+  // fetch already undoes Content-Encoding: gzip, and servers disagree on whether a .xml.gz file is sent
+  // that way, so the bytes decide: gzip data starts 1f 8b, XML never does.
+  const reader = (res.body as import("node:stream/web").ReadableStream<Uint8Array>).getReader();
+  let first = await reader.read();
+  while (!first.done && first.value.length === 0) first = await reader.read();
+  const head = first.done ? undefined : first.value;
+  const body = Readable.from(
+    (async function* () {
+      if (head) yield head;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) return;
+        yield value;
+      }
+    })(),
+  );
+  const gz = head !== undefined && head[0] === 0x1f && head[1] === 0x8b;
   return gz ? body.pipe(createGunzip()) : body;
 }
