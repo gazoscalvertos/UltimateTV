@@ -244,7 +244,10 @@ export class Player {
     this.hdrSet = false;
     this.schedule();
     // Match the TV's refresh rate before the first frame, so the switch happens on a black screen.
-    if (o.fps) await this.display.prepare(o.fps, false);
+    // With variable refresh the screen follows mpv's frames, so mpv times them to the audio rather
+    // than resampling to a fixed display rate.
+    const sync = o.fps ? await this.display.prepare(o.fps, false) : null;
+    await this.mpv.set("video-sync", sync === "vrr" ? "audio" : "display-resample").catch(() => undefined);
     const opts: string[] = [];
     if (o.startMs) opts.push(`start=${(o.startMs / 1000).toFixed(3)}`);
     if (o.headers && Object.keys(o.headers).length) opts.push(`http-header-fields=${Object.entries(o.headers).map(([k, v]) => `${k}: ${v.replace(/,/g, "\\,")}`).join(",")}`);

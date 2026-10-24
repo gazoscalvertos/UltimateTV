@@ -147,3 +147,18 @@ describe("box updates", () => {
     expect(remoteCommit("", "main")).toBeUndefined();
   });
 });
+
+describe("variable refresh", () => {
+  it("knows which screens have variable refresh, from names or libkscreen flags", () => {
+    const [named] = parseOutputs(JSON.stringify({ outputs: [{ name: "HDMI-A-1", enabled: true, connected: true, currentModeId: "1", modes: [], capabilities: ["Vrr", "HighDynamicRange"], vrrPolicy: 2 }] }));
+    expect(named).toMatchObject({ vrrCapable: true, hdrCapable: true, vrrPolicy: "automatic" });
+    const [flags] = parseOutputs(JSON.stringify({ outputs: [{ name: "HDMI-A-1", enabled: true, connected: true, currentModeId: "1", modes: [], capabilities: 0x2, vrrPolicy: "Never" }] }));
+    expect(flags).toMatchObject({ vrrCapable: true, hdrCapable: false, vrrPolicy: "never" });
+  });
+
+  it("has no 24p mode on a 50/60/100 Hz monitor, so the box falls back to variable refresh", () => {
+    const monitor = [mode("a", 100, 3440, 1440), mode("b", 60, 3440, 1440), mode("c", 50, 3440, 1440)];
+    expect(pickMode(monitor, monitor[0]!, 23.976)).toBeNull();
+    expect(pickMode(monitor, monitor[0]!, 25)?.id).toBe("c");
+  });
+});
