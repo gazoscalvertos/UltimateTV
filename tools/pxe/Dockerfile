@@ -4,7 +4,7 @@
 FROM debian:bookworm-slim AS ipxe
 ARG IPXE_REF=v2.0.0
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates git make gcc binutils perl liblzma-dev \
+ && apt-get install -y --no-install-recommends ca-certificates git make gcc libc6-dev binutils perl liblzma-dev \
  && rm -rf /var/lib/apt/lists/*
 RUN git clone --depth 1 --branch "$IPXE_REF" https://github.com/ipxe/ipxe.git /ipxe
 COPY embed.ipxe /embed.ipxe
