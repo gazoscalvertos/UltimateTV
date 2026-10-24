@@ -218,6 +218,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+Environment=HOME=/root
 ExecStart=/usr/local/bin/ultimatetv-update
 EOF
 cat > /etc/systemd/system/ultimatetv-update.timer <<'EOF'

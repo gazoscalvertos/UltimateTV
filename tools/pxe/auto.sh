@@ -126,14 +126,17 @@ cat >/usr/local/sbin/ultimatetv-firstboot <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 . /root/box.conf
+export HOME=/root
 for _ in $(seq 1 60); do curl -fsS --max-time 5 https://github.com >/dev/null && break; sleep 5; done
-# A private repository needs a token; git keeps it for the weekly updates too (root only).
+# A private repository needs a token; git keeps it for the weekly updates too (root only). It goes
+# in the system git config, because services run without a home directory.
 if [ -n "${GITHUB_TOKEN:-}" ]; then
-  git config --global credential.helper store
+  git config --system credential.helper "store --file=/root/.git-credentials"
   (umask 077 && echo "https://x-access-token:${GITHUB_TOKEN}@github.com" >/root/.git-credentials)
 fi
 rm -rf /opt/ultimatetv
-git clone --depth 1 --branch "${BRANCH:-main}" "${REPO_URL:-https://github.com/gazoscalvertos/UltimateTV.git}" /opt/ultimatetv
+GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${BRANCH:-main}" "${REPO_URL:-https://github.com/gazoscalvertos/UltimateTV.git}" /opt/ultimatetv \
+  || { echo "Couldn't clone ${REPO_URL:-the repository} (branch ${BRANCH:-main}). A private repository needs GITHUB_TOKEN in box.conf." >&2; exit 1; }
 HUB_URL="$HUB_URL" BRANCH="${BRANCH:-main}" bash /opt/ultimatetv/tools/box/install.sh
 install -d /var/lib/ultimatetv
 touch /var/lib/ultimatetv/installed
