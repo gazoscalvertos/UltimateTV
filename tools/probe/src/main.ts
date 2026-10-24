@@ -222,7 +222,7 @@ function renderKeys() {
   const keyRows = report.keys.map((k) =>
     el("tr", {}, [
       el("td", { text: k.name }),
-      el("td", { text: k.via === "click" ? "click only (cursor mode)" : k.keyCode === null ? "not received" : String(k.keyCode) }),
+      el("td", { text: keyLabel(k) }),
     ]),
   );
   setChildren(main,
@@ -245,6 +245,12 @@ function renderKeys() {
   focusFirst("#main .primary");
 }
 
+function keyLabel(k: KeyResult): string {
+  if (k.via === "click") return "click only (cursor mode)";
+  if (k.via === "history") return "browser back only";
+  return k.keyCode === null ? "not received" : String(k.keyCode);
+}
+
 function startKeyWizard() {
   keyWizard = { index: 0, results: [] };
   renderKeys();
@@ -254,6 +260,7 @@ function stopKeyWizard() {
   if (!keyWizard) return;
   report.keys = keyWizard.results;
   keyWizard = null;
+  saveProgress();
   renderKeys();
 }
 
@@ -417,6 +424,7 @@ function askAboutClip(clip: Clip, result: ClipResult) {
     el("div", { class: "actions" }, [
       button("Save answers", () => {
         report.clips = report.clips.filter((c) => c.clip !== clip.file).concat(result);
+        saveProgress();
         void renderClips();
       }, "primary"),
       button("Play again", () => playClip(clip)),
@@ -528,9 +536,57 @@ document.addEventListener("click", (e) => {
   }
 }, true);
 
+// ---------- Back key and saved progress ----------
+
+// In the browser, Back steps through history instead of sending a key, which would reload the probe.
+// A history entry is kept in reserve so Back lands here as a popstate event, and answers are saved
+// locally so an accidental reload doesn't lose them.
+
+const STORAGE_KEY = "utv-probe-progress";
+
+function armBackTrap() {
+  try {
+    history.pushState({ utvProbe: true }, "", location.href);
+  } catch {
+    // Some embedded browsers refuse pushState; Back will then leave the page as before.
+  }
+}
+
+window.addEventListener("popstate", () => {
+  logEvent("popstate (browser back)");
+  armBackTrap();
+  if (keyWizard) {
+    recordWizardKey({ keyCode: null, via: "history" });
+  } else if (playing) {
+    stopClip();
+  }
+});
+
+function saveProgress() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ keys: report.keys, clips: report.clips }));
+  } catch {
+    // Storage may be unavailable; progress then lasts only until the page reloads.
+  }
+}
+
+function restoreProgress() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as Pick<ProbeReport, "keys" | "clips"> | null;
+    if (saved && Array.isArray(saved.keys) && Array.isArray(saved.clips)) {
+      report.keys = saved.keys;
+      report.clips = saved.clips;
+    }
+  } catch {
+    // Ignore unreadable saved progress.
+  }
+}
+
 // ---------- start ----------
 
 async function start() {
+  restoreProgress();
+  armBackTrap();
   report.codecs = checkCodecs();
   showTab("device");
   report.drm = await checkDrm();

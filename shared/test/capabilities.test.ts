@@ -38,6 +38,7 @@ describe("renderMatrix", () => {
     expect(md).toContain("| AV1 Main 10-bit L5.1 | No | No |");
     expect(md).toContain("| Guide | not received | - |");
     expect(md).toContain("| Back | click only (cursor mode) | - |");
+    expect(md).toContain("| Red | browser back only | - |");
     expect(md).toContain("keydown 13 Enter");
     expect(md).toContain("| dv-p8.mkv | Yes | 3840×2160 | - | dolby-vision | smooth | atmos |");
   });

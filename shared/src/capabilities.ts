@@ -80,8 +80,11 @@ export interface KeyResult {
   keyCode: number | null;
   key?: string;
   code?: string;
-  /** "click" when the key only produced a mouse click, e.g. OK in the VIDAA browser's cursor mode. */
-  via?: "key" | "click";
+  /**
+   * How the key reached the page: a real key press, only a mouse click (OK in the VIDAA browser's
+   * cursor mode), or only a browser history step (Back in the browser).
+   */
+  via?: "key" | "click" | "history";
 }
 
 export interface ClipResult {
@@ -187,7 +190,8 @@ export function renderMatrix(report: ProbeReport): string {
   lines.push("## Remote keys", "");
   lines.push("| Key | keyCode | key / code |", "|-----|---------|------------|");
   for (const k of report.keys) {
-    const code = k.via === "click" ? "click only (cursor mode)" : (k.keyCode ?? "not received");
+    const code =
+      k.via === "click" ? "click only (cursor mode)" : k.via === "history" ? "browser back only" : (k.keyCode ?? "not received");
     lines.push(`| ${k.name} | ${code} | ${[k.key, k.code].filter(Boolean).join(" / ") || "-"} |`);
   }
   lines.push("");
