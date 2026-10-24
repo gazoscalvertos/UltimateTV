@@ -63,6 +63,24 @@ export function describeError(err: unknown): string {
   return detail && !err.message.includes(detail) ? `${err.message} (${detail})` : err.message;
 }
 
+/** Logs each provider and guide request at debug level: host and path only, never the query (it holds logins). */
+function logRequests(fetchImpl: Fetch, log: Logger): Fetch {
+  return (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    const where = `${url.host}${redactUrl(url.pathname)}`;
+    const action = url.searchParams.get("action") ?? undefined;
+    const started = Date.now();
+    try {
+      const res = await fetchImpl(input, init);
+      log.debug({ url: where, action, status: res.status, bytes: Number(res.headers.get("content-length")) || undefined, ms: Date.now() - started }, "IPTV/guide request");
+      return res;
+    } catch (err) {
+      log.debug({ url: where, action, err: describeError(err), ms: Date.now() - started }, "IPTV/guide request failed");
+      throw err;
+    }
+  }) as Fetch;
+}
+
 export class Ingestor {
   private running: Promise<unknown> | null = null;
   /** A refresh asked for while one was running; the running one may have read old settings. */
@@ -76,7 +94,7 @@ export class Ingestor {
     private log: Logger,
     fetchImpl: Fetch = fetch,
   ) {
-    this.fetchImpl = withUserAgent(fetchImpl);
+    this.fetchImpl = logRequests(withUserAgent(fetchImpl), log);
   }
 
   private fetchImpl: Fetch;
