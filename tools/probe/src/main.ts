@@ -248,11 +248,13 @@ function renderKeys() {
 function keyLabel(k: KeyResult): string {
   if (k.via === "click") return "click only (cursor mode)";
   if (k.via === "history") return "browser back only";
+  if (k.via === "system") return "taken by the TV (page closed)";
   return k.keyCode === null ? "not received" : String(k.keyCode);
 }
 
 function startKeyWizard() {
   keyWizard = { index: 0, results: [] };
+  saveProgress();
   renderKeys();
 }
 
@@ -273,6 +275,7 @@ function recordWizardKey(result: Omit<KeyResult, "name"> | null) {
     stopKeyWizard();
     return;
   }
+  saveProgress();
   renderKeys();
 }
 
@@ -564,35 +567,47 @@ window.addEventListener("popstate", () => {
 
 function saveProgress() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ keys: report.keys, clips: report.clips }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ keys: report.keys, clips: report.clips, wizard: keyWizard }));
   } catch {
     // Storage may be unavailable; progress then lasts only until the page reloads.
   }
 }
 
-function restoreProgress() {
+/**
+ * Restores saved answers. If the key wizard was mid-way, the key being asked for closed the page
+ * (the TV handled it, like Guide), so it is recorded as such and the wizard carries on from the next key.
+ */
+function restoreProgress(): boolean {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as Pick<ProbeReport, "keys" | "clips"> | null;
-    if (saved && Array.isArray(saved.keys) && Array.isArray(saved.clips)) {
-      report.keys = saved.keys;
-      report.clips = saved.clips;
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as
+      | (Pick<ProbeReport, "keys" | "clips"> & { wizard?: { index: number; results: KeyResult[] } | null })
+      | null;
+    if (!saved || !Array.isArray(saved.keys) || !Array.isArray(saved.clips)) return false;
+    report.keys = saved.keys;
+    report.clips = saved.clips;
+    if (saved.wizard && Array.isArray(saved.wizard.results)) {
+      keyWizard = { index: saved.wizard.index, results: saved.wizard.results };
+      recordWizardKey({ keyCode: null, via: "system" });
+      return keyWizard !== null;
     }
   } catch {
     // Ignore unreadable saved progress.
   }
+  return false;
 }
 
 // ---------- start ----------
 
 async function start() {
-  restoreProgress();
+  const resumeWizard = restoreProgress();
   armBackTrap();
   report.codecs = checkCodecs();
-  showTab("device");
+  showTab(resumeWizard ? "keys" : "device");
   report.drm = await checkDrm();
   const fps = await measureFps(document.body);
   report.device = deviceInfo(fps);
   if (tab === "device") renderDevice();
+  else if (tab === "keys") renderKeys();
 }
 
 void start();

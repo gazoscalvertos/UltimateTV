@@ -66,6 +66,34 @@ export const REMOTE_KEYS = [
   "9",
 ] as const;
 
+/**
+ * Key codes the VIDAA WebApp Development Guide (section 5.2) lists for installed apps. Info, Menu,
+ * Exit and Subtitle are reserved by the system and never reach apps.
+ */
+export const VIDAA_KEY_CODES: Record<string, number> = {
+  OK: 13,
+  Up: 38,
+  Down: 40,
+  Left: 37,
+  Right: 39,
+  Back: 8,
+  Red: 403,
+  Green: 404,
+  Yellow: 405,
+  Blue: 406,
+  "Channel up": 427,
+  "Channel down": 428,
+  Play: 415,
+  Pause: 19,
+  "Play/Pause": 463,
+  Stop: 413,
+  Rewind: 412,
+  "Fast forward": 417,
+  "0": 48,
+  "1": 49,
+  "9": 57,
+};
+
 export type Support = "probably" | "maybe" | "no" | "error";
 
 export interface CodecResult {
@@ -82,9 +110,10 @@ export interface KeyResult {
   code?: string;
   /**
    * How the key reached the page: a real key press, only a mouse click (OK in the VIDAA browser's
-   * cursor mode), or only a browser history step (Back in the browser).
+   * cursor mode), only a browser history step (Back in the browser), or not at all because the TV
+   * handled it and the page closed (e.g. Guide opening the TV's own guide).
    */
-  via?: "key" | "click" | "history";
+  via?: "key" | "click" | "history" | "system";
 }
 
 export interface ClipResult {
@@ -188,11 +217,16 @@ export function renderMatrix(report: ProbeReport): string {
   lines.push("");
 
   lines.push("## Remote keys", "");
-  lines.push("| Key | keyCode | key / code |", "|-----|---------|------------|");
+  lines.push("| Key | keyCode | VIDAA app code | key / code |", "|-----|---------|----------------|------------|");
   for (const k of report.keys) {
     const code =
-      k.via === "click" ? "click only (cursor mode)" : k.via === "history" ? "browser back only" : (k.keyCode ?? "not received");
-    lines.push(`| ${k.name} | ${code} | ${[k.key, k.code].filter(Boolean).join(" / ") || "-"} |`);
+      k.via === "click" ? "click only (cursor mode)" : k.via === "history"
+          ? "browser back only"
+          : k.via === "system"
+            ? "taken by the TV (page closed)"
+            : (k.keyCode ?? "not received");
+    const expected = VIDAA_KEY_CODES[k.name] ?? "reserved / none";
+    lines.push(`| ${k.name} | ${code} | ${expected} | ${[k.key, k.code].filter(Boolean).join(" / ") || "-"} |`);
   }
   lines.push("");
 
