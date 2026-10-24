@@ -66,7 +66,10 @@ async function main(): Promise<void> {
   // Sound to the TV before mpv opens its output; again before each play, in case the TV moved.
   const audio = new Audio(log);
   const hdmiAudio = process.env.HDMI_AUDIO !== "0" && !process.env.AUDIO_DEVICE;
-  if (hdmiAudio) await audio.useHdmi();
+  if (hdmiAudio) {
+    await audio.useHdmi();
+    await audio.fullVolume();
+  }
   await mpv.start().catch((e: Error) => log(`mpv didn't start: ${e.message}`));
   await player.start().catch((e: Error) => log(e.message));
   void cec.start();

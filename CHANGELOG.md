@@ -13,6 +13,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- The box's sound output is at full volume (the TV's remote sets the volume); it had kept the
+  analog output's 40%.
+- Phone remote: pressing an arrow no longer moves buttons around the pad (the pressed look shared
+  the Down arrow's class name).
+
 - Sound reaches the TV: the box moves the sound card to the connected HDMI output's stereo
   profile at start and before each play (WirePlumber had picked the analog headphone output).
   Dolby and DTS still pass through. `HDMI_AUDIO=0` in box.env turns it off.
