@@ -14,3 +14,6 @@ services:
     cap_add: [NET_ADMIN]
     restart: unless-stopped
     env_file: .env
+    # The Arch installer, downloaded once (about 1 GB) and kept between restarts.
+    volumes:
+      - ./arch-cache:/srv/http/arch

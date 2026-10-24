@@ -31,6 +31,21 @@ if [ -z "${ADMIN_PASSWORD_HASH:-}" ] && [ -z "${ADMIN_SSH_KEY:-}" ]; then
   exit 1
 fi
 
+# The Arch installer (kernel, initramfs and the live system, about 1 GB), kept here and served over
+# plain HTTP. iPXE's own HTTPS downloads from the mirror can time out, and this is quicker anyway.
+# curl -z only downloads again when the mirror has a newer release.
+iso="$ARCH_MIRROR/iso/latest"
+mkdir -p /srv/http/arch/boot/x86_64 /srv/http/arch/x86_64
+for f in boot/x86_64/vmlinuz-linux boot/x86_64/initramfs-linux.img x86_64/airootfs.sfs; do
+  dest="/srv/http/arch/$f"
+  echo "Checking $iso/arch/$f"
+  if curl -fL --retry 3 --connect-timeout 20 -sS -z "$dest" -o "$dest.part" -R "$iso/arch/$f"; then
+    [ -s "$dest.part" ] && mv -f "$dest.part" "$dest"
+  fi
+  rm -f "$dest.part"
+  [ -s "$dest" ] || { echo "Couldn't download $iso/arch/$f. Check ARCH_MIRROR and this machine's internet." >&2; exit 1; }
+done
+
 # TFTP: our iPXE under every name a firmware might ask for, and the menu.
 cd /srv/tftp
 cp -f ipxe.efi ipxe
@@ -39,7 +54,6 @@ cp -f ipxe.efi ipxe.0
 {
   echo '#!ipxe'
   echo "set server $server"
-  echo "set mirror $ARCH_MIRROR/iso/latest/"
   IFS=',' read -ra macs <<<"${BOX_MAC:-}"
   for m in "${macs[@]}"; do
     m="$(echo "$m" | tr 'A-F' 'a-f' | tr -d ' ')"
@@ -63,13 +77,13 @@ goto ${target}
 exit
 
 :install
-echo Starting the Arch Linux installer from ${mirror}
-kernel ${mirror}arch/boot/x86_64/vmlinuz-linux initrd=initramfs-linux.img archisobasedir=arch archiso_http_srv=${mirror} ip=dhcp script=${server}/auto.sh || goto failed
-initrd ${mirror}arch/boot/x86_64/initramfs-linux.img || goto failed
+echo Starting the Arch Linux installer from ${server}
+kernel ${server}/arch/boot/x86_64/vmlinuz-linux initrd=initramfs-linux.img archisobasedir=arch archiso_http_srv=${server}/ ip=dhcp script=${server}/auto.sh || goto failed
+initrd ${server}/arch/boot/x86_64/initramfs-linux.img || goto failed
 boot || goto failed
 
 :failed
-echo Couldn't start the installer. Check the PXE server's ARCH_MIRROR. Starting from the disk.
+echo Couldn't start the installer from ${server}. Check the PXE server's log. Starting from the disk.
 sleep 15
 exit
 EOF

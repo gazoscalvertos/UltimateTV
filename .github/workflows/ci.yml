@@ -80,11 +80,14 @@ jobs:
           ip="$(hostname -I | awk '{print $1}')"
           docker run -d --name pxe -e PXE_IP="$ip" -e PXE_HTTP_PORT=18097 \
             -e BOX_MAC=AA:BB:CC:DD:EE:FF -e ADMIN_PASSWORD_HASH='$6$x$y' -e HUB_URL=http://hub:8095 --network host --cap-add NET_ADMIN ultimatetv-pxe:ci
-          for i in $(seq 1 20); do curl -fsS localhost:18097/box.conf && break; sleep 1; done
+          # The first start downloads the Arch installer (about 1 GB) before serving.
+          for i in $(seq 1 300); do curl -fsS localhost:18097/box.conf && break; sleep 1; done
           curl -fsS localhost:18097/auto.sh -o /tmp/auto.sh && grep -q "Unattended Arch Linux install" /tmp/auto.sh
           test "$(docker inspect -f '{{.State.Running}}' pxe)" = true
           docker exec pxe grep -q "iseq \${mac} aa:bb:cc:dd:ee:ff" /srv/tftp/boot.ipxe
           docker exec pxe test -s /srv/tftp/ipxe.efi
+          curl -fsSI localhost:18097/arch/boot/x86_64/vmlinuz-linux
+          curl -fsSI localhost:18097/arch/x86_64/airootfs.sfs
       - name: PXE server log
         if: always()
         run: docker logs pxe || true

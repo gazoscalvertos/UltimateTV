@@ -8,7 +8,7 @@ A small PXE server on the Docker LXC lets the box install itself from scratch. Y
 
 1. The box asks the network for a boot file. The PXE server sends iPXE, which fetches the menu.
 2. You choose **Reinstall the box (erases the disk)**. If nothing is pressed for 15 seconds, it starts from its disk as normal.
-3. The Arch Linux installer boots straight from the Arch mirrors and runs `tools/pxe/auto.sh`:
+3. The Arch Linux installer boots from the PXE server (it keeps a copy of the installer from the Arch mirrors) and runs `tools/pxe/auto.sh`:
    - It erases the biggest internal disk, waiting 15 seconds first so you can still pull the plug.
    - It installs Arch on btrfs with systemd-boot.
    - It sets up your admin login, SSH, the time zone and a UK keyboard.
