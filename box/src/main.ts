@@ -7,6 +7,7 @@
 //   AUDIO_DEVICE  mpv's --audio-device, when the default isn't the TV's HDMI output
 //   MPV_ARGS      extra mpv arguments, space separated
 //   SUSPEND_WHEN_TV_OFF  1 to suspend the box a minute after the TV goes to standby
+//   HDMI_AUDIO    0 to leave the sound output alone (by default it's moved to the TV's HDMI)
 //   CUSTOM_MODES  0 to never add a custom refresh rate for films the screen has no mode for
 
 import { execFile } from "node:child_process";
@@ -14,6 +15,7 @@ import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "
 import os from "node:os";
 import path from "node:path";
 import type { BoxInfo, PlayerState } from "@ultimatetv/shared";
+import { Audio } from "./audio.js";
 import { Cec } from "./cec.js";
 import { Diagnostics } from "./diagnostics.js";
 import { Display } from "./display.js";
@@ -60,6 +62,10 @@ async function main(): Promise<void> {
   const player = new Player(mpv, display, screenSize, log);
   const updates = new Updates(log);
 
+  // Sound to the TV before mpv opens its output; again before each play, in case the TV moved.
+  const audio = new Audio(log);
+  const hdmiAudio = process.env.HDMI_AUDIO !== "0" && !process.env.AUDIO_DEVICE;
+  if (hdmiAudio) await audio.useHdmi();
   await mpv.start().catch((e: Error) => log(`mpv didn't start: ${e.message}`));
   await player.start().catch((e: Error) => log(e.message));
   void cec.start();
@@ -105,7 +111,10 @@ async function main(): Promise<void> {
       if (ao) info.audioDevice = ao;
       return info;
     },
-    play: (o: never) => player.play(o),
+    play: async (o: never) => {
+      if (hdmiAudio) await audio.useHdmi();
+      return player.play(o);
+    },
     stop: () => player.stop(),
     pause: (p: never) => player.pause(p),
     seek: (ms: never, mode: never) => player.seek(ms, mode),
