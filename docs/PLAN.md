@@ -1,6 +1,6 @@
 # UltimateTV: Product & Technical Plan
 
-> Status: **Draft v3** (2026-10-24). This is a plan, not code yet.
+> Status: **Draft v4** (2026-10-24). This is a plan, not code yet.
 > Target hardware: **Hisense 85" 85U7STUK** (2026 U7 Mini-LED, VIDAA OS). **The app runs on the TV itself, with no external streaming box.**
 > North star: **the best picture and sound VIDAA can deliver, wrapped in a UI that passes the Wife Acceptance Factor (WAF).**
 
@@ -26,7 +26,7 @@
 |------|-------|----------------------------|
 | Playback device | The TV itself (VIDAA web app) | §2.3 workarounds apply everywhere. |
 | Audio | **TV speakers, no soundbar** | The TV decodes all audio. DD+ Atmos plays through the TV's virtualised Atmos. Lossless audio doesn't matter for these speakers, so converting TrueHD/DTS costs nothing audible. Dialogue clarity and night mode matter more (§7.2). |
-| Storage / server | A Linux machine with **SMB and SFTP** shares | The Hub runs on this machine (Docker or a native systemd service) and writes recordings and downloads straight to its disks. If that machine can't run services, a small always-on mini PC on the LAN runs the Hub and mounts the shares over SMB. |
+| Storage / server | A Linux server running **Proxmox**, with an **Intel N150**, SMB and SFTP shares. **Jellyfin** already runs in its own Proxmox container, and **Docker** runs in another | The Hub runs as a Docker stack in the existing Docker container (§3.3) and writes recordings and downloads straight to the shared media storage. The N150's Quick Sync can transcode, including AV1 → HEVC. |
 | IPTV | **One connection** on the current plan (the provider sells 4- and 5-connection plans) | Only one live stream at a time across watching *and* recording. The series link engine is designed around this (§5.3), and upgrading to a multi-connection plan unlocks Sky-style "record two, watch a third". |
 
 ---
@@ -113,14 +113,26 @@
 
 | Component | Choice | Reason |
 |-----------|--------|--------|
-| Hub runtime | **TypeScript (Node + Fastify)** in Docker, or as a native systemd service | Same language as the TV app, so API types and models are shared in one monorepo. Runs on Gary's Linux file server alongside the SMB/SFTP shares. |
+| Hub runtime | **TypeScript (Node + Fastify)** as a Docker Compose stack | Same language as the TV app, so API types and models are shared in one monorepo. Runs in Gary's existing Docker container on Proxmox. |
 | Hub DB | SQLite (WAL) | Single household. Zero ops. |
-| Recorder & gateway | **ffmpeg** | `-c copy` for lossless recording and remux. Audio-only conversion to E-AC-3. Hardware transcode (Intel Quick Sync/VAAPI) if the NAS has it. |
+| Recorder & gateway | **ffmpeg** with Intel Quick Sync (QSV/VAAPI) | `-c copy` for lossless recording and remux. Audio-only conversion to E-AC-3. The N150 decodes AV1 and encodes HEVC 10-bit in hardware, so AV1 → HEVC conversion is realistic for one stream at a time. |
 | TV app UI | **Lightning JS 3 (Blits)** | Renders on WebGL. Built for TV remotes and focus handling. Holds 60 fps on weak TV SoCs where DOM-heavy frameworks stutter. *Fallback: SolidJS + spatial navigation if Lightning misbehaves on this Chromium.* |
 | TV app playback | `<video>` + **hls.js / mpegts.js** for live, MSE for VOD, native player hand-off for edge cases | Covers HLS and MPEG-TS IPTV feeds plus direct file playback. |
 | Build target | ES2017 + polyfills, tested against the TV's exact Chromium version | VIDAA ships an older engine. |
 | Metadata | TMDB (films/series), TVDB (episode numbering), Fanart.tv (logos/clearart) | Rich artwork drives the "premium" feel. |
 | Design system | Tokens (colour, type, spacing, motion) in one JSON file | One source of truth for the TV app and the phone setup page. |
+
+### 3.3 Deployment on Gary's Proxmox server
+
+The setup is a Proxmox host with an Intel N150, Jellyfin in one container, Docker in another, and SMB/SFTP shares.
+
+- **Hub location:** a `docker-compose.yml` stack (`ultimatetv-hub`, plus an ffmpeg worker in the same image) inside the existing Docker container.
+- **Shared media storage:** one media dataset on the host (e.g. `/tank/media` with `Movies/`, `TV/`, `Recordings/`, `Inbox/`) is bind-mounted into **both** the Jellyfin and Docker containers at the same path (e.g. `/media`). The Hub writes there, and Jellyfin scans there. The SMB/SFTP shares expose the same folders, so `Inbox/` is where files from other machines land.
+- **GPU for Quick Sync:** pass `/dev/dri` (the N150's iGPU) into the Docker container as well as the Jellyfin one. LXC containers can share it. The Hub's compose file maps `/dev/dri` into the Hub, and ffmpeg uses VAAPI/QSV.
+- **Networking:** the Hub serves the TV app and API on a fixed LAN address (DHCP reservation, e.g. `http://hub.lan:8080`). The VIDAA bookmark or vidaa-edge icon points there.
+- **Jellyfin link:** the Hub uses a Jellyfin API key and calls the library refresh endpoint after each recording or download.
+- **Backups:** the Hub's SQLite database and config live in a Docker volume included in the existing Proxmox backup job.
+- **Phase 0 checks:** confirm `/dev/dri` passthrough works in the Docker container (`vainfo` shows AV1 decode and HEVC encode), and confirm both containers see the media folders with matching permissions (UID/GID mapping for unprivileged containers).
 
 ---
 
@@ -301,7 +313,7 @@ A diagnostic page served by the Hub that runs in the TV's browser and reports wh
 
 | Phase | Name | Scope | Exit criteria |
 |-------|------|-------|---------------|
-| **0** | Spike & probe (1–2 wks) | Monorepo scaffold (`hub/`, `tv/`, `shared/`, `design/`). Capability probe and test-clip matrix on the real Hisense. Install a hello-world app via vidaa-edge **and** bookmark on the actual firmware. Check that Lightning JS runs at 60 fps on the TV. List which IPTV channels have catch-up (drives recording with one connection). Check the Linux server CPU for transcoding. | A written capability matrix, confirmed install method and a catch-up channel list. |
+| **0** | Spike & probe (1–2 wks) | Monorepo scaffold (`hub/`, `tv/`, `shared/`, `design/`). Capability probe and test-clip matrix on the real Hisense. Install a hello-world app via vidaa-edge **and** bookmark on the actual firmware. Check that Lightning JS runs at 60 fps on the TV. List which IPTV channels have catch-up (drives recording with one connection). Check Quick Sync passthrough and shared media paths on Proxmox (§3.3). Test IPTV catch-up on the main UK channels. | A written capability matrix, confirmed install method and a catch-up channel list. |
 | **1** | Hub core + Live TV MVP (3–4 wks) | Hub: M3U/Xtream/XMLTV ingest, channel manager, EPG API, HLS repackaging. TV app: Home, live player, mini guide banner, number tuning, previous channel, full guide grid with live preview. | Watch live TV and use the guide daily. First WAF test (watch channel / use guide). |
 | **2** | Recording & series link (3–4 wks) | Scheduler, ffmpeg recorder to NAS, series link engine, conflicts, Planner screen, catch-up / start over, Hub-side pause live, Jellyfin rescan hook. | A week of series links recorded without misses. WAF test (record series / play recording / delete). |
 | **3** | Unified VOD (4 wks) | Jellyfin client (Quick Connect, probe-based direct play, skip intro), Xtream VOD/series, TMDB metadata, "one title many sources", stream gateway (remux/audio convert), native-player hand-off, Continue Watching across sources, unified search with phone search. | Films/TV feel like one library, and no title fails to play. WAF test (continue film / find 4K comedy). |
@@ -340,8 +352,8 @@ UltimateTV/
 | Browser player loses DV or doesn't switch frame rate | Native-player hand-off, chosen per title from the probe results. |
 | TV browser too slow for a rich UI | Lightning JS on WebGL, a virtualised guide grid, pre-scaled artwork and a strict speed budget. Phase 0 proves it before Phase 1 starts. |
 | No lossless Atmos | Accepted with this choice, and inaudible on TV speakers. DD+ Atmos is the format most streaming services use, so most content still has Atmos. |
-| Can the Linux file server run the Hub? (CPU, Docker, hardware transcoding) | Remux and audio conversion are cheap and run on almost anything. Full video transcoding (AV1 → HEVC) needs Intel Quick Sync or similar, otherwise those titles go to the native player. Ask Gary for the machine's CPU. If it can't run services, use a mini PC (e.g. Intel N100) that mounts the SMB shares. |
-| Existing Jellyfin server? | Ask Gary. If there isn't one, run it on the same Linux server alongside the Hub. |
+| N150 transcoding load | Expect one 4K HDR AV1 → HEVC conversion at a time, alongside remuxing and recording. Source ranking keeps conversions rare. If Jellyfin and the Hub both transcode at once, the Hub queues its job or uses the native-player hand-off. |
+| Jellyfin in a separate Proxmox container | The Hub talks to it over its API on the LAN. Both containers must see the same media folders at the **same paths**, so a recording the Hub writes is the file Jellyfin scans (§3.3). |
 | **One IPTV connection** | Catch-up-based recording, stream sharing and repeat airings (§5.3). Phase 0 checks which channels have catch-up. A 4–5 connection plan is the easy fix if clashes annoy. |
 | XMLTV quality for UK channels | Allow multiple EPG sources per channel with priority, plus manual mapping UI. |
 | Legal/content | The app is a neutral client. Sources and credentials are user-supplied, and no content or addon URLs are bundled. |
