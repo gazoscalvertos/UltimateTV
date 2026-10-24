@@ -1,13 +1,13 @@
 // Refreshes channels, guide data and the IPTV VOD catalogue from every configured source.
 
-import type { IptvSource, Programme, TitleKind } from "@ultimatetv/shared";
+import type { IptvSource, IptvSourceStatus, Programme, TitleKind } from "@ultimatetv/shared";
 import { normaliseTitle } from "@ultimatetv/shared";
 import { buildChannels, ChannelStore, type RawFeed } from "../channels.js";
 import type { Db } from "../db.js";
 import { EpgMatcher, GuideStore, toProgramme } from "../epg.js";
-import { fetchOk, fetchStream, redactUrl, type Fetch } from "../http.js";
+import { fetchOk, fetchStream, redactUrl, withUserAgent, type Fetch } from "../http.js";
 import type { Logger } from "../log.js";
-import type { SettingsStore } from "../settings.js";
+import { dedupeSources, type SettingsStore } from "../settings.js";
 import { parseM3u } from "./m3u.js";
 import { parseXmltv } from "./xmltv.js";
 import { XtreamClient } from "./xtream.js";
@@ -54,8 +54,19 @@ export function cleanVodName(name: string): string {
   return name.replace(/^\s*(\|[A-Z]{2,3}\||[A-Z]{2,3}\s*[-:|])\s*/, "").trim();
 }
 
+/** A readable reason, including what undici hides in `cause` ("fetch failed" alone says nothing). */
+export function describeError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  if (err.name === "TimeoutError") return "The provider took too long to answer";
+  const cause = (err as Error & { cause?: unknown }).cause;
+  const detail = cause instanceof Error ? ((cause as Error & { code?: string }).code ?? cause.message) : cause ? String(cause) : "";
+  return detail && !err.message.includes(detail) ? `${err.message} (${detail})` : err.message;
+}
+
 export class Ingestor {
   private running: Promise<unknown> | null = null;
+  /** A refresh asked for while one was running; the running one may have read old settings. */
+  private again = false;
 
   constructor(
     private db: Db,
@@ -63,19 +74,37 @@ export class Ingestor {
     private channels: ChannelStore,
     private guide: GuideStore,
     private log: Logger,
-    private fetchImpl: Fetch = fetch,
-  ) {}
+    fetchImpl: Fetch = fetch,
+  ) {
+    this.fetchImpl = withUserAgent(fetchImpl);
+  }
+
+  private fetchImpl: Fetch;
 
   sourceMeta(sourceId: string): SourceMeta | undefined {
     return this.db.getKv<SourceMeta>(`source:${sourceId}`);
   }
 
-  /** Refreshes everything once; concurrent calls share the run in progress. */
+  sourceStatus(sourceId: string): IptvSourceStatus | undefined {
+    return this.db.getKv<IptvSourceStatus>(`sourceStatus:${sourceId}`);
+  }
+
+  /**
+   * Refreshes everything. A call during a run waits for it and then runs once more, because a source
+   * added mid-run (say an M3U right after an Xtream) wasn't in the settings that run read.
+   */
   refreshAll(): Promise<unknown> {
-    this.running ??= (async () => {
+    if (this.running) {
+      this.again = true;
+      return this.running;
+    }
+    this.running = (async () => {
       try {
-        await this.refreshSources();
-        await this.refreshGuide();
+        do {
+          this.again = false;
+          await this.refreshSources();
+          await this.refreshGuide();
+        } while (this.again);
       } finally {
         this.running = null;
       }
@@ -87,13 +116,19 @@ export class Ingestor {
     const s = this.settings.get();
     const raw: RawFeed[] = [];
     const vod: VodEntry[] = [];
-    for (const source of s.iptv) {
+    const loaded = new Map<string, number>();
+    for (const source of dedupeSources(s.iptv)) {
       try {
         const result = source.kind === "xtream" ? await this.loadXtream(source) : await this.loadM3u(source);
-        raw.push(...result.feeds);
-        vod.push(...result.vod);
+        // Not push(...list): a big VOD catalogue has more entries than a call can take as arguments.
+        for (const f of result.feeds) raw.push(f);
+        for (const v of result.vod) vod.push(v);
+        loaded.set(source.id, result.feeds.length);
+        this.log.info({ source: source.name, kind: source.kind, streams: result.feeds.length, vod: result.vod.length }, "IPTV source loaded");
+        if (result.feeds.length === 0) this.setStatus(source.id, { at: Date.now(), ok: false, streams: 0, error: "The provider sent no live channels" });
       } catch (err) {
-        this.log.warn({ source: source.name, err: String(err) }, "IPTV source failed to load");
+        this.log.warn({ source: source.name, kind: source.kind, err: describeError(err) }, "IPTV source failed to load");
+        this.setStatus(source.id, { at: Date.now(), ok: false, error: describeError(err) });
       }
     }
     if (raw.length === 0 && s.iptv.length > 0) {
@@ -108,12 +143,27 @@ export class Ingestor {
         this.log.warn({ filter: s.channelFilter }, "Channel filter is not a valid regular expression; showing everything");
       }
     }
-    const built = buildChannels(raw, { numbering: s.numbering, filter, existing: this.channels.existingFlags() });
+    let built = buildChannels(raw, { numbering: s.numbering, filter, existing: this.channels.existingFlags() });
+    if (filter && !built.channels.some((c) => !c.hidden)) {
+      // A filter that hides every channel would leave Live TV empty, which looks like the source is broken.
+      this.log.warn({ filter: s.channelFilter, channels: built.channels.length }, "Channel filter matched no channels; showing them all");
+      built = buildChannels(raw, { numbering: s.numbering, filter: null, existing: new Map() });
+    }
     this.channels.replace(built.channels, built.feeds);
+    for (const [sourceId, streams] of loaded) {
+      if (streams === 0) continue;
+      const ids = new Set(built.feeds.filter((f) => f.sourceId === sourceId).map((f) => f.channelId));
+      const visible = built.channels.filter((c) => !c.hidden && ids.has(c.id)).length;
+      this.setStatus(sourceId, { at: Date.now(), ok: true, streams, visible });
+    }
     this.replaceVod(vod);
     this.db.setKv("sourcesUpdatedAt", Date.now());
     this.log.info({ channels: built.channels.filter((c) => !c.hidden).length, all: built.channels.length, vod: vod.length }, "Sources refreshed");
     return { channels: built.channels.length, vod: vod.length };
+  }
+
+  private setStatus(sourceId: string, status: IptvSourceStatus): void {
+    this.db.setKv(`sourceStatus:${sourceId}`, status);
   }
 
   private async loadXtream(source: Extract<IptvSource, { kind: "xtream" }>): Promise<{ feeds: RawFeed[]; vod: VodEntry[] }> {

@@ -96,4 +96,17 @@ describe("Hub API in demo mode", () => {
     expect(s.body).not.toContain("eyJzZWNyZXQ");
     expect(s.json()).toMatchObject({ tmdb: true, addons: [{ name: "AIOStreams" }] });
   });
+
+  it("refuses to add the same IPTV source twice", async () => {
+    const payload = { kind: "m3u", name: "Playlist", url: "http://playlist.example/get.php?type=m3u" };
+    const first = await app.inject({ method: "POST", url: "/api/settings/iptv", payload });
+    expect(first.statusCode).toBe(201);
+    const again = await app.inject({ method: "POST", url: "/api/settings/iptv", payload: { ...payload, url: payload.url + " " } });
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toMatchObject({ error: expect.stringContaining("already added") });
+    const s = (await app.inject("/api/settings")).json<{ iptv: { id: string }[] }>();
+    expect(s.iptv).toHaveLength(1);
+    await app.inject({ method: "DELETE", url: `/api/settings/iptv/${s.iptv[0]!.id}` });
+    await app.hub.ingest.refreshAll();
+  });
 });

@@ -1,4 +1,4 @@
-import type { IptvSource, PublicSettings, Settings } from "@ultimatetv/shared";
+import type { IptvSource, IptvSourceStatus, PublicSettings, Settings } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 
 export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
@@ -70,6 +70,12 @@ export class SettingsStore {
   ) {
     const saved = db.getKv<Partial<Settings>>("settings");
     this.cache = mergeSettings(defaults, saved ?? {});
+    // Older Hubs let the same source be added twice; drop the copies once, on start.
+    const unique = dedupeSources(this.cache.iptv);
+    if (unique.length !== this.cache.iptv.length) {
+      this.cache = { ...this.cache, iptv: unique };
+      db.setKv("settings", this.cache);
+    }
   }
 
   get(): Settings {
@@ -96,6 +102,29 @@ export class SettingsStore {
   }
 }
 
+/** Two sources are the same when they reach the same provider account: kind, address and (for Xtream) username. */
+export function sourceKey(src: Pick<IptvSource, "kind" | "url"> & { username?: string }): string {
+  let url = src.url.trim();
+  try {
+    const u = new URL(url);
+    url = `${u.protocol}//${u.host.toLowerCase()}${u.pathname.replace(/\/+$/, "")}${u.search}`;
+  } catch {
+    url = url.replace(/\/+$/, "");
+  }
+  return src.kind === "xtream" ? `xtream|${url}|${(src.username ?? "").trim().toLowerCase()}` : `m3u|${url}`;
+}
+
+/** Keeps the first of each source, in order. */
+export function dedupeSources(sources: IptvSource[]): IptvSource[] {
+  const seen = new Set<string>();
+  return sources.filter((src) => {
+    const key = sourceKey(src);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function mergeSettings(base: Settings, patch: Partial<Settings>): Settings {
   return {
     ...base,
@@ -106,9 +135,14 @@ function mergeSettings(base: Settings, patch: Partial<Settings>): Settings {
   };
 }
 
-export function publicSettings(s: Settings, setupUrl: string): PublicSettings {
+export function publicSettings(s: Settings, setupUrl: string, statusOf?: (sourceId: string) => IptvSourceStatus | undefined): PublicSettings {
   const result: PublicSettings = {
-    iptv: s.iptv.map((src: IptvSource) => ({ id: src.id, kind: src.kind, name: src.name, connections: src.connections, host: hostOf(src.url) })),
+    iptv: s.iptv.map((src: IptvSource) => {
+      const entry: PublicSettings["iptv"][number] = { id: src.id, kind: src.kind, name: src.name, connections: src.connections, host: hostOf(src.url) };
+      const status = statusOf?.(src.id);
+      if (status) entry.status = status;
+      return entry;
+    }),
     xmltvCount: s.xmltvUrls.length,
     tmdb: Boolean(s.tmdbApiKey),
     addons: s.addonUrls.map((url) => ({ url: redactAddonUrl(url), name: addonName(url) })),
