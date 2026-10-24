@@ -84,7 +84,33 @@ EOF
   printf 'REPO_URL=%q\n' "${REPO_URL:-https://github.com/gazoscalvertos/UltimateTV.git}"
 } > /srv/http/box.conf
 
-if [ "${PXE_DHCP:-proxy}" = off ]; then
+if [ "${PXE_DHCP:-proxy}" = box ]; then
+  # Box only: some home routers answer a netbooting machine in a way its firmware ignores, so this
+  # server gives the box (and only the box) its address, gateway and DNS. Everything else on the
+  # network keeps using the router.
+  : "${BOX_IP:?set BOX_IP to a free address outside the DHCP pool of the router, e.g. 192.168.0.50}"
+  [ -n "${BOX_MAC:-}" ] || { echo "PXE_DHCP=box needs BOX_MAC" >&2; exit 1; }
+  lan_mask="${LAN_NETMASK:-255.255.255.0}"
+  gateway="${BOX_GATEWAY:-$(ip -4 route show default | awk '{print $3; exit}')}"
+  [ -n "$gateway" ] || { echo "Set BOX_GATEWAY to the router's address" >&2; exit 1; }
+  dns="${BOX_DNS:-$gateway}"
+  box_mac="$(echo "${BOX_MAC%%,*}" | tr 'A-F' 'a-f' | tr -d ' ')"
+  cat > /etc/dnsmasq.d/ultimatetv.conf <<EOF
+port=0
+user=root
+interface=$iface
+dhcp-range=$BOX_IP,static,$lan_mask,1h
+dhcp-host=$box_mac,$BOX_IP
+dhcp-ignore=tag:!known
+dhcp-option=option:router,$gateway
+dhcp-option=option:dns-server,$dns
+dhcp-boot=ipxe.efi
+enable-tftp
+tftp-root=/srv/tftp
+log-dhcp
+EOF
+  mode="giving the box $BOX_IP"
+elif [ "${PXE_DHCP:-proxy}" = off ]; then
   # Files only: another DHCP server (AdGuard Home) sends the box here with options 66 and 67.
   cat > /etc/dnsmasq.d/ultimatetv.conf <<EOF
 port=0
@@ -109,6 +135,6 @@ log-dhcp
 EOF
 fi
 
-echo "UltimateTV PXE server on $iface ($network/$prefix): menu for ${BOX_MAC:-no machines}, web on $server"
+echo "UltimateTV PXE server on $iface (${mode:-$network/$prefix}): menu for ${BOX_MAC:-no machines}, web on $server"
 busybox httpd -f -p "$PXE_HTTP_PORT" -h /srv/http &
 exec dnsmasq --keep-in-foreground --log-facility=- --conf-dir=/etc/dnsmasq.d

@@ -41,6 +41,15 @@ In `.env`:
 
 The first build compiles iPXE and takes a few minutes. The server uses UDP ports 67, 69 and 4011 and TCP port 8097 on the LXC. Nothing else there should be using them.
 
+### If the box never gets an address
+
+Some home routers answer a netbooting machine in a way its firmware ignores. The PXE log then shows the same request from the box over and over, and the box gives up. In that case, let the PXE server give the box its address, for that one MAC only (everything else stays with the router):
+
+1. In `tools/pxe/.env`, set `PXE_DHCP=box` and `BOX_IP` to a free address outside the router's pool. For Gary's router, which hands out .100 to .254, use `192.168.0.50`.
+2. Run `docker compose up -d --build`. The first log line should say `giving the box 192.168.0.50`.
+
+The box uses this address while it installs. Once the PXE server is stopped, the installed system gets its address from the router as usual.
+
 ### If AdGuard Home hands out your addresses
 
 When AdGuard Home is your DHCP server, it holds the DHCP port, so the PXE server can't add the boot details itself. Instead, AdGuard tells the box where to boot, and the PXE server only serves the files:
