@@ -18,6 +18,10 @@ the commit they were built from in Settings › About, so you can tell exactly w
   at `http://<hub>:8095/api/diagnostics?format=text` (or as JSON without `?format=text`).
   Addresses are cut to their host, so IPTV logins and API keys never appear. See
   `docs/diagnostics.md`.
+- Rolling detailed logs on the Hub (`data/logs`: the Hub at debug level, every box log line and
+  every playback sample), each capped at 50 MB, read at `/api/diagnostics/logs/hub|box|playback`.
+  `docker logs` rolls over at 30 MB. The box logs more of what mpv does (file loaded, seeks,
+  buffering, why playback ended).
 - Playback on screens with no refresh rate that fits the video (24p film on a 50/60/100 Hz
   monitor) no longer resamples to the screen, which mistimed and dropped frames all the time.
 - Screens with no refresh rate that fits a film and no variable refresh (the Huawei monitor over

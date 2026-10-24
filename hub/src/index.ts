@@ -1,9 +1,12 @@
+import path from "node:path";
 import { loadConfig } from "./config.js";
-import { LogRing } from "./diagnostics.js";
+import { LogRing, RollingFile } from "./diagnostics.js";
 import { buildServer } from "./server.js";
 
 const config = loadConfig();
-const app = await buildServer(config, { logger: true, logRing: new LogRing(), env: process.env });
+// The log's rolling file is the same data/logs/hub.log that /api/diagnostics/logs/hub reads.
+const logRing = new LogRing({ file: new RollingFile(path.join(config.dataDir, "logs", "hub.log")) });
+const app = await buildServer(config, { logger: true, logRing, env: process.env });
 const ctx = app.hub;
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

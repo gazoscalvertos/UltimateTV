@@ -181,6 +181,17 @@ describe("diagnostics", () => {
     expect(text).not.toContain("pw");
   });
 
+  it("keeps every box log line and playback sample in rolling files", async () => {
+    await start();
+    await app.inject({ method: "POST", url: "/api/diagnostics/box", payload: report });
+    await app.inject({ method: "POST", url: "/api/diagnostics/box", payload: { ...report, log: [...report.log, "2026-10-24T21:00:30Z Player idle"], samples: [...report.samples, { at: "2026-10-24T21:00:10.000Z", status: "playing" }] } });
+    const box = (await app.inject({ method: "GET", url: "/api/diagnostics/logs/box" })).body.trim().split("\n");
+    expect(box).toEqual(["2026-10-24T20:59:00Z Playing http://iptv.example/…", "2026-10-24T21:00:30Z Player idle"]);
+    const playback = (await app.inject({ method: "GET", url: "/api/diagnostics/logs/playback?lines=2" })).body.trim().split("\n");
+    expect(playback.map((l) => JSON.parse(l).at)).toEqual(["2026-10-24T21:00:00.000Z", "2026-10-24T21:00:10.000Z"]);
+    expect((await app.inject({ method: "GET", url: "/api/diagnostics/logs/secrets" })).statusCode).toBe(404);
+  });
+
   it("survives a Hub restart", async () => {
     await start();
     await app.inject({ method: "POST", url: "/api/diagnostics/box", payload: report });
