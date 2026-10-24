@@ -78,7 +78,7 @@ jobs:
       - name: It writes the boot menu and install settings, and serves them
         run: |
           ip="$(hostname -I | awk '{print $1}')"
-          docker run -d --name pxe -e PXE_IP="$ip" -e LAN_SUBNET="$ip" -e PXE_HTTP_PORT=18097 \
+          docker run -d --name pxe -e PXE_IP="$ip" -e PXE_HTTP_PORT=18097 \
             -e BOX_MAC=AA:BB:CC:DD:EE:FF -e ADMIN_PASSWORD_HASH='$6$x$y' -e HUB_URL=http://hub:8095 --network host --cap-add NET_ADMIN ultimatetv-pxe:ci
           for i in $(seq 1 20); do curl -fsS localhost:18097/box.conf && break; sleep 1; done
           curl -fsS localhost:18097/auto.sh -o /tmp/auto.sh && grep -q "Unattended Arch Linux install" /tmp/auto.sh

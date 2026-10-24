@@ -33,7 +33,6 @@ In `.env`:
 | Setting | What to put |
 |---|---|
 | `PXE_IP` | The Docker LXC's address, `192.168.0.19` |
-| `LAN_SUBNET` | `192.168.0.0` |
 | `BOX_MAC` | The box's Ethernet MAC address. If you don't know it yet, leave it empty, netboot the box once and it shows its MAC. Then fill it in and run `docker compose up -d` again. |
 | `ADMIN_USER`, `ADMIN_PASSWORD_HASH` | Your login on the box, with the `$6$...` line from `openssl passwd -6`. Wrap the hash in single quotes so the `$` signs survive. |
 | `ADMIN_SSH_KEY` | Optional: your SSH public key, for logging in without the password |

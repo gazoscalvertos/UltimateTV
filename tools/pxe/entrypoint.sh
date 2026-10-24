@@ -5,11 +5,23 @@
 set -euo pipefail
 
 : "${PXE_IP:?set PXE_IP to the LAN address of this machine}"
-: "${LAN_SUBNET:?set LAN_SUBNET, e.g. 192.168.0.0}"
 PXE_HTTP_PORT="${PXE_HTTP_PORT:-8097}"
 ARCH_MIRROR="${ARCH_MIRROR:-https://geo.mirror.pkgbuild.com}"
 ARCH_MIRROR="${ARCH_MIRROR%/}"
 server="http://$PXE_IP:$PXE_HTTP_PORT"
+
+# The network card that has PXE_IP, and its subnet, so proxy DHCP answers on the right network.
+read -r iface prefix < <(ip -o -4 addr show | awk -v ip="$PXE_IP" '{split($4, a, "/"); if (a[1] == ip) { sub(/@.*/, "", $2); print $2, a[2] } }') || true
+if [ -z "${iface:-}" ]; then
+  echo "No network card here has the address $PXE_IP. Set PXE_IP to this machine's LAN address. Cards found:" >&2
+  ip -o -4 addr show >&2
+  exit 1
+fi
+to_int() { local IFS=.; read -r a b c d <<<"$1"; echo $(((a << 24) | (b << 16) | (c << 8) | d)); }
+to_ip() { echo "$(($1 >> 24 & 255)).$(($1 >> 16 & 255)).$(($1 >> 8 & 255)).$(($1 & 255))"; }
+mask=$(((0xffffffff << (32 - prefix)) & 0xffffffff))
+network="$(to_ip $(($(to_int "$PXE_IP") & mask)))"
+netmask="$(to_ip "$mask")"
 
 if [ -z "${BOX_MAC:-}" ]; then
   echo "BOX_MAC isn't set: machines that netboot will see their MAC address and go back to their disk." >&2
@@ -76,7 +88,8 @@ cat > /etc/dnsmasq.d/ultimatetv.conf <<EOF
 # Proxy DHCP: the router still gives out addresses; we only add where to boot from.
 port=0
 user=root
-dhcp-range=$LAN_SUBNET,proxy
+interface=$iface
+dhcp-range=$network,proxy,$netmask
 pxe-service=x86-64_EFI,"UltimateTV",ipxe
 pxe-service=BC_EFI,"UltimateTV",ipxe
 enable-tftp
@@ -84,6 +97,6 @@ tftp-root=/srv/tftp
 log-dhcp
 EOF
 
-echo "UltimateTV PXE server: menu for ${BOX_MAC:-no machines}, web on $server"
+echo "UltimateTV PXE server on $iface ($network/$prefix): menu for ${BOX_MAC:-no machines}, web on $server"
 busybox httpd -f -p "$PXE_HTTP_PORT" -h /srv/http &
 exec dnsmasq --keep-in-foreground --log-facility=- --conf-dir=/etc/dnsmasq.d
