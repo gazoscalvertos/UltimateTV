@@ -85,11 +85,12 @@ EOF
 } > /srv/http/box.conf
 
 cat > /etc/dnsmasq.d/ultimatetv.conf <<EOF
-# Proxy DHCP: the router still gives out addresses; we only add where to boot from.
+# Proxy DHCP: the router still gives out addresses; we only add where to boot from. Replies go to
+# 255.255.255.255, because the box has no address yet and some LXCs give their card a /32.
 port=0
 user=root
 interface=$iface
-dhcp-range=$network,proxy,$netmask
+dhcp-range=$network,proxy,$netmask,255.255.255.255
 pxe-service=x86-64_EFI,"UltimateTV",ipxe
 pxe-service=BC_EFI,"UltimateTV",ipxe
 enable-tftp
