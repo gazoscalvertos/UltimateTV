@@ -33,7 +33,7 @@ What it sets up:
 | Picture | mpv with VA-API decoding and gpu-next. The TV switches to each film's frame rate (24p for films, 50 Hz for UK TV) and into HDR for HDR video. Dolby Vision plays as HDR10. |
 | Sound | Dolby Digital, Dolby Digital Plus (with Atmos) and DTS go to the TV untouched; everything else is decoded on the box. Night mode in the player's options evens out loud and quiet parts. |
 | Remote | The Pulse-Eight adapter is attached to the kernel's CEC driver as soon as it's plugged in, and the remote's buttons are mapped to the app's keys (`tools/box/files/cec-keymap.toml`). The box wakes the TV and switches it to its input when it starts. |
-| Updates | Every Monday at 4 am: a btrfs snapshot, OS updates, then the app. |
+| Updates | Every Monday at 4 am, or Settings › About › Update the box: a btrfs snapshot, OS updates, then the app. Settings › About shows the version the box runs and whether a newer one is out. |
 
 Settings live in `/etc/ultimatetv/box.env` (the Hub's address, the CEC device, the audio device, extra mpv options). The app's log is `/home/tv/.local/state/ultimatetv.log`.
 

@@ -1,7 +1,12 @@
 # UltimateTV Hub on the Proxmox Docker container. See docs/phase0/proxmox-setup.md.
 services:
   hub:
-    build: .
+    build:
+      context: .
+      # Recorded in the image so Settings › About shows which version runs (tools/hub/update.sh).
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
+        BUILD_DATE: ${BUILD_DATE:-}
     image: ultimatetv-hub:latest
     container_name: ultimatetv-hub
     restart: unless-stopped

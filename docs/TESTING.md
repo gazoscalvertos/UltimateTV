@@ -4,7 +4,7 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 
 ## 1. Hub (Docker LXC 107)
 
-1. `cd /containers/UltimateTV && git pull && docker compose up -d --build`
+1. `bash /containers/UltimateTV/tools/hub/update.sh` (pulls, rebuilds and checks the Hub is up)
 2. Open `http://192.168.0.19:8095/api/health`: it should say ok.
 3. Open `http://192.168.0.19:8095/setup/` on your phone. Add the IPTV login (Xtream or M3U plus EPG URL), then **Refresh**. Channels and the guide should fill within a minute or two.
 4. Add Jellyfin (Quick Connect), AIOStreams (the manifest URL) and TorBox (the API key).

@@ -31,7 +31,9 @@ export interface ServerDeps {
   env?: NodeJS.ProcessEnv;
 }
 
-export const HUB_VERSION = "0.1.0";
+export const HUB_VERSION = "0.2.0";
+/** The commit and date the Hub was built from (set by tools/hub/update.sh through the Docker build). */
+export const HUB_BUILD = { commit: process.env.GIT_COMMIT || undefined, date: process.env.BUILD_DATE || undefined };
 
 type Req<P = Record<string, string>, Q = Record<string, string | undefined>, B = unknown> = FastifyRequest<{ Params: P; Querystring: Q; Body: B }>;
 
@@ -98,7 +100,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // -------------------------------------------------------------------------
   // Health, status, probes
 
-  app.get("/api/health", async () => ({ ok: true, version: HUB_VERSION }));
+  app.get("/api/health", async () => ({ ok: true, version: HUB_VERSION, ...HUB_BUILD }));
   app.get("/api/system", async () => getSystem());
   app.get("/api/clips", async () => ({ clips: await listClips(config.clipsDir) }));
 
@@ -106,6 +108,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const s = ctx.settings.get();
     const status: HubStatus = {
       version: HUB_VERSION,
+      ...(HUB_BUILD.commit ? { commit: HUB_BUILD.commit } : {}),
+      ...(HUB_BUILD.date ? { builtAt: HUB_BUILD.date } : {}),
       demo: config.demo,
       channels: ctx.channels.count(),
       programmes: ctx.guide.count(),
@@ -539,7 +543,16 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   const serveDir = async (dir: string, prefix: string, missing: string, decorate = false) => {
     if (existsSync(dir)) {
-      await app.register(fastifyStatic, { root: dir, prefix, decorateReply: decorate, cacheControl: false, index: ["index.html"] });
+      await app.register(fastifyStatic, {
+        root: dir,
+        prefix,
+        decorateReply: decorate,
+        cacheControl: false,
+        index: ["index.html"],
+        // Pages are checked on every load, so the TV picks up a Hub update; the hashed assets they
+        // point at never change.
+        setHeaders: (res, file) => res.setHeader("Cache-Control", /[\\/]assets[\\/]/.test(file) ? "public, max-age=31536000, immutable" : "no-cache"),
+      });
     } else {
       app.get(prefix, async (_request, reply) => reply.code(503).type("text/plain").send(missing));
     }

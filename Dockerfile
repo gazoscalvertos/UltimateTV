@@ -48,6 +48,10 @@ COPY --from=build /app/ui/dist ui/dist
 COPY --from=build /app/tools/probe/dist tools/probe/dist
 COPY tools/clips/make-test-clips.sh /usr/local/bin/make-test-clips
 COPY tools/iptv/check-catchup.mjs tools/iptv/check-catchup.mjs
+# The commit and date this image was built from, shown in Settings › About (tools/hub/update.sh sets them).
+ARG GIT_COMMIT=""
+ARG BUILD_DATE=""
+ENV GIT_COMMIT=$GIT_COMMIT BUILD_DATE=$BUILD_DATE
 EXPOSE 8080
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"

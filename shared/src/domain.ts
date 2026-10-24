@@ -429,6 +429,9 @@ export interface PublicSettings {
 
 export interface HubStatus {
   version: string;
+  /** The commit the Hub was built from, when its build recorded it. */
+  commit?: string;
+  builtAt?: string;
   demo: boolean;
   channels: number;
   programmes: number;
