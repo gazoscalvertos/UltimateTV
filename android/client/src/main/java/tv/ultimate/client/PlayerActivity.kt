@@ -58,7 +58,7 @@ class PlayerActivity : ComponentActivity() {
 
     private var player: ExoPlayer? = null
     private lateinit var view: PlayerView
-    private lateinit var top: LinearLayout
+    private lateinit var topBar: LinearLayout
     private lateinit var titleView: TextView
     private lateinit var subtitleView: TextView
     private lateinit var action: Button
@@ -294,7 +294,7 @@ class PlayerActivity : ComponentActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         view.useController = !isInPictureInPictureMode
         if (isInPictureInPictureMode) {
-            top.visibility = View.GONE
+            topBar.visibility = View.GONE
             action.visibility = View.GONE
         }
     }
@@ -337,11 +337,11 @@ class PlayerActivity : ComponentActivity() {
             setShowSubtitleButton(true)
             setShowNextButton(false)
             setShowPreviousButton(false)
-            setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> top.visibility = v })
+            setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> topBar.visibility = v })
         }
         root.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
 
-        top = LinearLayout(this).apply {
+        topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(16), dp(24), dp(28))
@@ -358,9 +358,9 @@ class PlayerActivity : ComponentActivity() {
         subtitleView = TextView(this).apply { setTextColor(0xFFC8D0E0.toInt()); textSize = 14f; maxLines = 1 }
         texts.addView(titleView)
         texts.addView(subtitleView)
-        top.addView(back, LinearLayout.LayoutParams(dp(44), dp(44)))
-        top.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        root.addView(top, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
+        topBar.addView(back, LinearLayout.LayoutParams(dp(44), dp(44)))
+        topBar.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        root.addView(topBar, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
 
         action = Button(this).apply {
             visibility = View.GONE
