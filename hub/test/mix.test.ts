@@ -169,6 +169,35 @@ describe("music video channels in the Hub", () => {
   });
 });
 
+describe("music video channel work lanes", () => {
+  it("downloads the videos already chosen while another channel is still being curated", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-lanes-"));
+    const fake = fakeYtDlp();
+    let release: () => void = () => undefined;
+    let gate: Promise<void> | null = null;
+    const run: Run = async (args, opts) => {
+      if (gate && args.some((a) => a.startsWith("ytsearch"))) await gate;
+      return fake.run(args, opts);
+    };
+    const ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: run, mixPauseMs: 0, mixMinFreeBytes: 0 });
+    try {
+      const a = ctx.mix.create({ name: "Lane A", brief: "x", picks: ["Alpha - One", "Beta - Two"], target: 2 });
+      await ctx.mix.curate(a.id);
+      const b = ctx.mix.create({ name: "Lane B", brief: "x", picks: ["Gamma - Three"], target: 1 });
+      gate = new Promise<void>((r) => (release = r));
+      ctx.mix.curateSoon(b.id);
+      await ctx.mix.start();
+      for (let i = 0; i < 100 && !ctx.mix.store.entries(a.id).every((e) => e.video.status === "ready"); i++) await new Promise((r) => setTimeout(r, 20));
+      expect(ctx.mix.store.entries(a.id).map((e) => e.video.status)).toEqual(["ready", "ready"]);
+      expect(ctx.mix.store.entries(b.id)).toEqual([]);
+    } finally {
+      release();
+      ctx.close();
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("music video channels over the API", () => {
   let tmp: string;
   let app: Awaited<ReturnType<typeof buildServer>>;
