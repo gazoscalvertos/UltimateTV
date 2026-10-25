@@ -15,6 +15,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Android app for phones and tablets** (`/api/client/app.apk`, [docs/android-client.md](docs/android-client.md)):
+  watch live TV, catch-up, recordings, films and TV on the home Wi-Fi, and download films,
+  episodes and recordings to watch anywhere. Jellyfin titles can download a smaller 720p copy.
+  When the phone would take the IPTV connection from the TV, it asks first. Update the Hub to get
+  it.
 - The phone remote's arrows now move around the TV's Settings (and any screen that was still
   loading): focus no longer jumps back to the first item after a key from the phone or HDMI-CEC.
 - The phone's settings page has a Music channels section: add, edit, turn off, reshuffle and delete
