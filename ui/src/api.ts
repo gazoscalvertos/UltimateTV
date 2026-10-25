@@ -1,6 +1,7 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
 import type {
+  BoxState,
   Channel,
   Conflict,
   Download,
@@ -153,6 +154,7 @@ export const hub = {
   settings: () => api<PublicSettings>("/api/settings"),
   saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback">>) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
   refresh: () => api<{ ok: true }>("/api/refresh", { method: "POST" }),
+  reportBox: (state: Omit<BoxState, "reportedAt">) => api<{ ok: true }>("/api/box/state", { method: "POST", body: state }),
 };
 
 /** Live updates from the Hub. Reconnects on its own. */
