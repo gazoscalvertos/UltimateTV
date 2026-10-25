@@ -99,7 +99,11 @@ export function Planner(props: { tab?: PlannerTab }) {
     if (pick === "scope") await act(() => hub.updateSeriesLink(l.id, { scope: l.scope === "any" ? "this" : "any" }), "Series link updated");
     if (pick === "new") await act(() => hub.updateSeriesLink(l.id, { newOnly: !l.newOnly }), "Series link updated");
     if (pick === "keep") await act(() => hub.updateSeriesLink(l.id, { keepLatest: l.keepLatest ? 0 : 5 }), "Series link updated");
-    if (pick === "delete" && (await confirm("Cancel series link?", `${l.title} won't record any more. Recordings you've got are kept.`, "Cancel series link", true))) {
+    if (pick === "delete") await cancelLink(l);
+  };
+
+  const cancelLink = async (l: SeriesLink) => {
+    if (await confirm("Cancel series link?", `${l.title} won't record any more. Recordings you've got are kept.`, "Cancel series link", true)) {
       await act(() => hub.deleteSeriesLink(l.id), "Series link cancelled");
     }
   };
@@ -245,16 +249,22 @@ export function Planner(props: { tab?: PlannerTab }) {
                 <div class="list">
                   <For each={data()!.seriesLinks}>
                     {(l) => (
-                      <button class="list-row" data-row data-focus onClick={() => void linkMenu(l)}>
-                        <Icon name="series" class="list-icon mark-series" />
-                        <span class="list-main">
-                          <span class="list-title">{l.title}</span>
-                          <span class="list-sub">
-                            {l.scope === "any" ? "Any channel" : l.channelName} · {l.newOnly ? "New episodes" : "All episodes"} · {l.keepLatest ? `Keeps the latest ${l.keepLatest}` : "Keeps everything"}
+                      <div class="list-row-actions" data-row data-focus-group>
+                        <button class="list-row" data-focus onClick={() => void linkMenu(l)}>
+                          <Icon name="series" class="list-icon mark-series" />
+                          <span class="list-main">
+                            <span class="list-title">{l.title}</span>
+                            <span class="list-sub">
+                              {l.scope === "any" ? "Any channel" : l.channelName} · {l.newOnly ? "New episodes" : "All episodes"} · {l.keepLatest ? `Keeps the latest ${l.keepLatest}` : "Keeps everything"}
+                            </span>
                           </span>
-                        </span>
-                        <span class="list-side">{upcoming().filter((r) => r.seriesLinkId === l.id).length} coming up</span>
-                      </button>
+                          <span class="list-side">{upcoming().filter((r) => r.seriesLinkId === l.id).length} coming up</span>
+                        </button>
+                        <button class="list-row list-row-action" data-focus aria-label={`Cancel the ${l.title} series link`} onClick={() => void cancelLink(l)}>
+                          <Icon name="trash" />
+                          <span>Cancel</span>
+                        </button>
+                      </div>
                     )}
                   </For>
                 </div>

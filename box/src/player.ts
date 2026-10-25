@@ -267,8 +267,9 @@ export class Player {
     const state: PlayerState = { status, positionMs: Math.round(pos * 1000), audioTracks: audio, subtitleTracks: subs };
     const duration = Number(p["duration"]);
     if (!this.live && Number.isFinite(duration) && duration > 0) state.durationMs = Math.round(duration * 1000);
-    const cache = p["demuxer-cache-state"] as { "cache-end"?: number; "cache-duration"?: number } | undefined;
+    const cache = p["demuxer-cache-state"] as { "cache-end"?: number; "cache-duration"?: number; "raw-input-rate"?: number } | undefined;
     if (cache?.["cache-duration"] !== undefined) state.bufferedMs = Math.round(cache["cache-duration"] * 1000);
+    if (cache?.["raw-input-rate"]) state.downloadKbps = Math.round((cache["raw-input-rate"] * 8) / 1000);
     if (this.live && cache?.["cache-end"] !== undefined) state.behindLiveMs = Math.max(0, Math.round((cache["cache-end"] - pos) * 1000));
     const vp = p["video-params"] as VideoParams;
     if (vp?.w && vp.h) {
@@ -337,6 +338,8 @@ export class Player {
     if (o.preferredSubtitleLang) opts.push(`slang=${o.preferredSubtitleLang}`);
     opts.push(`sid=${o.subtitlesByDefault ? "auto" : "no"}`);
     opts.push(`cache-secs=${o.live ? 3600 : 60}`);
+    // TorBox can take a minute or two to hand over a file it's still fetching; don't give up first.
+    if (!o.live) opts.push("network-timeout=300");
     await this.setNightMode(Boolean(o.nightMode));
     await this.mpv.command("loadfile", o.url, "replace", -1, opts.join(","));
     for (const s of o.subtitles ?? []) await this.mpv.command("sub-add", s.url, "auto", s.label, s.lang).catch(() => undefined);

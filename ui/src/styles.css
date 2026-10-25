@@ -1128,6 +1128,74 @@ kbd.key-blue {
   display: grid;
   place-items: center;
 }
+
+/* Something starting: title, step, a moving bar, time and speed */
+.starting-layer {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 7, 14, 0.6);
+  animation: fade 0.2s var(--ease);
+}
+.starting {
+  width: 40rem;
+  max-width: 90vw;
+  padding: 2.2rem 2.6rem;
+  border-radius: 1.4rem;
+  background: rgba(18, 27, 46, 0.94);
+  box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+.starting-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.9rem;
+}
+.starting-step {
+  margin: 0 0 1.4rem;
+  color: var(--muted);
+  font-size: 1.2rem;
+}
+.starting-bar {
+  position: relative;
+  height: 0.45rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+.starting-bar span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 35%;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  animation: starting-slide 1.4s ease-in-out infinite;
+}
+@keyframes starting-slide {
+  from {
+    left: -35%;
+  }
+  to {
+    left: 100%;
+  }
+}
+.starting-detail {
+  display: flex;
+  justify-content: center;
+  gap: 1.6rem;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+.starting-slow {
+  margin: 1.2rem 0 0;
+  color: var(--amber);
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
 .banner {
   position: absolute;
   left: 6rem;
@@ -1473,6 +1541,7 @@ kbd.key-blue {
   gap: 0.5rem;
   max-height: 60vh;
   overflow: hidden;
+  padding: 0.3rem;
 }
 .version {
   display: grid;
@@ -1825,6 +1894,20 @@ kbd.key-blue {
   border-radius: 0.8rem;
   background: rgba(255, 255, 255, 0.04);
   transition: background 0.12s, transform 0.12s var(--ease);
+}
+.list-row-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.list-row-actions > .list-row:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.list-row-action {
+  flex: none;
+  gap: 0.6rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 .list-row:focus {
   background: var(--fg);
