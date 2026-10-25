@@ -26,6 +26,7 @@ import { Profiles } from "./screens/Profiles";
 import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
 import { closeTopDialog, nav, setProfile, toast, toasts } from "./store";
+import { startPhoneBridge } from "./phone";
 import { startRemoteBridge } from "./remote";
 
 function ScreenError(props: { error: unknown; reset: () => void }) {
@@ -145,6 +146,7 @@ export function App() {
   onMount(() => {
     startEvents();
     startRemoteBridge();
+    startPhoneBridge();
     void startMusic();
     void restoreSession();
     onCleanup(

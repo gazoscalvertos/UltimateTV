@@ -284,6 +284,28 @@ try {
   await phone.waitForTimeout(600);
   await phone.screenshot({ path: path.join(out, "36-phone-deezer-login.png") });
   console.log("  36-phone-deezer-login.png");
+  // Browsing on the phone and playing on the TV.
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
+  await phone.click('[data-tab="browse"]');
+  await phone.waitForTimeout(1500);
+  await phone.screenshot({ path: path.join(out, "37-phone-guide.png") });
+  console.log("  37-phone-guide.png");
+  await phone.click('[data-browse="movie"]');
+  await phone.waitForTimeout(1500);
+  await phone.screenshot({ path: path.join(out, "38-phone-films.png") });
+  console.log("  38-phone-films.png");
+  await phone.locator(".poster").first().click();
+  await phone.waitForTimeout(1500);
+  await phone.screenshot({ path: path.join(out, "39-phone-title.png") });
+  console.log("  39-phone-title.png");
+  await phone.locator("#sheet [data-close]").first().click();
+  await phone.click('[data-tab="remote"]');
+  // Stats for the box and the Hub.
+  await phone.goto(`${base}/setup/stats.html`);
+  await phone.waitForTimeout(3000);
+  await phone.screenshot({ path: path.join(out, "40-phone-stats.png"), fullPage: true });
+  console.log("  40-phone-stats.png");
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.click("#settings");

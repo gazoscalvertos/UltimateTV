@@ -25,6 +25,39 @@ top. Moving from 0.1 or 0.2 to 0.3 needs the old app uninstalled first, once.
 
 To point it at a different Hub later, use **Change Hub** at the bottom of the remote.
 
+## Now playing
+
+When the TV is playing something, a card at the top of the remote shows it: the title, the
+picture and sound quality, and a progress bar you can drag to jump. The buttons skip back or
+forward 30 seconds, pause, stop, jump back to live on a live channel, and pick the audio and
+subtitle tracks. For Spotify they skip to the previous or next song.
+
+## Watch on the TV
+
+The **Watch** tab at the bottom chooses what the TV plays, without using the TV's menus:
+
+- **Guide**: what's on now and next on every channel. Tap one to watch it, or record this or the
+  next programme.
+- **Films** and **TV**: the same rails as the TV's home. Tap a poster to play, resume or start
+  again, or pick a season and episode.
+- **Recordings**: newest first.
+- **Music**: your Spotify playlists, albums and artists. Play, shuffle, or start at a song.
+- **Search**: films, series, channels, programmes and recordings.
+
+![Guide on the phone](screenshots/37-phone-guide.png)
+![Films on the phone](screenshots/38-phone-films.png)
+![A film on the phone](screenshots/39-phone-title.png)
+
+## Stats
+
+**Stats** (bottom right, and at the top of Settings) shows both machines in one page, refreshed
+every 3 seconds: warnings first (dropped frames, a hot CPU, a nearly full disk, a failing IPTV
+login), then what's playing and how far through, picture and sound quality, buffer and download
+speed, the screen mode and HDMI details, CPU, graphics, memory, temperatures, disks and network
+for the box and the Hub, and their recent logs.
+
+![Stats](screenshots/40-phone-stats.png)
+
 ## Settings
 
 Tap ⚙ at the top of the remote for the settings page. It has everything the TV's Settings has

@@ -7,7 +7,7 @@ import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import QRCode from "qrcode";
 import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
-import type { BoxState, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
+import type { BoxState, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
@@ -25,8 +25,10 @@ import { JellyfinClient } from "./services/jellyfin.js";
 import { publicSettings, sourceKey } from "./settings.js";
 import { RemoteApp } from "./remoteapp.js";
 import { SelfUpdate } from "./selfupdate.js";
+import { statsWarnings } from "./stats.js";
 import { sendFile } from "./streaming.js";
 import { systemReport, type SystemReport } from "./system.js";
+import { HostMonitor } from "@ultimatetv/shared/host";
 import { parseVoice } from "./voice.js";
 
 export interface ServerDeps {
@@ -150,6 +152,61 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const hub = { version: HUB_VERSION, ...(HUB_BUILD.commit ? { commit: HUB_BUILD.commit } : {}), ...(HUB_BUILD.date ? { builtAt: HUB_BUILD.date } : {}), uptimeS: Math.round(process.uptime()), log: deps.logRing?.list() ?? [] };
     if (req.query.format === "text") return reply.type("text/plain; charset=utf-8").send(renderDiagnostics(hub, boxReports.get()));
     return { hub, box: boxReports.get() };
+  });
+
+  // The phone's Stats page: both machines, the last playback samples and plain warnings.
+  const hostMonitor = new HostMonitor();
+  let systemCache: { at: number; report: SystemReport } | null = null;
+  app.get("/api/stats", async () => {
+    const s = ctx.settings.get();
+    const disks = [
+      { label: "Hub data", path: config.dataDir },
+      { label: "Recordings", path: s.library.recordingsPath },
+      { label: "Films", path: s.library.moviesPath },
+      { label: "TV", path: s.library.tvPath },
+    ];
+    // The same NAS share often holds several folders: show each disk once.
+    const host = await hostMonitor.stats(disks);
+    const seen = new Set<string>();
+    host.disks = host.disks.filter((d) => {
+      const key = `${d.totalGb}/${d.freeGb}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (!systemCache || Date.now() - systemCache.at > 10 * 60_000) systemCache = { at: Date.now(), report: await getSystem() };
+    const box = boxReports.get();
+    const connections = ctx.guard.status();
+    const sources = s.iptv.map((src) => {
+      const status = ctx.ingest.sourceStatus(src.id);
+      return { name: src.name, host: new URL(src.url, "http://x").host, connections: src.connections, ...(status ? { status } : {}) };
+    });
+    const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+    const hubLog = deps.logRing?.list() ?? [];
+    const hubErrors = hubLog.filter((l) => / (ERROR|FATAL) /.test(l) && l.slice(0, 24) >= hourAgo);
+    const warnings = statsWarnings({ now: Date.now(), hub: host, box, sources, connections, hardwareTranscode: systemCache.report.renderNode ? systemCache.report.vaapi.available : false, hubErrors });
+    return {
+      at: new Date().toISOString(),
+      warnings,
+      tvConnected: tvSockets > 0,
+      hub: {
+        version: HUB_VERSION,
+        ...(HUB_BUILD.commit ? { commit: HUB_BUILD.commit } : {}),
+        ...(HUB_BUILD.date ? { builtAt: HUB_BUILD.date } : {}),
+        uptimeS: Math.round(process.uptime()),
+        processMb: Math.round(process.memoryUsage().rss / 2 ** 20),
+        host,
+        system: systemCache.report,
+        connections,
+        sources,
+        channels: ctx.channels.count(),
+        programmes: ctx.guide.count(),
+        epgUpdatedAt: ctx.db.getKv<number>("epgUpdatedAt") ?? null,
+        recordingNow: ctx.recordings.withStatus("recording").map((r) => `${r.programme.title} on ${r.channelName}`),
+        log: hubLog.slice(-150),
+      },
+      box: box ? { receivedAt: box.receivedAt, report: { ...box.report, samples: box.report.samples.slice(-30), log: box.report.log.slice(-150), kscreen: { text: box.report.kscreen.text } } } : null,
+    };
   });
 
   app.get("/api/status", async (): Promise<HubStatus> => {
@@ -345,6 +402,36 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (cmd.kind === "reload") ctx.events.emit({ type: "box.command", command: "reload" });
     if (cmd.kind !== "none" && said) ctx.events.emit({ type: "remote.said", text: cmd.say });
     return { ...cmd, heard: said, tvConnected: tvSockets > 0 };
+  });
+
+  // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl"]);
+  const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
+  let tvCallSeq = 0;
+  app.post("/api/tv/call/:method", async (req: Req<{ method: string }, Record<string, string>, unknown>, reply) => {
+    const method = req.params.method as TvMethod;
+    if (!TV_METHODS.has(method)) return reply.code(404).send({ error: "Unknown TV call" });
+    if (tvSockets === 0) return reply.code(409).send({ error: "The TV app isn't connected. Is the box on?", code: "tv-off" });
+    const id = `c${Date.now().toString(36)}${(tvCallSeq++).toString(36)}`;
+    const answer = await new Promise<{ result?: unknown; error?: string }>((resolve) => {
+      const timer = setTimeout(() => {
+        tvCalls.delete(id);
+        resolve({ error: "The TV didn't answer. Its app may need updating (Settings › Updates › Box)." });
+      }, 12_000);
+      tvCalls.set(id, { resolve, timer });
+      ctx.events.emit({ type: "tv.call", id, method, args: req.body ?? null });
+    });
+    if (answer.error !== undefined) return reply.code(502).send({ error: answer.error });
+    return answer.result ?? null;
+  });
+  app.post("/api/tv/reply/:id", async (req: Req<{ id: string }, Record<string, string>, { result?: unknown; error?: string }>) => {
+    const call = tvCalls.get(req.params.id);
+    if (call) {
+      clearTimeout(call.timer);
+      tvCalls.delete(req.params.id);
+      call.resolve(req.body ?? {});
+    }
+    return { ok: true };
   });
 
   // -------------------------------------------------------------------------

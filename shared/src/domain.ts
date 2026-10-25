@@ -1,7 +1,8 @@
 // Domain model shared by the Hub, the TV UI and the box shell.
 // Times are epoch milliseconds (UTC) everywhere; the UI formats them in local time.
 
-import type { BoxSoftware } from "./agent.js";
+import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState } from "./agent.js";
+import type { SpotifyState, WebAppState } from "./music.js";
 
 export type Id = string;
 
@@ -519,6 +520,9 @@ export type HubEvent =
   | { type: "remote.said"; text: string }
   /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
   | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean }
+  /** The phone asks the TV app something (what's playing, play this, seek); it answers at /api/tv/reply/:id. */
+  | { type: "tv.call"; id: string; method: TvMethod; args: unknown }
+
   /** A music service login typed on the phone: the TV fetches it once from /api/music/login/:id. */
   | { type: "music.login"; app: "deezer"; id: string };
 
@@ -543,6 +547,56 @@ export interface BoxState {
 }
 
 // ---------------------------------------------------------------------------
+// The phone remote: what the TV is doing, and machine stats
+
+/** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl";
+
+/** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
+export interface TvNow {
+  at: string;
+  profile: { id: Id; name: string; kind: ProfileKind } | null;
+  /** The screen the TV is on ("home", "guide", "player", …). */
+  screen: string;
+  playing: {
+    kind: PlaybackRequest["kind"];
+    id: Id;
+    title: string;
+    subtitle?: string;
+    artwork?: string;
+    live: boolean;
+    /** Where it plays from ("Jellyfin", "TorBox", "IPTV"). */
+    source?: string;
+    channel?: { id: Id; number: number; name: string };
+  } | null;
+  player: PlayerState;
+  /** The stats overlay's sections, when something plays. */
+  stats: PlaybackStats | null;
+  info: BoxInfo | null;
+  spotify: SpotifyState | null;
+  webApp: WebAppState | null;
+}
+
+/** A machine's health: the box or the Hub. Each part is missing when it couldn't be read. */
+export interface HostStats {
+  hostname: string;
+  kernel: string;
+  uptimeS: number;
+  load: number[];
+  cpu: { model: string; cores: number; usagePct?: number };
+  memory: { totalMb: number; availableMb: number };
+  gpu?: { name: string; freqMhz?: number; maxFreqMhz?: number };
+  temperatures: { name: string; celsius: number }[];
+  disks: { label: string; path: string; totalGb: number; freeGb: number }[];
+  network: { name: string; address: string; speedMbps?: number; rxKbps?: number; txKbps?: number }[];
+}
+
+export interface StatsWarning {
+  level: "info" | "warn" | "bad";
+  where: "box" | "hub" | "playback";
+  text: string;
+}
+
 // Music video channels: the Hub downloads music videos and plays them as a live channel, shuffled
 // afresh on every pass through the list.
 

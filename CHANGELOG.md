@@ -15,6 +15,10 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Phone remote: a Now Playing card with a progress bar, skip, live and track buttons; a Watch
+  tab to start anything on the TV from the phone (guide, films, TV, recordings, Spotify, search);
+  and a Stats page for the box and the Hub (playback quality, HDMI, CPU, GPU, memory, disks,
+  network, warnings and logs). Update the Hub and the box to get it.
 - Deezer login from the phone: the Music tab shows a QR code (until the box is logged in). Scan
   it, type your Deezer email and password on the phone, and the TV opens Deezer and fills in its
   login page. The Hub only holds what you typed in memory, for two minutes at most, and hands it

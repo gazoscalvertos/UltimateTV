@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>UltimateTV stats</title>
+<style>
+  :root {
+    --bg: #0b1220; --card: #131c2e; --line: #24324d; --fg: #eef3fb; --muted: #9aa8c2;
+    --accent: #4f8cff; --ok: #35c27a; --warn: #f2b33d; --bad: #ff6b6b; --radius: 14px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 12px 16px 60px; }
+  a { color: var(--accent); }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .back { color: var(--muted); text-decoration: none; padding: 6px 0; }
+  h1 { font-size: 22px; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .jump { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 14px; padding: 0 16px 4px; scrollbar-width: none; }
+  .jump a { flex: none; padding: 7px 12px; border-radius: 99px; background: var(--card); border: 1px solid var(--line); color: var(--fg); text-decoration: none; font-size: 13px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  h2 { font-size: 16px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  h3 { font-size: 13px; color: var(--muted); font-weight: 600; margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .04em; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 6px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  tr:first-child td { border-top: 0; }
+  td:first-child { color: var(--muted); width: 42%; padding-right: 10px; }
+  td:last-child { word-break: break-word; }
+  .meter { margin: 8px 0; }
+  .meter div { display: flex; justify-content: space-between; font-size: 13px; }
+  .meter div span:first-child { color: var(--muted); }
+  .meter i { display: block; height: 6px; border-radius: 3px; background: #22304d; overflow: hidden; margin-top: 4px; }
+  .meter i b { display: block; height: 100%; background: var(--ok); }
+  .meter.warn i b { background: var(--warn); }
+  .meter.bad i b { background: var(--bad); }
+  .warning { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .warning:first-of-type { border-top: 0; }
+  .warning .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: var(--muted); }
+  .warning.warn .dot { background: var(--warn); }
+  .warning.bad .dot { background: var(--bad); }
+  .warning small { color: var(--muted); display: block; font-size: 12px; }
+  .pill { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: #22304d; color: var(--muted); font-weight: 600; }
+  .pill.ok { background: rgba(53,194,122,.15); color: var(--ok); }
+  .pill.warn { background: rgba(242,179,61,.15); color: var(--warn); }
+  .pill.bad { background: rgba(255,107,107,.15); color: var(--bad); }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--accent); font-size: 14px; padding: 4px 0; }
+  pre { white-space: pre-wrap; word-break: break-all; font: 11px/1.45 ui-monospace, Menlo, monospace; background: #0d1526; border-radius: 10px; padding: 10px; max-height: 420px; overflow: auto; margin: 8px 0 0; }
+  .samples { overflow-x: auto; }
+  .samples table { font-size: 12px; white-space: nowrap; }
+  .samples td, .samples th { padding: 4px 8px 4px 0; border-top: 1px solid var(--line); text-align: left; width: auto; color: var(--fg); }
+  .samples th { color: var(--muted); font-weight: 600; }
+  .muted { color: var(--muted); }
+  .links { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 14px; margin-top: 10px; }
+  label.auto { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .progress { height: 6px; border-radius: 3px; background: #22304d; overflow: hidden; margin: 6px 0 4px; }
+  .progress b { display: block; height: 100%; background: var(--accent); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top"><a class="back" href="/remote/">‹ Remote</a><label class="auto"><input type="checkbox" id="auto" checked> Live</label></div>
+  <h1>Stats</h1>
+  <p class="sub" id="updated">Loading…</p>
+  <nav class="jump"><a href="#warnings">Warnings</a><a href="#playing">Playing</a><a href="#box">Box</a><a href="#hub">Hub</a><a href="#logs">Logs</a></nav>
+
+  <section id="warnings"><h2>Warnings <span class="pill" id="warn-pill"></span></h2><div id="warn-list"></div></section>
+  <section id="playing"><h2>Now playing</h2><div id="playing-body"><p class="muted">Asking the TV…</p></div></section>
+  <section id="box"><h2>Box <span class="pill" id="box-pill"></span></h2><div id="box-body"></div></section>
+  <section id="hub"><h2>Hub</h2><div id="hub-body"></div></section>
+  <section id="logs"><h2>Logs</h2>
+    <details><summary>Box log (latest)</summary><pre id="box-log"></pre></details>
+    <details><summary>Hub log (latest)</summary><pre id="hub-log"></pre></details>
+    <div class="links">
+      <a href="/api/diagnostics?format=text" target="_blank">Full report (text)</a>
+      <a href="/api/diagnostics/logs/box?lines=2000" target="_blank">Box log</a>
+      <a href="/api/diagnostics/logs/hub?lines=2000" target="_blank">Hub log</a>
+      <a href="/api/diagnostics/logs/playback?lines=500" target="_blank">Playback samples</a>
+      <a href="/api/software/hub/log" target="_blank">Last Hub update</a>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const fmt = (ms) => {
+  if (!(ms >= 0)) return "–";
+  const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+};
+const ago = (iso) => {
+  const s = Math.round((Date.now() - Date.parse(iso)) / 1000);
+  return s < 60 ? `${s} s ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`;
+};
+const uptime = (s) => (s < 3600 ? `${Math.round(s / 60)} min` : s < 86400 ? `${(s / 3600).toFixed(1)} h` : `${(s / 86400).toFixed(1)} days`);
+const kbps = (k) => (k === undefined ? "–" : k >= 1000 ? `${(k / 1000).toFixed(1)} Mb/s` : `${k} kb/s`);
+const table = (rows) => `<table>${rows.filter((r) => r && r[1] !== undefined && r[1] !== null && r[1] !== "").map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join("")}</table>`;
+const meter = (label, pct, text) => {
+  const tone = pct >= 90 ? " bad" : pct >= 75 ? " warn" : "";
+  return `<div class="meter${tone}"><div><span>${esc(label)}</span><span>${esc(text)}</span></div><i><b style="width:${Math.max(0, Math.min(100, pct))}%"></b></i></div>`;
+};
+
+function hostHtml(h) {
+  if (!h) return `<p class="muted">Not reported yet. Update the box to see its CPU, GPU, temperatures and network.</p>`;
+  const memUsed = h.memory.totalMb - h.memory.availableMb;
+  let out = "";
+  out += meter("CPU", h.cpu.usagePct ?? 0, `${h.cpu.usagePct ?? "?"}% · load ${h.load.map((l) => l.toFixed(2)).join(" ")}`);
+  out += meter("Memory", (100 * memUsed) / h.memory.totalMb, `${(memUsed / 1024).toFixed(1)} of ${(h.memory.totalMb / 1024).toFixed(1)} GB`);
+  if (h.gpu?.freqMhz && h.gpu.maxFreqMhz) out += meter(`GPU clock (${h.gpu.name})`, (100 * h.gpu.freqMhz) / h.gpu.maxFreqMhz, `${h.gpu.freqMhz} of ${h.gpu.maxFreqMhz} MHz`);
+  for (const d of h.disks) out += meter(`Disk: ${d.label}`, d.totalGb ? (100 * (d.totalGb - d.freeGb)) / d.totalGb : 0, `${d.freeGb} GB free of ${d.totalGb} GB`);
+  out += table([
+    ["Processor", `${esc(h.cpu.model)} (${h.cpu.cores} threads)`],
+    ["Graphics", h.gpu ? esc(h.gpu.name) + (h.gpu.freqMhz ? ` · ${h.gpu.freqMhz} MHz` : "") : "not visible"],
+    ["Temperatures", h.temperatures.length ? h.temperatures.map((t) => `${esc(t.name)} <b style="color:${t.celsius >= 90 ? "var(--bad)" : t.celsius >= 75 ? "var(--warn)" : "inherit"}">${t.celsius}°C</b>`).join(", ") : "not visible"],
+    ...h.network.map((n) => [`Network ${n.name}`, `${esc(n.address)}${n.speedMbps ? ` · link ${n.speedMbps >= 1000 ? n.speedMbps / 1000 + " Gb/s" : n.speedMbps + " Mb/s"}` : ""}${n.rxKbps !== undefined ? ` · ↓ ${kbps(n.rxKbps)} ↑ ${kbps(n.txKbps)}` : ""}`]),
+    ["Up for", uptime(h.uptimeS)],
+    ["Kernel", esc(h.kernel)],
+    ["Name", esc(h.hostname)],
+  ]);
+  return out;
+}
+
+function playingHtml(tv) {
+  if (!tv) return `<p class="muted">The TV app isn't answering. Is the box on?</p>`;
+  const p = tv.playing, st = tv.player;
+  let out = "";
+  if (p && st.status !== "idle") {
+    out += `<b>${esc(p.title)}</b>${p.subtitle ? ` <span class="muted">· ${esc(p.subtitle)}</span>` : ""}`;
+    if (!p.live && st.durationMs) out += `<div class="progress"><b style="width:${(100 * st.positionMs) / st.durationMs}%"></b></div><span class="muted">${fmt(st.positionMs)} of ${fmt(st.durationMs)} (${Math.round((100 * st.positionMs) / st.durationMs)}%)</span>`;
+    out += table([
+      ["Status", esc(st.status) + (st.error ? ` · ${esc(st.error)}` : "")],
+      ["Channel", p.channel ? `${p.channel.number} ${esc(p.channel.name)}` : ""],
+      ["From", esc(p.source ?? "")],
+      ["Live", p.live ? (st.behindLiveMs > 3000 ? `${fmt(st.behindLiveMs)} behind live` : "at the live edge") : ""],
+      ["Picture", st.video ? `${st.video.width}×${st.video.height}${st.video.fps ? ` @ ${st.video.fps} fps` : ""} · ${esc(st.video.codec ?? "")} · ${esc((st.video.hdr ?? "SDR").toUpperCase())} · decoder ${esc(st.video.hwdec ?? "?")}` : ""],
+      ["Sound", st.audio ? `${esc((st.audio.codec ?? "").toUpperCase())}${st.audio.channels ? ` · ${st.audio.channels} channels` : ""} · ${st.audio.passthrough ? "passed through to the TV" : "decoded on the box"}` : ""],
+      ["Buffered", st.bufferedMs !== undefined ? `${(st.bufferedMs / 1000).toFixed(1)} s` : ""],
+      ["Arriving at", st.downloadKbps ? kbps(st.downloadKbps) : ""],
+      ["Audio track", st.audioTracks.find((t) => t.selected) ? esc([st.audioTracks.find((t) => t.selected).title, st.audioTracks.find((t) => t.selected).lang].filter(Boolean).join(" · ")) : ""],
+      ["Subtitles", st.subtitleTracks.find((t) => t.selected) ? esc(st.subtitleTracks.find((t) => t.selected).lang ?? "on") : "off"],
+    ]);
+    for (const sec of tv.stats?.sections ?? []) out += `<h3>${esc(sec.title)}</h3>${table(sec.rows.map(([k, v]) => [k, esc(v)]))}`;
+  } else if (tv.spotify?.track) {
+    const s = tv.spotify;
+    out += `<b>${esc(s.track.name)}</b> <span class="muted">· ${esc(s.track.artists.join(", "))}</span>` + table([["Status", s.status], ["Spotify", `${esc(s.deviceName ?? "")} · volume ${s.volume}%`], ["Playing from", esc(s.context?.name ?? "")]]);
+  } else out += `<p class="muted">Nothing is playing. The TV is on ${esc(tv.screen)}${tv.profile ? ` (${esc(tv.profile.name)})` : ""}.</p>`;
+  return out;
+}
+
+function boxHtml(stats, tv) {
+  const b = stats.box?.report;
+  const info = tv?.info ?? b?.info ?? {};
+  const now = b?.now;
+  const sw = b?.software;
+  let out = "";
+  out += `<h3>Screen and HDMI</h3>` + table([
+    ["Display", info.display ? `${esc(info.display.name)} · ${info.display.width}×${info.display.height} @ ${info.display.refreshHz} Hz${info.display.hdr ? " · HDR on" : " · HDR off"}` : ""],
+    ["Screen mode now", now?.display?.mode ? esc(now.display.mode) + (now.match !== undefined ? ` · matched by ${now.match ?? "nothing"}` : "") : ""],
+    ["Video sync", now?.display?.sync ? esc(now.display.sync) : ""],
+    ["Sound out", esc(info.audioDevice ?? "")],
+    ["TV remote (CEC)", info.cec ? (info.cec.connected ? `connected${info.cec.tvOn === false ? " · TV in standby" : ""}` : "not connected") : ""],
+  ]);
+  if (b?.kscreen?.text) out += `<details><summary>Screen details (kscreen)</summary><pre>${esc(b.kscreen.text)}</pre></details>`;
+  out += `<h3>Machine</h3>` + hostHtml(b?.host);
+  out += `<h3>Software</h3>` + table([
+    ["App", sw?.commit ? `${esc(String(sw.commit).slice(0, 7))}${sw.branch && sw.branch !== "main" ? ` · ${esc(sw.branch)}` : ""}` : ""],
+    ["Last update", sw?.lastUpdate ? `${new Date(sw.lastUpdate.at).toLocaleString()}${sw.lastUpdate.ok ? "" : " (failed)"}` : ""],
+    ["Last report", stats.box ? `${ago(stats.box.receivedAt)} (every 30 s while playing, 5 min otherwise)` : "never"],
+  ]);
+  const samples = b?.samples ?? [];
+  if (samples.length) {
+    const rows = samples.slice(-12).map((s, i, arr) => {
+      const prev = arr[i - 1] ?? samples[samples.length - arr.length - 1];
+      const d = (k) => (s.frames?.[k] !== undefined && prev?.frames?.[k] !== undefined ? s.frames[k] - prev.frames[k] : "");
+      return `<tr><td>${esc(s.at.slice(11, 19))}</td><td>${s.video ? `${s.video.width}×${s.video.height}` : ""}</td><td>${s.video?.fps ?? ""}</td><td>${esc(s.display?.refreshHz ?? "")}</td><td>${d("dropped")}</td><td>${d("decoderDropped")}</td><td>${s.avsyncMs ?? ""}</td><td>${s.bufferS ?? ""}</td><td>${s.inputKbps ? kbps(s.inputKbps) : ""}</td></tr>`;
+    });
+    out += `<h3>Recent playback (every 10 s)</h3><div class="samples"><table><tr><th>Time</th><th>Size</th><th>fps</th><th>Hz</th><th>Dropped</th><th>Decoder</th><th>A/V ms</th><th>Buffer s</th><th>In</th></tr>${rows.join("")}</table></div>`;
+  }
+  return out;
+}
+
+function hubHtml(h) {
+  let out = hostHtml(h.host);
+  out += `<h3>Live TV</h3>` + table([
+    ["IPTV connections", `${h.connections.used} of ${h.connections.limit} in use${h.connections.holders.length ? ` (${esc(h.connections.holders.join(", "))})` : ""}`],
+    ...h.sources.map((s) => [s.name, `${esc(s.host)} · ${s.status ? (s.status.ok ? `${s.status.visible ?? "?"} channels at ${new Date(s.status.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : `<span style="color:var(--bad)">${esc(s.status.error ?? "failed")}</span>`) : "loading"}`]),
+    ["Channels", `${h.channels} · ${h.programmes} guide entries`],
+    ["Guide updated", h.epgUpdatedAt ? new Date(h.epgUpdatedAt).toLocaleString() : "never"],
+    ["Recording now", h.recordingNow.length ? esc(h.recordingNow.join(", ")) : "nothing"],
+  ]);
+  const sys = h.system;
+  out += `<h3>Graphics chip (Quick Sync)</h3>` + table([
+    ["Device", sys.renderNode ?? "none (no /dev/dri in the container)"],
+    ["VA-API", sys.vaapi.available ? `${esc(sys.vaapi.driver ?? "yes")}` : "not available"],
+    ["AV1 decode", sys.checks.av1HardwareDecode ? "yes" : "no"],
+    ["HEVC encode", sys.checks.hevcHardwareEncode ? `yes${sys.checks.hevc10HardwareEncode ? " (10-bit too)" : ""}` : "no"],
+    ["ffmpeg", esc(sys.ffmpeg ?? "missing")],
+  ]);
+  out += `<h3>Software</h3>` + table([
+    ["Version", `${esc(h.version)}${h.commit ? ` · ${esc(h.commit)}` : ""}${h.builtAt ? ` · built ${new Date(h.builtAt).toLocaleDateString()}` : ""}`],
+    ["Running for", uptime(h.uptimeS)],
+    ["Hub memory", `${h.processMb} MB`],
+  ]);
+  return out;
+}
+
+let busy = false;
+async function refresh() {
+  if (busy || document.visibilityState !== "visible") return;
+  busy = true;
+  try {
+    const [stats, tv] = await Promise.all([
+      fetch("/api/stats").then((r) => r.json()),
+      fetch("/api/tv/call/now", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+    const warnings = [...stats.warnings];
+    if (tv?.player?.video?.hwdec === "no") warnings.unshift({ level: "warn", where: "playback", text: "Decoding in software, not on the graphics chip" });
+    if (tv?.player?.status === "error") warnings.unshift({ level: "bad", where: "playback", text: `Playback error: ${tv.player.error ?? "unknown"}` });
+    const worst = warnings.some((w) => w.level === "bad") ? "bad" : warnings.some((w) => w.level === "warn") ? "warn" : "ok";
+    $("warn-pill").textContent = warnings.length ? `${warnings.length}` : "All good";
+    $("warn-pill").className = `pill ${worst}`;
+    $("warn-list").innerHTML = warnings.length ? warnings.map((w) => `<div class="warning ${w.level}"><span class="dot"></span><span>${esc(w.text)}<small>${w.where === "hub" ? "Hub" : w.where === "box" ? "Box" : "Playback"}</small></span></div>`).join("") : `<p class="muted">Nothing looks wrong.</p>`;
+    $("playing-body").innerHTML = playingHtml(tv);
+    $("box-pill").textContent = tv ? "On" : stats.tvConnected ? "Connected" : "Off";
+    $("box-pill").className = `pill ${tv ? "ok" : ""}`;
+    $("box-body").innerHTML = boxHtml(stats, tv);
+    $("hub-body").innerHTML = hubHtml(stats.hub);
+    // Only rewrite the logs when closed, so reading one isn't disturbed.
+    if (!$("box-log").parentElement.open) $("box-log").textContent = (stats.box?.report.log ?? []).join("\n") || "No box log yet.";
+    if (!$("hub-log").parentElement.open) $("hub-log").textContent = stats.hub.log.join("\n") || "Nothing logged yet.";
+    $("updated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    $("updated").textContent = `Couldn't reach the Hub: ${e.message}`;
+  } finally {
+    busy = false;
+  }
+}
+refresh();
+setInterval(() => $("auto").checked && refresh(), 3000);
+document.addEventListener("visibilitychange", refresh);
+</script>
+</body>
+</html>

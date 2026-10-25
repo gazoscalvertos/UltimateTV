@@ -147,6 +147,16 @@ describe("hub API", () => {
     expect(qr.headers["content-type"]).toContain("image/svg+xml");
   });
 
+  it("reports both machines' stats, and asks the TV only when it's connected", async () => {
+    await start();
+    const stats = (await app.inject("/api/stats")).json();
+    expect(stats).toMatchObject({ tvConnected: false, box: null, hub: { connections: { used: 0 } } });
+    expect(stats.hub.host.cpu.cores).toBeGreaterThan(0);
+    expect(stats.warnings.some((w: { text: string }) => w.text.includes("hasn't reported"))).toBe(true);
+    expect((await app.inject({ method: "POST", url: "/api/tv/call/now", payload: {} })).statusCode).toBe(409);
+    expect((await app.inject({ method: "POST", url: "/api/tv/call/rm", payload: {} })).statusCode).toBe(404);
+  });
+
   it("understands voice commands from the phone", async () => {
     await start();
     expect((await app.inject({ method: "POST", url: "/api/remote/voice", payload: { text: "pause" } })).json()).toMatchObject({ kind: "keys", actions: ["pause"], heard: "pause", tvConnected: false });

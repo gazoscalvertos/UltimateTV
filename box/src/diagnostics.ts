@@ -7,6 +7,7 @@ import { execFile } from "node:child_process";
 import os from "node:os";
 import { promisify } from "node:util";
 import { redactUrls, type BoxDiagnostics, type PlaybackSample } from "@ultimatetv/shared";
+import { HostMonitor } from "@ultimatetv/shared/host";
 
 const run = promisify(execFile);
 
@@ -58,6 +59,7 @@ export class Diagnostics {
   private sources: DiagnosticSources | null = null;
   private timer: NodeJS.Timeout | undefined;
   private lastSent = 0;
+  private readonly host = new HostMonitor();
 
   constructor(private readonly hubUrl: string) {}
 
@@ -101,12 +103,13 @@ export class Diagnostics {
 
   async report(): Promise<BoxDiagnostics> {
     const sources = this.sources ?? { sample: async () => null, software: async () => null, info: async () => null };
-    const [software, info, kscreenJson, kscreenText, sample] = await Promise.all([
+    const [software, info, kscreenJson, kscreenText, sample, host] = await Promise.all([
       sources.software().catch((e: Error) => ({ error: e.message })),
       sources.info().catch((e: Error) => ({ error: e.message })),
       run("kscreen-doctor", ["-j"], { timeout: 5000 }).then((r) => summariseKscreen(r.stdout)).catch((e: Error) => ({ error: e.message })),
       run("kscreen-doctor", ["-o"], { timeout: 5000 }).then((r) => r.stdout.replace(/\x1b\[[0-9;]*m/g, "").slice(0, 20_000)).catch((e: Error) => `error: ${e.message}`),
       sources.sample().catch(() => null),
+      this.host.stats([{ label: "System", path: "/" }]).catch(() => undefined),
     ]);
     return {
       at: new Date().toISOString(),
@@ -120,6 +123,7 @@ export class Diagnostics {
       now: sample,
       samples: this.samples.list(),
       log: this.lines.list(),
+      ...(host ? { host } : {}),
     };
   }
 }
