@@ -28,3 +28,4 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 34, 35 | Watching Clubland TV, and the music channels in the guide, a programme per video |
 | 41, 42 | The music channel caption: the song playing, then what's coming up next |
 | 36 | The phone page that logs the TV in to Deezer |
+| 43, 44 | A breaking news flash over a film, and writing it on the phone |

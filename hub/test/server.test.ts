@@ -157,6 +157,20 @@ describe("hub API", () => {
     expect((await app.inject({ method: "POST", url: "/api/tv/call/rm", payload: {} })).statusCode).toBe(404);
   });
 
+  it("shows a news flash from the phone until it's taken down or runs out", async () => {
+    await start();
+    expect((await app.inject({ method: "POST", url: "/api/flash", payload: { text: "  " } })).statusCode).toBe(400);
+    const sent = (await app.inject({ method: "POST", url: "/api/flash", payload: { text: "Dinner  is\nready", seconds: 30 } })).json();
+    expect(sent.flash).toMatchObject({ text: "Dinner is ready", label: "BBC NEWS" });
+    expect(sent.flash.until - sent.flash.at).toBe(30_000);
+    expect(sent.flash.leftMs).toBeGreaterThan(29_000);
+    expect((await app.inject("/api/flash")).json().flash.text).toBe("Dinner is ready");
+    await app.inject({ method: "DELETE", url: "/api/flash" });
+    expect((await app.inject("/api/flash")).json().flash).toBeNull();
+    const forever = (await app.inject({ method: "POST", url: "/api/flash", payload: { text: "Hi", label: "SKY NEWS", seconds: 0 } })).json();
+    expect(forever.flash).toMatchObject({ label: "SKY NEWS", until: null, leftMs: null });
+  });
+
   it("understands voice commands from the phone", async () => {
     await start();
     expect((await app.inject({ method: "POST", url: "/api/remote/voice", payload: { text: "pause" } })).json()).toMatchObject({ kind: "keys", actions: ["pause"], heard: "pause", tvConnected: false });

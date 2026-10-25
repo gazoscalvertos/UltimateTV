@@ -7,7 +7,7 @@ import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import QRCode from "qrcode";
 import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
-import type { BoxState, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
+import type { BoxState, NewsFlash, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
@@ -347,6 +347,34 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   app.post("/api/remote/text", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
     ctx.events.emit({ type: "remote.text", text: String(req.body?.text ?? "").slice(0, 120) });
+    return { ok: true };
+  });
+  // A news flash along the bottom of the TV, typed on the phone. Kept so a TV that reconnects shows it too.
+  let flash: NewsFlash | null = null;
+  const currentFlash = () => {
+    if (flash && flash.until !== null && flash.until <= Date.now()) flash = null;
+    return flash && { ...flash, leftMs: flash.until === null ? null : flash.until - Date.now() };
+  };
+  app.get("/api/flash", async () => ({ flash: currentFlash() }));
+  app.post("/api/flash", async (req: Req<Record<string, string>, Record<string, string>, { text?: string; label?: string; seconds?: number }>, reply) => {
+    const text = String(req.body?.text ?? "").replace(/\s+/g, " ").trim().slice(0, 280);
+    if (!text) return reply.code(400).send({ error: "Write the news first" });
+    const seconds = Number(req.body?.seconds ?? 60);
+    const now = Date.now();
+    flash = {
+      text,
+      label: String(req.body?.label ?? "").trim().slice(0, 24) || "BBC NEWS",
+      until: Number.isFinite(seconds) && seconds > 0 ? now + Math.min(seconds, 24 * 3600) * 1000 : null,
+      leftMs: null,
+      at: now,
+    };
+    const sent = currentFlash();
+    ctx.events.emit({ type: "flash", flash: sent });
+    return { flash: sent };
+  });
+  app.delete("/api/flash", async () => {
+    flash = null;
+    ctx.events.emit({ type: "flash", flash: null });
     return { ok: true };
   });
   /** A QR code for a web address the TV shows, such as Spotify's sign-in page. */

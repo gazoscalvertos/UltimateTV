@@ -15,6 +15,9 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Breaking news from the phone: the remote's News button puts a BBC News style "BREAKING NEWS"
+  bar along the bottom of the TV, over whatever is on, with your own message (and channel name).
+  It stays for 30 seconds to 15 minutes, or until you take it down. Needs a Hub and a box update.
 - Updating the Hub shows what's new: the Hub asks GitHub what's on main since the code it runs and
   lists the merged changes by name, with the count, on the phone's Updates and in the TV's
   Settings › About (which can now update the Hub too). Both check again every 5 minutes while open.
