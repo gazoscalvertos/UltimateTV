@@ -15,6 +15,9 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Music channels: a download that hangs is stopped after five quiet minutes and tried again, so
+  it no longer holds up every download behind it. Channels made from a search or two (a
+  Christmas channel, say) now keep reading further down YouTube's results until they're full.
 - Rename the app: call it GazosTV (or anything up to 24 characters) from the phone's settings page
   (App name) or the TV's Settings › About › App name. The new name shows on the TV's top bar, the
   phone remote, the settings pages, the box's "can't reach the Hub" screen and in the Spotify app's

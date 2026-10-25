@@ -53,6 +53,13 @@ doing. OK on a channel opens it:
 
 **Create a channel** asks for a name and what it should play ("Oasis, Blur, Pulp, 90s Britpop").
 Each part between commas becomes a search for official videos.
+Each pass reads a search 25 results at a time, up to three pages, and the next pass carries on
+where it stopped (down to the 200th result, then from the top again). A channel that is still
+short but found something looks again straight after, and every channel short of videos looks
+again when the Hub restarts.
+
+A download that gets nothing from YouTube for five minutes is stopped and tried once more, so one
+hung video can't hold up the rest.
 
 ## What the Hub accepts
 
