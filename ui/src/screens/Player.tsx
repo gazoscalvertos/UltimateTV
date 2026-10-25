@@ -73,7 +73,18 @@ export function Player() {
   createEffect(() => {
     if (playerState().status === "playing" || playerState().status === "paused") setPlayed(true);
   });
-  const opening = () => !played() && (playerState().status === "loading" || playerState().status === "buffering");
+  const opening = () => !played() && !nowPlaying()?.quiet && (playerState().status === "loading" || playerState().status === "buffering");
+
+  // Look up the next episode's versions near the end of this one, so it starts straight away.
+  let prefetched: unknown = null;
+  createEffect(() => {
+    const np = nowPlaying();
+    const st = playerState();
+    if (!np?.info.next || np.info.live || prefetched === np || !st.durationMs) return;
+    if (st.positionMs < st.durationMs - Math.min(5 * 60_000, st.durationMs / 4) && skip()?.kind !== "credits") return;
+    prefetched = np;
+    void hub.prefetch(np.info.next).catch(() => undefined);
+  });
   const stopAndBack = () => (nav.back() ? undefined : nav.reset({ name: "home" }));
   const otherVersion = async () => {
     const np = nowPlaying();
@@ -86,10 +97,28 @@ export function Player() {
   const [browse, setBrowse] = createSignal<string | null>(null);
   const [showNext, setShowNext] = createSignal(false);
   const [digits, setDigits] = createSignal("");
-  const [upNext, setUpNext] = createSignal<number | null>(null);
+  // Up Next: a small card in the corner during the credits (or the last 30 s), then the next
+  // episode, already looked up, starts as this one ends. Back hides the card and stops there.
+  const [nextHidden, setNextHidden] = createSignal(false);
+  createEffect(on(nowPlaying, () => setNextHidden(false)));
+  const [playSettings] = createResource(() => hub.settings().then((s) => s.playback).catch(() => null));
+  const autoplay = () => playSettings()?.autoplayNext ?? true;
+  const remainingS = () => {
+    const st = playerState();
+    return st.durationMs ? Math.max(0, Math.ceil((st.durationMs - st.positionMs) / 1000)) : null;
+  };
+  const showNextCard = () => {
+    const np = nowPlaying();
+    if (!np?.info.next || np.info.live || nextHidden() || !played()) return false;
+    const left = remainingS();
+    return skip()?.kind === "credits" || playerState().status === "ended" || (left !== null && left <= 30);
+  };
+  const playNext = () => {
+    const np = nowPlaying();
+    if (np?.info.next) void play(np.info.next, { quiet: true, ...(np.title ? { title: np.title } : {}) });
+  };
   let hideTimer: number | undefined;
   let digitTimer: number | undefined;
-  let upNextTimer: number | undefined;
 
   const poke = (ms = 5000) => {
     setOsd(true);
@@ -110,7 +139,6 @@ export function Player() {
   onCleanup(() => {
     clearTimeout(hideTimer);
     clearTimeout(digitTimer);
-    clearInterval(upNextTimer);
     if (nav.current().name !== "guide") void stopPlayback();
   });
 
@@ -128,19 +156,8 @@ export function Player() {
         // A music video channel ran through the videos it was given: tune in again for the next ones.
         if (status === "ended" && np?.info.live && np.info.queue && np.req.kind === "channel") return void play(np.req);
         if (status !== "ended" || !np || np.info.live) return;
-        if (np.info.next) {
-          setUpNext(10);
-          clearInterval(upNextTimer);
-          upNextTimer = window.setInterval(() => {
-            const n = (upNext() ?? 0) - 1;
-            setUpNext(n);
-            if (n <= 0) {
-              clearInterval(upNextTimer);
-              setUpNext(null);
-              void play(np.info.next!, np.title ? { title: np.title } : {});
-            }
-          }, 1000);
-        } else nav.back();
+        if (np.info.next && !nextHidden() && autoplay()) playNext();
+        else if (!np.info.next || nextHidden()) nav.back();
       },
     ),
   );
@@ -223,16 +240,10 @@ export function Player() {
       return true;
     }
     const st = playerState();
-    if (upNext() !== null) {
-      if (a === "ok") {
-        clearInterval(upNextTimer);
-        setUpNext(null);
-        void play(np.info.next!, np.title ? { title: np.title } : {});
-      } else if (a === "back") {
-        clearInterval(upNextTimer);
-        setUpNext(null);
-        nav.back();
-      }
+    if (showNextCard() && (a === "ok" || a === "back")) {
+      if (a === "ok") playNext();
+      else if (playerState().status === "ended") nav.back();
+      else setNextHidden(true);
       return true;
     }
     const d = digitOf(a);
@@ -384,7 +395,7 @@ export function Player() {
           </div>
         )}
       </Show>
-      <Show when={!opening() && playerState().status === "buffering"}>
+      <Show when={!opening() && (playerState().status === "buffering" || (nowPlaying()?.quiet && !played() && playerState().status === "loading"))}>
         <div class="player-spinner">
           <div class="spinner" />
         </div>
@@ -519,20 +530,32 @@ export function Player() {
         })()}
       </Show>
 
-      <Show when={!live() && skip() && upNext() === null}>
+      <Show when={!live() && skip() && !showNextCard()}>
         <button class="skip-button" data-focus>
           Skip {skip()!.kind === "credits" ? "credits" : skip()!.kind} <kbd>OK</kbd>
         </button>
       </Show>
 
-      <Show when={upNext() !== null && nowPlaying()?.info.next}>
-        <div class="up-next">
-          <p class="up-next-label">Up next in {upNext()}</p>
-          <h3>{nowPlaying()!.info.next!.name}</h3>
-          <p>
-            <kbd>OK</kbd> Play now · <kbd>Back</kbd> Stop
-          </p>
-        </div>
+      <Show when={showNextCard() && nowPlaying()?.info.next}>
+        {(next) => (
+          <div class="up-next">
+            <Show when={next().image}>
+              <img class="up-next-image" src={next().image} alt="" />
+            </Show>
+            <div class="up-next-body">
+              <p class="up-next-label">
+                {autoplay() && remainingS() !== null && playerState().status !== "ended" ? `Next episode in ${remainingS()} s` : "Next episode"}
+              </p>
+              <h3>{next().name}</h3>
+              <Show when={next().overview}>
+                <p class="up-next-overview">{next().overview}</p>
+              </Show>
+              <p class="up-next-keys">
+                <kbd>OK</kbd> Play now · <kbd>Back</kbd> Hide
+              </p>
+            </div>
+          </div>
+        )}
       </Show>
     </div>
   );

@@ -14,6 +14,8 @@ export interface NowPlaying {
   title?: TitleRef;
   /** When Play was pressed, for the "starting" card's timer. */
   since: number;
+  /** Carried on from the last episode: no "starting" card, just the picture when it's ready. */
+  quiet?: boolean;
 }
 
 export const [nowPlaying, setNowPlaying] = createSignal<NowPlaying | null>(null);
@@ -76,13 +78,21 @@ async function resolve(req: PlaybackRequest): Promise<PlaybackInfo | null> {
  * Plays something. `fullscreen` (the default) opens the player screen; the guide passes false to
  * keep its preview window.
  */
+interface PlayOpts {
+  fullscreen?: boolean;
+  title?: TitleRef;
+  fromStart?: boolean;
+  /** The next episode, looked up ahead of time: start it without the "finding" and "starting" cards. */
+  quiet?: boolean;
+}
+
 let playCount = 0;
 
-export async function play(req: PlaybackRequest, opts: { fullscreen?: boolean; title?: TitleRef; fromStart?: boolean } = {}): Promise<boolean> {
+export async function play(req: PlaybackRequest, opts: PlayOpts = {}): Promise<boolean> {
   const since = Date.now();
   const n = ++playCount;
   // Live channels answer at once; titles may ask every source first, so say what's happening.
-  if (req.kind !== "channel") setStarting({ name: opts.title?.name ?? "", since });
+  if (req.kind !== "channel" && !opts.quiet) setStarting({ name: opts.title?.name ?? "", since });
   try {
     return await start(req, opts, since, n);
   } finally {
@@ -96,7 +106,7 @@ export function cancelStarting(): void {
   setStarting(null);
 }
 
-async function start(req: PlaybackRequest, opts: { fullscreen?: boolean; title?: TitleRef; fromStart?: boolean }, since: number, n: number): Promise<boolean> {
+async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: number): Promise<boolean> {
   let info: PlaybackInfo | null;
   try {
     info = await resolve(req);
@@ -121,7 +131,7 @@ async function start(req: PlaybackRequest, opts: { fullscreen?: boolean; title?:
     ...(info.queue?.length ? { queue: info.queue } : {}),
     ...(s ? { preferredAudioLang: s.preferredAudioLang, preferredSubtitleLang: s.preferredSubtitleLang, subtitlesByDefault: s.subtitlesByDefault } : {}),
   });
-  setNowPlaying({ req, info, since, ...(opts.title ? { title: opts.title } : {}) });
+  setNowPlaying({ req, info, since, ...(opts.title ? { title: opts.title } : {}), ...(opts.quiet ? { quiet: true } : {}) });
   if (req.kind === "channel") setLiveChannelId(req.id);
   void report("start");
   clearInterval(reportTimer);

@@ -335,7 +335,8 @@ export interface PlaybackInfo {
   /** Intro/credits markers from Jellyfin media segments. */
   skip: { kind: "intro" | "recap" | "credits"; startMs: number; endMs: number }[];
   /** The next episode, for autoplay. */
-  next?: PlaybackRequest & { name: string };
+  /** What plays next (the next episode), with its still and summary for the Up Next card. */
+  next?: PlaybackRequest & { name: string; image?: string; overview?: string };
   /** Shown before an interrupting action, e.g. a recording that would stop. */
   warning?: string;
   /** Still or backdrop shown while the stream starts. */
