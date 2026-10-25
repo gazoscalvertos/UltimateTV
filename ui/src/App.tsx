@@ -9,7 +9,7 @@ import { choose, DialogHost } from "./components/Dialog";
 import { StartingCard } from "./components/Starting";
 import { startEvents, onHubEvent } from "./events";
 import { activeLayer, current, focus, focusFirst } from "./focus";
-import { onBack, useKeys } from "./keys";
+import { onAnyKey, onBack, useKeys } from "./keys";
 import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, starting, cancelStarting, stopPlayback } from "./player";
 import { activeMusic, musicPlayPause, pauseAllMusic, startMusic } from "./music";
 import { Browse } from "./screens/Browse";
@@ -115,7 +115,9 @@ export function App() {
     let scheduled = false;
     let touched = false;
     const onKey = () => (touched = true);
+    // Typing into a box counts too, though those keys never reach dispatch.
     window.addEventListener("keydown", onKey, true);
+    const offAnyKey = onAnyKey(onKey);
     createEffect(on(nav.stack, () => (touched = false)));
     const check = () => {
       scheduled = false;
@@ -140,6 +142,7 @@ export function App() {
     onCleanup(() => {
       observer.disconnect();
       window.removeEventListener("keydown", onKey, true);
+      offAnyKey();
     });
   });
 

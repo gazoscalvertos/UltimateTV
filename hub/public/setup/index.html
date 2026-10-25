@@ -31,6 +31,7 @@
   button.small { width: auto; margin: 0; padding: 8px 12px; font-size: 14px; }
   .pill { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: #22304d; color: var(--muted); font-weight: 600; }
   .pill.ok { background: rgba(53, 194, 122, .15); color: var(--ok); }
+  .pill.bad { background: rgba(255, 107, 107, .15); color: var(--bad); }
   .list { list-style: none; padding: 0; margin: 8px 0 0; }
   .list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
   .list li span small { display: block; color: var(--muted); font-size: 13px; }
@@ -65,6 +66,11 @@
   .actions select { width: auto; padding: 8px 10px; font-size: 14px; }
   button.danger { border-color: rgba(255, 107, 107, .5); color: var(--bad); }
   button:disabled { opacity: .45; cursor: default; }
+  .mix-edit, .mix-videos { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+  .mix-videos li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); list-style: none; font-size: 14px; }
+  .mix-videos li:first-child { border-top: 0; }
+  .mix-videos ul { margin: 0; padding: 0; }
+  .mix-err { color: var(--warn); font-size: 13px; margin: 6px 0 0; }
   .sw { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
   .sw:first-of-type { border-top: 0; }
   .sw small { display: block; color: var(--muted); font-size: 13px; }
@@ -80,7 +86,7 @@
     <h1>UltimateTV settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#playback">Picture and sound</a><a href="#recording">Recording</a><a href="#profiles">Profiles</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#playback">Picture and sound</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -129,6 +135,18 @@
     <label class="opt"><span>Carry on after by</span><select data-rec="paddingAfterMin" data-number><option value="0">0 min</option><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></label>
     <label class="opt"><span>Use catch-up when it can<small>Saves programmes from catch-up afterwards, keeping your connection free to watch</small></span><input type="checkbox" data-rec="preferCatchup"></label>
     <label class="opt"><span>Delete watched recordings</span><select data-rec="autoDeleteWatchedDays" data-number><option value="0">Never</option><option value="7">After 7 days</option><option value="30">After 30 days</option><option value="90">After 90 days</option></select></label>
+  </section>
+
+  <section id="music">
+    <h2>Music channels <span class="pill" id="mix-pill">…</span></h2>
+    <p class="hint">Live channels the Hub makes from music videos it downloads. Each pass through a channel is a fresh shuffle. <span id="mix-working"></span></p>
+    <div id="mix-list"></div>
+    <form id="mix-add">
+      <label>New channel's name</label><input name="name" autocomplete="off" placeholder="90s Dance">
+      <label>What it should play</label><input name="brief" autocomplete="off" placeholder="90s eurodance and club classics">
+      <label>Songs to include<small> one per line, Artist - Title (optional)</small></label><textarea name="picks" placeholder="Cascada - Everytime We Touch"></textarea>
+      <button>Add channel</button>
+    </form>
   </section>
 
   <section id="profiles">
@@ -317,6 +335,116 @@ $("#profile-add").onsubmit = async (e) => {
   try { await api("/api/profiles", { method: "POST", body: { name, kind: f.kind.value } }); f.reset(); toast(`${name} added`); loadProfiles(); } catch (err) { toast(err.message, true); }
 };
 
+// Music video channels.
+const lines = (t) => t.split("\n").map((l) => l.trim()).filter(Boolean);
+const mixPath = (c, rest = "") => `/api/mix-channels/${encodeURIComponent(c.id)}${rest}`;
+const mixDo = (p, opts, done) => api(p, opts).then(() => { if (done) toast(done); loadMix(); }).catch((e) => toast(e.message, true));
+const openMix = new Set();
+async function loadMix() {
+  const o = await api("/api/mix-channels");
+  $("#mix-pill").textContent = o.downloader.ok ? `yt-dlp ${o.downloader.version || ""}`.trim() : "Downloader broken";
+  $("#mix-pill").className = "pill" + (o.downloader.ok ? " ok" : " bad");
+  $("#mix-working").textContent = [o.working, !o.downloader.ok && o.downloader.error, o.diskFreeBytes ? `${Math.round(o.diskFreeBytes / 1e9)} GB free.` : ""].filter(Boolean).join(" · ");
+  const list = $("#mix-list");
+  list.innerHTML = "";
+  for (const c of o.channels) {
+    const row = document.createElement("div");
+    row.className = "profile";
+    const name = document.createElement("div");
+    name.className = "name";
+    name.innerHTML = `<span class="avatar"></span><span><span class="pname"></span> <small></small></span>`;
+    name.querySelector(".avatar").style.setProperty("--c", c.colour || "#4f8cff");
+    name.querySelector(".avatar").textContent = String(c.number);
+    name.querySelector(".pname").textContent = c.name;
+    const n = c.counts;
+    name.querySelector("small").textContent = [`${n.ready} of ${c.target} videos ready`, n.downloading + n.queued ? `${n.downloading + n.queued} downloading` : "", n.failed ? `${n.failed} failed` : "", c.enabled ? "" : "off"].filter(Boolean).join(" · ");
+    row.append(name);
+    if (c.brief) { const b = document.createElement("p"); b.className = "hint"; b.style.margin = "4px 0 0"; b.textContent = c.brief; row.append(b); }
+    if (c.error) { const e = document.createElement("p"); e.className = "mix-err"; e.textContent = c.error; row.append(e); }
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const edit = document.createElement("form");
+    edit.className = "mix-edit";
+    edit.hidden = !openMix.has(c.id + ":edit");
+    const videos = document.createElement("div");
+    videos.className = "mix-videos";
+    videos.hidden = !openMix.has(c.id + ":videos");
+    const toggle = (el, key, fill) => () => {
+      el.hidden = !el.hidden;
+      if (el.hidden) openMix.delete(key); else { openMix.add(key); fill?.(); }
+    };
+    actions.append(
+      button("Edit", "secondary", toggle(edit, c.id + ":edit")),
+      button("Videos", "secondary", toggle(videos, c.id + ":videos", () => loadMixVideos(c, videos))),
+      button("Look for more", "secondary", () => mixDo(mixPath(c, "/curate"), { method: "POST" }, "Looking for more videos now")),
+      button("Reshuffle", "secondary", () => mixDo(mixPath(c, "/shuffle"), { method: "POST" }, "Reshuffled after this video")),
+      button(c.enabled ? "Turn off" : "Turn on", "secondary", () => mixDo(mixPath(c), { method: "PATCH", body: { enabled: !c.enabled } }, c.enabled ? `${c.name} is off` : `${c.name} is on`)),
+      button("Delete", "secondary danger", () => { if (confirm(`Delete ${c.name} and its downloaded videos?`)) mixDo(mixPath(c), { method: "DELETE" }, `${c.name} deleted`); }),
+    );
+    edit.innerHTML = `
+      <div class="row"><div><label>Name</label><input name="name"></div><div><label>Number</label><input name="number" type="number" disabled></div></div>
+      <label>What it should play</label><input name="brief">
+      <label>Songs to include<small> one per line, Artist - Title</small></label><textarea name="picks"></textarea>
+      <label>Searches to fill it up<small> one per line</small></label><textarea name="queries"></textarea>
+      <label>Leave out videos whose title has<small> one per line</small></label><textarea name="exclude" style="min-height:50px"></textarea>
+      <div class="row">
+        <div><label>How many videos</label><select name="target"><option>10</option><option>20</option><option>30</option><option>50</option><option>100</option><option>200</option></select></div>
+        <div><label>Picture</label><select name="minHeight"><option value="720">HD or better</option><option value="1080">Full HD or better</option><option value="2160">4K only</option><option value="360">Anything</option></select></div>
+      </div>
+      <div class="row">
+        <div><label>Longest video</label><select name="maxMinutes"><option value="6">6 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></div>
+        <div><label>Largest picture</label><select name="maxHeight"><option value="1080">Full HD</option><option value="2160">4K</option><option value="4320">8K</option></select></div>
+      </div>
+      <button>Save</button>`;
+    const f = edit.elements;
+    f.name.value = c.name; f.number.value = c.number; f.brief.value = c.brief;
+    f.picks.value = c.picks.join("\n"); f.queries.value = c.queries.join("\n"); f.exclude.value = c.exclude.join("\n");
+    for (const k of ["target", "minHeight", "maxHeight", "maxMinutes"]) setValue(f[k], c[k]);
+    edit.onsubmit = (e) => {
+      e.preventDefault();
+      mixDo(mixPath(c), { method: "PATCH", body: { name: f.name.value, brief: f.brief.value, picks: lines(f.picks.value), queries: lines(f.queries.value), exclude: lines(f.exclude.value), target: Number(f.target.value), minHeight: Number(f.minHeight.value), maxHeight: Number(f.maxHeight.value), maxMinutes: Number(f.maxMinutes.value) } }, "Saved. The Hub looks for videos again.");
+    };
+    row.append(actions, edit, videos);
+    if (!videos.hidden) loadMixVideos(c, videos);
+    list.append(row);
+  }
+  if (!o.channels.length) list.innerHTML = `<p class="hint">No music channels yet.</p>`;
+}
+async function loadMixVideos(c, el) {
+  el.innerHTML = `<p class="hint">Loading…</p>`;
+  const { videos } = await api(mixPath(c)).catch((e) => (toast(e.message, true), { videos: [] }));
+  el.innerHTML = `<form class="mix-add-video"><label>Add a video<small> paste a YouTube link</small></label><div class="row"><input name="url" placeholder="https://youtu.be/…" autocomplete="off"><button class="small" style="margin:0">Add</button></div></form><ul></ul>`;
+  el.querySelector("form").onsubmit = (e) => {
+    e.preventDefault();
+    const url = e.target.url.value.trim();
+    if (url) mixDo(mixPath(c, "/videos"), { method: "POST", body: { url } }, "Added. It downloads in a minute or two.");
+  };
+  const ul = el.querySelector("ul");
+  for (const { video: v, origin } of videos) {
+    const li = document.createElement("li");
+    const t = document.createElement("span");
+    const status = v.status === "ready" ? `${v.height}p · ${Math.floor(v.durationS / 60)}:${String(v.durationS % 60).padStart(2, "0")}` : v.status === "downloading" ? `downloading${v.progress ? ` ${Math.round(v.progress * 100)}%` : ""}` : v.status === "failed" ? `failed${v.error ? `: ${v.error}` : ""}` : "waiting";
+    t.innerHTML = `<b></b><small></small>`;
+    t.querySelector("b").textContent = v.title;
+    t.querySelector("small").textContent = ` ${status} · ${origin}`;
+    li.append(t, button("Remove", "secondary danger", () => mixDo(mixPath(c, `/videos/${encodeURIComponent(v.id)}`), { method: "DELETE" }, "Removed")));
+    ul.append(li);
+  }
+  if (!videos.length) ul.innerHTML = `<li class="hint">No videos yet. The Hub is looking.</li>`;
+}
+$("#mix-add").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const name = f.name.value.trim();
+  if (!name) return toast("Give the channel a name.", true);
+  try {
+    const c = await api("/api/mix-channels", { method: "POST", body: { name, brief: f.brief.value.trim(), picks: lines(f.picks.value), queries: f.brief.value.trim() ? [`${f.brief.value.trim()} official music video`] : [] } });
+    f.reset();
+    toast(`${c.name} is on ${c.number}. Videos arrive over the next hour.`);
+    loadMix();
+  } catch (err) { toast(err.message, true); }
+};
+
 // Picture, sound and recording: each control saves as soon as it changes.
 function setValue(el, v) {
   if (el.type === "checkbox") el.checked = Boolean(v);
@@ -403,6 +531,7 @@ $("#jf-disconnect").onclick = async () => {
 
 async function load() {
   loadProfiles().catch(() => {});
+  loadMix().catch(() => {});
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);
   $("#st-channels").textContent = st.channels;
   $("#st-programmes").textContent = st.programmes > 9999 ? Math.round(st.programmes / 1000) + "k" : st.programmes;

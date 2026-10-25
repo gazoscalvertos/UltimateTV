@@ -9,7 +9,17 @@ import { current, move } from "./focus";
 export type KeyHandler = (action: Action, e: KeyboardEvent) => boolean | void;
 
 const handlers: KeyHandler[] = [];
+const pressListeners: (() => void)[] = [];
 let fallbackBack: () => void = () => undefined;
+
+/** Told of every key the app gets: a real key press, the phone remote or HDMI-CEC. */
+export function onAnyKey(fn: () => void): () => void {
+  pressListeners.push(fn);
+  return () => {
+    const i = pressListeners.indexOf(fn);
+    if (i >= 0) pressListeners.splice(i, 1);
+  };
+}
 
 export function onBack(fn: () => void): void {
   fallbackBack = fn;
@@ -26,6 +36,7 @@ export function useKeys(handler: KeyHandler): void {
 
 /** Feeds a key into the app as if pressed (used by the box for CEC power events and by tests). */
 export function dispatch(action: Action, e: KeyboardEvent = new KeyboardEvent("keydown")): void {
+  for (const fn of pressListeners) fn();
   for (let i = handlers.length - 1; i >= 0; i--) if (handlers[i]!(action, e) === true) return;
   switch (action) {
     case "up":
