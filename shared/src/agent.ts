@@ -1,6 +1,7 @@
 // The contract between the TV UI and whatever plays video: the Electron box shell (mpv) on the
 // mini PC, or an HTML <video> fallback when the UI runs in a normal browser for development.
 
+import type { HostStats } from "./domain.js";
 import type { Action } from "./keys.js";
 import type { MusicPage, MusicTracks, SpotifyCommand, SpotifyState, WebAppCommand, WebAppId, WebAppState } from "./music.js";
 
@@ -105,6 +106,8 @@ export interface BoxDiagnostics {
   samples: PlaybackSample[];
   /** The box's recent log lines, addresses cut to their host. */
   log: string[];
+  /** CPU, GPU, memory, temperatures, disk and network (boxes from before 2026-10-25 don't send it). */
+  host?: HostStats;
 }
 
 /** The box's own software, for Settings › About: what it runs and whether there's an update. */
