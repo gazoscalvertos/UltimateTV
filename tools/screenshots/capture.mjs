@@ -188,13 +188,19 @@ try {
 
   // Phone remote and phone setup.
   const phone = await browser.newPage({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, reducedMotion: "reduce" });
+  phone.on("pageerror", (e) => errors.push(`phone: ${e.message}`));
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.screenshot({ path: path.join(out, "22-phone-remote.png") });
   console.log("  22-phone-remote.png");
-  await phone.goto(`${base}/setup/`);
-  await phone.waitForTimeout(1000);
-  await phone.screenshot({ path: path.join(out, "23-phone-setup.png") });
+  // Voice control, as the Android app hands over what it heard.
+  await phone.evaluate(() => window.utvVoiceResult("watch BBC One"));
+  await phone.waitForTimeout(800);
+  await phone.screenshot({ path: path.join(out, "25-phone-voice.png") });
+  console.log("  25-phone-voice.png");
+  await phone.click("#settings");
+  await phone.waitForTimeout(1500);
+  await phone.screenshot({ path: path.join(out, "23-phone-setup.png"), fullPage: true });
   console.log("  23-phone-setup.png");
 } finally {
   await browser.close();

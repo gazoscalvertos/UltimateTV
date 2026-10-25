@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
-<title>UltimateTV setup</title>
+<title>UltimateTV settings</title>
 <style>
   :root {
     --bg: #0b1220; --card: #131c2e; --line: #24324d; --fg: #eef3fb; --muted: #9aa8c2;
@@ -45,14 +45,43 @@
   .stat b { display: block; font-size: 20px; }
   .stat span { font-size: 12px; color: var(--muted); }
   [hidden] { display: none !important; }
+  .back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 15px; padding: 6px 0; }
+  .jump { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 16px; padding: 0 16px 4px; scrollbar-width: none; }
+  .jump a { flex: none; padding: 8px 12px; border-radius: 99px; background: var(--card); border: 1px solid var(--line); color: var(--fg); text-decoration: none; font-size: 14px; }
+  .opt { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0; padding: 12px 0; border-top: 1px solid var(--line); color: var(--fg); font-size: 16px; }
+  .opt:first-of-type { border-top: 0; }
+  .opt > span small { display: block; color: var(--muted); font-size: 13px; }
+  .opt select { width: auto; min-width: 110px; padding: 9px 10px; }
+  .opt input[type=checkbox] { appearance: none; -webkit-appearance: none; flex: none; width: 50px; height: 30px; padding: 0; border-radius: 99px; background: #22304d; border: 0; position: relative; cursor: pointer; transition: background .15s; }
+  .opt input[type=checkbox]::after { content: ""; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: left .15s; }
+  .opt input[type=checkbox]:checked { background: var(--accent); }
+  .opt input[type=checkbox]:checked::after { left: 24px; }
+  .profile { padding: 12px 0; border-top: 1px solid var(--line); }
+  .profile:first-child { border-top: 0; }
+  .profile .name { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .profile .name small { color: var(--muted); font-weight: 400; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--c, #4f8cff); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .actions select { width: auto; padding: 8px 10px; font-size: 14px; }
+  button.danger { border-color: rgba(255, 107, 107, .5); color: var(--bad); }
+  button:disabled { opacity: .45; cursor: default; }
+  .sw { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .sw:first-of-type { border-top: 0; }
+  .sw small { display: block; color: var(--muted); font-size: 13px; }
+  .pill.warn { background: rgba(242, 179, 61, .15); color: var(--warn); }
+  code { font-size: 13px; background: #0d1526; padding: 2px 5px; border-radius: 6px; word-break: break-all; }
 </style>
 </head>
 <body>
 <main>
+  <a class="back" href="/remote/" id="back-to-remote">‹ Remote</a>
   <header>
     <div class="logo">U</div>
-    <h1>UltimateTV setup<small>Sources and accounts for the TV. Changes appear on the TV straight away.</small></h1>
+    <h1>UltimateTV settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
+  <nav class="jump">
+    <a href="#software">Updates</a><a href="#playback">Picture and sound</a><a href="#recording">Recording</a><a href="#profiles">Profiles</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
+  </nav>
 
   <section>
     <div class="status">
@@ -60,6 +89,59 @@
       <div class="stat"><b id="st-programmes">–</b><span>guide entries</span></div>
       <div class="stat"><b id="st-connections">–</b><span>IPTV connections</span></div>
     </div>
+  </section>
+
+  <section id="software">
+    <h2>Updates and the TV</h2>
+    <p class="hint">Update the Hub and the box from here. The box also updates itself every Monday at 4 am.</p>
+    <div class="sw">
+      <span><b>Hub</b> <span class="pill" id="hub-pill">…</span><small id="hub-version"></small><small id="hub-last"></small></span>
+      <button class="small" type="button" id="hub-update">Update</button>
+    </div>
+    <p class="hint" id="hub-helper" hidden>To update the Hub from the phone, run this once on the server: <code>sudo bash /containers/UltimateTV/tools/hub/update.sh --phone-updates</code></p>
+    <div class="sw">
+      <span><b>Box</b> <span class="pill" id="box-pill">…</span><small id="box-version"></small><small id="box-last"></small></span>
+      <button class="small" type="button" id="box-update">Update</button>
+    </div>
+    <div class="actions">
+      <button class="secondary small" type="button" id="box-reload">Reload the TV app</button>
+      <button class="secondary small" type="button" id="refresh">Refresh channels and guide</button>
+      <button class="secondary small" type="button" id="sw-check">Check again</button>
+    </div>
+  </section>
+
+  <section id="playback">
+    <h2>Picture and sound</h2>
+    <p class="hint">The box switches the TV to each film's frame rate and sends HDR, and passes Dolby Digital Plus (with Atmos) to the TV's speakers.</p>
+    <label class="opt"><span>Subtitles<small>Turn on automatically when available</small></span><input type="checkbox" data-pb="subtitlesByDefault"></label>
+    <label class="opt"><span>Audio language</span><select data-pb="preferredAudioLang"></select></label>
+    <label class="opt"><span>Subtitle language</span><select data-pb="preferredSubtitleLang"></select></label>
+    <label class="opt"><span>Play the next episode automatically</span><input type="checkbox" data-pb="autoplayNext"></label>
+    <label class="opt"><span>When the TV turns on</span><select data-pb="startOn"><option value="home">Home</option><option value="live">Live TV</option></select></label>
+    <label class="opt"><span>Largest file to stream<small>Bigger versions are moved down the list</small></span><select data-pb="maxSizeGb" data-number><option value="20">20 GB</option><option value="40">40 GB</option><option value="60">60 GB</option><option value="100">100 GB</option></select></label>
+    <label class="opt"><span>Avoid Dolby Vision profile 5<small>Those files show the wrong colours, as the box plays Dolby Vision as HDR10</small></span><input type="checkbox" data-pb="avoidDvProfile5"></label>
+    <label class="opt"><span>Playback stats on the TV<small>The stream, picture and sound details over the video</small></span><input type="checkbox" id="stats"></label>
+  </section>
+
+  <section id="recording">
+    <h2>Recording</h2>
+    <label class="opt"><span>Start early by</span><select data-rec="paddingBeforeMin" data-number><option value="0">0 min</option><option value="1">1 min</option><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option></select></label>
+    <label class="opt"><span>Carry on after by</span><select data-rec="paddingAfterMin" data-number><option value="0">0 min</option><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></label>
+    <label class="opt"><span>Use catch-up when it can<small>Saves programmes from catch-up afterwards, keeping your connection free to watch</small></span><input type="checkbox" data-rec="preferCatchup"></label>
+    <label class="opt"><span>Delete watched recordings</span><select data-rec="autoDeleteWatchedDays" data-number><option value="0">Never</option><option value="7">After 7 days</option><option value="30">After 30 days</option><option value="90">After 90 days</option></select></label>
+  </section>
+
+  <section id="profiles">
+    <h2>Profiles and PIN <span class="pill" id="profiles-pill"></span></h2>
+    <p class="hint">Kids profiles only see kids' channels and titles rated up to their limit. Set a PIN on the adult profiles to stop anyone switching out of Kids, or changing settings, without it.</p>
+    <div id="profiles-list"></div>
+    <form id="profile-add">
+      <div class="row">
+        <div><label>New profile's name</label><input name="name" autocomplete="off"></div>
+        <div><label>Type</label><select name="kind"><option value="kids">Kids</option><option value="adult">Adult</option></select></div>
+      </div>
+      <button>Add profile</button>
+    </form>
   </section>
 
   <section id="iptv">
@@ -90,7 +172,7 @@
     </form>
   </section>
 
-  <section>
+  <section id="guide">
     <h2>TV guide</h2>
     <p class="hint">Your provider's guide is used automatically. Add extra XMLTV links here, one per line; earlier ones win.</p>
     <form id="guide-form">
@@ -103,7 +185,7 @@
     </form>
   </section>
 
-  <section>
+  <section id="jellyfin">
     <h2>Jellyfin <span class="pill" id="jf-pill">Not connected</span></h2>
     <p class="hint">Your films and series library. Quick Connect is easiest: approve the code in any Jellyfin app.</p>
     <form id="jf-form">
@@ -117,10 +199,11 @@
         </div>
         <button>Sign in</button>
       </div>
+      <button type="button" class="secondary" id="jf-disconnect" hidden>Disconnect Jellyfin</button>
     </form>
   </section>
 
-  <section>
+  <section id="vod">
     <h2>Films and series sources</h2>
     <p class="hint">TMDB gives artwork and discovery rails. AIOStreams finds streams, and TorBox plays and downloads them.</p>
     <form id="vod-form">
@@ -132,7 +215,7 @@
     </form>
   </section>
 
-  <section>
+  <section id="folders">
     <h2>Where things are saved</h2>
     <p class="hint">Folders as the home server sees them. Use the same ones Jellyfin scans so recordings and downloads show up there.</p>
     <form id="lib-form">
@@ -144,16 +227,6 @@
     </form>
   </section>
 
-  <section>
-    <h2>Profiles and PIN <span class="pill" id="profiles-pill"></span></h2>
-    <p class="hint">Kids profiles only see kids' channels and titles rated up to their limit. Set a PIN on the Family profile to stop anyone switching out of Kids, or changing settings, without it.</p>
-    <div id="profiles-list"></div>
-    <form id="pin-form">
-      <label>New 4-digit PIN for Family</label><input name="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off">
-      <button>Set PIN</button>
-      <button type="button" class="secondary" id="pin-clear">Remove PIN</button>
-    </form>
-  </section>
 </main>
 <div id="toast"></div>
 <script>
@@ -184,6 +257,18 @@ async function api(path, opts = {}, retried = false) {
 }
 
 const CERTS = ["U", "PG", "12", "12A", "15", "18"];
+const LANGS = [["eng", "English"], ["spa", "Spanish"], ["fra", "French"], ["deu", "German"], ["ita", "Italian"], ["pol", "Polish"], ["por", "Portuguese"], ["nld", "Dutch"]];
+for (const sel of document.querySelectorAll('[data-pb="preferredAudioLang"], [data-pb="preferredSubtitleLang"]')) for (const [v, l] of LANGS) sel.add(new Option(l, v));
+
+const button = (label, cls, onclick) => { const b = document.createElement("button"); b.type = "button"; b.className = `small ${cls}`; b.textContent = label; b.onclick = onclick; return b; };
+const patchProfile = (p, body, done) => api(`/api/profiles/${encodeURIComponent(p.id)}`, { method: "PATCH", body }).then(() => { toast(done); loadProfiles(); }).catch((e) => toast(e.message, true));
+const askPin = (title) => {
+  const pin = prompt(title);
+  if (pin === null) return null;
+  if (!/^\d{4}$/.test(pin.trim())) { toast("A PIN is 4 numbers.", true); return null; }
+  return pin.trim();
+};
+
 async function loadProfiles() {
   const { profiles, locked } = await api("/api/profiles");
   $("#profiles-pill").textContent = locked ? "PIN on" : "No PIN";
@@ -192,26 +277,128 @@ async function loadProfiles() {
   list.innerHTML = "";
   for (const p of profiles) {
     const row = document.createElement("div");
-    row.className = "row";
-    const name = document.createElement("span");
-    name.textContent = `${p.name} (${p.kind === "kids" ? "Kids" : "Adult"})`;
-    row.append(name);
+    row.className = "profile";
+    const name = document.createElement("div");
+    name.className = "name";
+    name.innerHTML = `<span class="avatar"></span><span><span class="pname"></span> <small></small></span>`;
+    name.querySelector(".avatar").style.setProperty("--c", p.colour || "#4f8cff");
+    name.querySelector(".avatar").textContent = p.name.slice(0, 1);
+    name.querySelector(".pname").textContent = p.name;
+    name.querySelector("small").textContent = `${p.kind === "kids" ? `Kids · up to ${p.maxCertification}` : "Adult"}${p.hasPin ? " · PIN set" : ""}`;
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    actions.append(button("Rename", "secondary", () => { const n = prompt("Profile name", p.name); if (n && n.trim()) patchProfile(p, { name: n.trim() }, "Renamed"); }));
     if (p.kind === "kids") {
       const sel = document.createElement("select");
-      for (const c of CERTS) sel.add(new Option(`Up to ${c}`, c, false, c === p.maxCertification));
-      sel.onchange = () => api(`/api/profiles/${p.id}`, { method: "PATCH", body: { maxCertification: sel.value } }).then(() => toast("Saved")).catch((e) => toast(e.message, true));
-      row.append(sel);
+      for (const c of CERTS.filter((c) => c !== "18")) sel.add(new Option(`Up to ${c}`, c, false, c === p.maxCertification));
+      sel.onchange = () => patchProfile(p, { maxCertification: sel.value }, "Saved");
+      actions.append(sel);
     }
+    actions.append(button(p.hasPin ? "Change PIN" : "Set a PIN", "secondary", () => {
+      const pin = askPin(`New 4-digit PIN for ${p.name}`);
+      if (!pin) return;
+      if (askPin("Enter it again") !== pin) return toast("Those don't match. Try again.", true);
+      patchProfile(p, { pin }, `PIN set for ${p.name}`);
+    }));
+    if (p.hasPin) actions.append(button("Remove PIN", "secondary", () => { if (confirm(`Remove ${p.name}'s PIN? Anyone will be able to use this profile.`)) patchProfile(p, { pin: null }, "PIN removed"); }));
+    actions.append(button("Delete", "secondary danger", async () => {
+      if (!confirm(`Delete ${p.name}? Their Continue Watching list goes too. Recordings are kept.`)) return;
+      try { await api(`/api/profiles/${encodeURIComponent(p.id)}`, { method: "DELETE" }); toast(`${p.name} deleted`); loadProfiles(); } catch (e) { toast(e.message, true); }
+    }));
+    row.append(name, actions);
     list.append(row);
   }
 }
-$("#pin-form").onsubmit = async (e) => {
+$("#profile-add").onsubmit = async (e) => {
   e.preventDefault();
-  const pin = e.target.pin.value.trim();
-  try { await api("/api/profiles/family", { method: "PATCH", body: { pin } }); e.target.reset(); toast("PIN set"); loadProfiles(); } catch (err) { toast(err.message, true); }
+  const f = e.target;
+  const name = f.name.value.trim();
+  if (!name) return toast("Give the profile a name.", true);
+  try { await api("/api/profiles", { method: "POST", body: { name, kind: f.kind.value } }); f.reset(); toast(`${name} added`); loadProfiles(); } catch (err) { toast(err.message, true); }
 };
-$("#pin-clear").onclick = async () => {
-  try { await api("/api/profiles/family", { method: "PATCH", body: { pin: null } }); toast("PIN removed"); loadProfiles(); } catch (err) { toast(err.message, true); }
+
+// Picture, sound and recording: each control saves as soon as it changes.
+function setValue(el, v) {
+  if (el.type === "checkbox") el.checked = Boolean(v);
+  else {
+    if (v !== undefined && ![...el.options].some((o) => o.value === String(v))) el.add(new Option(String(v), String(v)));
+    el.value = String(v);
+  }
+}
+const valueOf = (el) => (el.type === "checkbox" ? el.checked : "number" in el.dataset ? Number(el.value) : el.value);
+for (const el of document.querySelectorAll("[data-pb], [data-rec]")) {
+  el.addEventListener("change", async () => {
+    const body = el.dataset.pb ? { playback: { [el.dataset.pb]: valueOf(el) } } : { recording: { [el.dataset.rec]: valueOf(el) } };
+    try { await api("/api/settings", { method: "PUT", body }); toast("Saved"); } catch (err) { toast(err.message, true); load().catch(() => {}); }
+  });
+}
+
+// Updates and the TV.
+const shortSha = (c) => (c ? c.slice(0, 7) : "unknown");
+const when = (iso) => new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const pill = (id, text, tone) => { $(id).textContent = text; $(id).className = "pill" + (tone ? " " + tone : ""); };
+let software = null;
+async function loadSoftware(check) {
+  software = await api(`/api/software${check ? "?check=1" : ""}`);
+  const { hub, box, tvConnected } = software;
+  $("#hub-version").textContent = `${shortSha(hub.commit)}${hub.date ? " · " + when(hub.date) : ""}`;
+  $("#hub-last").textContent = hub.lastUpdate ? `Last update from here ${when(hub.lastUpdate.at)}${hub.lastUpdate.ok ? "" : " (it failed)"}` : "";
+  if (hub.updating) pill("#hub-pill", "Updating…", "warn");
+  else if (!hub.latest) pill("#hub-pill", "Couldn't check");
+  else if (hub.commit && hub.latest.startsWith(hub.commit)) pill("#hub-pill", "Up to date", "ok");
+  else pill("#hub-pill", "Update available", "warn");
+  $("#hub-helper").hidden = hub.canUpdate;
+  $("#hub-update").disabled = !hub.canUpdate || hub.updating;
+
+  const sw = box?.software;
+  $("#stats").checked = Boolean(box?.stats);
+  $("#box-version").textContent = sw ? `${shortSha(sw.commit)}${sw.date ? " · " + when(sw.date) : ""}${sw.branch && sw.branch !== "main" ? " · " + sw.branch : ""}` : tvConnected ? "Asking the box…" : "The TV app isn't connected. Is the box on?";
+  $("#box-last").textContent = sw?.lastUpdate ? `Last update ${when(sw.lastUpdate.at)}${sw.lastUpdate.ok ? "" : " (it failed)"}` : "";
+  if (!tvConnected) pill("#box-pill", "Off");
+  else if (!sw) pill("#box-pill", "…");
+  else if (sw.updating) pill("#box-pill", "Updating…", "warn");
+  else if (!sw.latest) pill("#box-pill", "Couldn't check");
+  else if (sw.latest === sw.commit) pill("#box-pill", "Up to date", "ok");
+  else pill("#box-pill", "Update available", "warn");
+  $("#box-update").disabled = !tvConnected || !sw || sw.updating;
+  $("#box-reload").disabled = !tvConnected;
+  return software;
+}
+/** Asks the box to check GitHub and report back, then shows what it said. */
+async function checkBox() {
+  try { await api("/api/box/check", { method: "POST" }); } catch { return; }
+  setTimeout(() => loadSoftware(false).catch(() => {}), 4000);
+  setTimeout(() => loadSoftware(false).catch(() => {}), 12000);
+}
+$("#sw-check").onclick = () => loadSoftware(true).then(checkBox).catch((e) => toast(e.message, true));
+$("#hub-update").onclick = async () => {
+  if (!confirm("Update the Hub now? It restarts at the end, so the TV pauses for a minute while it comes back.")) return;
+  const before = software?.hub.commit;
+  try { await api("/api/software/hub/update", { method: "POST" }); } catch (e) { return toast(e.message, true); }
+  toast("Updating the Hub. This page carries on when it's back, in a few minutes.");
+  pill("#hub-pill", "Updating…", "warn");
+  $("#hub-update").disabled = true;
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const h = await fetch("/api/health").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const st = h && (await api("/api/software").catch(() => null));
+    if (st && !st.hub.updating) {
+      await loadSoftware(true);
+      if (st.hub.lastUpdate && !st.hub.lastUpdate.ok) return toast("The Hub update failed. Open /api/software/hub/log to see why.", true);
+      return toast(h.commit && h.commit !== before ? `The Hub is updated to ${shortSha(h.commit)}.` : "The Hub was already up to date.");
+    }
+  }
+};
+$("#box-update").onclick = async () => {
+  if (!confirm("Update the box now? It takes a few minutes. The TV goes blank for a moment at the end while the app restarts.")) return;
+  try { await api("/api/box/update", { method: "POST" }); toast("Updating the box. The TV app restarts by itself when it's done."); pill("#box-pill", "Updating…", "warn"); setTimeout(checkBox, 8000); } catch (e) { toast(e.message, true); }
+};
+$("#box-reload").onclick = () => api("/api/box/reload", { method: "POST" }).then(() => toast("Reloading the TV app")).catch((e) => toast(e.message, true));
+$("#refresh").onclick = () => api("/api/refresh", { method: "POST" }).then(() => toast("Refreshing. This takes a minute or two.")).catch((e) => toast(e.message, true));
+$("#stats").onchange = (e) => api("/api/box/stats", { method: "POST", body: { on: e.target.checked } }).then(() => toast(e.target.checked ? "Stats on" : "Stats off")).catch((err) => { e.target.checked = !e.target.checked; toast(err.message, true); });
+$("#jf-disconnect").onclick = async () => {
+  if (!confirm("Disconnect Jellyfin? Your library stops showing on the TV until you sign in again.")) return;
+  try { await api("/api/jellyfin", { method: "DELETE" }); toast("Jellyfin disconnected"); load(); } catch (e) { toast(e.message, true); }
 };
 
 async function load() {
@@ -244,6 +431,9 @@ async function load() {
   $("#jf-pill").textContent = s.jellyfin ? `Connected${s.jellyfin.serverName ? " to " + s.jellyfin.serverName : ""}` : "Not connected";
   $("#jf-pill").className = "pill" + (s.jellyfin ? " ok" : "");
   if (s.jellyfin) $("#jf-form").url.value = s.jellyfin.url;
+  $("#jf-disconnect").hidden = !s.jellyfin;
+  for (const el of document.querySelectorAll("[data-pb]")) setValue(el, s.playback[el.dataset.pb]);
+  for (const el of document.querySelectorAll("[data-rec]")) setValue(el, s.recording[el.dataset.rec]);
   for (const [id, on] of [["#tmdb-pill", s.tmdb], ["#torbox-pill", s.torbox]]) { $(id).textContent = on ? "Set" : "Not set"; $(id).className = "pill" + (on ? " ok" : ""); }
   $("#addon-list").innerHTML = s.addons.map((a) => `<li><span>${a.name}<small>${a.url}</small></span></li>`).join("");
   const lib = $("#lib-form");
@@ -317,6 +507,7 @@ $("#jf-qc").onclick = async () => {
 };
 
 load().catch((err) => toast(err.message, true));
+loadSoftware(true).then(checkBox).catch(() => {});
 </script>
 </body>
 </html>
