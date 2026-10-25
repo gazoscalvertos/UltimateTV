@@ -2774,3 +2774,163 @@ kbd.key-blue {
   font-size: 1.05rem;
   color: var(--muted);
 }
+
+/* Music channel caption: a music TV lower third, bottom left over the video. */
+.music-caption {
+  position: absolute;
+  left: 5rem;
+  bottom: 5rem;
+  display: flex;
+  align-items: stretch;
+  max-width: 70rem;
+  filter: drop-shadow(0 0.8rem 2rem rgba(0, 0, 0, 0.55));
+  animation: caption-in 0.6s var(--ease);
+}
+@keyframes caption-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4rem);
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+.music-caption-tag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 8.5rem;
+  padding: 0.8rem 1.2rem;
+  background: var(--accent);
+  border-radius: 0.6rem 0 0 0.6rem;
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.music-caption-tag img {
+  max-width: 9rem;
+  max-height: 4.4rem;
+  border-radius: 0.3rem;
+}
+.music-caption-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 1rem 2.4rem 1.1rem 1.8rem;
+  background: linear-gradient(90deg, rgba(6, 9, 16, 0.92), rgba(6, 9, 16, 0.78));
+  border-left: 0.35rem solid var(--accent-2);
+  border-radius: 0 0.6rem 0.6rem 0;
+}
+.music-caption-label {
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent-2);
+}
+.music-caption.next .music-caption-label {
+  color: var(--amber);
+}
+.music-caption.next .music-caption-body {
+  border-left-color: var(--amber);
+}
+.music-caption-artist {
+  margin-top: 0.2rem;
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.music-caption-song {
+  font-size: 1.7rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #e3e8f2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The phone's news flash, along the bottom over everything (BBC News style). */
+.newsflash {
+  position: fixed;
+  z-index: 35;
+  left: 0;
+  right: 0;
+  bottom: 4.5rem;
+  height: 4.25rem;
+  display: flex;
+  align-items: stretch;
+  pointer-events: none;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.45);
+  animation: newsflash-in 0.35s ease-out;
+}
+.newsflash-label {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 1.4rem 0 2.5rem;
+  background: #1a1a1a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.6rem;
+  letter-spacing: 0.04em;
+}
+.newsflash-tag {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 1.4rem;
+  background: #bb1919;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.6rem;
+  letter-spacing: 0.03em;
+}
+.newsflash-strip {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  color: #111;
+  padding: 0 1.5rem;
+}
+.newsflash-text {
+  white-space: nowrap;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+.newsflash-text.scrolling {
+  animation: newsflash-scroll var(--scroll-time, 12s) linear 1s infinite;
+}
+.newsflash-clock {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 2.5rem 0 1.4rem;
+  background: #1a1a1a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes newsflash-in {
+  from { transform: translateY(150%); }
+}
+@keyframes newsflash-scroll {
+  0%, 10% { transform: translateX(0); }
+  85%, 100% { transform: translateX(var(--scroll)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .newsflash { animation: none; }
+  .newsflash-text.scrolling { animation: none; white-space: normal; font-size: 1.3rem; line-height: 1.2; }
+}

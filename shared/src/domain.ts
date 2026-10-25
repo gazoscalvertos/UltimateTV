@@ -347,6 +347,12 @@ export interface PlaybackInfo {
   queue?: string[];
   /** `url` is an HLS playlist (Jellyfin's smaller copy for phones) rather than a file. */
   hls?: boolean;
+  /** "Artist – Song" for `url` and then each of `queue`, for the music channel's caption. */
+  titles?: string[];
+  /** Fill the screen, cropping any black bars (music videos come in every shape). */
+  fill?: boolean;
+  /** Black bars baked into each video (mpv video-crop "WxH+X+Y", "" for none), in the order of `titles`. */
+  crops?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -521,6 +527,8 @@ export type HubEvent =
   /** From phone voice control: switch to a channel, or say what was understood. */
   | { type: "remote.channel"; channelId: string }
   | { type: "remote.said"; text: string }
+  /** A news flash typed on the phone, shown along the bottom of the TV over anything; null takes it down. */
+  | { type: "flash"; flash: NewsFlash | null }
   /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
   | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean }
   /** The phone asks the TV app something (what's playing, play this, seek); it answers at /api/tv/reply/:id. */
@@ -535,11 +543,34 @@ export interface HubSoftware {
   date?: string;
   /** The newest commit on main, when GitHub answered. */
   latest?: string;
+  /** How many commits main is ahead of the running Hub, and what they are (merged PRs by title). */
+  behind?: number;
+  changes?: SoftwareChange[];
   /** The update helper is installed on the Docker LXC (tools/hub/update.sh installs it). */
   canUpdate: boolean;
   /** An update has been asked for or is running. */
   updating: boolean;
   lastUpdate?: { at: string; ok: boolean };
+}
+
+/** A "breaking news" ticker along the bottom of the TV, written on the phone. */
+export interface NewsFlash {
+  text: string;
+  /** The channel name on the left of the bar ("BBC NEWS"). */
+  label: string;
+  /** When it goes by itself (ms since 1970, the Hub's clock), or null to stay until cleared. */
+  until: number | null;
+  /** How long it has left as the Hub sends it, so the TV needn't trust its clock to match the Hub's. */
+  leftMs: number | null;
+  at: number;
+}
+
+export interface SoftwareChange {
+  sha: string;
+  title: string;
+  date?: string;
+  /** The pull request it came from. */
+  pr?: number;
 }
 
 /** What the TV app last told the Hub about the box. */
@@ -666,6 +697,8 @@ export interface MixEntry {
 
 export interface MixChannelInfo extends MixChannel {
   counts: Record<MixVideoStatus, number>;
+  /** Space the channel's downloaded videos take on the NAS. */
+  readyBytes: number;
   /** The guide channel's id (mix:…). */
   channelId: Id;
 }
@@ -695,4 +728,6 @@ export interface MixOverview {
   working?: string;
   /** Free space where the videos are kept. */
   diskFreeBytes?: number;
+  /** Downloaded videos across every channel (a video on two channels counts once), and their size. */
+  totals: { ready: number; bytes: number };
 }

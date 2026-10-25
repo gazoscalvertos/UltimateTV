@@ -2,6 +2,7 @@
 
 import type {
   BoxState,
+  HubSoftware,
   Channel,
   Conflict,
   Download,
@@ -170,6 +171,9 @@ export const hub = {
   saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback">>) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
   refresh: () => api<{ ok: true }>("/api/refresh", { method: "POST" }),
   reportBox: (state: Omit<BoxState, "reportedAt">) => api<{ ok: true }>("/api/box/state", { method: "POST", body: state }),
+  /** The Hub's own version, checked against GitHub's main. */
+  hubSoftware: () => api<{ hub: HubSoftware }>("/api/software?check=1").then((r) => r.hub),
+  updateHub: () => api<{ ok: true }>("/api/software/hub/update", { method: "POST" }),
 };
 
 /** Live updates from the Hub. Reconnects on its own. */

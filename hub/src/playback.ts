@@ -152,6 +152,9 @@ export class Playback {
       progressKey: `channel:${channel.id}`,
       skip: [],
       queue: tuned.queue.map(file),
+      titles: tuned.titles,
+      ...(tuned.crops.some(Boolean) ? { crops: tuned.crops } : {}),
+      fill: true,
     };
     if (p.image) info.artwork = p.image.startsWith("/") ? hubBase + p.image : p.image;
     if (channel.logo) info.logo = channel.logo;

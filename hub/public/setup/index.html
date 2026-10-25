@@ -41,7 +41,7 @@
   #toast { position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); max-width: 608px; margin: 0 auto; padding: 14px 16px; border-radius: 12px; background: #1d2a44; border: 1px solid var(--line); transform: translateY(150%); transition: transform .25s ease; }
   #toast.show { transform: none; }
   #toast.bad { border-color: var(--bad); }
-  .status { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .status { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .stat { background: #0d1526; border-radius: 10px; padding: 10px; text-align: center; }
   .stat b { display: block; font-size: 20px; }
   .stat span { font-size: 12px; color: var(--muted); }
@@ -71,6 +71,9 @@
   .mix-videos li:first-child { border-top: 0; }
   .mix-videos ul { margin: 0; padding: 0; }
   .mix-err { color: var(--warn); font-size: 13px; margin: 6px 0 0; }
+  .changes { margin: 0 0 6px; padding: 0 0 0 18px; font-size: 14px; color: var(--muted); }
+  .changes li { margin: 4px 0; }
+  .changes a { color: var(--fg); }
   .sw { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
   .sw:first-of-type { border-top: 0; }
   .sw small { display: block; color: var(--muted); font-size: 13px; }
@@ -94,6 +97,7 @@
       <div class="stat"><b id="st-channels">–</b><span>channels</span></div>
       <div class="stat"><b id="st-programmes">–</b><span>guide entries</span></div>
       <div class="stat"><b id="st-connections">–</b><span>IPTV connections</span></div>
+      <div class="stat"><b id="st-mix">–</b><span id="st-mix-size">music videos</span></div>
     </div>
   </section>
 
@@ -104,6 +108,7 @@
       <span><b>Hub</b> <span class="pill" id="hub-pill">…</span><small id="hub-version"></small><small id="hub-last"></small></span>
       <button class="small" type="button" id="hub-update">Update</button>
     </div>
+    <ul class="changes" id="hub-changes" hidden></ul>
     <p class="hint" id="hub-helper" hidden>To update the Hub from the phone, run this once on the server: <code>sudo bash /containers/UltimateTV/tools/hub/update.sh --phone-updates</code></p>
     <div class="sw">
       <span><b>Box</b> <span class="pill" id="box-pill">…</span><small id="box-version"></small><small id="box-last"></small></span>
@@ -344,7 +349,12 @@ async function loadMix() {
   const o = await api("/api/mix-channels");
   $("#mix-pill").textContent = o.downloader.ok ? `yt-dlp ${o.downloader.version || ""}`.trim() : "Downloader broken";
   $("#mix-pill").className = "pill" + (o.downloader.ok ? " ok" : " bad");
-  $("#mix-working").textContent = [o.working, !o.downloader.ok && o.downloader.error, o.diskFreeBytes ? `${Math.round(o.diskFreeBytes / 1e9)} GB free.` : ""].filter(Boolean).join(" · ");
+  const size = (b) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.round(b / 1024 ** 2)} MB`);
+  $("#mix-working").textContent = [o.totals && `${o.totals.ready} videos downloaded (${size(o.totals.bytes)})`, o.working, !o.downloader.ok && o.downloader.error, o.diskFreeBytes ? `${size(o.diskFreeBytes)} free on the NAS.` : ""].filter(Boolean).join(" · ");
+  if (o.totals) {
+    $("#st-mix").textContent = o.totals.ready;
+    $("#st-mix-size").textContent = `music videos · ${size(o.totals.bytes)}`;
+  }
   const list = $("#mix-list");
   list.innerHTML = "";
   for (const c of o.channels) {
@@ -357,7 +367,7 @@ async function loadMix() {
     name.querySelector(".avatar").textContent = String(c.number);
     name.querySelector(".pname").textContent = c.name;
     const n = c.counts;
-    name.querySelector("small").textContent = [`${n.ready} of ${c.target} videos ready`, n.downloading + n.queued ? `${n.downloading + n.queued} downloading` : "", n.failed ? `${n.failed} failed` : "", c.enabled ? "" : "off"].filter(Boolean).join(" · ");
+    name.querySelector("small").textContent = [`${n.ready} of ${c.target} videos downloaded (${size(c.readyBytes || 0)})`, n.downloading + n.queued ? `${n.downloading + n.queued} downloading` : "", n.failed ? `${n.failed} failed` : "", c.enabled ? "" : "off"].filter(Boolean).join(" · ");
     row.append(name);
     if (c.brief) { const b = document.createElement("p"); b.className = "hint"; b.style.margin = "4px 0 0"; b.textContent = c.brief; row.append(b); }
     if (c.error) { const e = document.createElement("p"); e.className = "mix-err"; e.textContent = c.error; row.append(e); }
@@ -474,7 +484,21 @@ async function loadSoftware(check) {
   if (hub.updating) pill("#hub-pill", "Updating…", "warn");
   else if (!hub.latest) pill("#hub-pill", "Couldn't check");
   else if (hub.commit && hub.latest.startsWith(hub.commit)) pill("#hub-pill", "Up to date", "ok");
-  else pill("#hub-pill", "Update available", "warn");
+  else pill("#hub-pill", hub.behind ? `${hub.behind} change${hub.behind === 1 ? "" : "s"} to get` : "Update available", "warn");
+  // What's on GitHub that the Hub hasn't got yet.
+  const changes = $("#hub-changes");
+  changes.innerHTML = "";
+  for (const c of hub.changes ?? []) {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = c.pr ? `https://github.com/gazoscalvertos/UltimateTV/pull/${c.pr}` : `https://github.com/gazoscalvertos/UltimateTV/commit/${c.sha}`;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = c.title;
+    li.append(a, c.date ? ` · ${when(c.date)}` : "");
+    changes.append(li);
+  }
+  changes.hidden = !changes.children.length;
   $("#hub-helper").hidden = hub.canUpdate;
   $("#hub-update").disabled = !hub.canUpdate || hub.updating;
 
@@ -637,6 +661,8 @@ $("#jf-qc").onclick = async () => {
 
 load().catch((err) => toast(err.message, true));
 loadSoftware(true).then(checkBox).catch(() => {});
+// Keep checking GitHub while the page is open (the Hub asks it at most every 5 minutes).
+setInterval(() => { if (!document.hidden && !software?.hub.updating) loadSoftware(true).catch(() => {}); }, 5 * 60_000);
 </script>
 </body>
 </html>

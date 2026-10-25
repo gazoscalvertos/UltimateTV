@@ -58,6 +58,16 @@ for the box and the Hub, and their recent logs.
 
 ![Stats](screenshots/40-phone-stats.png)
 
+## Breaking news
+
+**News** at the bottom of the remote puts a "BREAKING NEWS" bar along the bottom of the TV, in the
+style of the BBC News channel, over whatever is on. Type the message, change the channel name if
+you like, and choose how long it stays: 30 seconds to 15 minutes, or until you take it down from
+the same screen.
+
+![News flash on the TV](screenshots/43-news-flash.png)
+![Writing it on the phone](screenshots/44-phone-news.png)
+
 ## Settings
 
 Tap ⚙ at the top of the remote for the settings page. It has everything the TV's Settings has
