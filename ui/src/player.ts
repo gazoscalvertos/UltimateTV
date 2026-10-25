@@ -23,6 +23,10 @@ export const [playerState, setPlayerState] = createSignal<PlayerState>({ status:
 export const [channels, setChannels] = createSignal<Channel[]>([]);
 /** The channel live TV is on (or was last on), for the guide's preview and channel up/down. */
 export const [liveChannelId, setLiveChannelId] = createSignal<string | null>(null);
+/** The channel list the guide last showed for a profile (a GuideChoice id), kept while the app runs. */
+export const [guideList, setGuideList] = createSignal<{ profileId: string | null; id: string } | null>(null);
+/** The channels in that list, so channel up/down on live TV stays within it, as on Sky. */
+export const [listChannels, setListChannels] = createSignal<Channel[]>([]);
 
 agent.onState((s) => setPlayerState(s));
 
@@ -42,7 +46,7 @@ export function channelByNumber(n: number): Channel | undefined {
 
 /** The next channel up or down the list, wrapping round. */
 export function stepChannel(from: string | null, delta: number): Channel | undefined {
-  const list = channels();
+  const list = from && listChannels().some((c) => c.id === from) ? listChannels() : channels();
   if (!list.length) return undefined;
   const i = Math.max(0, list.findIndex((c) => c.id === from));
   return list[(i + delta + list.length) % list.length];

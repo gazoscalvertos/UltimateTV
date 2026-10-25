@@ -25,6 +25,8 @@ const PATHS: Record<string, () => JSX.Element> = {
       <path d="M16 16l4.5 4.5" />
     </>
   ),
+  edit: () => <path d="M5 19l1-4L16 5l3 3L9 18zM14 7l3 3" />,
+  move: () => <path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4" />,
   check: () => <path d="M5 12.5l4.5 4.5L19 7.5" />,
   lock: () => (
     <>

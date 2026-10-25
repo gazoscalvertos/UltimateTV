@@ -160,6 +160,43 @@ try {
   await wait(800);
   await shot("18-settings-phone-remote");
 
+  // Custom guides: pick one from the lists above the grid, then build one.
+  await page.goto(`${base}/app/`);
+  await wait(1500);
+  await tab("TV Guide");
+  await wait(1200);
+  await page.locator(".guide-lists .chip", { hasText: "Evenings" }).first().focus();
+  await key("Enter");
+  await wait(1000);
+  await shot("25-custom-guide");
+  await page.locator(".guide-lists .chip", { hasText: "Edit" }).first().focus();
+  await key("Enter");
+  await wait(1200);
+  await key("ArrowDown", 3);
+  await key("Enter");
+  await key("ArrowRight");
+  await key("ArrowDown", 2);
+  await key("Enter");
+  await key("ArrowUp");
+  await shot("26-guide-builder");
+  await key("Escape");
+  await key("Escape");
+  await key("Enter");
+  await wait(800);
+
+  // Channels by name in search, with what's on them now.
+  await page.goto(`${base}/app/`);
+  await wait(1500);
+  await page.locator(".tab-icon").first().focus();
+  await key("Enter");
+  await wait(600);
+  await page.locator(".search-box input").focus();
+  await page.keyboard.type("bbc");
+  await wait(400);
+  await page.locator(".key").first().focus();
+  await wait(1500);
+  await shot("27-search-channels");
+
   // Play a film for the on-screen display.
   await page.goto(`${base}/app/`);
   await wait(1500);

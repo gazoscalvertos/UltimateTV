@@ -413,13 +413,27 @@ export class Library {
 
     const channels = f.channels(this.ctx.channels.list());
     const allowed = new Set(channels.map((c) => c.id));
-    for (const c of channels) {
-      if (normaliseTitle(c.name).includes(norm) || String(c.number) === q) {
-        results.push({ kind: "channel", id: c.id, name: c.name, subtitle: `Channel ${c.number}`, channel: c, ...(c.logo ? { image: c.logo } : {}) });
-      }
+    // Channel names match with or without spaces ("itv 1" finds ITV1, "bbcone" finds BBC One).
+    const compact = norm.replace(/\s+/g, "");
+    const matched = channels.filter((c) => {
+      const name = normaliseTitle(c.name);
+      return name.includes(norm) || (compact.length >= 2 && name.replace(/\s+/g, "").includes(compact)) || String(c.number) === q;
+    });
+    const onNowShown = new Set<string>();
+    for (const c of matched) {
+      const current = this.ctx.guide.onChannel(c.id, now, 1)[0];
+      const onNow = current && current.start <= now ? current : undefined;
+      results.push({ kind: "channel", id: c.id, name: c.name, subtitle: onNow ? `${c.number} · Now: ${onNow.title}` : `Channel ${c.number}`, channel: c, ...(c.logo ? { image: c.logo } : {}) });
+    }
+    // What's on now on the channels found, so "BBC One" shows tonight's programme too.
+    for (const c of matched.slice(0, 8)) {
+      const p = this.ctx.guide.onChannel(c.id, now, 1)[0];
+      if (!p || p.start > now) continue;
+      onNowShown.add(p.id);
+      results.push({ kind: "on-now", id: p.id, name: p.title, subtitle: `On now · ${c.name}`, programme: p, channel: c });
     }
     for (const p of this.ctx.guide.search(q, now, now + 7 * 86_400_000, 30)) {
-      if (!allowed.has(p.channelId)) continue;
+      if (!allowed.has(p.channelId) || onNowShown.has(p.id)) continue;
       const channel = this.ctx.channels.get(p.channelId);
       const onNow = p.start <= now && p.end > now;
       results.push({

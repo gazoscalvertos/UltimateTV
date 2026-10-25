@@ -7,6 +7,7 @@ export type Route =
   | { name: "profiles" }
   | { name: "home" }
   | { name: "guide" }
+  | { name: "guide-edit"; id?: string }
   | { name: "player" }
   | { name: "browse"; kind: "movie" | "series" }
   | { name: "details"; id: string }

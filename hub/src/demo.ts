@@ -260,6 +260,7 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   }
   ctx.db.run("DELETE FROM programmes");
   ctx.guide.upsert(programmes);
+  if (!ctx.guides.list().length) ctx.guides.create({ name: "Evenings", channels: ["sky-atlantic", "bbc-one", "channel-4", "film4", "sky-sports-main-event", "dave"] });
   ctx.db.setKv("epgUpdatedAt", now);
   ctx.db.setKv("sourcesUpdatedAt", now);
 
