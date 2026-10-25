@@ -15,6 +15,8 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Settings shows how many music videos have downloaded and the space they take, per channel and
+  in total: on the TV (Music channels and About) and at the top of the phone's settings page.
 - Music video channels fill the screen: black bars baked into a video are cropped off, and any
   other shape is zoomed to fill. A caption at the bottom shows the artist and song as each video
   starts, and what's coming up next for its last five seconds. Needs a Hub and a box update.

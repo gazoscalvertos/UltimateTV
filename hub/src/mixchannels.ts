@@ -379,12 +379,22 @@ export class MixManager {
 
   info(c: MixChannel): MixChannelInfo {
     const counts: Record<MixVideoStatus, number> = { queued: 0, downloading: 0, ready: 0, failed: 0 };
-    for (const e of this.store.entries(c.id)) counts[e.video.status]++;
-    return { ...c, counts, channelId: c.id };
+    let readyBytes = 0;
+    for (const e of this.store.entries(c.id)) {
+      counts[e.video.status]++;
+      if (e.video.status === "ready") readyBytes += e.video.sizeBytes ?? 0;
+    }
+    return { ...c, counts, readyBytes, channelId: c.id };
   }
 
   async overview(): Promise<MixOverview> {
-    const out: MixOverview = { channels: this.store.channels().map((c) => this.info(c)), downloader: this.downloader };
+    const ready = new Map<string, number>();
+    for (const c of this.store.channels()) for (const e of this.store.entries(c.id)) if (e.video.status === "ready") ready.set(e.video.id, e.video.sizeBytes ?? 0);
+    const out: MixOverview = {
+      channels: this.store.channels().map((c) => this.info(c)),
+      downloader: this.downloader,
+      totals: { ready: ready.size, bytes: [...ready.values()].reduce((a, b) => a + b, 0) },
+    };
     const working = [this.busy.curate, this.busy.download].filter(Boolean).join(" · ");
     if (working) out.working = working;
     try {

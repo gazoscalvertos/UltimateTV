@@ -246,6 +246,10 @@ describe("music video channels over the API", () => {
     const list = (await app.inject({ url: "/api/mix-channels", headers: family })).json<MixOverview>();
     expect(list.channels.map((c) => c.name)).toEqual(["Clubland TV", "House TV", "Halloween TV"]);
     expect(list.channels[0]!.counts.ready).toBeGreaterThan(20);
+    // Storage per channel and in total; a video on two channels counts once.
+    expect(list.channels[0]!.readyBytes).toBeGreaterThan(0);
+    expect(list.totals.ready).toBeLessThanOrEqual(list.channels.reduce((n, c) => n + c.counts.ready, 0));
+    expect(list.totals.bytes).toBeGreaterThanOrEqual(list.channels[0]!.readyBytes);
     const res = await app.inject({ method: "POST", url: "/api/play", headers: family, payload: { kind: "channel", id: "mix:clubland-tv" } });
     expect(res.statusCode).toBe(200);
     const info = res.json<PlaybackInfo>();
