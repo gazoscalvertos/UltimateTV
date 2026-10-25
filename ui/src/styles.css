@@ -2363,6 +2363,44 @@ kbd.key-blue {
 }
 
 /* ------------------------------------------------------------------------- */
+/* Music video channel */
+
+.mix-action {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  text-align: left;
+}
+.mix-action .icon {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.mix-head {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  margin-bottom: 0.6rem;
+}
+.mix-head .hint {
+  margin-bottom: 0.4rem;
+}
+.mix-logo {
+  width: 9rem;
+  border-radius: 0.8rem;
+  flex: none;
+}
+.mix-thumb {
+  width: 6.4rem;
+  height: 3.6rem;
+  object-fit: cover;
+  border-radius: 0.4rem;
+  flex: none;
+  background: rgba(255, 255, 255, 0.06);
+}
+.mix-video.failed .setting-label {
+  color: var(--muted);
+}
+
 /* Music: now playing, Spotify's library, Deezer */
 
 .music-bg {

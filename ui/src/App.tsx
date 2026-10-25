@@ -17,6 +17,7 @@ import { Details } from "./screens/Details";
 import { Guide } from "./screens/Guide";
 import { GuideEditor } from "./screens/GuideEditor";
 import { Home } from "./screens/Home";
+import { MixChannelScreen } from "./screens/MixChannel";
 import { Music } from "./screens/Music";
 import { MusicList } from "./screens/MusicList";
 import { Planner } from "./screens/Planner";
@@ -219,14 +220,17 @@ export function App() {
           <Match when={(() => { const r = nav.current(); return r.name === "planner" ? r : null; })()}>
             {(r) => <Planner {...(r().tab ? { tab: r().tab } : {})} />}
           </Match>
+          <Match when={(() => { const r = nav.current(); return r.name === "settings" ? r : null; })()}>
+            {(r) => <Settings {...(r().section ? { section: r().section } : {})} />}
+          </Match>
+          <Match when={(() => { const r = nav.current(); return r.name === "mix-channel" ? r : null; })()}>
+            {(r) => <MixChannelScreen id={r().id} />}
+          </Match>
           <Match when={nav.current().name === "music"}>
             <Music />
           </Match>
           <Match when={(() => { const r = nav.current(); return r.name === "music-list" ? r : null; })()}>
             {(r) => <MusicList item={r().item} />}
-          </Match>
-          <Match when={nav.current().name === "settings"}>
-            <Settings />
           </Match>
         </Switch>
       </ErrorBoundary>

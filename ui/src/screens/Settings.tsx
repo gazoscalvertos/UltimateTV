@@ -2,7 +2,7 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { Certification, Profile, PublicSettings } from "@ultimatetv/shared";
+import type { Certification, MixChannelInfo, Profile, PublicSettings } from "@ultimatetv/shared";
 import { CERTIFICATIONS } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
@@ -10,7 +10,7 @@ import { askPin, askText, choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
-import { errorToast, setShowStats, showStats, toast } from "../store";
+import { errorToast, nav, setShowStats, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 
 function Row(props: { label: string; value?: JSX.Element; hint?: string; onSelect?: () => void; icon?: string }) {
@@ -44,12 +44,46 @@ function Status(props: { ok: boolean; text: string }) {
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const cycle = <T,>(list: readonly T[], value: T): T => list[(list.indexOf(value) + 1) % list.length]!;
 
-export function Settings() {
+export function Settings(props: { section?: string }) {
   const [settings, { mutate }] = createResource(() => hub.settings());
   const [profiles, { refetch: refetchProfiles }] = createResource(() => hub.profiles());
   const [status] = createResource(() => hub.status());
   const [box] = createResource(() => agent.info());
-  const [section, setSection] = createSignal("profiles");
+  const [section, setSection] = createSignal(props.section ?? "profiles");
+  const [mix, { refetch: refetchMix }] = createResource(
+    () => section() === "music",
+    (open) => (open ? hub.mixChannels().catch(() => null) : Promise.resolve(null)),
+  );
+  let mixTimer: number | undefined;
+  onCleanup(
+    onHubEvent((e) => {
+      if (e.type !== "mix.changed" || section() !== "music" || mixTimer) return;
+      // Downloads report often; a refresh every few seconds is plenty.
+      mixTimer = window.setTimeout(() => {
+        mixTimer = undefined;
+        void refetchMix();
+      }, 3000);
+    }),
+  );
+  onCleanup(() => clearTimeout(mixTimer));
+  const openMix = (c: MixChannelInfo) => {
+    // Back from the channel comes back to this section.
+    nav.replace({ name: "settings", section: "music" });
+    nav.push({ name: "mix-channel", id: c.id });
+  };
+  const createMix = async () => {
+    const name = await askText("Name the channel");
+    if (!name) return;
+    const brief = await askText("What should it play? Artists, genres or decades, with commas between");
+    if (!brief) return;
+    try {
+      const c = await hub.createMix({ name, brief });
+      toast(`${c.name} is on channel ${c.number}. The Hub is finding videos for it now.`, "good");
+      await refetchMix();
+    } catch (err) {
+      errorToast(err);
+    }
+  };
   // The box's software, checked against GitHub when About is opened.
   const [software, { refetch: refetchSoftware }] = createResource(
     () => section() === "about",
@@ -164,6 +198,7 @@ export function Settings() {
     { id: "profiles", label: "Profiles and PIN" },
     { id: "playback", label: "Picture and sound" },
     { id: "recording", label: "Recording" },
+    { id: "music", label: "Music channels" },
     { id: "sources", label: "Sources" },
     { id: "remote", label: "Phone remote" },
     { id: "about", label: "About" },
@@ -176,7 +211,7 @@ export function Settings() {
         <nav class="settings-nav" data-focus-group>
           <For each={SECTIONS}>
             {(s, i) => (
-              <button class="settings-nav-item" classList={{ active: section() === s.id }} data-focus data-autofocus={i() === 0 ? "" : undefined} onFocus={() => setSection(s.id)} onClick={() => setSection(s.id)}>
+              <button class="settings-nav-item" classList={{ active: section() === s.id }} data-focus data-autofocus={s.id === (props.section ?? "profiles") ? "" : undefined} onFocus={() => setSection(s.id)} onClick={() => setSection(s.id)}>
                 {s.label}
               </button>
             )}
@@ -226,6 +261,40 @@ export function Settings() {
               <Row label="Carry on after by" value={`${recording().paddingAfterMin} min`} onSelect={() => void save({ recording: { ...recording(), paddingAfterMin: cycle([0, 2, 5, 10, 15, 30], recording().paddingAfterMin) } })} />
               <Row label="Use catch-up when it can" hint="Saves programmes from catch-up afterwards, keeping your connection free to watch" value={recording().preferCatchup ? "On" : "Off"} onSelect={() => void save({ recording: { ...recording(), preferCatchup: !recording().preferCatchup } })} />
               <Row label="Delete watched recordings" value={recording().autoDeleteWatchedDays ? `After ${recording().autoDeleteWatchedDays} days` : "Never"} onSelect={() => void save({ recording: { ...recording(), autoDeleteWatchedDays: cycle([0, 7, 30, 90], recording().autoDeleteWatchedDays) } })} />
+            </Show>
+
+            <Show when={section() === "music"}>
+              <h2>Music channels</h2>
+              <p class="hint">Channels the Hub makes itself from music videos it downloads to the NAS in HD or 4K. Every pass through a channel's videos is shuffled afresh, so it never plays them in the same order twice. They're in the guide under Music.</p>
+              <Show when={mix()} fallback={<div class="spinner" />}>
+                {(m) => (
+                  <>
+                    <Row
+                      label="Downloader"
+                      hint={m().working ?? (m().downloader.ok ? "Idle" : undefined)}
+                      value={<Status ok={m().downloader.ok} text={m().downloader.ok ? `yt-dlp ${m().downloader.version ?? ""}` : (m().downloader.error ?? "Not working")} />}
+                    />
+                    <For each={m().channels}>
+                      {(c) => {
+                        const waiting = c.counts.queued + c.counts.downloading;
+                        return (
+                          <Row
+                            label={`${c.number}  ${c.name}`}
+                            icon="music"
+                            hint={[`${c.counts.ready} of ${c.target} videos ready`, waiting ? `${waiting} to download` : "", c.enabled ? "" : "turned off", c.error ?? ""].filter(Boolean).join(" · ")}
+                            value={<Status ok={c.enabled && c.counts.ready > 0} text={c.counts.ready ? "On air" : waiting ? "Filling up" : "No videos"} />}
+                            onSelect={() => openMix(c)}
+                          />
+                        );
+                      }}
+                    </For>
+                    <Row label="Create a channel" icon="plus" hint="Name it and say what it should play; the Hub finds the videos" onSelect={() => void createMix()} />
+                    <Show when={m().diskFreeBytes !== undefined}>
+                      <Row label="Space on the NAS" value={`${Math.round(m().diskFreeBytes! / 1024 ** 3)} GB free`} />
+                    </Show>
+                  </>
+                )}
+              </Show>
             </Show>
 
             <Show when={section() === "sources"}>

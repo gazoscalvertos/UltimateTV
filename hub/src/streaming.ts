@@ -19,6 +19,7 @@ const TYPES: Record<string, string> = {
   ".webm": "video/webm",
   ".avi": "video/x-msvideo",
   ".srt": "application/x-subrip",
+  ".jpg": "image/jpeg",
 };
 
 export async function sendFile(request: FastifyRequest, reply: FastifyReply, file: string): Promise<FastifyReply> {

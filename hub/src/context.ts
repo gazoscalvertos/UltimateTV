@@ -12,6 +12,7 @@ import type { Fetch } from "./http.js";
 import { CustomGuideStore } from "./guides.js";
 import { Ingestor } from "./ingest/index.js";
 import type { Logger } from "./log.js";
+import { MixManager } from "./mixchannels.js";
 import { ProfileStore } from "./profiles.js";
 import { ProgressStore } from "./progress.js";
 import { Recorder, type Remux } from "./recorder.js";
@@ -25,6 +26,7 @@ import { TmdbClient } from "./services/tmdb.js";
 import { TorboxClient } from "./services/torbox.js";
 import { defaultSettings, SettingsStore, settingsFromEnv } from "./settings.js";
 import { StreamProxy } from "./streaming.js";
+import { spawnRun, YtDlp, type Run } from "./ytdlp.js";
 
 export interface ContextOptions {
   dataDir: string;
@@ -34,6 +36,13 @@ export interface ContextOptions {
   log: Logger;
   fetchImpl?: Fetch;
   remux?: Remux;
+  /** Runs yt-dlp; tests pass a fake. Default: the YTDLP_PATH binary (yt-dlp on the PATH). */
+  ytdlp?: Run | null;
+  /** Pause between YouTube searches and downloads (tests: 0). */
+  mixPauseMs?: number;
+  /** Free space music video downloads leave on the NAS (tests: 0). */
+  mixMinFreeBytes?: number;
+  demo?: boolean;
 }
 
 export class HubContext {
@@ -53,6 +62,7 @@ export class HubContext {
   readonly guides: CustomGuideStore;
   readonly proxy: StreamProxy;
   readonly downloads: DownloadManager;
+  readonly mix: MixManager;
   readonly log: Logger;
   readonly fetchImpl: Fetch;
 
@@ -116,6 +126,20 @@ export class HubContext {
       log: this.log,
     });
     this.downloads = new DownloadManager(this.db, this.settings, this.events, this.log, () => this.torbox(), onLibraryChanged, this.fetchImpl);
+    const env = opts.env ?? {};
+    const run = opts.ytdlp === undefined ? spawnRun(env.YTDLP_PATH || "yt-dlp") : opts.ytdlp;
+    this.mix = new MixManager({
+      db: this.db,
+      channels: this.channels,
+      guide: this.guide,
+      settings: this.settings,
+      events: this.events,
+      log: this.log,
+      ytdlp: run ? new YtDlp(run, (env.YTDLP_ARGS ?? "").split(/\s+/).filter(Boolean)) : null,
+      ...(opts.demo ? { demo: true } : {}),
+      ...(opts.mixPauseMs !== undefined ? { pauseMs: opts.mixPauseMs } : {}),
+      ...(opts.mixMinFreeBytes !== undefined ? { minFreeBytes: opts.mixMinFreeBytes } : {}),
+    });
     this.settings.onChange((s) => this.rebuildClients(s));
     this.rebuildClients(this.settings.get());
   }
@@ -150,6 +174,7 @@ export class HubContext {
   close(): void {
     this.scheduler.stop();
     this.downloads.stop();
+    this.mix.stop();
     this.relay.closeAll();
     this.db.close();
   }

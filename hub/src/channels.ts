@@ -228,7 +228,8 @@ export class ChannelStore {
 
   replace(channels: Channel[], feeds: StoredFeed[]): void {
     this.db.transaction(() => {
-      this.db.run("DELETE FROM channels");
+      // Only the IPTV channels: the Hub's own music video channels stay.
+      this.db.run("DELETE FROM channels WHERE kind = 'iptv'");
       this.db.run("DELETE FROM feeds");
       for (const c of channels) {
         this.db.run("INSERT INTO channels (id, number, name, epg_id, hidden, data) VALUES (?, ?, ?, ?, ?, ?)", c.id, c.number, c.name, c.epgId ?? null, c.hidden ? 1 : 0, JSON.stringify(c));
@@ -282,5 +283,29 @@ export class ChannelStore {
 
   count(): number {
     return Number(this.db.get<{ n: number }>("SELECT COUNT(*) AS n FROM channels WHERE hidden = 0")?.n ?? 0);
+  }
+
+  /** Adds or updates one of the Hub's own channels (a music video channel). */
+  putOwn(c: Channel): void {
+    this.db.run(
+      "INSERT INTO channels (id, number, name, epg_id, hidden, kind, data) VALUES (?, ?, ?, NULL, ?, 'mix', ?) ON CONFLICT(id) DO UPDATE SET number = excluded.number, name = excluded.name, hidden = excluded.hidden, kind = 'mix', data = excluded.data",
+      c.id,
+      c.number,
+      c.name,
+      c.hidden ? 1 : 0,
+      JSON.stringify(c),
+    );
+  }
+
+  removeOwn(id: string): void {
+    this.db.run("DELETE FROM channels WHERE id = ? AND kind = 'mix'", id);
+  }
+
+  /** The lowest free channel number from `from`. */
+  freeNumber(from: number): number {
+    const used = new Set(this.db.all<{ number: number }>("SELECT number FROM channels").map((r) => Number(r.number)));
+    let n = from;
+    while (used.has(n)) n++;
+    return n;
   }
 }
