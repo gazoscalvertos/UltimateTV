@@ -264,6 +264,11 @@ try {
   await wait(1500);
   await shot("24-playback-stats");
   await key("b");
+  // A news flash from the phone, over the film.
+  await fetch(`${base}/api/flash`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: "Dinner is ready: pause the film and come to the table", seconds: 60 }) });
+  await wait(1200);
+  await shot("43-news-flash");
+  await fetch(`${base}/api/flash`, { method: "DELETE" });
   await key("Escape");
 
   // Kids profile.
@@ -316,6 +321,15 @@ try {
   await phone.waitForTimeout(3000);
   await phone.screenshot({ path: path.join(out, "40-phone-stats.png"), fullPage: true });
   console.log("  40-phone-stats.png");
+  // Writing a news flash.
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
+  await phone.click("#news-btn");
+  await phone.waitForTimeout(600);
+  await phone.fill("#fl-text", "Dinner is ready: pause the film and come to the table");
+  await phone.waitForTimeout(300);
+  await phone.screenshot({ path: path.join(out, "44-phone-news.png") });
+  console.log("  44-phone-news.png");
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.click("#settings");

@@ -6,6 +6,7 @@ import { createEffect, ErrorBoundary, For, Match, on, onCleanup, onMount, Show, 
 import { agent } from "./agent";
 import { ApiError, hub, session } from "./api";
 import { choose, DialogHost } from "./components/Dialog";
+import { NewsFlash } from "./components/NewsFlash";
 import { StartingCard } from "./components/Starting";
 import { startEvents, onHubEvent } from "./events";
 import { activeLayer, current, focus, focusFirst } from "./focus";
@@ -240,6 +241,7 @@ export function App() {
         </Switch>
       </ErrorBoundary>
       <Show when={starting()}>{(st) => <StartingLayer name={st().name} since={st().since} />}</Show>
+      <NewsFlash />
       <DialogHost />
       <div class="toasts">
         <For each={toasts()}>{(t) => <div class={`toast toast-${t.tone}`}>{t.message}</div>}</For>

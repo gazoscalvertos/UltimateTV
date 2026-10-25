@@ -2856,3 +2856,81 @@ kbd.key-blue {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* The phone's news flash, along the bottom over everything (BBC News style). */
+.newsflash {
+  position: fixed;
+  z-index: 35;
+  left: 0;
+  right: 0;
+  bottom: 4.5rem;
+  height: 4.25rem;
+  display: flex;
+  align-items: stretch;
+  pointer-events: none;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.45);
+  animation: newsflash-in 0.35s ease-out;
+}
+.newsflash-label {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 1.4rem 0 2.5rem;
+  background: #1a1a1a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.6rem;
+  letter-spacing: 0.04em;
+}
+.newsflash-tag {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 1.4rem;
+  background: #bb1919;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.6rem;
+  letter-spacing: 0.03em;
+}
+.newsflash-strip {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  color: #111;
+  padding: 0 1.5rem;
+}
+.newsflash-text {
+  white-space: nowrap;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+.newsflash-text.scrolling {
+  animation: newsflash-scroll var(--scroll-time, 12s) linear 1s infinite;
+}
+.newsflash-clock {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 2.5rem 0 1.4rem;
+  background: #1a1a1a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes newsflash-in {
+  from { transform: translateY(150%); }
+}
+@keyframes newsflash-scroll {
+  0%, 10% { transform: translateX(0); }
+  85%, 100% { transform: translateX(var(--scroll)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .newsflash { animation: none; }
+  .newsflash-text.scrolling { animation: none; white-space: normal; font-size: 1.3rem; line-height: 1.2; }
+}

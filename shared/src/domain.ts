@@ -525,6 +525,8 @@ export type HubEvent =
   /** From phone voice control: switch to a channel, or say what was understood. */
   | { type: "remote.channel"; channelId: string }
   | { type: "remote.said"; text: string }
+  /** A news flash typed on the phone, shown along the bottom of the TV over anything; null takes it down. */
+  | { type: "flash"; flash: NewsFlash | null }
   /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
   | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean }
   /** The phone asks the TV app something (what's playing, play this, seek); it answers at /api/tv/reply/:id. */
@@ -547,6 +549,18 @@ export interface HubSoftware {
   /** An update has been asked for or is running. */
   updating: boolean;
   lastUpdate?: { at: string; ok: boolean };
+}
+
+/** A "breaking news" ticker along the bottom of the TV, written on the phone. */
+export interface NewsFlash {
+  text: string;
+  /** The channel name on the left of the bar ("BBC NEWS"). */
+  label: string;
+  /** When it goes by itself (ms since 1970, the Hub's clock), or null to stay until cleared. */
+  until: number | null;
+  /** How long it has left as the Hub sends it, so the TV needn't trust its clock to match the Hub's. */
+  leftMs: number | null;
+  at: number;
 }
 
 export interface SoftwareChange {

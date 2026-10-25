@@ -236,6 +236,71 @@
   }
 
   // ---------------------------------------------------------------------------
+  // News flash: a "breaking news" bar along the bottom of the TV, over anything.
+
+  const FLASH_TIMES = [[30, "30 sec"], [60, "1 min"], [300, "5 min"], [900, "15 min"], [0, "Until I clear it"]];
+  let flashLabel = "BBC NEWS";
+  let flashSeconds = 60;
+  try {
+    flashLabel = localStorage.getItem("utv-flash-label") || flashLabel;
+    flashSeconds = Number(localStorage.getItem("utv-flash-seconds") ?? flashSeconds);
+  } catch {}
+  async function newsSheet() {
+    const { flash } = await get("/api/flash").catch(() => ({ flash: null }));
+    openSheet(`<h2>Breaking news</h2>
+      <p class="meta">Shows along the bottom of the TV, over whatever is on.</p>
+      <div class="flash-preview"><b id="fl-pl"></b><i>BREAKING NEWS</i><span id="fl-pt"></span></div>
+      <textarea id="fl-text" maxlength="280" placeholder="Type the news…"></textarea>
+      <input class="field" id="fl-label" maxlength="24" placeholder="Channel name" autocomplete="off">
+      <h3>Show it for</h3>
+      <div class="seg" id="fl-time">${FLASH_TIMES.map(([s, l]) => `<button type="button" data-s="${s}" class="${s === flashSeconds ? "on" : ""}">${esc(l)}</button>`).join("")}</div>
+      <div class="actions"><button class="primary" id="fl-send">Show on the TV</button>${flash ? `<button id="fl-clear">Take it down</button>` : ""}</div>
+      ${flash ? `<p class="meta">On now: ${esc(flash.text)}</p>` : ""}
+      <button class="link" data-close>Close</button>`);
+    const text = $("fl-text");
+    const label = $("fl-label");
+    label.value = flashLabel;
+    if (flash) text.value = flash.text;
+    const preview = () => {
+      $("fl-pl").textContent = label.value.trim() || "BBC NEWS";
+      $("fl-pt").textContent = text.value.trim() || "Your news here";
+    };
+    text.oninput = label.oninput = preview;
+    preview();
+    for (const b of $("fl-time").querySelectorAll("button")) {
+      b.onclick = () => {
+        flashSeconds = Number(b.dataset.s);
+        for (const x of $("fl-time").querySelectorAll("button")) x.classList.toggle("on", x === b);
+      };
+    }
+    $("fl-send").onclick = async () => {
+      if (!text.value.trim()) return toast("Type the news first", true);
+      flashLabel = label.value.trim() || "BBC NEWS";
+      try {
+        localStorage.setItem("utv-flash-label", flashLabel);
+        localStorage.setItem("utv-flash-seconds", String(flashSeconds));
+      } catch {}
+      try {
+        await post("/api/flash", { text: text.value, label: flashLabel, seconds: flashSeconds });
+        closeSheet();
+        toast("On the TV now");
+      } catch (e) {
+        toast(e.message, true);
+      }
+    };
+    if (flash) {
+      $("fl-clear").onclick = async () => {
+        const r = await fetch("/api/flash", { method: "DELETE" }).catch(() => null);
+        if (!r?.ok) return toast("Can't reach the Hub", true);
+        closeSheet();
+        toast("Taken down");
+      };
+    }
+    text.focus();
+  }
+  $("news-btn").addEventListener("click", () => void newsSheet());
+
+  // ---------------------------------------------------------------------------
   // Browse
 
   let current = "guide";
