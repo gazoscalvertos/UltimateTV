@@ -21,3 +21,6 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 25 | TV Guide showing a custom guide, with the channel lists above the grid |
 | 26 | Building a custom guide: pick channels on the left, put them in order on the right |
 | 27 | Search finds channels by name, with what's on them now |
+| 28, 29 | Music: what's playing on Spotify with its controls, then your playlists, albums and artists |
+| 30 | A Spotify playlist's songs, with Play and Shuffle |
+| 31 | Signing the box in to Spotify with a code (and Deezer's player, which opens over the app) |

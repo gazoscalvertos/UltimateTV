@@ -283,6 +283,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ctx.events.emit({ type: "remote.text", text: String(req.body?.text ?? "").slice(0, 120) });
     return { ok: true };
   });
+  /** A QR code for a web address the TV shows, such as Spotify's sign-in page. */
+  app.get("/api/qr.svg", async (req: Req<Record<string, string>, { text?: string }>, reply) => {
+    const text = String(req.query.text ?? "");
+    if (!/^https:\/\/[^\s]{1,500}$/.test(text)) return reply.code(400).send({ error: "Only https addresses" });
+    const svg = await QRCode.toString(text, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    return reply.type("image/svg+xml").header("Cache-Control", "public, max-age=600").send(svg);
+  });
   app.get("/api/remote/qr.svg", async (req, reply) => {
     const svg = await QRCode.toString(`${hubBase(req)}/remote/`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
     return reply.type("image/svg+xml").send(svg);

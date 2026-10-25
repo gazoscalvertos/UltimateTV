@@ -1,0 +1,14 @@
+# Spotify Connect for UltimateTV (go-librespot), a user service of the tv user.
+[Unit]
+Description=UltimateTV Spotify Connect receiver
+After=pipewire-pulse.service
+Wants=pipewire-pulse.service
+
+[Service]
+ExecStart=/usr/local/bin/go-librespot --config_dir %h/.config/go-librespot
+# It exits when the network isn't up yet; try again.
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

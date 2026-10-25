@@ -12,6 +12,7 @@
 #   REPO_URL       where updates come from (default the GitHub repository)
 #   BRANCH         which branch to follow (default main)
 #   SKIP_PACKAGES  1 to skip installing OS packages
+#   SPOTIFY        0 to leave out the Spotify Connect receiver (the Music tab's Spotify)
 
 set -euo pipefail
 
@@ -21,6 +22,9 @@ APP_DIR="${APP_DIR:-/opt/ultimatetv}"
 REPO_URL="${REPO_URL:-https://github.com/gazoscalvertos/UltimateTV.git}"
 BRANCH="${BRANCH:-main}"
 ELECTRON_VERSION="44.6.0"
+# go-librespot, the Spotify Connect receiver: built from this commit (it has the library API the
+# Music tab browses with, which no release has yet).
+LIBRESPOT_COMMIT="bd3fa7407eb1ab595295446e1be50cb9663e69cb"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 files="$here/files"
 
@@ -67,6 +71,7 @@ install_packages() {
       pipewire pipewire-pulse pipewire-alsa wireplumber \
       v4l-utils gcc polkit \
       nodejs npm git rsync \
+      go pkgconf libogg libvorbis flac mpg123 \
       gtk3 nss alsa-lib libxss libxkbcommon \
       noto-fonts inter-font ttf-dejavu
     # Video decode and Vulkan for whichever GPU the box has.
@@ -84,6 +89,7 @@ install_packages() {
       pipewire pipewire-pulse pipewire-alsa wireplumber \
       v4l-utils ir-keytable inputattach polkitd \
       nodejs npm git rsync ca-certificates \
+      golang-go pkg-config libogg-dev libvorbis-dev libflac-dev libmpg123-dev libasound2-dev \
       libgtk-3-0 libnss3 libasound2 libxss1 libxkbcommon0 \
       fonts-noto-core fonts-inter fonts-dejavu-core
     if lspci 2>/dev/null | grep -qi 'vga.*intel'; then apt-get install -y intel-media-va-driver-non-free; fi
@@ -222,6 +228,49 @@ udevadm control --reload-rules
 udevadm trigger --subsystem-match=tty --subsystem-match=rc --subsystem-match=cec || true
 
 # --------------------------------------------------------------------------------------------
+# Spotify: go-librespot makes the box a Spotify Connect speaker ("UltimateTV" in the Spotify app)
+# and gives the Music tab a local API. It runs as the tv user, playing through PipeWire.
+
+install_spotify() {
+  local bin=/usr/local/bin/go-librespot stamp=/usr/local/share/ultimatetv/go-librespot.commit tmp
+  if [ -x "$bin" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$LIBRESPOT_COMMIT" ]; then return 0; fi
+  # Boxes installed before Spotify update with SKIP_PACKAGES=1: add what the build needs.
+  if ! command -v go >/dev/null; then
+    if [ "$distro" = arch ]; then pacman -S --needed --noconfirm go pkgconf libogg libvorbis flac mpg123 alsa-lib || true
+    else apt-get install -y --no-install-recommends golang-go pkg-config libogg-dev libvorbis-dev libflac-dev libmpg123-dev libasound2-dev || true; fi
+  fi
+  command -v go >/dev/null || { warn "Go isn't installed, so Spotify won't work"; return 1; }
+  say "Building the Spotify receiver (go-librespot)"
+  tmp="$(mktemp -d)"
+  if git -C "$tmp" init -q \
+    && git -C "$tmp" fetch -q --depth 1 https://github.com/devgianlu/go-librespot.git "$LIBRESPOT_COMMIT" \
+    && git -C "$tmp" checkout -q FETCH_HEAD \
+    && (cd "$tmp" && GOTOOLCHAIN=auto GOPATH="$tmp/go" GOCACHE="$tmp/cache" CGO_ENABLED=1 go build -trimpath -o "$tmp/go-librespot" ./cmd/daemon); then
+    install -Dm755 "$tmp/go-librespot" "$bin"
+    install -d "$(dirname "$stamp")"
+    echo "$LIBRESPOT_COMMIT" > "$stamp"
+  else
+    warn "couldn't build go-librespot, so Spotify won't work; everything else does"
+  fi
+  chmod -R u+w "$tmp" 2>/dev/null || true
+  rm -rf "$tmp"
+  [ -x "$bin" ]
+}
+
+if [ "${SPOTIFY:-1}" != 0 ] && install_spotify; then
+  say "Setting up Spotify Connect"
+  install -d -o "$TV_USER" -g "$TV_USER" "$home/.config/go-librespot"
+  install -m644 -o "$TV_USER" -g "$TV_USER" "$files/go-librespot.yml" "$home/.config/go-librespot/config.yml"
+  install -Dm644 "$files/ultimatetv-spotify.service" /etc/systemd/user/ultimatetv-spotify.service
+  # For the tv user only (an admin logging in mustn't start a second one).
+  install -d -o "$TV_USER" -g "$TV_USER" "$home/.config/systemd" "$home/.config/systemd/user" "$home/.config/systemd/user/default.target.wants"
+  ln -sfn /etc/systemd/user/ultimatetv-spotify.service "$home/.config/systemd/user/default.target.wants/ultimatetv-spotify.service"
+  chown -h "$TV_USER:$TV_USER" "$home/.config/systemd/user/default.target.wants/ultimatetv-spotify.service"
+  systemctl --user --machine="$TV_USER@.host" daemon-reload >/dev/null 2>&1 || true
+  systemctl --user --machine="$TV_USER@.host" restart ultimatetv-spotify.service >/dev/null 2>&1 || true
+fi
+
+# --------------------------------------------------------------------------------------------
 # Updates: weekly at 4 am, after a snapshot when the root is btrfs.
 
 say "Setting up weekly updates"
@@ -290,6 +339,7 @@ curl -fsS --max-time 5 "$HUB_URL/api/health" >/dev/null 2>&1 || { warn "can't re
 ls /dev/dri/renderD* >/dev/null 2>&1 || { warn "no GPU render device found"; ok=0; }
 ls /dev/cec* >/dev/null 2>&1 || warn "no CEC device yet (fine until the Pulse-Eight adapter is plugged in)"
 [ -x "$APP_DIR/node_modules/.bin/electron" ] || { warn "Electron didn't install"; ok=0; }
+[ "${SPOTIFY:-1}" = 0 ] || [ -x /usr/local/bin/go-librespot ] || warn "Spotify isn't installed (the rest of the Music tab works)"
 if [ "$ok" = 1 ]; then
   say "Done. Reboot and the box starts straight into UltimateTV."
 else

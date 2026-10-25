@@ -2,7 +2,7 @@
 // own window under this transparent UI. In a normal browser (development, screenshots) a <video>
 // element stands in; streams it can't decode (MPEG-TS, HEVC) show their artwork instead.
 
-import type { BoxAgent, BoxInfo, BoxSoftware, PlaybackStats, PlayerState, PlayOptions, VideoLayout } from "@ultimatetv/shared";
+import type { BoxAgent, BoxInfo, BoxSoftware, MusicPage, MusicTracks, PlaybackStats, PlayerState, PlayOptions, SpotifyState, VideoLayout, WebAppState } from "@ultimatetv/shared";
 
 class BrowserAgent implements BoxAgent {
   private video: HTMLVideoElement;
@@ -180,6 +180,37 @@ class BrowserAgent implements BoxAgent {
   }
 
   async update(): Promise<void> {}
+
+  // Music plays on the box only (music.ts has a stand-in for the demo Hub).
+  async spotify(): Promise<SpotifyState> {
+    return { available: false, signedIn: false, status: "stopped", positionMs: 0, at: 0, volume: 0, shuffle: false, repeat: "off" };
+  }
+  async spotifyLibrary(): Promise<MusicPage> {
+    return { items: [], total: 0 };
+  }
+  async spotifyTracks(): Promise<MusicTracks> {
+    return { ready: true, total: 0, items: [] };
+  }
+  async spotifyPlay(): Promise<void> {
+    throw new Error("Music plays on the TV box");
+  }
+  async spotifyControl(): Promise<void> {}
+  onSpotify(): () => void {
+    return () => undefined;
+  }
+  async openWebApp(): Promise<void> {
+    throw new Error("Deezer opens on the TV box");
+  }
+  async closeWebApp(): Promise<void> {}
+  async webAppKey(): Promise<void> {}
+  async webAppText(): Promise<void> {}
+  async webAppControl(): Promise<void> {}
+  async webApp(): Promise<WebAppState> {
+    return { open: false };
+  }
+  onWebApp(): () => void {
+    return () => undefined;
+  }
 }
 
 export const agent: BoxAgent = window.ultimatetv ?? new BrowserAgent();

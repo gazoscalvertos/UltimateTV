@@ -9,19 +9,22 @@
 //   SUSPEND_WHEN_TV_OFF  1 to suspend the box a minute after the TV goes to standby
 //   HDMI_AUDIO    0 to leave the sound output alone (by default it's moved to the TV's HDMI)
 //   CUSTOM_MODES  0 to never add a custom refresh rate for films the screen has no mode for
+//   SPOTIFY_API   the Spotify receiver's local API (default http://127.0.0.1:3678)
 
 import { execFile } from "node:child_process";
 import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "electron";
 import os from "node:os";
 import path from "node:path";
-import type { BoxInfo, PlayerState } from "@ultimatetv/shared";
+import type { BoxInfo, PlayerState, SpotifyState, WebAppState } from "@ultimatetv/shared";
 import { Audio } from "./audio.js";
 import { Cec } from "./cec.js";
 import { Diagnostics } from "./diagnostics.js";
 import { Display } from "./display.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
+import { Spotify } from "./spotify.js";
 import { Updates } from "./updates.js";
+import { WebApps } from "./webapp.js";
 
 const HUB_URL = (process.env.HUB_URL ?? "http://192.168.0.19:8095").replace(/\/$/, "");
 const CEC_DEVICE = process.env.CEC_DEVICE ?? "/dev/cec0";
@@ -62,6 +65,8 @@ async function main(): Promise<void> {
   };
   const player = new Player(mpv, display, screenSize, log);
   const updates = new Updates(log);
+  const spotify = new Spotify((process.env.SPOTIFY_API ?? "http://127.0.0.1:3678").replace(/\/$/, ""), log);
+  const webApps = new WebApps(() => win, log);
 
   // Sound to the TV before mpv opens its output; again before each play, in case the TV moved.
   const audio = new Audio(log);
@@ -94,6 +99,33 @@ async function main(): Promise<void> {
       blocker = null;
     }
   });
+  // One thing plays at a time: music pauses for a film, and Spotify and Deezer pause each other.
+  const pauseMusic = async (except?: "spotify" | "web") => {
+    if (except !== "spotify") await spotify.control({ cmd: "pause" }).catch(() => undefined);
+    if (except !== "web") await webApps.control("pause");
+  };
+  let spotifyStatus: SpotifyState["status"] = "stopped";
+  spotify.onState((s) => {
+    send("agent:spotify", s);
+    if (s.status === "playing" && spotifyStatus !== "playing") {
+      // Started from a phone, perhaps: the film pauses, Deezer stops.
+      if (lastStatus === "playing") void player.pause(true);
+      void pauseMusic("spotify");
+    }
+    spotifyStatus = s.status;
+  });
+  let webPlaying = false;
+  webApps.onState((s: WebAppState) => {
+    send("agent:webapp", s);
+    const playing = Boolean(s.nowPlaying?.playing);
+    if (playing && !webPlaying) {
+      if (lastStatus === "playing") void player.pause(true);
+      void pauseMusic("web");
+    }
+    webPlaying = playing;
+  });
+  spotify.start();
+
   let suspendTimer: NodeJS.Timeout | undefined;
   cec.onPower((active) => {
     send("agent:power", active);
@@ -116,6 +148,7 @@ async function main(): Promise<void> {
       return info;
     },
     play: async (o: never) => {
+      await pauseMusic();
       if (hdmiAudio) await audio.useHdmi();
       return player.play(o);
     },
@@ -132,6 +165,17 @@ async function main(): Promise<void> {
     reload: async () => win?.webContents.reloadIgnoringCache(),
     software: (check: never) => updates.status(Boolean(check)),
     update: () => updates.start(),
+    spotify: async () => spotify.current(),
+    spotifyLibrary: (kind: never, offset: never) => spotify.library(kind, offset),
+    spotifyTracks: (uri: never) => spotify.tracks(uri),
+    spotifyPlay: (uri: never, options: never) => spotify.play(uri, options),
+    spotifyControl: (c: never) => spotify.control(c),
+    openWebApp: (id: never) => webApps.open(id),
+    closeWebApp: () => webApps.close(),
+    webAppKey: (a: never) => webApps.key(a),
+    webAppText: (t: never) => webApps.text(t),
+    webAppControl: (c: never) => webApps.control(c),
+    webApp: async () => webApps.state(),
   };
   diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!() });
 
@@ -142,13 +186,14 @@ async function main(): Promise<void> {
     return (fn as (...a: unknown[]) => Promise<unknown>)(...args);
   });
 
-  // Only the Hub's pages run here; no pop-ups, permissions or downloads.
+  // Only the Hub's pages run here (and the music web players, on their own sites); no pop-ups,
+  // permissions or downloads.
   const hubOrigin = new URL(HUB_URL).origin;
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === "fullscreen"));
   app.on("web-contents-created", (_e, wc) => {
     wc.setWindowOpenHandler(() => ({ action: "deny" }));
     wc.on("will-navigate", (ev, url) => {
-      if (!url.startsWith("data:") && new URL(url).origin !== hubOrigin) ev.preventDefault();
+      if (!url.startsWith("data:") && new URL(url).origin !== hubOrigin && !webApps.allows(wc, url)) ev.preventDefault();
     });
   });
 
@@ -198,6 +243,8 @@ async function main(): Promise<void> {
   app.on("before-quit", () => {
     diagnostics.stop();
     cec.stop();
+    spotify.stop();
+    webApps.stop();
     void display.restore();
     void mpv.stop();
   });
