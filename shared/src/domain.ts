@@ -345,6 +345,8 @@ export interface PlaybackInfo {
   logo?: string;
   /** Music video channels: what plays after `url`, in order. The TV tunes in again when it runs out. */
   queue?: string[];
+  /** `url` is an HLS playlist (Jellyfin's smaller copy for phones) rather than a file. */
+  hls?: boolean;
 }
 
 // ---------------------------------------------------------------------------

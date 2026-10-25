@@ -66,6 +66,33 @@ describe("Hub API in demo mode", () => {
     expect(res.json<PlaybackInfo>()).toMatchObject({ url: "http://hub.lan:8095/api/live/bbc-one.ts", live: true, title: "BBC One" });
   });
 
+  it("asks a phone before it takes the TV's IPTV connection", async () => {
+    const guard = app.hub.guard;
+    guard.acquire({ key: "live:bbc-one", holder: "box", kind: "view", label: "Watching BBC One" });
+    try {
+      const phone = { host: "hub.lan:8095", "x-device": "phone:pixel" };
+      const asked = await app.inject({ method: "POST", url: "/api/play", payload: { kind: "channel", id: "bbc-two" }, headers: phone });
+      expect(asked.statusCode).toBe(409);
+      expect(asked.json()).toMatchObject({ code: "busy", error: expect.stringContaining("the TV (Watching BBC One)") });
+      // The same channel shares the TV's stream, so there's nothing to ask.
+      const same = await app.inject({ method: "POST", url: "/api/play", payload: { kind: "channel", id: "bbc-one" }, headers: phone });
+      expect(same.json<PlaybackInfo>().url).toBe("http://hub.lan:8095/api/live/bbc-one.ts?holder=phone%3Apixel");
+      const forced = await app.inject({ method: "POST", url: "/api/play", payload: { kind: "channel", id: "bbc-two", force: true }, headers: phone });
+      expect(forced.json<PlaybackInfo>().url).toBe("http://hub.lan:8095/api/live/bbc-two.ts?force=1&holder=phone%3Apixel");
+      // The TV itself switches without asking, as before.
+      expect((await app.inject({ method: "POST", url: "/api/play", payload: { kind: "channel", id: "bbc-two" }, headers: { host: "hub.lan:8095" } })).statusCode).toBe(200);
+    } finally {
+      guard.release("live:bbc-one", "box");
+    }
+  });
+
+  it("gives the phone films and recordings to download, but not live TV", async () => {
+    const live = await app.inject({ method: "POST", url: "/api/offline", payload: { kind: "channel", id: "bbc-one" } });
+    expect(live.statusCode).toBe(422);
+    const film = await app.inject({ method: "POST", url: "/api/offline", payload: { kind: "title", id: "demo:movie:copper-sky" }, headers: { host: "hub.lan:8095" } });
+    expect(film.json<PlaybackInfo>()).toMatchObject({ title: "Copper Sky", live: false });
+  });
+
   it("lists recordings, series links and the clash", async () => {
     const r = (await app.inject("/api/recordings")).json<{ recordings: unknown[]; seriesLinks: { title: string }[]; conflicts: { message: string }[] }>();
     expect(r.recordings.length).toBeGreaterThan(5);

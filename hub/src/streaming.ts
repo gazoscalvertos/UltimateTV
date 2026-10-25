@@ -7,7 +7,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { randomBytes } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { ConnectionBusyError, type ConnectionGuard } from "./connections.js";
+import { ConnectionBusyError, type ConnectionGuard, type LeaseKind } from "./connections.js";
 import { IPTV_USER_AGENT, type Fetch } from "./http.js";
 
 const TYPES: Record<string, string> = {
@@ -46,6 +46,10 @@ interface ProxyTarget {
   /** Uses an IPTV connection (catch-up, Xtream VOD) and must hold a lease. */
   iptv: boolean;
   force: boolean;
+  /** Who holds the IPTV lease: "box" (the TV) or a phone ("phone:<id>"). */
+  holder?: string;
+  /** "background" for a phone's offline download, which waits while anyone is watching. */
+  kind?: LeaseKind;
   created: number;
 }
 
@@ -72,7 +76,7 @@ export class StreamProxy {
     const leaseKey = `stream:${request.params.token}`;
     if (target.iptv) {
       try {
-        this.guard.acquire({ key: leaseKey, holder: "box", kind: "view", label: target.label, idleMs: 90_000, force: target.force });
+        this.guard.acquire({ key: leaseKey, holder: target.holder ?? "box", kind: target.kind ?? "view", label: target.label, idleMs: 90_000, force: target.force });
       } catch (err) {
         if (err instanceof ConnectionBusyError) return reply.code(409).send({ error: err.message, recordings: err.blockingRecordings });
         throw err;
