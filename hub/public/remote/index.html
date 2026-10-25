@@ -141,6 +141,19 @@
   .flash-preview b { background: #1a1a1a; padding: 0 8px; white-space: nowrap; }
   .flash-preview i { font-style: normal; background: #bb1919; padding: 0 8px; white-space: nowrap; }
   .flash-preview span { flex: 1; background: #fff; color: #111; padding: 0 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
+  .where { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 5px; aspect-ratio: 16 / 9; max-width: 260px; margin: 0 auto 8px; padding: 6px; border-radius: 12px; background: #000; border: 2px solid var(--panel-2); }
+  .where button { border-radius: 6px; background: var(--panel); height: auto; font-size: 11px; color: var(--muted); }
+  .where button.on { background: var(--accent); color: var(--fg); }
+  .where-full { display: block; margin: 0 auto 6px; max-width: 260px; width: 100%; height: 36px; border-radius: 10px; font-size: 13px; color: var(--muted); }
+  .where-full.on { background: var(--accent); color: var(--fg); }
+  .pu-media { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .pu-media img, .pu-media video { width: 96px; height: 64px; object-fit: cover; border-radius: 8px; background: #000; }
+  .pu-media button { height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; }
+  .pu-on { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px; border-radius: 12px; background: var(--panel); font-size: 14px; }
+  .pu-on span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pu-on button { height: 34px; padding: 0 12px; border-radius: 9px; font-size: 13px; background: var(--panel-2); }
+  .check { display: flex; align-items: center; gap: 10px; font-size: 14px; margin: 6px 0 10px; }
+  .check input { width: 20px; height: 20px; accent-color: var(--accent); }
   .row-btn { display: block; width: 100%; text-align: left; padding: 12px 14px; margin-bottom: 6px; border-radius: 12px; font-size: 14px; }
   .row-btn.on { background: var(--accent); }
   .link { display: block; width: 100%; margin-top: 10px; height: 44px; background: transparent; color: var(--muted); }
@@ -244,6 +257,7 @@
   <button data-tab="remote" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="2" width="12" height="20" rx="4"/><circle cx="12" cy="9" r="2.5"/><path d="M10 15h.01M14 15h.01M10 18h.01M14 18h.01"/></svg>Remote</button>
   <button data-tab="browse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Watch</button>
   <button id="news-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM16 8.5a5 5 0 0 1 0 7M19 5.5a9 9 0 0 1 0 13"/></svg>News</button>
+  <button id="notify-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><rect x="12" y="10" width="6" height="4" rx="1" fill="currentColor"/></svg>Pop-up</button>
   <a href="/setup/stats.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Stats</a>
 </nav>
 <div class="sheet" id="sheet" hidden><div class="sheet-body" id="sheet-body"></div></div>

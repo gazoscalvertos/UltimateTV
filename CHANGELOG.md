@@ -15,6 +15,12 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Pop-ups on the TV: a doorbell showing who's at the door, a meeting, an alarm. Send a title,
+  text, a picture, a video or a mix, from the phone remote's new **Pop-up** button or from Home
+  Assistant and scripts through `POST /api/notify`, and choose where it goes (middle, a corner, top,
+  bottom, full screen), its size, how long it stays and its sound. It can pause the film while it
+  shows. See docs/notifications.md. Needs a Hub and a box update; picking a photo in the Android
+  remote needs its new version (0.4.0).
 - Music channels no longer take a second upload of a song they already have (a lyric video and
   a clip of the same song, say).
 - Music channels: a download that hangs is stopped after five quiet minutes and tried again, so

@@ -7,6 +7,7 @@ import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import QRCode from "qrcode";
 import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
+import { registerNotices } from "./notify.js";
 import type { BoxState, NewsFlash, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { cleanAppName, renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
@@ -378,6 +379,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ctx.events.emit({ type: "flash", flash: null });
     return { ok: true };
   });
+  // Pop-ups on the TV from the phone or anything on the home network (a doorbell, an alarm).
+  await registerNotices(app, ctx, config.dataDir);
   /** A QR code for a web address the TV shows, such as Spotify's sign-in page. */
   app.get("/api/qr.svg", async (req: Req<Record<string, string>, { text?: string }>, reply) => {
     const text = String(req.query.text ?? "");

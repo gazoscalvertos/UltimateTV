@@ -301,6 +301,124 @@
   $("news-btn").addEventListener("click", () => void newsSheet());
 
   // ---------------------------------------------------------------------------
+  // Pop-ups: a message, picture or video on the TV, where you choose (POST /api/notify).
+
+  const NP_KINDS = [["info", "Message"], ["doorbell", "Doorbell"], ["meeting", "Meeting"], ["alarm", "Alarm"], ["warning", "Warning"]];
+  const NP_SPOTS = [["top-left", "↖"], ["top", "Top"], ["top-right", "↗"], [null, ""], ["center", "Middle"], [null, ""], ["bottom-left", "↙"], ["bottom", "Bottom"], ["bottom-right", "↘"]];
+  const NP_SIZES = [["small", "Small"], ["medium", "Medium"], ["large", "Large"]];
+  const NP_TIMES = [[10, "10 sec"], [30, "30 sec"], [60, "1 min"], [300, "5 min"], [0, "Until closed"]];
+  const NP_SOUNDS = [["none", "Silent"], ["ping", "Ping"], ["chime", "Chime"], ["alarm", "Alarm"]];
+  // What each kind starts with, as the Hub does (a message gets 10 seconds rather than 15, to match the buttons).
+  const NP_DEFAULTS = {
+    info: { position: "bottom-right", size: "medium", sound: "ping", seconds: 10 },
+    doorbell: { position: "center", size: "large", sound: "chime", seconds: 30 },
+    meeting: { position: "top-right", size: "medium", sound: "chime", seconds: 60 },
+    warning: { position: "top", size: "medium", sound: "chime", seconds: 30 },
+    alarm: { position: "center", size: "large", sound: "alarm", seconds: 0 },
+  };
+  async function notifySheet() {
+    const { notices } = await get("/api/notify").catch(() => ({ notices: [] }));
+    const np = { kind: "info", ...NP_DEFAULTS.info, pause: false, file: null };
+    const seg = (id, items, value) => `<div class="seg" id="${id}">${items.map(([v, l]) => `<button type="button" data-v="${v}" class="${v === value ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
+    openSheet(`<h2>Pop-up on the TV</h2>
+      <p class="meta">A message, photo or video over whatever is on.</p>
+      ${seg("pu-kind", NP_KINDS, np.kind)}
+      <input class="field" id="pu-title" maxlength="120" placeholder="Title (Someone's at the door)" autocomplete="off">
+      <textarea id="pu-text" maxlength="1000" placeholder="Message (optional)"></textarea>
+      <div class="pu-media" id="pu-media"><button type="button" id="pu-pick">Add photo or video</button></div>
+      <input type="file" id="pu-file" accept="image/*,video/*" hidden>
+      <h3>Where</h3>
+      <div class="where" id="pu-where">${NP_SPOTS.map(([v, l]) => (v ? `<button type="button" data-v="${v}">${esc(l)}</button>` : "<span></span>")).join("")}</div>
+      <button type="button" class="where-full" id="pu-full">Full screen</button>
+      <h3>Size</h3>
+      ${seg("pu-size", NP_SIZES, np.size)}
+      <h3>Show it for</h3>
+      ${seg("pu-time", NP_TIMES, np.seconds)}
+      <h3>Sound</h3>
+      ${seg("pu-sound", NP_SOUNDS, np.sound)}
+      <label class="check"><input type="checkbox" id="pu-pause"> Pause what's playing while it shows</label>
+      <div class="actions"><button class="primary" id="pu-send">Show on the TV</button></div>
+      ${notices.length ? `<h3>On the TV now</h3>${notices.map((n) => `<div class="pu-on"><span>${esc(n.title || n.text || (n.video ? "Video" : "Photo"))}</span><button type="button" data-id="${esc(n.id)}">Take down</button></div>`).join("")}` : ""}
+      <button class="link" data-close>Close</button>`);
+    const mark = (box, value) => {
+      for (const b of box.querySelectorAll("button")) b.classList.toggle("on", b.dataset.v === String(value));
+    };
+    const showWhere = () => {
+      mark($("pu-where"), np.position);
+      $("pu-full").classList.toggle("on", np.position === "full");
+    };
+    const refresh = () => {
+      showWhere();
+      mark($("pu-size"), np.size);
+      mark($("pu-time"), np.seconds);
+      mark($("pu-sound"), np.sound);
+    };
+    refresh();
+    const onSeg = (id, apply) => {
+      for (const b of $(id).querySelectorAll("button")) b.onclick = () => (apply(b.dataset.v), refresh());
+    };
+    onSeg("pu-kind", (v) => {
+      np.kind = v;
+      Object.assign(np, NP_DEFAULTS[v]);
+      mark($("pu-kind"), v);
+    });
+    onSeg("pu-where", (v) => (np.position = v));
+    onSeg("pu-size", (v) => (np.size = v));
+    onSeg("pu-time", (v) => (np.seconds = Number(v)));
+    onSeg("pu-sound", (v) => (np.sound = v));
+    $("pu-full").onclick = () => ((np.position = "full"), refresh());
+    $("pu-pause").onchange = (e) => (np.pause = e.target.checked);
+    const showMedia = () => {
+      const f = np.file;
+      const url = f && URL.createObjectURL(f);
+      $("pu-media").innerHTML = f
+        ? `${f.type.startsWith("video/") ? `<video src="${url}" muted playsinline></video>` : `<img src="${url}" alt="">`}<button type="button" id="pu-pick">Change</button><button type="button" id="pu-drop">Remove</button>`
+        : `<button type="button" id="pu-pick">Add photo or video</button>`;
+      $("pu-pick").onclick = () => $("pu-file").click();
+      if (f) $("pu-drop").onclick = () => ((np.file = null), showMedia());
+    };
+    showMedia();
+    $("pu-file").onchange = (e) => {
+      np.file = e.target.files[0] || null;
+      e.target.value = "";
+      showMedia();
+    };
+    $("pu-send").onclick = async () => {
+      const title = $("pu-title").value.trim();
+      const text = $("pu-text").value.trim();
+      if (!title && !text && !np.file) return toast("Write something or add a photo", true);
+      const send = $("pu-send");
+      send.disabled = true;
+      try {
+        const body = { kind: np.kind, title, text, position: np.position, size: np.size, seconds: np.seconds, sound: np.sound, pause: np.pause };
+        if (np.file) {
+          send.textContent = "Sending the photo…";
+          const r = await fetch("/api/notify/media", { method: "POST", headers: { "Content-Type": np.file.type || "application/octet-stream" }, body: np.file });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(d.error || r.statusText);
+          body[d.kind] = d.url;
+        }
+        await post("/api/notify", body);
+        closeSheet();
+        toast("On the TV now");
+      } catch (e) {
+        toast(e.message, true);
+        send.disabled = false;
+        send.textContent = "Show on the TV";
+      }
+    };
+    for (const b of document.querySelectorAll(".pu-on button")) {
+      b.onclick = async () => {
+        const r = await fetch(`/api/notify/${encodeURIComponent(b.dataset.id)}`, { method: "DELETE" }).catch(() => null);
+        if (!r?.ok) return toast("Can't reach the Hub", true);
+        b.closest(".pu-on").remove();
+        toast("Taken down");
+      };
+    }
+  }
+  $("notify-btn").addEventListener("click", () => void notifySheet());
+
+  // ---------------------------------------------------------------------------
   // Browse
 
   let current = "guide";
