@@ -40,6 +40,8 @@ export interface ContextOptions {
   ytdlp?: Run | null;
   /** Pause between YouTube searches and downloads (tests: 0). */
   mixPauseMs?: number;
+  /** Free space music video downloads leave on the NAS (tests: 0). */
+  mixMinFreeBytes?: number;
   demo?: boolean;
 }
 
@@ -136,6 +138,7 @@ export class HubContext {
       ytdlp: run ? new YtDlp(run, (env.YTDLP_ARGS ?? "").split(/\s+/).filter(Boolean)) : null,
       ...(opts.demo ? { demo: true } : {}),
       ...(opts.mixPauseMs !== undefined ? { pauseMs: opts.mixPauseMs } : {}),
+      ...(opts.mixMinFreeBytes !== undefined ? { minFreeBytes: opts.mixMinFreeBytes } : {}),
     });
     this.settings.onChange((s) => this.rebuildClients(s));
     this.rebuildClients(this.settings.get());

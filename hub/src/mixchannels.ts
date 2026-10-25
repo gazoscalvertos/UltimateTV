@@ -256,6 +256,8 @@ export interface MixOptions {
   rand?: Rand;
   /** Pause between searches and downloads, so YouTube isn't hammered. */
   pauseMs?: number;
+  /** Downloads stop below this much free space (default 10 GB). */
+  minFreeBytes?: number;
   /** Demo mode: videos point at test clips that don't need to exist. */
   demo?: boolean;
 }
@@ -763,7 +765,7 @@ export class MixManager {
     await mkdir(this.dir, { recursive: true });
     try {
       const fs = await statfs(this.dir);
-      if (fs.bavail * fs.bsize < MIN_FREE_BYTES) {
+      if (fs.bavail * fs.bsize < (this.o.minFreeBytes ?? MIN_FREE_BYTES)) {
         this.downloader = { ...this.downloader, ok: false, error: "The NAS is nearly full, so music videos have stopped downloading" };
         this.store.saveVideo({ ...v, status: "queued" });
         return;

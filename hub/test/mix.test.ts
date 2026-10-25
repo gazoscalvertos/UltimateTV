@@ -112,7 +112,7 @@ describe("music video channels in the Hub", () => {
 
   beforeAll(async () => {
     tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-"));
-    ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: fakeYtDlp().run, mixPauseMs: 0 });
+    ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: fakeYtDlp().run, mixPauseMs: 0, mixMinFreeBytes: 0 });
   });
   afterAll(async () => {
     ctx.close();
@@ -144,7 +144,8 @@ describe("music video channels in the Hub", () => {
     expect(entries.every((e) => e.video.status === "queued")).toBe(true);
     for (const e of entries) await ctx.mix.download(e.video.id);
     const ready = ctx.mix.store.entries(c.id);
-    expect(ready.every((e) => e.video.status === "ready" && e.video.path && existsSync(e.video.path))).toBe(true);
+    expect(ready.map((e) => [e.video.status, e.video.error ?? ""])).toEqual(ready.map(() => ["ready", ""]));
+    expect(ready.every((e) => e.video.path && existsSync(e.video.path))).toBe(true);
     expect(ctx.channels.get(c.id)?.mix).toEqual({ ready: 3, target: 5 });
 
     const now = Date.now();
