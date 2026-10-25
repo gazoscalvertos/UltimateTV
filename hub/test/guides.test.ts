@@ -7,7 +7,7 @@ import type { HubConfig } from "../src/config.js";
 import { Db } from "../src/db.js";
 import { CustomGuideStore } from "../src/guides.js";
 import { buildServer } from "../src/server.js";
-import { channel } from "./helpers.js";
+import { channel, programme } from "./helpers.js";
 
 describe("CustomGuideStore", () => {
   const channels = [channel("a", { number: 101 }), channel("b", { number: 102, category: "sport", favourite: true }), channel("c", { number: 103 })];
@@ -91,8 +91,12 @@ describe("custom guides over the API", () => {
   });
 
   it("finds channels by name, with what's on now", async () => {
+    // The demo guide has gaps at some times of day, so put a programme on now rather than rely on the clock.
+    app.hub.guide.dropFrom("bbc-one");
+    app.hub.guide.upsert([programme("bbc-one", Date.now() - 10 * 60_000, 60, { title: "On Right Now" })]);
     const r = (await app.inject({ url: "/api/search?q=bbcone", headers: family })).json<{ results: SearchResult[] }>().results;
     expect(r.find((x) => x.kind === "channel")).toMatchObject({ id: "bbc-one", name: "BBC One" });
-    expect(r.some((x) => x.kind === "on-now" && x.channel?.id === "bbc-one")).toBe(true);
+    expect(r.find((x) => x.kind === "channel")?.subtitle).toBe("101 · Now: On Right Now");
+    expect(r.some((x) => x.kind === "on-now" && x.channel?.id === "bbc-one" && x.name === "On Right Now")).toBe(true);
   });
 });
