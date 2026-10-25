@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StreamCandidate } from "../src/domain.js";
 import { actionForKey } from "../src/keys.js";
-import { parseQuality, qualityBadges, rankStreams } from "../src/ranking.js";
+import { languageTag, parseQuality, qualityBadges, rankStreams } from "../src/ranking.js";
 import { normaliseChannelName, normaliseTitle } from "../src/text.js";
 
 const c = (detail: string, extra: Partial<StreamCandidate> = {}): StreamCandidate => ({
@@ -65,5 +65,23 @@ describe("text", () => {
     expect(normaliseTitle("New: Silent Witness")).toBe("silent witness");
     expect(normaliseChannelName("UK: BBC 1 FHD")).toBe("bbc one");
     expect(normaliseChannelName("UK | Channel4 HD")).toBe("channel 4");
+  });
+});
+
+describe("IPTV language tags", () => {
+  it("reads the tag from the prefix only", () => {
+    expect(languageTag("4K-FR-HDR - Une bataille après l'autre (2025)")).toBe("fre");
+    expect(languageTag("|DE| Der Film")).toBe("ger");
+    expect(languageTag("EN - One Battle After Another")).toBe("eng");
+    expect(languageTag("FR | Films 4K")).toBe("fre");
+    expect(languageTag("One Battle After Another (2025)")).toBeUndefined();
+    expect(languageTag("The Batman - Part Two")).toBeUndefined();
+  });
+
+  it("ranks a dubbed 4K copy below an English 1080p one", () => {
+    const base = { kind: "xtream" as const, label: "IPTV", ready: true, url: "u", downloadable: true };
+    const fr = { ...base, id: "fr", detail: "4K-FR-HDR - Une bataille", quality: { height: 2160, hdr: "hdr10" as const, codec: "hevc" as const, audio: "unknown" as const } };
+    const en = { ...base, id: "en", detail: "One Battle After Another", quality: { height: 1080, hdr: "sdr" as const, codec: "unknown" as const, audio: "unknown" as const } };
+    expect(rankStreams([fr, en], { maxSizeGb: 0, avoidDvProfile5: true, preferredLang: "eng" })[0]!.id).toBe("en");
   });
 });

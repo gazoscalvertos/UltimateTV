@@ -61,7 +61,7 @@ export class Library {
 
   private prefs() {
     const p = this.ctx.settings.get().playback;
-    return { maxSizeGb: p.maxSizeGb, avoidDvProfile5: p.avoidDvProfile5 };
+    return { maxSizeGb: p.maxSizeGb, avoidDvProfile5: p.avoidDvProfile5, preferredLang: p.preferredAudioLang };
   }
 
   // -------------------------------------------------------------------------
@@ -361,7 +361,7 @@ export class Library {
       if (d.kind === "movie") {
         const url = e.url ?? client?.movieUrl(e.upstreamId, e.ext);
         const demo = e.sourceId === "demo";
-        if (url) candidates.push({ id: `xtream:${e.id}`, kind: demo ? "nas" : "xtream", label: demo ? "Your library" : "IPTV", detail: e.name, quality: vodQuality(e), ready: true, url, downloadable: !demo });
+        if (url) candidates.push({ id: `xtream:${e.id}`, kind: demo ? "nas" : "xtream", label: demo ? "Your library" : "IPTV", detail: e.name, quality: vodQuality(e), ready: true, url, downloadable: !demo, ...(e.lang ? { lang: e.lang } : {}) });
       } else if (ep && e.sourceId === "demo" && e.url) {
         candidates.push({ id: `xtream:${e.id}:s${ep.season}e${ep.episode}`, kind: "nas", label: "Your library", detail: `${e.name} ${episodeLabel(ep.season, ep.episode)}`, quality: vodQuality(e), ready: true, url: e.url, downloadable: false });
       } else if (ep && client) {
@@ -371,7 +371,7 @@ export class Library {
           const parts = found.id.split(":");
           const epId = parts[5];
           const ext = parts[6];
-          candidates.push({ id: `xtream:${found.id}`, kind: "xtream", label: "IPTV", detail: found.name, quality: { height: 1080, hdr: "sdr", codec: "unknown", audio: "unknown" }, ready: true, url: client.episodeUrl(epId!, ext), downloadable: true });
+          candidates.push({ id: `xtream:${found.id}`, kind: "xtream", label: "IPTV", detail: found.name, quality: { height: 1080, hdr: "sdr", codec: "unknown", audio: "unknown" }, ready: true, url: client.episodeUrl(epId!, ext), downloadable: true, ...(e.lang ? { lang: e.lang } : {}) });
         }
       }
     }

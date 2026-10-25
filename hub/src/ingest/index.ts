@@ -1,7 +1,7 @@
 // Refreshes channels, guide data and the IPTV VOD catalogue from every configured source.
 
 import type { IptvSource, IptvSourceStatus, Programme, TitleKind } from "@ultimatetv/shared";
-import { normaliseTitle } from "@ultimatetv/shared";
+import { languageTag, normaliseTitle } from "@ultimatetv/shared";
 import { buildChannels, ChannelStore, type RawFeed } from "../channels.js";
 import type { Db } from "../db.js";
 import { EpgMatcher, GuideStore, toProgramme } from "../epg.js";
@@ -30,6 +30,8 @@ export interface VodEntry {
   backdrop?: string;
   overview?: string;
   genres?: string[];
+  /** Language from the provider's tag on the name or category ("FR - …", "|DE| Films"). */
+  lang?: string;
 }
 
 export interface SourceMeta {
@@ -226,6 +228,8 @@ export class Ingestor {
         if (Number(m.tmdb)) entry.tmdbId = Number(m.tmdb);
         const cat = vodCat.get(String(m.category_id));
         if (cat) entry.category = cat;
+        const lang = languageTag(m.name) ?? (cat ? languageTag(cat) : undefined);
+        if (lang) entry.lang = lang;
         if (m.added) entry.added = Number(m.added) * 1000;
         vod.push(entry);
       }
@@ -237,6 +241,8 @@ export class Ingestor {
         if (sr.cover) entry.poster = sr.cover;
         if (Number(sr.rating)) entry.rating = Number(sr.rating);
         if (Number(sr.tmdb)) entry.tmdbId = Number(sr.tmdb);
+        const lang = languageTag(sr.name);
+        if (lang) entry.lang = lang;
         vod.push(entry);
       }
     } catch (err) {
@@ -258,6 +264,8 @@ export class Ingestor {
         if (year) entry.year = year;
         if (e.logo) entry.poster = e.logo;
         if (e.group) entry.category = e.group;
+        const lang = languageTag(e.name) ?? (e.group ? languageTag(e.group) : undefined);
+        if (lang) entry.lang = lang;
         if (e.kind === "movie") vod.push(entry);
         return;
       }

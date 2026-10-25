@@ -178,9 +178,34 @@ export class JellyfinClient {
     return this.get<JfItem>(`/Users/${this.userId}/Items/${id}?Fields=${JellyfinClient.FIELDS}`);
   }
 
+  private providerIndex: { at: number; map: Promise<Map<string, string>> } | null = null;
+
+  /**
+   * The library item with this TMDB/IMDb/TVDB id. Jellyfin 10.9+ ignores AnyProviderIdEquals and
+   * returns the first item in the library, which made every film "available" as the same file, so
+   * the Hub builds its own index of provider ids instead (cached for ten minutes).
+   */
   async byProviderId(provider: "tmdb" | "imdb" | "tvdb", id: string, type: "Movie" | "Series"): Promise<JfItem | undefined> {
-    const r = await this.get<{ Items: JfItem[] }>(`/Users/${this.userId}/Items?Recursive=true&IncludeItemTypes=${type}&AnyProviderIdEquals=${provider}.${encodeURIComponent(id)}&Fields=${JellyfinClient.FIELDS}&Limit=1`);
-    return r.Items[0];
+    const itemId = (await this.providerIds()).get(`${type}|${provider}|${id.toLowerCase()}`);
+    return itemId ? this.item(itemId) : undefined;
+  }
+
+  private providerIds(): Promise<Map<string, string>> {
+    if (this.providerIndex && Date.now() - this.providerIndex.at < 10 * 60_000) return this.providerIndex.map;
+    const map = (async () => {
+      const index = new Map<string, string>();
+      const r = await this.get<{ Items: JfItem[] }>(`/Users/${this.userId}/Items?Recursive=true&IncludeItemTypes=Movie,Series&Fields=ProviderIds&EnableImages=false`);
+      for (const item of r.Items) {
+        for (const [key, value] of Object.entries(item.ProviderIds ?? {})) {
+          if (value) index.set(`${item.Type}|${key.toLowerCase()}|${value.toLowerCase()}`, item.Id);
+        }
+      }
+      return index;
+    })();
+    this.providerIndex = { at: Date.now(), map };
+    // A failed fetch shouldn't stick for ten minutes.
+    map.catch(() => (this.providerIndex = null));
+    return map;
   }
 
   async seasons(seriesId: string): Promise<JfItem[]> {
