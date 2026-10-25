@@ -11,7 +11,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { HubSoftware } from "@ultimatetv/shared";
+import type { HubSoftware, SoftwareChange } from "@ultimatetv/shared";
 
 const REPO = process.env.HUB_REPO ?? "gazoscalvertos/UltimateTV";
 const CHECK_EVERY_MS = 5 * 60_000;
@@ -19,6 +19,7 @@ const CHECK_EVERY_MS = 5 * 60_000;
 export class SelfUpdate {
   private readonly dir: string;
   private latest?: { sha: string; at: number };
+  private compared?: { key: string; behind: number; changes: SoftwareChange[] };
 
   constructor(
     dataDir: string,
@@ -41,6 +42,10 @@ export class SelfUpdate {
     if (check) {
       const latest = await this.latestCommit();
       if (latest) sw.latest = latest;
+      if (latest && sw.commit && !latest.startsWith(sw.commit)) {
+        const diff = await this.compare(sw.commit, latest);
+        if (diff) Object.assign(sw, diff);
+      } else if (latest) sw.behind = 0;
     }
     return sw;
   }
@@ -52,6 +57,41 @@ export class SelfUpdate {
 
   async log(): Promise<string> {
     return readFile(path.join(this.dir, "last.log"), "utf8").catch(() => "");
+  }
+
+  /** What's on main that the running Hub doesn't have: merged pull requests by title, else commit subjects. */
+  private async compare(from: string, to: string): Promise<{ behind: number; changes: SoftwareChange[] } | undefined> {
+    const key = `${from}...${to}`;
+    if (this.compared?.key === key) return this.compared;
+    try {
+      const res = await this.fetchImpl(`https://api.github.com/repos/${REPO}/compare/${from}...${to}`, {
+        headers: { Accept: "application/vnd.github+json", "User-Agent": "UltimateTV-Hub" },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) return undefined;
+      const body = (await res.json()) as { ahead_by?: number; commits?: { sha: string; commit: { message: string; committer?: { date?: string } } }[] };
+      const commits = body.commits ?? [];
+      const changes: SoftwareChange[] = [];
+      for (const c of commits) {
+        const [subject = "", ...rest] = c.commit.message.split("\n");
+        const pr = /^Merge pull request #(\d+)/.exec(subject);
+        if (!pr) continue;
+        const title = rest.map((l) => l.trim()).find(Boolean) ?? subject;
+        changes.push({ sha: c.sha, title, pr: Number(pr[1]), ...(c.commit.committer?.date ? { date: c.commit.committer.date } : {}) });
+      }
+      // Pushed straight to main, without pull requests: list the commits themselves.
+      if (!changes.length) {
+        for (const c of commits) {
+          const subject = c.commit.message.split("\n")[0] ?? "";
+          if (!/^Merge /.test(subject)) changes.push({ sha: c.sha, title: subject, ...(c.commit.committer?.date ? { date: c.commit.committer.date } : {}) });
+        }
+      }
+      // Newest first, and only the last 20.
+      this.compared = { key, behind: body.ahead_by ?? commits.length, changes: changes.reverse().slice(0, 20) };
+      return this.compared;
+    } catch {
+      return undefined;
+    }
   }
 
   private async latestCommit(): Promise<string | undefined> {
