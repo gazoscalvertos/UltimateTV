@@ -268,9 +268,10 @@ export class MixManager {
   readonly store: MixStore;
   private running = false;
   private stopped = false;
-  private wake: (() => void) | null = null;
+  private wakers = new Set<() => void>();
   private jobs: Job[] = [];
-  private working: string | undefined;
+  /** What each lane is doing now, for the overview. */
+  private busy: { curate?: string; download?: string } = {};
   private downloader: MixOverview["downloader"] = { ok: false, error: "Not checked yet" };
   private timers: NodeJS.Timeout[] = [];
   private abort: AbortController | null = null;
@@ -379,7 +380,8 @@ export class MixManager {
 
   async overview(): Promise<MixOverview> {
     const out: MixOverview = { channels: this.store.channels().map((c) => this.info(c)), downloader: this.downloader };
-    if (this.working) out.working = this.working;
+    const working = [this.busy.curate, this.busy.download].filter(Boolean).join(" · ");
+    if (working) out.working = working;
     try {
       const fs = await statfs(existsSync(this.dir) ? this.dir : path.dirname(this.dir));
       out.diskFreeBytes = fs.bavail * fs.bsize;
@@ -592,7 +594,10 @@ export class MixManager {
     this.timers.push(setInterval(() => this.queueCurations(), 6 * HOUR));
     this.queueCurations();
     this.running = true;
-    void this.loop();
+    // Two lanes, so a long curation (or a restart part-way through one) never holds up the
+    // downloads of the videos already chosen: one search and one download at a time.
+    void this.loop("curate");
+    void this.loop("download");
   }
 
   stop(): void {
@@ -601,7 +606,7 @@ export class MixManager {
     for (const t of this.timers) clearInterval(t);
     this.timers = [];
     this.abort?.abort();
-    this.wake?.();
+    this.wakeAll();
   }
 
   async checkDownloader(): Promise<MixOverview["downloader"]> {
@@ -632,31 +637,38 @@ export class MixManager {
   private queue(job: Job, first = false): void {
     const same = (j: Job) => j.kind === job.kind && (j.kind === "curate" ? j.channelId === (job as { channelId: string }).channelId : j.videoId === (job as { videoId: string }).videoId);
     if (!this.jobs.some(same)) first ? this.jobs.unshift(job) : this.jobs.push(job);
-    this.wake?.();
+    this.wakeAll();
   }
 
-  private nextJob(): Job | undefined {
-    // Curation first, so a channel's list is known; then downloads, oldest first.
-    const curate = this.jobs.findIndex((j) => j.kind === "curate");
-    if (curate >= 0) return this.jobs.splice(curate, 1)[0];
+  private wakeAll(): void {
+    for (const w of [...this.wakers]) w();
+  }
+
+  private nextJob(kind: Job["kind"]): Job | undefined {
+    if (kind === "curate") {
+      const curate = this.jobs.findIndex((j) => j.kind === "curate");
+      return curate >= 0 ? this.jobs.splice(curate, 1)[0] : undefined;
+    }
+    // Downloads, oldest first, straight from the store (so none is lost to a restart).
     this.jobs = this.jobs.filter((j) => j.kind !== "download");
     const queued = this.store.videosWithStatus("queued").filter((v) => this.store.channelsOf(v.id).length).sort((a, b) => a.addedAt - b.addedAt);
     return queued[0] ? { kind: "download", videoId: queued[0].id } : undefined;
   }
 
-  private async loop(): Promise<void> {
+  private async loop(kind: Job["kind"]): Promise<void> {
     while (this.running) {
-      const job = this.downloader.ok ? this.nextJob() : undefined;
+      const job = this.downloader.ok ? this.nextJob(kind) : undefined;
       if (!job) {
         await new Promise<void>((resolve) => {
-          const t = setTimeout(resolve, 60_000);
-          this.wake = () => {
+          const done = () => {
             clearTimeout(t);
+            this.wakers.delete(done);
             resolve();
           };
+          const t = setTimeout(done, 60_000);
+          this.wakers.add(done);
         });
-        this.wake = null;
-        if (!this.downloader.ok && this.o.ytdlp) await this.checkDownloader();
+        if (kind === "download" && !this.downloader.ok && this.o.ytdlp) await this.checkDownloader();
         continue;
       }
       try {
@@ -664,7 +676,7 @@ export class MixManager {
       } catch (err) {
         this.o.log.warn({ job, err: String(err) }, "Music channel job failed");
       } finally {
-        this.working = undefined;
+        this.busy[kind] = undefined;
       }
       await new Promise((r) => setTimeout(r, this.o.pauseMs ?? 4000));
     }
@@ -684,7 +696,7 @@ export class MixManager {
     const entries = this.store.entries(channelId);
     let need = c.target - entries.filter((e) => e.video.status !== "failed").length;
     if (need <= 0) return 0;
-    this.working = `Choosing videos for ${c.name}`;
+    this.busy.curate = `Choosing videos for ${c.name}`;
     const plan = await this.curators[c.curator].plan(c, entries);
     const tried = new Set(this.o.db.getKv<string[]>(`mix-tried:${channelId}`) ?? []);
     const blocked = new Set(this.o.db.getKv<string[]>(`mix-blocked:${channelId}`) ?? []);
@@ -722,7 +734,7 @@ export class MixManager {
       if (need <= 0 || this.stopped) break;
       if (tried.has(`pick:${pick}`)) continue;
       if (failures >= 3) break;
-      this.working = `Looking for ${pick}`;
+      this.busy.curate = `Looking for ${pick}`;
       const best = (await searchFor(`${pick} official video`, 5))
         .map((i) => toCandidate(i, c, pick))
         .filter(usable)
@@ -734,7 +746,7 @@ export class MixManager {
     }
     for (const q of plan.queries) {
       if (need <= 0 || failures >= 3) break;
-      this.working = `Searching for ${q}`;
+      this.busy.curate = `Searching for ${q}`;
       const found = (await searchFor(q, 25)).map((i) => toCandidate(i, c)).filter(usable).sort((a, b) => b.score - a.score);
       for (const cand of found) {
         if (need <= 0) break;
@@ -773,7 +785,7 @@ export class MixManager {
     } catch {
       // statfs not supported: carry on.
     }
-    this.working = `Downloading ${displayTitle(v)}`;
+    this.busy.download = `Downloading ${displayTitle(v)}`;
     this.store.saveVideo({ ...v, status: "downloading", progress: 0 });
     this.changed(channelIds[0]);
     this.abort = new AbortController();
