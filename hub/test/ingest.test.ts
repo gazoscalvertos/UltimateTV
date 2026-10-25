@@ -114,6 +114,11 @@ describe("VOD names and Xtream times", () => {
     expect(splitYear("1917")).toEqual({ name: "1917" });
     expect(cleanVodName("EN - The Matrix")).toBe("The Matrix");
     expect(cleanVodName("|UK| Gladiator")).toBe("Gladiator");
+    expect(cleanVodName("4K-FR-HDR - In the Grey")).toBe("In the Grey");
+    expect(cleanVodName("4K-TOP - Heat")).toBe("Heat");
+    expect(cleanVodName("[DE] Heat")).toBe("Heat");
+    expect(cleanVodName("TRON: Legacy")).toBe("TRON: Legacy");
+    expect(cleanVodName("1917")).toBe("1917");
   });
 
   it("formats catch-up start times in the panel's time zone", () => {

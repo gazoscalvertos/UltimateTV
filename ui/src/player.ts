@@ -12,9 +12,13 @@ export interface NowPlaying {
   req: PlaybackRequest;
   info: PlaybackInfo;
   title?: TitleRef;
+  /** When Play was pressed, for the "starting" card's timer. */
+  since: number;
 }
 
 export const [nowPlaying, setNowPlaying] = createSignal<NowPlaying | null>(null);
+/** Something is being looked up before it can play (finding versions can take a while). */
+export const [starting, setStarting] = createSignal<{ name: string; since: number } | null>(null);
 export const [playerState, setPlayerState] = createSignal<PlayerState>({ status: "idle", positionMs: 0, audioTracks: [], subtitleTracks: [] });
 export const [channels, setChannels] = createSignal<Channel[]>([]);
 /** The channel live TV is on (or was last on), for the guide's preview and channel up/down. */
@@ -72,15 +76,35 @@ async function resolve(req: PlaybackRequest): Promise<PlaybackInfo | null> {
  * Plays something. `fullscreen` (the default) opens the player screen; the guide passes false to
  * keep its preview window.
  */
+let playCount = 0;
+
 export async function play(req: PlaybackRequest, opts: { fullscreen?: boolean; title?: TitleRef; fromStart?: boolean } = {}): Promise<boolean> {
+  const since = Date.now();
+  const n = ++playCount;
+  // Live channels answer at once; titles may ask every source first, so say what's happening.
+  if (req.kind !== "channel") setStarting({ name: opts.title?.name ?? "", since });
+  try {
+    return await start(req, opts, since, n);
+  } finally {
+    if (n === playCount) setStarting(null);
+  }
+}
+
+/** Back while a title is being looked up: forget it, so it doesn't start a moment later. */
+export function cancelStarting(): void {
+  playCount++;
+  setStarting(null);
+}
+
+async function start(req: PlaybackRequest, opts: { fullscreen?: boolean; title?: TitleRef; fromStart?: boolean }, since: number, n: number): Promise<boolean> {
   let info: PlaybackInfo | null;
   try {
     info = await resolve(req);
   } catch (err) {
-    errorToast(err);
+    if (n === playCount) errorToast(err);
     return false;
   }
-  if (!info) return false;
+  if (!info || n !== playCount) return false;
   // Start again: ignore the resume point (seeking after loading races the player opening the file).
   if (opts.fromStart && !info.live) info = { ...info, startMs: 0 };
   await report("stop");
@@ -96,7 +120,7 @@ export async function play(req: PlaybackRequest, opts: { fullscreen?: boolean; t
     subtitles: info.externalSubtitles.map((t) => ({ url: t.url, lang: t.lang, label: t.label })),
     ...(s ? { preferredAudioLang: s.preferredAudioLang, preferredSubtitleLang: s.preferredSubtitleLang, subtitlesByDefault: s.subtitlesByDefault } : {}),
   });
-  setNowPlaying({ req, info, ...(opts.title ? { title: opts.title } : {}) });
+  setNowPlaying({ req, info, since, ...(opts.title ? { title: opts.title } : {}) });
   if (req.kind === "channel") setLiveChannelId(req.id);
   void report("start");
   clearInterval(reportTimer);

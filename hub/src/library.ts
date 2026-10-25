@@ -201,10 +201,14 @@ export class Library {
   }
 
   private vodMatches(kind: TitleKind, name: string, year?: number, tmdbId?: number): VodEntry[] {
+    // Every source's copies: those tagged with the TMDB id, and those that only match by name
+    // (providers tag some copies and not others).
     const byTmdb = tmdbId ? this.ctx.db.json<VodEntry>("SELECT data FROM vod WHERE kind = ? AND json_extract(data, '$.tmdbId') = ?", kind, tmdbId) : [];
-    if (byTmdb.length) return byTmdb;
-    const rows = this.ctx.db.json<VodEntry>("SELECT data FROM vod WHERE kind = ? AND name_norm = ?", kind, normaliseTitle(name));
-    return rows.filter((r) => !year || !r.year || Math.abs(r.year - year) <= 1);
+    const byName = this.ctx.db
+      .json<VodEntry>("SELECT data FROM vod WHERE kind = ? AND name_norm = ?", kind, normaliseTitle(name))
+      .filter((r) => (!tmdbId || !r.tmdbId || r.tmdbId === tmdbId) && (!year || !r.year || Math.abs(r.year - year) <= 1));
+    const seen = new Set(byTmdb.map((r) => r.id));
+    return [...byTmdb, ...byName.filter((r) => !seen.has(r.id))];
   }
 
   /** Details, refused when the profile isn't allowed to see the title. */
