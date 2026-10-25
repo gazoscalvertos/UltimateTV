@@ -54,7 +54,7 @@ android {
     }
 }
 
-def media3 = "1.6.1"
+def media3 = "1.7.1"
 
 dependencies {
     implementation platform("androidx.compose:compose-bom:2024.12.01")
@@ -77,5 +77,5 @@ dependencies {
     implementation "androidx.media3:media3-datasource:$media3"
     implementation "androidx.media3:media3-database:$media3"
     implementation "androidx.media3:media3-ui:$media3"
-    implementation "org.jellyfin.media3:media3-ffmpeg-decoder:$media3+2"
+    implementation "org.jellyfin.media3:media3-ffmpeg-decoder:1.6.1+2"
 }
