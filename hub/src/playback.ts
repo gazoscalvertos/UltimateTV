@@ -1,7 +1,7 @@
 // Turns "play this" into a URL the box can open, plus everything the player needs: resume point,
 // subtitles, skip markers, frame rate and what plays next.
 
-import type { PlaybackInfo, PlaybackRequest, StreamCandidate, TitleRef } from "@ultimatetv/shared";
+import type { Channel, PlaybackInfo, PlaybackRequest, StreamCandidate, TitleRef } from "@ultimatetv/shared";
 import { episodeLabel } from "@ultimatetv/shared";
 import { catchupUrl } from "./catchup.js";
 import type { HubContext } from "./context.js";
@@ -58,6 +58,7 @@ export class Playback {
   private channel(id: string, hubBase: string, force: boolean): PlaybackInfo {
     const channel = this.ctx.channels.get(id);
     if (!channel) throw new PlaybackError("That channel isn't available", "not-found");
+    if (channel.mix) return this.mixChannel(channel, hubBase);
     const verdict = this.ctx.guard.check(LiveRelay.key(id), "view");
     if (!verdict.ok && verdict.blockedBy.length > 0 && !force) {
       const recs = this.ctx.recordings.withStatus("recording");
@@ -76,6 +77,33 @@ export class Playback {
     };
     if (now) info.subtitle = now.title;
     if (now?.image) info.artwork = now.image;
+    if (channel.logo) info.logo = channel.logo;
+    return info;
+  }
+
+  /** A music video channel: the video on now from where it has got to, then the next few hours of them. */
+  private mixChannel(channel: Channel, hubBase: string): PlaybackInfo {
+    const tuned = this.ctx.mix.tuneIn(channel.id);
+    if (!tuned) {
+      const c = this.ctx.mix.store.channel(channel.id);
+      const counts = c ? this.ctx.mix.info(c).counts : undefined;
+      const busy = counts && counts.queued + counts.downloading > 0;
+      throw new PlaybackError(busy ? `${channel.name} is still downloading its first videos. Try again in a few minutes.` : `${channel.name} has no videos yet. Add some in Settings › Music channels.`, "unavailable");
+    }
+    const file = (videoId: string) => `${hubBase}/api/mix/videos/${encodeURIComponent(videoId)}/file`;
+    const p = tuned.first.programme;
+    const info: PlaybackInfo = {
+      url: file(tuned.first.videoId),
+      title: channel.name,
+      subtitle: p.title,
+      live: true,
+      startMs: tuned.first.offsetMs,
+      externalSubtitles: [],
+      progressKey: `channel:${channel.id}`,
+      skip: [],
+      queue: tuned.queue.map(file),
+    };
+    if (p.image) info.artwork = p.image.startsWith("/") ? hubBase + p.image : p.image;
     if (channel.logo) info.logo = channel.logo;
     return info;
   }

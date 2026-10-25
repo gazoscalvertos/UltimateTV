@@ -143,6 +143,16 @@ export class GuideStore {
     return this.db.json<Programme>("SELECT data FROM programmes WHERE channel_id = ? AND end > ? ORDER BY start LIMIT ?", channelId, from, limit);
   }
 
+  /** The last programme on a channel, for extending a music video channel's schedule. */
+  latestOn(channelId: string): Programme | undefined {
+    return this.db.jsonOne<Programme>("SELECT data FROM programmes WHERE channel_id = ? ORDER BY start DESC LIMIT 1", channelId);
+  }
+
+  /** Removes a channel's programmes starting after `from` (all of them when `from` is omitted). */
+  dropFrom(channelId: string, from = -Infinity): void {
+    this.db.run("DELETE FROM programmes WHERE channel_id = ? AND start > ?", channelId, Number.isFinite(from) ? from : -1e15);
+  }
+
   airings(seriesKey: string, from: number, to = from + 14 * 86_400_000): Programme[] {
     return this.db.json<Programme>("SELECT data FROM programmes WHERE series_key = ? AND start >= ? AND start < ? ORDER BY start", seriesKey, from, to);
   }

@@ -156,9 +156,32 @@ try {
   await shot("17-profile-menu");
   await key("Escape");
   await key("ArrowLeft");
-  await key("ArrowDown", 4);
+  await key("ArrowDown", 5);
   await wait(800);
   await shot("18-settings-phone-remote");
+
+  // Music video channels: the list in Settings, one channel, watching it and its guide.
+  await page.locator(".settings-nav-item", { hasText: "Music channels" }).first().focus();
+  await wait(1200);
+  await shot("32-settings-music");
+  await key("ArrowRight");
+  await key("ArrowDown");
+  await key("Enter");
+  await wait(1500);
+  await shot("33-music-channel");
+  await key("Enter");
+  await wait(2000);
+  await shot("34-music-live");
+  await key("Escape");
+  await key("Escape");
+  await page.goto(`${base}/app/`);
+  await wait(1500);
+  await tab("TV Guide");
+  await wait(1200);
+  await page.locator(".guide-lists .chip", { hasText: "Music" }).first().focus();
+  await key("Enter");
+  await wait(1200);
+  await shot("35-music-guide");
 
   // Custom guides: pick one from the lists above the grid, then build one.
   await page.goto(`${base}/app/`);
@@ -260,23 +283,23 @@ try {
   // Browsing on the phone and playing on the TV.
   await phone.click('[data-tab="browse"]');
   await phone.waitForTimeout(1500);
-  await phone.screenshot({ path: path.join(out, "32-phone-guide.png") });
-  console.log("  32-phone-guide.png");
+  await phone.screenshot({ path: path.join(out, "36-phone-guide.png") });
+  console.log("  36-phone-guide.png");
   await phone.click('[data-browse="movie"]');
   await phone.waitForTimeout(1500);
-  await phone.screenshot({ path: path.join(out, "33-phone-films.png") });
-  console.log("  33-phone-films.png");
+  await phone.screenshot({ path: path.join(out, "37-phone-films.png") });
+  console.log("  37-phone-films.png");
   await phone.locator(".poster").first().click();
   await phone.waitForTimeout(1500);
-  await phone.screenshot({ path: path.join(out, "34-phone-title.png") });
-  console.log("  34-phone-title.png");
+  await phone.screenshot({ path: path.join(out, "38-phone-title.png") });
+  console.log("  38-phone-title.png");
   await phone.locator("#sheet [data-close]").first().click();
   await phone.click('[data-tab="remote"]');
   // Stats for the box and the Hub.
   await phone.goto(`${base}/setup/stats.html`);
   await phone.waitForTimeout(3000);
-  await phone.screenshot({ path: path.join(out, "35-phone-stats.png"), fullPage: true });
-  console.log("  35-phone-stats.png");
+  await phone.screenshot({ path: path.join(out, "39-phone-stats.png"), fullPage: true });
+  console.log("  39-phone-stats.png");
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.click("#settings");

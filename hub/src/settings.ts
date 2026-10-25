@@ -11,6 +11,7 @@ export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
       tvPath: `${mediaRoot}/TV`,
       recordingsPath: `${mediaRoot}/Recordings`,
       inboxPath: `${mediaRoot}/Inbox`,
+      musicVideosPath: `${mediaRoot}/Music Videos`,
     },
     recording: {
       paddingBeforeMin: 2,
@@ -57,6 +58,7 @@ export function settingsFromEnv(env: NodeJS.ProcessEnv, base: Settings): Setting
   if (env.TV_PATH) s.library.tvPath = env.TV_PATH;
   if (env.RECORDINGS_PATH) s.library.recordingsPath = env.RECORDINGS_PATH;
   if (env.INBOX_PATH) s.library.inboxPath = env.INBOX_PATH;
+  if (env.MUSIC_VIDEOS_PATH) s.library.musicVideosPath = env.MUSIC_VIDEOS_PATH;
   return s;
 }
 

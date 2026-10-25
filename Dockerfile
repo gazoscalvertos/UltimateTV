@@ -35,6 +35,9 @@ RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /
  && apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg vainfo intel-media-va-driver-non-free python3 bash ca-certificates \
  && rm -rf /var/lib/apt/lists/*
+# yt-dlp finds and downloads the music video channels' videos. The standalone build bundles what
+# YouTube needs (it uses this image's Node as its JavaScript runtime); the Hub updates it daily.
+ADD --chmod=755 https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux /usr/local/bin/yt-dlp
 WORKDIR /app
 ENV NODE_ENV=production PORT=8080 DATA_DIR=/data CLIPS_DIR=/clips PROBE_DIR=/app/tools/probe/dist
 COPY --from=deps /app/node_modules node_modules

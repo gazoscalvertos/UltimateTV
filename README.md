@@ -1,6 +1,6 @@
 # UltimateTV
 
-A polished, Sky-style TV app for the Hisense 85U7STUK, running on a Linux mini PC plugged into the TV. Live IPTV/Xtream with a full EPG and series link, recordings to the NAS, films and TV from Jellyfin, IPTV VOD and AIOStreams/TorBox in one library, profiles with a locked-down Kids profile, and a phone remote.
+A polished, Sky-style TV app for the Hisense 85U7STUK, running on a Linux mini PC plugged into the TV. Live IPTV/Xtream with a full EPG and series link, recordings to the NAS, films and TV from Jellyfin, IPTV VOD and AIOStreams/TorBox in one library, profiles with a locked-down Kids profile, music video channels the Hub curates itself, and a phone remote.
 
 ![Home](docs/screenshots/02-home.png)
 
@@ -27,8 +27,9 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md). See [
    sudo HUB_URL=http://192.168.0.19:8095 bash tools/box/install.sh
    ```
 4. **Phone remote:** scan the code in Settings › Phone remote, or install the Android app ([docs/phone-remote.md](docs/phone-remote.md)).
-5. **Profiles:** set a PIN on the adult profile so the children stay in Kids ([docs/profiles.md](docs/profiles.md)).
-6. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
+5. **Music video channels:** Clubland TV, House TV and Halloween TV fill themselves on the first start; make your own in Settings › Music channels ([docs/music-channels.md](docs/music-channels.md)).
+6. **Profiles:** set a PIN on the adult profile so the children stay in Kids ([docs/profiles.md](docs/profiles.md)).
+7. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 
 ## Development
 

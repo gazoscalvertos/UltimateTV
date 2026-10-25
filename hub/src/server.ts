@@ -6,9 +6,10 @@ import fastifyStatic from "@fastify/static";
 import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import QRCode from "qrcode";
-import type { BoxState, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
+import type { BoxState, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
+import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
 import { ConnectionBusyError } from "./connections.js";
 import { HubContext } from "./context.js";
@@ -50,7 +51,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // data/logs gets everything, docker logs info and up.
   const app = Fastify({ logger: deps.logger ? (deps.logRing ? { level: deps.env?.LOG_LEVEL ?? "debug", stream: deps.logRing.stream } : true) : false, bodyLimit: 2 * 1024 * 1024 });
   const log: Logger = app.log;
-  const ctx = deps.context ?? new HubContext({ dataDir: config.dataDir, mediaRoot: config.mediaRoot, env: deps.env ?? {}, log });
+  const ctx = deps.context ?? new HubContext({ dataDir: config.dataDir, mediaRoot: config.mediaRoot, env: deps.env ?? {}, log, ...(config.demo ? { demo: true, ytdlp: null } : {}) });
   if (config.demo) seedDemo(ctx, config);
   const library = new Library(ctx);
   const playback = new Playback(ctx, library);
@@ -97,6 +98,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/downloads/:id",
     "POST /api/software/hub/update",
     "POST /api/box/update",
+    "POST /api/mix-channels",
+    "PATCH /api/mix-channels/:id",
+    "DELETE /api/mix-channels/:id",
+    "POST /api/mix-channels/:id/curate",
+    "POST /api/mix-channels/:id/shuffle",
+    "POST /api/mix-channels/:id/videos",
+    "DELETE /api/mix-channels/:id/videos/:videoId",
   ]);
   app.addHook("preHandler", async (req) => {
     if (ADMIN_ROUTES.has(`${req.method} ${req.routeOptions.url}`) && !viewer(req).admin) {
@@ -492,6 +500,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       channels = channels.filter((c) => ids.has(c.id));
     }
     const programmes = ctx.guide.window(channels.map((c) => c.id), from, to);
+    for (const c of channels) if (c.mix && programmes[c.id]) programmes[c.id] = guideBlocks(programmes[c.id]!);
     return { from, to, channels, programmes, marks: marksFor(ctx, from, to) };
   });
 
@@ -570,6 +579,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   const programmeAllowed = (req: FastifyRequest, programmeId: string) => {
     const p = ctx.guide.get(programmeId);
     if (p && !recordingAllowed(req, p.channelId)) throw new NotAllowedError();
+    // Music video channels are the Hub's own files: nothing to record.
+    if (p && ctx.channels.get(p.channelId)?.mix) throw Object.assign(new Error("Music video channels can't be recorded. They're on the NAS already."), { statusCode: 422 });
   };
 
   app.get("/api/recordings", async (req) => ({
@@ -666,6 +677,83 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   app.get("/api/stream/:token", (req: Req<{ token: string }>, reply) => ctx.proxy.handle(req, reply));
+
+  // -------------------------------------------------------------------------
+  // Music video channels
+
+  app.get("/api/mix-channels", async () => ctx.mix.overview());
+
+  app.post("/api/mix-channels", async (req: Req<Record<string, string>, Record<string, string>, Partial<MixChannel>>, reply) => {
+    const c = ctx.mix.create(req.body ?? {});
+    ctx.events.emit({ type: "guide.updated" });
+    return reply.code(201).send(ctx.mix.info(c));
+  });
+
+  app.get("/api/mix-channels/:id", async (req: Req<{ id: string }>, reply) => {
+    const c = ctx.mix.store.channel(req.params.id);
+    if (!c) return reply.code(404).send({ error: "That channel has been deleted" });
+    return { channel: ctx.mix.info(c), videos: ctx.mix.store.entries(c.id).map((e) => ({ ...e, video: { ...e.video, path: undefined, thumbPath: undefined } })) };
+  });
+
+  app.patch("/api/mix-channels/:id", async (req: Req<{ id: string }, Record<string, string>, Partial<MixChannel>>) => {
+    const c = ctx.mix.update(req.params.id, req.body ?? {});
+    ctx.events.emit({ type: "guide.updated" });
+    return ctx.mix.info(c);
+  });
+
+  app.delete("/api/mix-channels/:id", async (req: Req<{ id: string }>) => {
+    await ctx.mix.remove(req.params.id);
+    return { ok: true };
+  });
+
+  /** Look for more videos now (otherwise channels short of their target are looked at every few hours). */
+  app.post("/api/mix-channels/:id/curate", async (req: Req<{ id: string }>, reply) => {
+    ctx.mix.curateSoon(req.params.id);
+    return reply.code(202).send({ ok: true });
+  });
+
+  app.post("/api/mix-channels/:id/shuffle", async (req: Req<{ id: string }>) => {
+    ctx.mix.reshuffle(req.params.id);
+    ctx.events.emit({ type: "guide.updated" });
+    return { ok: true };
+  });
+
+  /** Adds a video by link or id. `origin` says who chose it ("llm: …"), shown on the TV. */
+  app.post("/api/mix-channels/:id/videos", async (req: Req<{ id: string }, Record<string, string>, { url?: string; id?: string; origin?: string }>, reply) =>
+    reply.code(201).send(await ctx.mix.addVideo(req.params.id, req.body ?? {})),
+  );
+
+  app.delete("/api/mix-channels/:id/videos/:videoId", async (req: Req<{ id: string; videoId: string }>) => {
+    await ctx.mix.removeVideo(req.params.id, req.params.videoId);
+    ctx.events.emit({ type: "guide.updated" });
+    return { ok: true };
+  });
+
+  /** YouTube search, each result judged against a channel's rules: for choosing videos by hand or by an LLM. */
+  app.get("/api/mix/search", async (req: Req<Record<string, string>, { q?: string; channel?: string; limit?: string }>) => ({
+    results: await ctx.mix.search(req.query.q ?? "", req.query.channel, Math.min(Math.max(Number(req.query.limit) || 10, 1), 30)),
+  }));
+
+  app.get("/api/mix-channels/:id/logo.svg", async (req: Req<{ id: string }>, reply) => {
+    const c = ctx.mix.store.channel(req.params.id);
+    if (!c) return reply.code(404).send({ error: "No such channel" });
+    return reply.type("image/svg+xml").header("Cache-Control", "public, max-age=3600").send(mixLogo(c.name, c.colour));
+  });
+
+  app.get("/api/mix/videos/:id/file", async (req: Req<{ id: string }>, reply) => {
+    const file = ctx.mix.filePath(req.params.id);
+    if (!file) return reply.code(404).send({ error: "That video isn't on the NAS" });
+    if (config.demo && file.startsWith("/clips/")) return reply.redirect(file);
+    return sendFile(req, reply, file);
+  });
+
+  app.get("/api/mix/videos/:id/thumb.jpg", async (req: Req<{ id: string }>, reply) => {
+    if (config.demo) return reply.type("image/svg+xml").header("Cache-Control", "public, max-age=86400").send(demoArt("still", req.params.id));
+    const file = ctx.mix.thumbPath(req.params.id);
+    if (!file) return reply.code(404).send({ error: "No picture for that video" });
+    reply.header("Cache-Control", "public, max-age=86400");
+    return sendFile(req, reply, file);
+  });
 
   // -------------------------------------------------------------------------
   // Profiles

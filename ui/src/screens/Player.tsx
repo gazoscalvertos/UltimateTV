@@ -125,6 +125,8 @@ export function Player() {
       () => playerState().status,
       (status) => {
         const np = nowPlaying();
+        // A music video channel ran through the videos it was given: tune in again for the next ones.
+        if (status === "ended" && np?.info.live && np.info.queue && np.req.kind === "channel") return void play(np.req);
         if (status !== "ended" || !np || np.info.live) return;
         if (np.info.next) {
           setUpNext(10);

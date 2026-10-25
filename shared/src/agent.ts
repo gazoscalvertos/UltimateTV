@@ -54,6 +54,8 @@ export interface PlayOptions {
   subtitlesByDefault?: boolean;
   /** Night mode: decode audio and compress its dynamic range. */
   nightMode?: boolean;
+  /** More to play after `url`, in order (music video channels). The state is "ended" once the last one ends. */
+  queue?: string[];
 }
 
 /** Where video is drawn: full screen, or the guide's preview window (in CSS pixels of the UI). */

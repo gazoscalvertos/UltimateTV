@@ -304,7 +304,8 @@ export class Ingestor {
    * later sources don't add overlapping ones for it in the same run.
    */
   async refreshGuide(now = Date.now()): Promise<{ programmes: number }> {
-    const channels = this.channels.list(true);
+    // The Hub's own music video channels make their own guide, and a provider's "Clubland TV" must not land on ours.
+    const channels = this.channels.list(true).filter((c) => !c.mix);
     if (channels.length === 0) {
       this.log.warn("No channels yet, so the guide wasn't loaded; it loads once an IPTV source gives channels");
       return { programmes: 0 };

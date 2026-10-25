@@ -194,6 +194,8 @@ export class Player {
   private props: Record<string, unknown> = {};
   private listeners = new Set<(s: PlayerState) => void>();
   private live = false;
+  /** Playing a list (a music video channel): mpv moves through it, and "ended" means the list ran out. */
+  private queued = false;
   private options: PlayOptions | null = null;
   private error: string | undefined;
   private loading = false;
@@ -223,7 +225,11 @@ export class Player {
     this.mpv.on("event", (event: string, msg: { reason?: string; file_error?: string }) => {
       if (event === "end-file") this.log(`mpv end-file: ${msg.reason ?? "?"}${msg.file_error ? ` (${msg.file_error})` : ""}`);
       else if (event === "file-loaded" || event === "seek" || event === "playback-restart") this.log(`mpv ${event}`);
-      if (event === "start-file") this.loading = true;
+      if (event === "start-file") {
+        this.loading = true;
+        // One video of a list failing doesn't stop the channel: mpv goes on to the next.
+        if (this.queued) this.error = undefined;
+      }
       // No frame rate from the Hub (live TV, some addons): match the screen once mpv knows it.
       if (event === "file-loaded" && this.options && !this.options.fps && this.match === undefined) {
         this.match = null;
@@ -259,7 +265,7 @@ export class Player {
     if (!this.options) status = "idle";
     else if (this.error) status = "error";
     else if (this.loading) status = "loading";
-    else if (p["eof-reached"] && !this.live) status = "ended";
+    else if (p["eof-reached"] && (!this.live || this.queued)) status = "ended";
     else if (p["pause"]) status = "paused";
     else if (p["paused-for-cache"] || (p["core-idle"] && !p["pause"])) status = "buffering";
     else status = "playing";
@@ -270,7 +276,7 @@ export class Player {
     const cache = p["demuxer-cache-state"] as { "cache-end"?: number; "cache-duration"?: number; "raw-input-rate"?: number } | undefined;
     if (cache?.["cache-duration"] !== undefined) state.bufferedMs = Math.round(cache["cache-duration"] * 1000);
     if (cache?.["raw-input-rate"]) state.downloadKbps = Math.round((cache["raw-input-rate"] * 8) / 1000);
-    if (this.live && cache?.["cache-end"] !== undefined) state.behindLiveMs = Math.max(0, Math.round((cache["cache-end"] - pos) * 1000));
+    if (this.live && !this.queued && cache?.["cache-end"] !== undefined) state.behindLiveMs = Math.max(0, Math.round((cache["cache-end"] - pos) * 1000));
     const vp = p["video-params"] as VideoParams;
     if (vp?.w && vp.h) {
       state.video = { width: vp.w, height: vp.h, hdr: vp.gamma === "pq" ? "HDR10" : vp.gamma === "hlg" ? "HLG" : "SDR" };
@@ -319,6 +325,7 @@ export class Player {
   async play(o: PlayOptions): Promise<void> {
     this.options = o;
     this.live = o.live;
+    this.queued = Boolean(o.queue?.length);
     this.error = undefined;
     this.loading = true;
     this.hdrSet = false;
@@ -342,6 +349,7 @@ export class Player {
     if (!o.live) opts.push("network-timeout=300");
     await this.setNightMode(Boolean(o.nightMode));
     await this.mpv.command("loadfile", o.url, "replace", -1, opts.join(","));
+    for (const next of o.queue ?? []) await this.mpv.command("loadfile", next, "append").catch(() => undefined);
     for (const s of o.subtitles ?? []) await this.mpv.command("sub-add", s.url, "auto", s.label, s.lang).catch(() => undefined);
     await this.mpv.set("pause", false);
   }
