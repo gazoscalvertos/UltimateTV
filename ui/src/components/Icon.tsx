@@ -57,14 +57,29 @@ const PATHS: Record<string, () => JSX.Element> = {
   restart: () => <path d="M5 12a7 7 0 1 0 2.1-5M5 4.5V9h4.5" />,
   list: () => <path d="M8 7h12M8 12h12M8 17h12M4 7h.5M4 12h.5M4 17h.5" />,
   close: () => <path d="M6 6l12 12M18 6 6 18" />,
-  music: () => (
+  next: () => (
     <>
-      <path d="M9 17.5V6l10-2v11.5" />
-      <circle cx="6.5" cy="17.5" r="2.5" />
-      <circle cx="16.5" cy="15.5" r="2.5" />
+      <path d="M6 6l9 6-9 6z" fill="currentColor" stroke="none" />
+      <path d="M17.5 6v12" />
     </>
   ),
-  shuffle: () => <path d="M4 7h3.5l9 10H20M4 17h3.5l2.5-2.8M13.8 9.8 16.5 7H20M17.5 4.5 20 7l-2.5 2.5M17.5 14.5 20 17l-2.5 2.5" />,
+  prev: () => (
+    <>
+      <path d="M18 6l-9 6 9 6z" fill="currentColor" stroke="none" />
+      <path d="M6.5 6v12" />
+    </>
+  ),
+  shuffle: () => <path d="M4 7h3.5c4 0 5 10 9 10H20M4 17h3.5c1.6 0 2.7-1.6 3.6-3.5M20 7h-3.5c-1.6 0-2.7 1.6-3.6 3.5M17.5 4.5 20 7l-2.5 2.5M17.5 14.5 20 17l-2.5 2.5" />,
+  repeat: () => <path d="M5 11V9.5A2.5 2.5 0 0 1 7.5 7H19M16 4l3 3-3 3M19 13v1.5a2.5 2.5 0 0 1-2.5 2.5H5M8 20l-3-3 3-3" />,
+  repeatOne: () => <path d="M5 11V9.5A2.5 2.5 0 0 1 7.5 7H19M16 4l3 3-3 3M19 13v1.5a2.5 2.5 0 0 1-2.5 2.5H5M8 20l-3-3 3-3M11.5 10.5l1-0.5v4" />,
+  music: () => (
+    <>
+      <path d="M9 17V6l10-2v11" />
+      <circle cx="6.5" cy="17" r="2.5" />
+      <circle cx="16.5" cy="15" r="2.5" />
+    </>
+  ),
+  minus: () => <path d="M5 12h14" />,
 };
 
 export function Icon(props: { name: string; class?: string }) {

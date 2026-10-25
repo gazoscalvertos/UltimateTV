@@ -21,6 +21,14 @@ the commit they were built from in Settings › About, so you can tell exactly w
   shuffle. They're in the guide under Music with a programme for each video. Create your own, add
   artists or songs, take videos off and reshuffle in Settings › Music channels. See
   [docs/music-channels.md](docs/music-channels.md), which also covers the API an AI curator will use.
+- Music tab: Spotify and Deezer on the TV. The box is a Spotify Connect speaker ("UltimateTV" in
+  the Spotify app, via go-librespot, which the box installer now builds). Sign in once with the
+  code the TV shows (spotify.com/pair, Premium needed), then play your playlists, albums, artists
+  and Liked Songs from the remote, with a big Now Playing panel, shuffle, repeat and volume.
+  Deezer opens its own web player over the app, driven by the remote (arrows move a highlight,
+  OK presses, Back returns to the app and the music carries on). Play/Pause controls the music
+  from any screen; a film pauses the music, and Spotify and Deezer pause each other. Not on the
+  Kids profile.
 
 - TV Guide: each channel shows its name next to its logo (the live banner too).
 - TV Guide: the channel lists sit above the grid, so you can pick one with the remote (Up from

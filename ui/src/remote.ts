@@ -7,6 +7,7 @@ import { agent, agentHas, onBox } from "./agent";
 import { hub } from "./api";
 import { onHubEvent } from "./events";
 import { dispatch } from "./keys";
+import { sendWebAppKey, sendWebAppText, webAppTakesRemote } from "./music";
 import { play } from "./player";
 import { errorToast, nav, setShowStats, showStats, toast } from "./store";
 
@@ -51,10 +52,13 @@ export function startRemoteBridge(): void {
       }
     }
     if (e.type === "remote.key" && isAction(e.action)) {
+      // Deezer's player is showing over the UI: the keys are for it.
+      if (webAppTakesRemote()) return sendWebAppKey(e.action);
       // Wake the screen the same way a real key would (the box may also be asleep).
       dispatch(e.action);
     }
     if (e.type === "remote.text") {
+      if (webAppTakesRemote()) return sendWebAppText(e.text);
       const el = document.activeElement;
       if (el instanceof HTMLInputElement) {
         el.value = e.text;

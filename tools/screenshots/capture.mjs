@@ -163,15 +163,15 @@ try {
   // Music video channels: the list in Settings, one channel, watching it and its guide.
   await page.locator(".settings-nav-item", { hasText: "Music channels" }).first().focus();
   await wait(1200);
-  await shot("28-settings-music");
+  await shot("32-settings-music");
   await key("ArrowRight");
   await key("ArrowDown");
   await key("Enter");
   await wait(1500);
-  await shot("29-music-channel");
+  await shot("33-music-channel");
   await key("Enter");
   await wait(2000);
-  await shot("30-music-live");
+  await shot("34-music-live");
   await key("Escape");
   await key("Escape");
   await page.goto(`${base}/app/`);
@@ -181,7 +181,7 @@ try {
   await page.locator(".guide-lists .chip", { hasText: "Music" }).first().focus();
   await key("Enter");
   await wait(1200);
-  await shot("31-music-guide");
+  await shot("35-music-guide");
 
   // Custom guides: pick one from the lists above the grid, then build one.
   await page.goto(`${base}/app/`);
@@ -219,6 +219,28 @@ try {
   await page.locator(".key").first().focus();
   await wait(1500);
   await shot("27-search-channels");
+
+  // Music: what's playing, the Spotify library, then a playlist's songs.
+  await page.goto(`${base}/app/`);
+  await wait(1500);
+  await tab("Music");
+  await wait(1500);
+  await shot("28-music");
+  await key("ArrowDown", 2);
+  await shot("29-music-library");
+  await page.locator(".card", { hasText: "Clubland Classics" }).first().focus();
+  await key("Enter");
+  await wait(1500);
+  await key("ArrowDown", 3);
+  await shot("30-music-playlist");
+  await key("Escape");
+  // Spotify before anyone has signed in on the box.
+  await page.goto(`${base}/app/?demo-music=pair`);
+  await wait(1500);
+  await tab("Music");
+  await wait(1500);
+  await key("ArrowDown");
+  await shot("31-music-spotify-sign-in");
 
   // Play a film for the on-screen display.
   await page.goto(`${base}/app/`);

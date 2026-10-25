@@ -1,7 +1,7 @@
 // App-wide state: where we are, who's watching, toasts and dialogs.
 
 import { createSignal, type JSX } from "solid-js";
-import type { Profile } from "@ultimatetv/shared";
+import type { MusicItem, Profile } from "@ultimatetv/shared";
 
 export type Route =
   | { name: "profiles" }
@@ -13,6 +13,8 @@ export type Route =
   | { name: "details"; id: string }
   | { name: "search" }
   | { name: "planner"; tab?: PlannerTab }
+  | { name: "music" }
+  | { name: "music-list"; item: MusicItem }
   | { name: "settings"; section?: string }
   | { name: "mix-channel"; id: string };
 

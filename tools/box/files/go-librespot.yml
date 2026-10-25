@@ -1,0 +1,22 @@
+# The Spotify Connect receiver (go-librespot), set up by tools/box/install.sh, which writes this
+# file again on every update. Sign-in is kept separately, in state.json.
+device_name: UltimateTV
+device_type: tv
+# Through PipeWire, to the TV's HDMI output like everything else.
+audio_backend: pulseaudio
+# Phones on the Wi-Fi see the box in Spotify's device list.
+zeroconf_enabled: true
+# Until someone signs in, the Music tab shows a code to enter at spotify.com/pair.
+credentials:
+  type: device_auth
+# The Music tab's API, on the box only.
+server:
+  enabled: true
+  address: localhost
+  port: 3678
+  image_size: large
+# Song lists for playlists and albums.
+metadata:
+  enabled: true
+volume_steps: 100
+initial_volume: 70
