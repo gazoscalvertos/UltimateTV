@@ -22,7 +22,7 @@ import type { EventBus } from "./events.js";
 import type { Logger } from "./log.js";
 import { MIX_SEEDS, type MixSeed } from "./mixseeds.js";
 import type { SettingsStore } from "./settings.js";
-import { displayTitle, overlap, toCandidate, type YtDlp, type YtInfo } from "./ytdlp.js";
+import { displayTitle, overlap, songKey, toCandidate, type YtDlp, type YtInfo } from "./ytdlp.js";
 
 const HOUR = 3_600_000;
 /** How far ahead the guide is filled, and when it is topped up. */
@@ -740,12 +740,15 @@ export class MixManager {
     const tried = new Set(this.o.db.getKv<string[]>(`mix-tried:${channelId}`) ?? []);
     const blocked = new Set(this.o.db.getKv<string[]>(`mix-blocked:${channelId}`) ?? []);
     const titles = entries.map((e) => displayTitle(e.video));
+    const songs = new Set(entries.filter((e) => e.video.status !== "failed").map((e) => songKey(e.video)).filter(Boolean));
     let added = 0;
     const usable = (cand: MixCandidate) => {
       if (cand.rejected.length || blocked.has(cand.id)) return false;
       const known = this.store.video(cand.id);
       if (known?.status === "failed" || entries.some((e) => e.video.id === cand.id)) return false;
       // Another upload of a song the channel already has.
+      const key = songKey(cand);
+      if (key && songs.has(key)) return false;
       const t = displayTitle(cand);
       return !titles.some((have) => overlap(have, { title: t }) >= 0.85 && overlap(t, { title: have }) >= 0.85);
     };
@@ -753,6 +756,8 @@ export class MixManager {
       const v = this.store.video(cand.id) ?? this.newVideo(cand);
       this.addToChannel(c, v, origin);
       titles.push(displayTitle(cand));
+      const key = songKey(cand);
+      if (key) songs.add(key);
       entries.push({ video: v, origin, addedAt: now });
       need--;
       added++;

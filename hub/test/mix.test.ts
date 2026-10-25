@@ -9,7 +9,7 @@ import { HubContext } from "../src/context.js";
 import { cropFromLog } from "../src/cropdetect.js";
 import { nextLoop, planSlots } from "../src/mixchannels.js";
 import { buildServer } from "../src/server.js";
-import { cleanVideoTitle, displayTitle, judge, YtDlp, type Run, type YtInfo } from "../src/ytdlp.js";
+import { cleanVideoTitle, displayTitle, judge, songKey, YtDlp, type Run, type YtInfo } from "../src/ytdlp.js";
 import { channel } from "./helpers.js";
 
 const silent = { info() {}, warn() {}, error() {}, debug() {}, child() { return silent; } } as never;
@@ -214,6 +214,16 @@ describe("music video channel work lanes", () => {
       ctx.close();
       await rm(tmp, { recursive: true, force: true });
     }
+  });
+});
+
+describe("telling uploads of the same song apart", () => {
+  it("finds the song whoever uploaded it", () => {
+    expect(songKey({ title: "HUNTR/X - What It Sounds Like (Official Lyric Video) | KPop Demon Hunters" })).toBe("what it sounds like");
+    expect(songKey({ title: "“What It Sounds Like” Clip | KPop Demon Hunters" })).toBe("what it sounds like");
+    expect(songKey({ title: "“Takedown” Song – K-POP DEMON HUNTERS Clip (2025)" })).toBe("takedown");
+    expect(songKey({ title: "anything", track: "Your Idol" })).toBe(songKey({ title: "Saja Boys - Your Idol (MV)" }));
+    expect(songKey({ title: "Wham! - Last Christmas (Official 4K Video)" })).not.toBe(songKey({ title: "Mariah Carey - All I Want For Christmas Is You" }));
   });
 });
 
