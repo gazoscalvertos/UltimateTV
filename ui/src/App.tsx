@@ -11,11 +11,14 @@ import { startEvents, onHubEvent } from "./events";
 import { activeLayer, current, focus, focusFirst } from "./focus";
 import { onBack, useKeys } from "./keys";
 import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, starting, cancelStarting, stopPlayback } from "./player";
+import { activeMusic, musicPlayPause, pauseAllMusic, startMusic } from "./music";
 import { Browse } from "./screens/Browse";
 import { Details } from "./screens/Details";
 import { Guide } from "./screens/Guide";
 import { GuideEditor } from "./screens/GuideEditor";
 import { Home } from "./screens/Home";
+import { Music } from "./screens/Music";
+import { MusicList } from "./screens/MusicList";
 import { Planner } from "./screens/Planner";
 import { Player } from "./screens/Player";
 import { Profiles } from "./screens/Profiles";
@@ -91,6 +94,11 @@ export function App() {
       nav.reset({ name: "home" });
       return true;
     }
+    // Music playing and no video: Play/Pause is the music's, on any screen.
+    if (a === "playPause" && !nowPlaying() && activeMusic()) {
+      void musicPlayPause();
+      return true;
+    }
     if ((a === "channelUp" || a === "channelDown") && !isLive()) {
       const id = liveChannelId() ?? channels()[0]?.id;
       if (id) void play({ kind: "channel", id });
@@ -136,6 +144,7 @@ export function App() {
   onMount(() => {
     startEvents();
     startRemoteBridge();
+    void startMusic();
     void restoreSession();
     onCleanup(
       onHubEvent(async (e) => {
@@ -170,6 +179,7 @@ export function App() {
       agent.onPower(async (active) => {
         if (!active) {
           await stopPlayback();
+          await pauseAllMusic();
           return;
         }
         const { locked } = await hub.profiles().catch(() => ({ locked: false }));
@@ -208,6 +218,12 @@ export function App() {
           </Match>
           <Match when={(() => { const r = nav.current(); return r.name === "planner" ? r : null; })()}>
             {(r) => <Planner {...(r().tab ? { tab: r().tab } : {})} />}
+          </Match>
+          <Match when={nav.current().name === "music"}>
+            <Music />
+          </Match>
+          <Match when={(() => { const r = nav.current(); return r.name === "music-list" ? r : null; })()}>
+            {(r) => <MusicList item={r().item} />}
           </Match>
           <Match when={nav.current().name === "settings"}>
             <Settings />

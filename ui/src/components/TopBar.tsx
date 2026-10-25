@@ -5,13 +5,15 @@ import { clockTime } from "@ultimatetv/shared";
 import { isKids, nav, now, profile, type Route } from "../store";
 import { Icon } from "./Icon";
 
-type Tab = { label: string; route: Route; match: Route["name"] };
+type Tab = { label: string; route: Route; match: Route["name"]; adults?: boolean };
 
 const TABS: Tab[] = [
   { label: "Home", route: { name: "home" }, match: "home" },
   { label: "TV Guide", route: { name: "guide" }, match: "guide" },
   { label: "Films", route: { name: "browse", kind: "movie" }, match: "browse" },
   { label: "TV Shows", route: { name: "browse", kind: "series" }, match: "browse" },
+  // Kids don't get the grown-ups' Spotify account (or its explicit songs).
+  { label: "Music", route: { name: "music" }, match: "music", adults: true },
   { label: "Recordings", route: { name: "planner" }, match: "planner" },
 ];
 
@@ -29,7 +31,7 @@ export function TopBar() {
         <span class="brand-name">UltimateTV</span>
       </div>
       <nav class="tabs">
-        <For each={TABS}>
+        <For each={TABS.filter((t) => !(t.adults && isKids()))}>
           {(t) => (
             <button class="tab" classList={{ active: isActive(t) }} data-focus data-tab onClick={() => !isActive(t) && nav.replace(t.route)}>
               {t.label}

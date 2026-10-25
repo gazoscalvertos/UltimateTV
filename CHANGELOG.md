@@ -15,6 +15,15 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Music tab: Spotify and Deezer on the TV. The box is a Spotify Connect speaker ("UltimateTV" in
+  the Spotify app, via go-librespot, which the box installer now builds). Sign in once with the
+  code the TV shows (spotify.com/pair, Premium needed), then play your playlists, albums, artists
+  and Liked Songs from the remote, with a big Now Playing panel, shuffle, repeat and volume.
+  Deezer opens its own web player over the app, driven by the remote (arrows move a highlight,
+  OK presses, Back returns to the app and the music carries on). Play/Pause controls the music
+  from any screen; a film pauses the music, and Spotify and Deezer pause each other. Not on the
+  Kids profile.
+
 - TV Guide: each channel shows its name next to its logo (the live banner too).
 - TV Guide: the channel lists sit above the grid, so you can pick one with the remote (Up from
   the top row) as well as step through them with Blue. Empty categories are left out and each
