@@ -26,8 +26,8 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 31 | Signing the box in to Spotify with a code, and the QR code for logging in to Deezer from the phone |
 | 32, 33 | Music video channels in Settings, and one channel's videos |
 | 34, 35 | Watching Clubland TV, and the music channels in the guide, a programme per video |
+| 36 | The phone page that logs the TV in to Deezer |
 | 37–39 | Choosing what to watch from the phone: the guide, films, and a film |
 | 40 | The phone's Stats page for the box and the Hub |
 | 41, 42 | The music channel caption: the song playing, then what's coming up next |
-| 36 | The phone page that logs the TV in to Deezer |
 | 43, 44 | A breaking news flash over a film, and writing it on the phone |
