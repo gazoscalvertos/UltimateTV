@@ -539,11 +539,22 @@ export interface HubSoftware {
   date?: string;
   /** The newest commit on main, when GitHub answered. */
   latest?: string;
+  /** How many commits main is ahead of the running Hub, and what they are (merged PRs by title). */
+  behind?: number;
+  changes?: SoftwareChange[];
   /** The update helper is installed on the Docker LXC (tools/hub/update.sh installs it). */
   canUpdate: boolean;
   /** An update has been asked for or is running. */
   updating: boolean;
   lastUpdate?: { at: string; ok: boolean };
+}
+
+export interface SoftwareChange {
+  sha: string;
+  title: string;
+  date?: string;
+  /** The pull request it came from. */
+  pr?: number;
 }
 
 /** What the TV app last told the Hub about the box. */

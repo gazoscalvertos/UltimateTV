@@ -89,6 +89,44 @@ export function Settings(props: { section?: string }) {
     () => section() === "about",
     (open) => (open && agentHas("software") ? agent.software(true).catch(() => null) : Promise.resolve(null)),
   );
+  // The Hub's software, checked against GitHub when About is opened and every 5 minutes after.
+  const [hubSw, { refetch: refetchHubSw }] = createResource(
+    () => section() === "about",
+    (open) => (open ? hub.hubSoftware().catch(() => null) : Promise.resolve(null)),
+  );
+  const hubTimer = window.setInterval(() => section() === "about" && void refetchHubSw(), 5 * 60_000);
+  onCleanup(() => window.clearInterval(hubTimer));
+  const hubState = () => {
+    const sw = hubSw();
+    if (!sw) return hubSw.loading ? "Checking…" : "Couldn't check";
+    if (sw.updating) return "Updating now…";
+    if (!sw.latest) return "Couldn't check";
+    if (sw.commit && sw.latest.startsWith(sw.commit)) return "Up to date";
+    return sw.behind ? `${sw.behind} change${sw.behind === 1 ? "" : "s"} to get` : "Update available";
+  };
+  const hubChanges = () => (hubSw()?.changes ?? []).slice(0, 3).map((c) => c.title).join(" · ");
+  const updateHub = async () => {
+    const sw = hubSw();
+    if (!sw || sw.updating) return;
+    if (!sw.canUpdate) {
+      toast("To update the Hub from here, run sudo bash tools/hub/update.sh --phone-updates on the server once.", "bad");
+      return;
+    }
+    const n = sw.changes?.length ?? 0;
+    const ok = await confirm(
+      "Update the Hub now?",
+      `${n ? `New: ${hubChanges()}${n > 3 ? ` and ${n - 3} more` : ""}. ` : ""}The Hub restarts at the end, so the TV pauses for a minute while it comes back.`,
+      "Update now",
+    );
+    if (!ok) return;
+    try {
+      await hub.updateHub();
+      toast("Updating the Hub. It takes a few minutes.", "good");
+      window.setTimeout(() => void refetchHubSw(), 5000);
+    } catch (err) {
+      errorToast(err);
+    }
+  };
   const updateState = () => {
     const sw = software();
     if (!sw) return software.loading ? "Checking…" : "";
@@ -352,6 +390,7 @@ export function Settings(props: { section?: string }) {
             <Show when={section() === "about"}>
               <h2>About</h2>
               <Row label="Hub" value={`UltimateTV ${status()?.version ?? ""}${status()?.commit ? ` · ${status()!.commit}` : ""}${status()?.builtAt ? ` · ${shortDate(status()!.builtAt!)}` : ""}${status()?.demo ? " · demo mode" : ""}`} />
+              <Row label="Update the Hub" value={hubState()} hint={hubChanges() || "Checks GitHub for the latest code"} icon="download" onSelect={() => void updateHub()} />
               <Row label="Box" value={box() ? `${box()!.hostname ?? box()!.kind} · ${box()!.version}` : ""} />
               <Show when={box()?.kind === "box" && !agentHas("software")}>
                 <Row label="Box software" value="Needs a one-off update" hint="This box's software is too old to update itself from here. Over SSH, run: cd /opt/ultimatetv && sudo git pull && sudo bash tools/box/install.sh" />
