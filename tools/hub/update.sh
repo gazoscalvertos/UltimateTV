@@ -6,8 +6,10 @@
 #
 # The TV picks up the new app the next time it loads (Settings › About › Reload the app, or wait).
 #
-# Run as root (sudo), it also installs a small helper so the phone's Settings page can start this
-# same update: the Hub leaves a request file in its data volume and a systemd path unit runs it.
+# With --phone-updates, run as root, it also installs a small helper so the phone's Settings page
+# can start this same update: the Hub leaves a request file in its data volume and a systemd path
+# unit runs this script as root. It's opt-in because it lets the Hub container start a root job on
+# this LXC (only this update, nothing else). Once installed, later runs keep it up to date.
 
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
@@ -24,8 +26,11 @@ docker compose up -d --build
 # The phone's "Update the Hub" button: a path unit watches for the Hub's request file and runs this
 # script through a runner kept outside the repository (so a pull can't change it mid-run).
 install_helper() {
+  if [ "${1:-}" != "--phone-updates" ] && [ ! -f /etc/systemd/system/ultimatetv-hub-update.path ]; then
+    return 0
+  fi
   if [ "$(id -u)" != 0 ] || ! command -v systemctl > /dev/null; then
-    echo "Tip: run this with sudo once so the phone's Settings page can update the Hub too."
+    echo "The phone update helper needs root: sudo bash $0 --phone-updates" >&2
     return 0
   fi
   local vol dir repo runner
@@ -74,7 +79,7 @@ EOF
   systemctl enable --now ultimatetv-hub-update.path
   date -Iseconds > "$dir/helper"
 }
-install_helper
+install_helper "${1:-}"
 
 port="$(sed -n 's/^HUB_PORT=//p' .env 2>/dev/null)"
 port="${port:-8080}"

@@ -310,7 +310,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.get("/api/software/hub/log", async (_req, reply) => reply.type("text/plain").send((await selfUpdate.log()) || "No update has run from here yet."));
   app.post("/api/software/hub/update", async (_req, reply) => {
     if (!(await selfUpdate.status(false)).canUpdate) {
-      return reply.code(409).send({ error: "The Hub's update helper isn't installed yet. Run tools/hub/update.sh on the server once to install it." });
+      return reply.code(409).send({ error: "The Hub's update helper isn't installed yet. Run `sudo bash tools/hub/update.sh --phone-updates` on the server once to install it." });
     }
     await selfUpdate.request();
     return reply.code(202).send({ ok: true });

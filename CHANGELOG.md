@@ -11,7 +11,7 @@ the commit they were built from in Settings › About, so you can tell exactly w
 - **Box**: Settings › About › Update the box, or wait for Monday 4 am. Over SSH:
   `sudo systemctl start ultimatetv-update`.
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
-  `update.sh` to have been run once with `sudo` (it installs the helper that does the update).
+  the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
 ## Unreleased
 

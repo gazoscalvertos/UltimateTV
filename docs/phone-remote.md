@@ -25,9 +25,12 @@ Tap ⚙ at the top of the remote for the settings page. It has everything the TV
 
 - **Updates and the TV**: what the Hub and the box run, whether there's something newer, and
   buttons to update either one, reload the TV app or refresh channels and the guide.
-- The Hub can only update itself from here once `update.sh` has been run with `sudo` on the Docker
-  LXC (`sudo bash /containers/UltimateTV/tools/hub/update.sh`). That installs a small systemd
-  helper which runs the same update when the phone asks; its output is at `/api/software/hub/log`.
+- The Hub can only update itself from here once the helper is installed on the Docker LXC:
+  `sudo bash /containers/UltimateTV/tools/hub/update.sh --phone-updates`. It adds a systemd path
+  unit and service (`ultimatetv-hub-update`) and a runner script in `/usr/local/lib/ultimatetv`.
+  When the Hub leaves a request file in its data volume, the service runs `update.sh` as root. It
+  can't run anything else, and nothing is added to sudoers. Output: `/api/software/hub/log`.
+  To remove it: `systemctl disable --now ultimatetv-hub-update.path` and delete those files.
 - Once a PIN is set, changes ask for a grown-up's PIN.
 
 In the Android app the phone's Back button returns from settings to the remote.
