@@ -22,6 +22,7 @@ export class PlaybackError extends Error {
 
 /** Remembers the last stream list per title so "play stream N" resolves without asking the addons again. */
 const streamCache = new Map<string, { at: number; streams: StreamCandidate[] }>();
+const STREAM_CACHE_MS = 30 * 60_000;
 
 export class Playback {
   constructor(
@@ -42,6 +43,26 @@ export class Playback {
       case "stream":
         return this.title(req, hubBase, f, req.force ?? false);
     }
+  }
+
+  /** The stream list for a title or episode, from the last 30 minutes if it was looked up then. */
+  private async titleStreams(id: string, episodeId?: string): Promise<StreamCandidate[]> {
+    const key = `${id}|${episodeId ?? ""}`;
+    const cached = streamCache.get(key);
+    if (cached && Date.now() - cached.at < STREAM_CACHE_MS) return cached.streams;
+    const streams = await this.library.streams(id, episodeId ? episodeNumbers(episodeId) : undefined);
+    streamCache.set(key, { at: Date.now(), streams });
+    return streams;
+  }
+
+  /**
+   * Looks up the next episode's versions while the current one plays, so Up Next starts it at
+   * once instead of asking every source (TorBox through AIOStreams takes seconds) at the end.
+   */
+  async prefetch(req: PlaybackRequest, f: ContentFilter = NO_FILTER): Promise<void> {
+    if (req.kind !== "title") return;
+    await this.library.details(req.id, f);
+    await this.titleStreams(req.id, req.episodeId);
   }
 
   /** Kids profiles can only play allowed channels, and programmes and recordings from them. */
@@ -156,10 +177,7 @@ export class Playback {
   private async title(req: PlaybackRequest, hubBase: string, f: ContentFilter, force = false): Promise<PlaybackInfo> {
     if (f.kids) await this.library.details(req.id, f);
     const ep = req.episodeId ? episodeNumbers(req.episodeId) : undefined;
-    const cacheKey = `${req.id}|${req.episodeId ?? ""}`;
-    const cached = streamCache.get(cacheKey);
-    const streams = cached && Date.now() - cached.at < 10 * 60_000 ? cached.streams : await this.library.streams(req.id, ep);
-    streamCache.set(cacheKey, { at: Date.now(), streams });
+    const streams = await this.titleStreams(req.id, req.episodeId);
     const chosen = req.streamId ? streams.find((s) => s.id === req.streamId) : (streams.find((s) => s.ready) ?? streams[0]);
     if (!chosen) throw new PlaybackError("Nothing to play this from yet. Try again later, or check your sources in Settings.", "unavailable");
 
@@ -180,11 +198,22 @@ export class Playback {
     if (artwork) info.artwork = artwork;
     if (info.url.startsWith("/")) info.url = hubBase + info.url;
     if (ep) {
-      const season = details.seasons?.find((s) => s.season === ep.season);
+      // The details may list a season without its episodes (TMDB sends them per season).
+      const seasonOf = async (n: number) => {
+        const listed = details.seasons?.find((s) => s.season === n);
+        if (listed?.episodes.length || !details.seasons?.some((s) => s.season === n)) return listed;
+        return (await this.library.season(req.id, n).catch(() => undefined)) ?? listed;
+      };
+      const season = await seasonOf(ep.season);
       const episode = season?.episodes.find((e) => e.episode === ep.episode);
       info.subtitle = `${episodeLabel(ep.season, ep.episode)}${episode ? ` · ${episode.name}` : ""}`;
-      const next = season?.episodes.find((e) => e.episode === ep.episode + 1) ?? details.seasons?.find((s) => s.season === ep.season + 1)?.episodes[0];
-      if (next) info.next = { kind: "title", id: req.id, episodeId: `s${next.season}e${next.episode}`, name: `${episodeLabel(next.season, next.episode)} · ${next.name}` };
+      const next = season?.episodes.find((e) => e.episode === ep.episode + 1) ?? (await seasonOf(ep.season + 1))?.episodes[0];
+      if (next) {
+        info.next = { kind: "title", id: req.id, episodeId: `s${next.season}e${next.episode}`, name: `${episodeLabel(next.season, next.episode)} · ${next.name}` };
+        const image = next.still ?? details.backdrop;
+        if (image) info.next.image = image;
+        if (next.overview) info.next.overview = next.overview;
+      }
     } else if (details.year) {
       info.subtitle = String(details.year);
     }
