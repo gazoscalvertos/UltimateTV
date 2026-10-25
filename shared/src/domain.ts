@@ -38,6 +38,8 @@ export interface Channel {
   /** Highest feed height, for the UHD tab and badges. */
   maxHeight: number;
   catchupDays: number;
+  /** Set on the Hub's own music video channels (see MixChannel), which have no IPTV feeds. */
+  mix?: { ready: number; target: number };
 }
 
 export interface Programme {
@@ -61,6 +63,8 @@ export interface Programme {
   isFilm: boolean;
   year?: number;
   rating?: string;
+  /** On a music video channel: the video this slot plays. */
+  videoId?: Id;
 }
 
 export interface GuideWindow {
@@ -337,6 +341,8 @@ export interface PlaybackInfo {
   artwork?: string;
   /** Channel logo for the live banner. */
   logo?: string;
+  /** Music video channels: what plays after `url`, in order. The TV tunes in again when it runs out. */
+  queue?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -434,6 +440,8 @@ export interface Settings {
     tvPath: string;
     recordingsPath: string;
     inboxPath: string;
+    /** Where the music video channels keep their videos (one file per video, shared between channels). */
+    musicVideosPath: string;
   };
   recording: {
     paddingBeforeMin: number;
@@ -496,6 +504,8 @@ export type HubEvent =
   | { type: "recording.finished"; recording: Recording }
   | { type: "downloads.changed"; download: Download }
   | { type: "guide.updated" }
+  /** A music video channel changed: videos downloaded or removed, or the channel edited. */
+  | { type: "mix.changed"; channelId?: Id }
   | { type: "reminder"; reminder: Reminder }
   | { type: "connection.conflict"; message: string; recording?: Recording }
   | { type: "settings.changed" }
@@ -530,4 +540,102 @@ export interface BoxState {
   software: BoxSoftware | null;
   stats: boolean;
   reportedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Music video channels: the Hub downloads music videos and plays them as a live channel, shuffled
+// afresh on every pass through the list.
+
+/**
+ * A channel the household (or later an LLM) curates. The Hub fills it to `target` videos: first one
+ * video for each of `picks` ("Artist - Title"), then the best results of `queries`.
+ */
+export interface MixChannel {
+  id: Id;
+  name: string;
+  number: number;
+  /** What the channel is for, in plain words ("2000s UK club anthems"). The brief an LLM curator works from. */
+  brief: string;
+  /** Specific tracks, "Artist - Title", each searched for its official video. */
+  picks: string[];
+  /** Broader searches used to fill up to `target` once the picks are done. */
+  queries: string[];
+  /** Words that rule a video out (in its title), on top of the Hub's own list (lyric videos, reactions …). */
+  exclude: string[];
+  target: number;
+  /** Smallest and largest picture height to download (720 = HD, 2160 = 4K). */
+  minHeight: number;
+  maxHeight: number;
+  /** Longer videos (megamixes, full sets) are left out. */
+  maxMinutes: number;
+  enabled: boolean;
+  /** Who fills it: "search" (picks and queries), or an LLM later. */
+  curator: "search" | "llm";
+  colour: string;
+  createdAt: number;
+  curatedAt?: number;
+  /** Why the last curation stopped short. */
+  error?: string;
+}
+
+export type MixVideoStatus = "queued" | "downloading" | "ready" | "failed";
+
+export interface MixVideo {
+  /** YouTube video id (or yt-dlp's id for other sites). */
+  id: Id;
+  url: string;
+  title: string;
+  artist?: string;
+  track?: string;
+  uploader?: string;
+  durationS: number;
+  height: number;
+  fps?: number;
+  status: MixVideoStatus;
+  progress?: number;
+  path?: string;
+  sizeBytes?: number;
+  error?: string;
+  addedAt: number;
+}
+
+/** A video in a channel, and how it got there. */
+export interface MixEntry {
+  video: MixVideo;
+  /** "pick: Cascada - Everytime We Touch", "query: house music official video", "added by hand", "llm". */
+  origin: string;
+  addedAt: number;
+}
+
+export interface MixChannelInfo extends MixChannel {
+  counts: Record<MixVideoStatus, number>;
+  /** The guide channel's id (mix:…). */
+  channelId: Id;
+}
+
+/** A search result, with whether it would be accepted and why not. */
+export interface MixCandidate {
+  id: Id;
+  url: string;
+  title: string;
+  artist?: string;
+  track?: string;
+  uploader?: string;
+  durationS: number;
+  height: number;
+  views?: number;
+  thumbnail?: string;
+  score: number;
+  /** Empty when the video passes the channel's rules. */
+  rejected: string[];
+}
+
+export interface MixOverview {
+  channels: MixChannelInfo[];
+  /** yt-dlp, which finds and downloads the videos. */
+  downloader: { ok: boolean; version?: string; error?: string };
+  /** What the Hub is doing right now ("Downloading Cascada - Everytime We Touch"). */
+  working?: string;
+  /** Free space where the videos are kept. */
+  diskFreeBytes?: number;
 }

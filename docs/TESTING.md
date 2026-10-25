@@ -63,6 +63,13 @@ Update the box first (Settings › About › Update the box): the update builds 
 2. Every button: arrows, OK, Back, Home, the colour keys, numbers, channel up and down, play/pause, rewind and fast forward, Guide and Info. Note any that do nothing.
 3. Turn the TV off: playback stops. Turn it on: the TV switches to the box.
 
-## 8. The WAF test
+## 8. Music video channels
+
+1. Settings › Music channels: the downloader shows a yt-dlp version, and Clubland TV, House TV and Halloween TV count up their ready videos over the first hour or so (files appear in `Music Videos` on the NAS).
+2. Channel 390 in the guide (Music list) shows one programme per video. Tune in: a video starts part-way through, the next one follows straight on, and the banner's Now matches the song.
+3. Watch for a while: no video repeats until all the channel's videos have played.
+4. Create a channel ("Oasis, Blur, Pulp"); within a few minutes it has videos. Take one off (OK on it): it disappears from the guide and another replaces it.
+
+## 9. The WAF test
 
 Hand over the remote with no instructions and ask for: watch BBC One; find tonight's film and record it; set a series link; carry on the film from yesterday; find a 4K comedy.

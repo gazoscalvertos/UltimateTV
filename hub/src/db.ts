@@ -45,6 +45,18 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX vod_name ON vod(name_norm);
   `,
+  // Music video channels. Their guide rows live in `channels` too (kind 'mix'), so an IPTV refresh,
+  // which replaces the IPTV channels, leaves them alone.
+  `
+  ALTER TABLE channels ADD COLUMN kind TEXT NOT NULL DEFAULT 'iptv';
+  CREATE TABLE mix_channels (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+  CREATE TABLE mix_videos (id TEXT PRIMARY KEY, status TEXT NOT NULL, data TEXT NOT NULL);
+  CREATE TABLE mix_entries (
+    channel_id TEXT NOT NULL, video_id TEXT NOT NULL, origin TEXT NOT NULL, added_at INTEGER NOT NULL,
+    PRIMARY KEY (channel_id, video_id)
+  );
+  CREATE INDEX mix_entries_video ON mix_entries(video_id);
+  `,
 ];
 
 export type Row = Record<string, SQLInputValue>;

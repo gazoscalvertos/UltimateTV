@@ -20,6 +20,12 @@ the commit they were built from in Settings › About, so you can tell exactly w
   login page. The Hub only holds what you typed in memory, for two minutes at most, and hands it
   to the TV once.
 
+- Music video channels: the Hub makes its own live channels from music videos it downloads to the
+  NAS (`Music Videos` folder) in HD or 4K with yt-dlp. It starts with Clubland TV (390), House TV
+  (391) and Halloween TV (392), about 30 videos each, and every pass through a channel is a fresh
+  shuffle. They're in the guide under Music with a programme for each video. Create your own, add
+  artists or songs, take videos off and reshuffle in Settings › Music channels. See
+  [docs/music-channels.md](docs/music-channels.md), which also covers the API an AI curator will use.
 - The Hub serves the Android remote at `/api/remote/app.apk` (CI publishes each build from main),
   and the remote shows a banner when a newer app is out. The app (0.3.0) is now always signed with
   the same key, so updates install over it; uninstall 0.1/0.2 once first.
