@@ -13,6 +13,18 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Starting a film or episode shows a card with the title, what it's waiting on, a moving bar, the
+  seconds so far and the download speed. After 25 s it says TorBox may still be fetching the file
+  (Back cancels). The box now waits up to 5 minutes for a slow TorBox link instead of mpv's 60 s.
+- A version that fails to play says so, with Choose another version and Back (it used to leave a
+  black screen).
+- Series get Versions too: a Versions button for the next episode, and the yellow button on any
+  episode, so IPTV and TorBox copies of an episode can be picked.
+- IPTV copies match more films: copies tagged with the TMDB id and copies that only match by name
+  are both listed, and prefixes such as "4K-FR-HDR - " and "[DE] " are dropped from VOD names.
+- The Versions list scrolls with the selection.
+- Recordings › Series links: each link has a Cancel button to its right.
+
 - The box's sound output is at full volume (the TV's remote sets the volume); it had kept the
   analog output's 40%.
 - Phone remote: pressing an arrow no longer moves buttons around the pad (the pressed look shared
