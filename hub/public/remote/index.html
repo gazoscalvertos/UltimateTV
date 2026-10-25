@@ -64,6 +64,10 @@
   .r4 .mic svg { color: #fff; }
   .mic.listening { animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(61, 139, 255, .25); } }
+  .banner { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, rgba(61,139,255,.22), rgba(0,194,209,.18)); border: 1px solid rgba(61,139,255,.45); font-size: 14px; color: var(--fg); text-decoration: none; }
+  .banner span { flex: 1; }
+  .banner small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-all; }
+  .banner .x { flex: none; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.08); font-size: 16px; }
   .heard { min-height: 1.3em; text-align: center; color: var(--muted); font-size: 13px; margin: -4px 0 0; }
   .heard b { color: var(--fg); font-weight: 600; }
 </style>
@@ -78,6 +82,7 @@
 </header>
 <main>
   <button class="install" id="install">Install as an app</button>
+  <a class="banner" id="app-banner" href="/api/remote/app.apk" hidden><span id="app-banner-text"></span><button class="x" id="app-banner-x" aria-label="Not now">×</button></a>
   <p class="heard" id="heard"></p>
 
   <div class="row r4">
@@ -268,6 +273,40 @@ if (window.UltimateTVApp) {
   b.hidden = false;
   b.addEventListener("click", () => window.UltimateTVApp.changeHub());
 }
+
+// The Android app, served by the Hub: offer it on Android phones, and say when a newer one is out.
+(async () => {
+  const banner = document.getElementById("app-banner");
+  const text = document.getElementById("app-banner-text");
+  const latest = await fetch("app-version.json", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+  if (!latest) return;
+  const appUrl = new URL("/api/remote/app.apk", location.href).href;
+  const inApp = Boolean(window.UltimateTVApp);
+  const mine = inApp ? (window.UltimateTVApp.version ? window.UltimateTVApp.version() : 1) : 0;
+  let dismissed = "";
+  try { dismissed = localStorage.getItem("utv-app-banner") || ""; } catch {}
+  const show = (html) => { text.innerHTML = html; banner.hidden = false; };
+  if (inApp && mine < latest.versionCode) {
+    // 0.1 and 0.2 were signed with a throwaway key, so Android won't install over them.
+    const once = mine < 3 ? "<small>If Android says the app isn't installed, uninstall the old remote first (just this once).</small>" : "";
+    if (window.UltimateTVApp.open) {
+      show(`<b>New remote app ${latest.versionName}</b>: tap to install.${once}`);
+      banner.addEventListener("click", (e) => { e.preventDefault(); window.UltimateTVApp.open(appUrl); });
+    } else {
+      // Older apps can't download: Chrome has to fetch it.
+      show(`<b>New remote app ${latest.versionName}</b>, with voice control. Open this in Chrome to install it:<small>${appUrl}</small>${once}`);
+      banner.addEventListener("click", (e) => e.preventDefault());
+    }
+  } else if (!inApp && /Android/i.test(navigator.userAgent) && dismissed !== String(latest.versionCode)) {
+    show(`<b>Get the Android app</b>: voice control and the phone's volume keys for channels. Tap to download.`);
+  }
+  document.getElementById("app-banner-x").addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    banner.hidden = true;
+    try { localStorage.setItem("utv-app-banner", String(latest.versionCode)); } catch {}
+  });
+})();
 
 // Keep the screen awake while the remote is open.
 async function wake() { try { await navigator.wakeLock?.request("screen"); } catch {} }

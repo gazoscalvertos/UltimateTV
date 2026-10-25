@@ -21,6 +21,7 @@ import { ContentFilter } from "./profiles.js";
 import { ReportStore } from "./reports.js";
 import { JellyfinClient } from "./services/jellyfin.js";
 import { publicSettings, sourceKey } from "./settings.js";
+import { RemoteApp } from "./remoteapp.js";
 import { SelfUpdate } from "./selfupdate.js";
 import { sendFile } from "./streaming.js";
 import { systemReport, type SystemReport } from "./system.js";
@@ -285,6 +286,17 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.get("/api/remote/qr.svg", async (req, reply) => {
     const svg = await QRCode.toString(`${hubBase(req)}/remote/`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
     return reply.type("image/svg+xml").send(svg);
+  });
+
+  const remoteApp = new RemoteApp(config.dataDir);
+  app.get("/api/remote/app.apk", async (_req, reply) => {
+    const apk = await remoteApp.open();
+    if (!apk) return reply.code(503).type("text/plain").send("The Hub couldn't get the app from GitHub. Try again in a minute.");
+    return reply
+      .type("application/vnd.android.package-archive")
+      .header("Content-Length", apk.size)
+      .header("Content-Disposition", 'attachment; filename="ultimatetv-remote.apk"')
+      .send(apk.stream);
   });
 
   /** Voice control: what the phone heard, turned into keys, a channel or a search. */

@@ -12,9 +12,16 @@ On the TV, open **Settings › Phone remote** and scan the code, or open `http:/
 
 The Android app is the same remote in its own app, with two extras: the phone's **volume keys change channel** and the phone's **Back** button is the TV's Back. It keeps the phone's screen on while it's open.
 
-1. Get `app-debug.apk` from the latest **CI** run on GitHub (Actions › CI › the `ultimatetv-remote-apk` artifact), or build it with `cd android && gradle assembleDebug`.
-2. Copy it to the phone and open it. Android asks to allow installing from that app the first time.
+1. On the phone, open `http://192.168.0.19:8095/api/remote/app.apk` in Chrome (or tap **Get the
+   Android app** on the web remote). The Hub fetches the latest build from GitHub for you. It's also
+   in the latest **CI** run's `ultimatetv-remote-apk` artifact, or build it with
+   `cd android && gradle assembleDebug`.
+2. Open the downloaded file. Android asks to allow installing from that app the first time.
 3. Open **UltimateTV Remote**. It suggests `http://192.168.0.19:8095`; change it if the Hub's address is different, and tap **Connect**.
+
+When a newer app is on the Hub, the remote shows a banner: tap it to install the update. From 0.3.0
+every build is signed with the same key (`android/remote.keystore`), so updates install over the
+top. Moving from 0.1 or 0.2 to 0.3 needs the old app uninstalled first, once.
 
 To point it at a different Hub later, use **Change Hub** at the bottom of the remote.
 

@@ -15,6 +15,10 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- The Hub serves the Android remote at `/api/remote/app.apk` (CI publishes each build from main),
+  and the remote shows a banner when a newer app is out. The app (0.3.0) is now always signed with
+  the same key, so updates install over it; uninstall 0.1/0.2 once first.
+
 - TV Guide: each channel shows its name next to its logo (the live banner too).
 - TV Guide: the channel lists sit above the grid, so you can pick one with the remote (Up from
   the top row) as well as step through them with Blue. Empty categories are left out and each
