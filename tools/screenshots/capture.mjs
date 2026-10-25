@@ -257,6 +257,12 @@ try {
   await phone.waitForTimeout(800);
   await phone.screenshot({ path: path.join(out, "25-phone-voice.png") });
   console.log("  25-phone-voice.png");
+  await phone.goto(`${base}/music-login/`);
+  await phone.waitForTimeout(600);
+  await phone.screenshot({ path: path.join(out, "32-phone-deezer-login.png") });
+  console.log("  32-phone-deezer-login.png");
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
   await phone.click("#settings");
   await phone.waitForTimeout(1500);
   await phone.screenshot({ path: path.join(out, "23-phone-setup.png"), fullPage: true });

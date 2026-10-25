@@ -193,6 +193,17 @@ function Services() {
             </Show>
           </span>
         </button>
+        <Show when={webApp().signedIn !== true}>
+          <div class="service-login">
+            <div class="qr-card">
+              <img src="/api/music/login/qr.svg" alt="" />
+            </div>
+            <div class="service-login-text">
+              <h3>Log in to Deezer</h3>
+              <p>Scan this with your phone and type your Deezer email and password there. Deezer opens on the TV and logs in.</p>
+            </div>
+          </div>
+        </Show>
         <Show when={spotify().signedIn}>
           <div class="service-card service-spotify">
             <span class="service-name">Spotify</span>

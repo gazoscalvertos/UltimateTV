@@ -2686,3 +2686,30 @@ kbd.key-blue {
 .music-note {
   margin-top: 0;
 }
+.service-login {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  height: 12rem;
+  padding: 0 1.6rem 0 1rem;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+}
+.service-login .qr-card {
+  width: 10rem;
+  padding: 0.6rem;
+  border-radius: 0.6rem;
+}
+.service-login-text {
+  width: 22rem;
+}
+.service-login-text h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.5rem;
+}
+.service-login-text p {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--muted);
+}

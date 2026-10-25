@@ -15,6 +15,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Deezer login from the phone: the Music tab shows a QR code (until the box is logged in). Scan
+  it, type your Deezer email and password on the phone, and the TV opens Deezer and fills in its
+  login page. The Hub only holds what you typed in memory, for two minutes at most, and hands it
+  to the TV once.
+
 - The Hub serves the Android remote at `/api/remote/app.apk` (CI publishes each build from main),
   and the remote shows a banner when a newer app is out. The app (0.3.0) is now always signed with
   the same key, so updates install over it; uninstall 0.1/0.2 once first.

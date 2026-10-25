@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld("ultimatetv", {
   webAppText: call("webAppText"),
   webAppControl: call("webAppControl"),
   webApp: call("webApp"),
+  webAppLogin: call("webAppLogin"),
   onSpotify: (listener: (s: unknown) => void) => subscribe("agent:spotify", listener),
   onWebApp: (listener: (s: unknown) => void) => subscribe("agent:webapp", listener),
   onState: (listener: (s: unknown) => void) => subscribe("agent:state", listener),

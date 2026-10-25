@@ -3,13 +3,15 @@
 // playlists so the screens can be seen; otherwise Spotify shows as not set up.
 
 import { createSignal } from "solid-js";
-import type { Action, MusicItem, MusicPage, MusicTracks, SpotifyCommand, SpotifyState, WebAppCommand, WebAppId, WebAppState } from "@ultimatetv/shared";
+import type { Action, MusicItem, MusicPage, MusicTracks, SpotifyCommand, SpotifyState, WebAppCommand, WebAppId, WebAppLoginResult, WebAppState } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
 import { hub } from "./api";
+import { onHubEvent } from "./events";
+import { errorToast, toast } from "./store";
 
 type Source = Pick<
   typeof agent,
-  "spotify" | "spotifyLibrary" | "spotifyTracks" | "spotifyPlay" | "spotifyControl" | "onSpotify" | "openWebApp" | "closeWebApp" | "webAppKey" | "webAppText" | "webAppControl" | "webApp" | "onWebApp"
+  "spotify" | "spotifyLibrary" | "spotifyTracks" | "spotifyPlay" | "spotifyControl" | "onSpotify" | "openWebApp" | "closeWebApp" | "webAppKey" | "webAppText" | "webAppControl" | "webAppLogin" | "webApp" | "onWebApp"
 >;
 
 const OFF: SpotifyState = { available: false, signedIn: false, status: "stopped", positionMs: 0, at: 0, volume: 0, shuffle: false, repeat: "off" };
@@ -39,6 +41,9 @@ class NoMusic implements Source {
   async webAppKey() {}
   async webAppText() {}
   async webAppControl() {}
+  async webAppLogin(): Promise<WebAppLoginResult> {
+    throw new Error(onBox ? "Update the box to log in to Deezer from the phone (Settings › About)" : "Deezer opens on the TV box");
+  }
   async webApp(): Promise<WebAppState> {
     return { open: false };
   }
@@ -210,6 +215,24 @@ export async function startMusic(): Promise<void> {
   src.onWebApp(setWebApp);
   setSpotify(await src.spotify().catch(() => OFF));
   setWebApp(await src.webApp().catch(() => ({ open: false })));
+  onHubEvent((e) => {
+    if (e.type === "music.login") void logInFromPhone(e.id);
+  });
+}
+
+/** A Deezer login typed on the phone (Hub /music-login/): fetch it once, and the box fills it in. */
+async function logInFromPhone(id: string): Promise<void> {
+  try {
+    // A box shell from before this: say so rather than fail without a word.
+    if (music() === agent && !agentHas("webAppLogin")) throw new Error("Update the box to log in to Deezer from the phone (Settings › About)");
+    const login = await hub.musicLogin(id);
+    toast("Logging in to Deezer…");
+    const result = await music().webAppLogin("deezer", login);
+    if (result === "no-form") toast("Couldn't find Deezer's login boxes. Log in on the page with the phone remote's keyboard.", "bad");
+    if (result === "partial") toast("Deezer only asked for some of it. Finish on the page with the remote.");
+  } catch (e) {
+    errorToast(e);
+  }
 }
 
 /** Where the Spotify song is now, counting on from the last report while it plays. */

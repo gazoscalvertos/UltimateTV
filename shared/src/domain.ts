@@ -508,7 +508,9 @@ export type HubEvent =
   | { type: "remote.channel"; channelId: string }
   | { type: "remote.said"; text: string }
   /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
-  | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean };
+  | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean }
+  /** A music service login typed on the phone: the TV fetches it once from /api/music/login/:id. */
+  | { type: "music.login"; app: "deezer"; id: string };
 
 /** The Hub's own software, for the phone's settings page. */
 export interface HubSoftware {

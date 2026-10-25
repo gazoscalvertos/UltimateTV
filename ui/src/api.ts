@@ -109,6 +109,7 @@ export type StreamRow = StreamCandidate & { badges: string[] };
 
 export const hub = {
   status: () => api<HubStatus>("/api/status"),
+  musicLogin: (id: string) => api<{ email: string; password: string }>(`/api/music/login/${enc(id)}`),
   profiles: () => api<{ profiles: Profile[]; locked: boolean; current: string | null; admin: boolean }>("/api/profiles"),
   unlock: (id: string, pin?: string) => api<{ token: string; profile: Profile }>(`/api/profiles/${enc(id)}/unlock`, { method: "POST", body: { pin } }),
   createProfile: (name: string, kind: Profile["kind"]) => api<Profile>("/api/profiles", { method: "POST", body: { name, kind } }),
