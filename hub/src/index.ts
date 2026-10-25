@@ -36,5 +36,8 @@ if (!config.demo) {
   setInterval(() => ctx.scheduler.replan(), HOUR);
   ctx.scheduler.start();
   ctx.downloads.start();
+  // Music video channels: Clubland TV, House TV and Halloween TV on a new Hub, then curation and downloads.
+  ctx.mix.seed();
+  void ctx.mix.start().catch((err) => app.log.error({ err: String(err) }, "Music channels failed to start"));
   setInterval(() => void ctx.downloads.tidyInbox().catch(() => undefined), 5 * 60_000);
 }

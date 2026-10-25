@@ -15,6 +15,13 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Music video channels: the Hub makes its own live channels from music videos it downloads to the
+  NAS (`Music Videos` folder) in HD or 4K with yt-dlp. It starts with Clubland TV (390), House TV
+  (391) and Halloween TV (392), about 30 videos each, and every pass through a channel is a fresh
+  shuffle. They're in the guide under Music with a programme for each video. Create your own, add
+  artists or songs, take videos off and reshuffle in Settings › Music channels. See
+  [docs/music-channels.md](docs/music-channels.md), which also covers the API an AI curator will use.
+
 - TV Guide: each channel shows its name next to its logo (the live banner too).
 - TV Guide: the channel lists sit above the grid, so you can pick one with the remote (Up from
   the top row) as well as step through them with Blue. Empty categories are left out and each

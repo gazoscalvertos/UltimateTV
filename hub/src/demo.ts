@@ -9,6 +9,7 @@ import type { StoredFeed } from "./channels.js";
 import type { HubConfig } from "./config.js";
 import type { HubContext } from "./context.js";
 import type { VodEntry } from "./ingest/index.js";
+import { MIX_SEEDS } from "./mixseeds.js";
 import { hash } from "./ingest/xmltv.js";
 
 interface DemoChannel {
@@ -349,6 +350,48 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
     ctx.db.run("INSERT INTO downloads (id, status, created_at, data) VALUES (?, ?, ?, ?)", id, status, now, JSON.stringify({ id, title, kind: "movie", year: 2024, status, progress, bytesDone: Math.round(total * progress), bytesTotal: total, speedBps: status === "downloading" ? 48_000_000 : undefined, createdAt: now, request: { title, kind: "movie" } }));
   dl("demo-d1", "Copper Sky", "downloading", 0.46, 31e9);
   dl("demo-d2", "Glasshouse", "completed", 1, 18e9);
+
+  seedDemoMix(ctx, clip("h264-1080p25-aac.mp4"), now);
+}
+
+/** The three starter music video channels, filled with their picks as if downloaded (playing a test clip). */
+function seedDemoMix(ctx: HubContext, clipUrl: string, now: number): void {
+  const mix = ctx.mix;
+  mix.seed(MIX_SEEDS, now - 3 * 86_400_000);
+  const file = clipUrl.startsWith("/clips/") ? clipUrl : "/clips/h264-1080p25-aac.mp4";
+  for (const c of mix.store.channels()) {
+    const r = rand(c.id);
+    c.picks.slice(0, c.id === "mix:halloween-tv" ? 24 : 30).forEach((pick, i) => {
+      const [artist, track] = pick.split(" - ");
+      const id = `demo${hash(pick)}`;
+      const status = c.id === "mix:halloween-tv" && i >= 20 ? (i === 23 ? "downloading" : "queued") : "ready";
+      if (!mix.store.video(id)) {
+        mix.store.saveVideo({
+          id,
+          url: `https://www.youtube.com/watch?v=${id}`,
+          title: `${pick} (Official Video)`,
+          ...(artist && track ? { artist, track } : {}),
+          uploader: `${artist ?? "Artist"}VEVO`,
+          durationS: 180 + Math.floor(r() * 120),
+          height: r() > 0.4 ? 2160 : 1080,
+          status,
+          ...(status === "ready" ? { path: file } : {}),
+          ...(status === "downloading" ? { progress: 0.62 } : {}),
+          addedAt: now - 2 * 86_400_000 + i,
+        });
+      }
+      mix.store.addEntry(c.id, id, `pick: ${pick}`, now - 2 * 86_400_000 + i);
+    });
+    const fresh = mix.store.channel(c.id)!;
+    fresh.curatedAt = now - 3_600_000;
+    mix.store.saveChannel(fresh);
+    mix.syncRow(c.id);
+    ctx.guide.dropFrom(c.id);
+    ctx.db.run("DELETE FROM kv WHERE key = ?", `mix-bag:${c.id}`);
+    // The schedule starts a while back, so the guide shows what has played.
+    mix.extend(c.id, now - 3 * 3_600_000);
+    mix.extend(c.id, now);
+  }
 }
 
 function demoProgramme(c: Channel, start: number, mins: number, title: string, extra: Partial<Programme>, description: string, year?: number): Programme {

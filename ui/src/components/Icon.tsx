@@ -57,6 +57,14 @@ const PATHS: Record<string, () => JSX.Element> = {
   restart: () => <path d="M5 12a7 7 0 1 0 2.1-5M5 4.5V9h4.5" />,
   list: () => <path d="M8 7h12M8 12h12M8 17h12M4 7h.5M4 12h.5M4 17h.5" />,
   close: () => <path d="M6 6l12 12M18 6 6 18" />,
+  music: () => (
+    <>
+      <path d="M9 17.5V6l10-2v11.5" />
+      <circle cx="6.5" cy="17.5" r="2.5" />
+      <circle cx="16.5" cy="15.5" r="2.5" />
+    </>
+  ),
+  shuffle: () => <path d="M4 7h3.5l9 10H20M4 17h3.5l2.5-2.8M13.8 9.8 16.5 7H20M17.5 4.5 20 7l-2.5 2.5M17.5 14.5 20 17l-2.5 2.5" />,
 };
 
 export function Icon(props: { name: string; class?: string }) {

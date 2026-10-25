@@ -118,6 +118,7 @@ async function start(req: PlaybackRequest, opts: { fullscreen?: boolean; title?:
     title: info.title,
     ...(info.artwork ? { artwork: info.artwork } : {}),
     subtitles: info.externalSubtitles.map((t) => ({ url: t.url, lang: t.lang, label: t.label })),
+    ...(info.queue?.length ? { queue: info.queue } : {}),
     ...(s ? { preferredAudioLang: s.preferredAudioLang, preferredSubtitleLang: s.preferredSubtitleLang, subtitlesByDefault: s.subtitlesByDefault } : {}),
   });
   setNowPlaying({ req, info, since, ...(opts.title ? { title: opts.title } : {}) });

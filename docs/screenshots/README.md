@@ -21,3 +21,5 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 25 | TV Guide showing a custom guide, with the channel lists above the grid |
 | 26 | Building a custom guide: pick channels on the left, put them in order on the right |
 | 27 | Search finds channels by name, with what's on them now |
+| 28, 29 | Music video channels in Settings, and one channel's videos |
+| 30, 31 | Watching Clubland TV, and the music channels in the guide, a programme per video |

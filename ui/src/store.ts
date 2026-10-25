@@ -13,7 +13,8 @@ export type Route =
   | { name: "details"; id: string }
   | { name: "search" }
   | { name: "planner"; tab?: PlannerTab }
-  | { name: "settings" };
+  | { name: "settings"; section?: string }
+  | { name: "mix-channel"; id: string };
 
 export type PlannerTab = "recorded" | "scheduled" | "series" | "downloads";
 

@@ -156,9 +156,32 @@ try {
   await shot("17-profile-menu");
   await key("Escape");
   await key("ArrowLeft");
-  await key("ArrowDown", 4);
+  await key("ArrowDown", 5);
   await wait(800);
   await shot("18-settings-phone-remote");
+
+  // Music video channels: the list in Settings, one channel, watching it and its guide.
+  await page.locator(".settings-nav-item", { hasText: "Music channels" }).first().focus();
+  await wait(1200);
+  await shot("28-settings-music");
+  await key("ArrowRight");
+  await key("ArrowDown");
+  await key("Enter");
+  await wait(1500);
+  await shot("29-music-channel");
+  await key("Enter");
+  await wait(2000);
+  await shot("30-music-live");
+  await key("Escape");
+  await key("Escape");
+  await page.goto(`${base}/app/`);
+  await wait(1500);
+  await tab("TV Guide");
+  await wait(1200);
+  await page.locator(".guide-lists .chip", { hasText: "Music" }).first().focus();
+  await key("Enter");
+  await wait(1200);
+  await shot("31-music-guide");
 
   // Custom guides: pick one from the lists above the grid, then build one.
   await page.goto(`${base}/app/`);
