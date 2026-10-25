@@ -40,7 +40,7 @@ export class Playback {
         return this.recording(req.id, hubBase);
       case "title":
       case "stream":
-        return this.title(req, hubBase, f);
+        return this.title(req, hubBase, f, req.force ?? false);
     }
   }
 
@@ -125,7 +125,7 @@ export class Playback {
     };
   }
 
-  private async title(req: PlaybackRequest, hubBase: string, f: ContentFilter): Promise<PlaybackInfo> {
+  private async title(req: PlaybackRequest, hubBase: string, f: ContentFilter, force = false): Promise<PlaybackInfo> {
     if (f.kids) await this.library.details(req.id, f);
     const ep = req.episodeId ? episodeNumbers(req.episodeId) : undefined;
     const cacheKey = `${req.id}|${req.episodeId ?? ""}`;
@@ -163,7 +163,14 @@ export class Playback {
 
     // IPTV VOD counts against the connection limit, so it goes through the Hub's proxy.
     if (chosen.kind === "xtream") {
-      const token = this.ctx.proxy.register({ url: chosen.url, label: `IPTV: ${details.name}`, iptv: true, force: false });
+      // Ask now rather than letting the player hit a 409: the TV can then offer "Switch anyway".
+      const verdict = this.ctx.guard.check(`vod:${chosen.id}`, "view");
+      if (!verdict.ok && verdict.blockedBy.length > 0 && !force) {
+        const recs = this.ctx.recordings.withStatus("recording");
+        const names = recs.map((r) => `${r.programme.title} is recording on ${r.channelName}`).join(". ");
+        throw new PlaybackError(`${names || "Your IPTV connection is busy"}. Playing this will stop the recording.`, "busy", recs.map((r) => r.id));
+      }
+      const token = this.ctx.proxy.register({ url: chosen.url, label: `IPTV: ${details.name}`, iptv: true, force });
       info.url = `${hubBase}/api/stream/${token}`;
     }
 

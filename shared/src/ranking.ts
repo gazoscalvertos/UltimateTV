@@ -75,6 +75,32 @@ export function parseQuality(text: string): StreamQuality {
 export interface RankingPrefs {
   maxSizeGb: number;
   avoidDvProfile5: boolean;
+  /** ISO 639-2 audio language the household prefers ("eng"); IPTV copies tagged for another language rank last. */
+  preferredLang?: string;
+}
+
+/** IPTV language tags and the ISO 639-2 language they mean. */
+const LANG_TAGS: Record<string, string> = {
+  EN: "eng", UK: "eng", GB: "eng", US: "eng", ENG: "eng",
+  FR: "fre", FRA: "fre", VF: "fre", VOSTFR: "fre",
+  DE: "ger", GER: "ger", ES: "spa", SPA: "spa", LAT: "spa", IT: "ita", ITA: "ita",
+  PT: "por", BR: "por", NL: "dut", PL: "pol", TR: "tur", AR: "ara", RU: "rus",
+  SE: "swe", NO: "nor", DK: "dan", FI: "fin", GR: "gre", RO: "rum", HU: "hun", CZ: "cze",
+  IN: "hin", HIN: "hin", SC: "sco", ALB: "alb", AL: "alb", EX: "yug", EXYU: "yug",
+};
+
+/**
+ * The language an IPTV title is tagged with, from its prefix ("4K-FR-HDR - Title", "|DE| Title",
+ * "EN: Title"). Only the prefix is read, so a film called "IT" isn't taken for Italian.
+ */
+export function languageTag(name: string): string | undefined {
+  const m = /^\s*\|([A-Z]{2,6})\|/.exec(name) ?? /^\s*((?:[A-Z0-9+]{1,6}[-_ ]){0,3}[A-Z0-9+]{1,6})\s*[-:|]\s+\S/.exec(name);
+  if (!m) return undefined;
+  for (const token of m[1]!.split(/[-_ |]/)) {
+    const lang = LANG_TAGS[token];
+    if (lang) return lang;
+  }
+  return undefined;
 }
 
 const KIND_SCORE: Record<SourceKind, number> = {
@@ -128,6 +154,9 @@ export function scoreStream(c: StreamCandidate, prefs: RankingPrefs): number {
   score += AUDIO_SCORE[q.audio];
   if (q.remux) score += 5;
   if (q.cam) score -= 500;
+  // A dubbed copy in another language is never what was wanted, however good the picture.
+  const lang = prefs.preferredLang ? (c.lang ?? languageTag(c.detail ?? "")) : undefined;
+  if (lang && lang !== prefs.preferredLang) score -= 200;
   if (q.sizeBytes && prefs.maxSizeGb > 0 && q.sizeBytes > prefs.maxSizeGb * 1024 ** 3) score -= 80;
   return score;
 }

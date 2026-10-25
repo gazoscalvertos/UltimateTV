@@ -32,6 +32,23 @@ describe("Jellyfin", () => {
     expect((f.calls[0]!.init!.headers as Record<string, string>).Authorization).toContain('Client="UltimateTV"');
   });
 
+  it("finds library items by TMDB id itself, since newer Jellyfin ignores the filter", async () => {
+    const f = fakeFetch({
+      "/Items/m2": { Id: "m2", Name: "Heat", Type: "Movie" },
+      "IncludeItemTypes=Movie,Series&Fields=ProviderIds": {
+        Items: [
+          { Id: "m1", Name: "28 Days Later", Type: "Movie", ProviderIds: { Tmdb: "170" } },
+          { Id: "m2", Name: "Heat", Type: "Movie", ProviderIds: { Tmdb: "949", Imdb: "tt0113277" } },
+        ],
+      },
+    });
+    const jf = new JellyfinClient({ url: "http://jf:8096", userId: "u1", token: "tok" }, f.impl);
+    expect((await jf.byProviderId("tmdb", "949", "Movie"))?.Id).toBe("m2");
+    expect(await jf.byProviderId("tmdb", "1054867", "Movie")).toBeUndefined();
+    expect(await jf.byProviderId("tmdb", "949", "Series")).toBeUndefined();
+    expect(f.calls.filter((c) => c.url.includes("Fields=ProviderIds"))).toHaveLength(1);
+  });
+
   it("maps items to titles with TMDB ids and direct-play URLs", () => {
     const jf = new JellyfinClient({ url: "http://jf:8096", userId: "u1", token: "tok" });
     const item: JfItem = { Id: "abc", Name: "Heat", Type: "Movie", ProductionYear: 1995, ProviderIds: { Tmdb: "949" }, ImageTags: { Primary: "t1" }, BackdropImageTags: ["b1"], UserData: { PlayedPercentage: 40 } };

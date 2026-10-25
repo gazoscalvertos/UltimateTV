@@ -176,6 +176,8 @@ export interface StreamCandidate {
   headers?: Record<string, string>;
   /** Can be saved to the NAS. */
   downloadable: boolean;
+  /** ISO 639-2 language the source tags this copy with (IPTV "FR", "DE" …), when it says. */
+  lang?: string;
   score?: number;
 }
 
