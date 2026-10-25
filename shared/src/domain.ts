@@ -436,7 +436,18 @@ export interface IptvSourceStatus {
   error?: string;
 }
 
+/** What the app is called until it's renamed on the phone's settings page. */
+export const DEFAULT_APP_NAME = "UltimateTV";
+
+/** A name for the app as typed: trimmed, one line, at most 24 characters; blank gives the default. */
+export function cleanAppName(name: string | undefined): string {
+  const clean = (name ?? "").replace(/\s+/g, " ").trim().slice(0, 24).trim();
+  return clean || DEFAULT_APP_NAME;
+}
+
 export interface Settings {
+  /** The app's name everywhere it's shown (the TV, the phone remote, the setup pages, Spotify). */
+  appName: string;
   iptv: IptvSource[];
   xmltvUrls: string[];
   jellyfin?: { url: string; userId: string; token: string; serverName?: string };
@@ -473,6 +484,7 @@ export interface Settings {
 
 /** Settings as the UI sees them: secrets replaced by a flag saying they're set. */
 export interface PublicSettings {
+  appName: string;
   iptv: { id: Id; kind: "xtream" | "m3u"; name: string; connections: number; host: string; status?: IptvSourceStatus }[];
   xmltvCount: number;
   jellyfin?: { url: string; serverName?: string };

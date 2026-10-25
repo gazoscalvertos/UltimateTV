@@ -26,7 +26,7 @@ import { Player } from "./screens/Player";
 import { Profiles } from "./screens/Profiles";
 import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
-import { closeTopDialog, nav, setProfile, toast, toasts } from "./store";
+import { closeTopDialog, nav, setAppName, setProfile, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { startRemoteBridge } from "./remote";
 
@@ -153,8 +153,11 @@ export function App() {
     startPhoneBridge();
     void startMusic();
     void restoreSession();
+    const loadAppName = () => hub.settings().then((s) => setAppName(s.appName), () => undefined);
+    void loadAppName();
     onCleanup(
       onHubEvent(async (e) => {
+        if (e.type === "settings.changed") void loadAppName();
         if (e.type === "reminder") {
           const r = e.reminder;
           const pick = await choose({

@@ -85,11 +85,11 @@
 <main>
   <a class="back" href="/remote/" id="back-to-remote">‹ Remote</a>
   <header>
-    <div class="logo">U</div>
-    <h1>UltimateTV settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
+    <div class="logo" id="brand-mark">U</div>
+    <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#playback">Picture and sound</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -119,6 +119,15 @@
       <button class="secondary small" type="button" id="refresh">Refresh channels and guide</button>
       <button class="secondary small" type="button" id="sw-check">Check again</button>
     </div>
+  </section>
+
+  <section id="name">
+    <h2>App name</h2>
+    <p class="hint">What the app is called on the TV, the phone remote, these pages and in the Spotify app. Leave it blank to go back to UltimateTV.</p>
+    <form id="name-form">
+      <label>Name</label><input name="appName" maxlength="24" autocomplete="off" placeholder="UltimateTV">
+      <button>Rename</button>
+    </form>
   </section>
 
   <section id="playback">
@@ -557,6 +566,8 @@ async function load() {
   loadProfiles().catch(() => {});
   loadMix().catch(() => {});
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);
+  showAppName(s.appName);
+  $("#name-form").appName.value = s.appName;
   $("#st-channels").textContent = st.channels;
   $("#st-programmes").textContent = st.programmes > 9999 ? Math.round(st.programmes / 1000) + "k" : st.programmes;
   $("#st-connections").textContent = `${st.connections.used}/${st.connections.limit}`;
@@ -617,6 +628,18 @@ $("#iptv-form").onsubmit = async (e) => {
   try { await api("/api/settings/iptv", { method: "POST", body }); f.reset(); toast("Added. Channels and the guide are loading, which can take a few minutes."); load(); }
   catch (err) { toast(err.message, true); }
   finally { if (button) button.disabled = false; }
+};
+
+function showAppName(name) {
+  if (!name) return;
+  $("#brand-mark").textContent = name.slice(0, 1).toUpperCase();
+  $("#brand-name").textContent = name;
+  document.title = `${name} settings`;
+}
+$("#name-form").onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target;
+  try { const s = await api("/api/settings", { method: "PUT", body: { appName: f.appName.value } }); showAppName(s.appName); f.appName.value = s.appName; toast(`Renamed to ${s.appName}. The TV shows it straight away.`); }
+  catch (err) { toast(err.message, true); }
 };
 
 $("#guide-form").onsubmit = async (e) => {

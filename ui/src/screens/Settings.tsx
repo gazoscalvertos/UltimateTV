@@ -10,7 +10,7 @@ import { askPin, askText, choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
-import { errorToast, nav, setShowStats, showStats, toast } from "../store";
+import { appName, errorToast, setAppName, nav, setShowStats, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 
 function Row(props: { label: string; value?: JSX.Element; hint?: string; onSelect?: () => void; icon?: string }) {
@@ -153,6 +153,18 @@ export function Settings(props: { section?: string }) {
     }
   };
   onCleanup(onHubEvent((e) => (e.type === "profiles.changed" ? void refetchProfiles() : undefined)));
+
+  const rename = async () => {
+    const name = await askText("Call the app", appName());
+    if (name === undefined || name.trim() === appName()) return;
+    try {
+      const saved = await hub.saveSettings({ appName: name });
+      setAppName(saved.appName);
+      toast(`Renamed to ${saved.appName}`, "good");
+    } catch (e) {
+      errorToast(e);
+    }
+  };
 
   const save = async (patch: Partial<Pick<PublicSettings, "recording" | "playback">>) => {
     try {
@@ -389,7 +401,8 @@ export function Settings(props: { section?: string }) {
 
             <Show when={section() === "about"}>
               <h2>About</h2>
-              <Row label="Hub" value={`UltimateTV ${status()?.version ?? ""}${status()?.commit ? ` · ${status()!.commit}` : ""}${status()?.builtAt ? ` · ${shortDate(status()!.builtAt!)}` : ""}${status()?.demo ? " · demo mode" : ""}`} />
+              <Row label="App name" value={appName()} hint="Rename the app on the TV, the phone remote and Spotify" icon="edit" onSelect={() => void rename()} />
+              <Row label="Hub" value={`${appName()} ${status()?.version ?? ""}${status()?.commit ? ` · ${status()!.commit}` : ""}${status()?.builtAt ? ` · ${shortDate(status()!.builtAt!)}` : ""}${status()?.demo ? " · demo mode" : ""}`} />
               <Row label="Update the Hub" value={hubState()} hint={hubChanges() || "Checks GitHub for the latest code"} icon="download" onSelect={() => void updateHub()} />
               <Row label="Box" value={box() ? `${box()!.hostname ?? box()!.kind} · ${box()!.version}` : ""} />
               <Show when={box()?.kind === "box" && !agentHas("software")}>
