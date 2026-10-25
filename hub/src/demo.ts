@@ -369,16 +369,19 @@ function seedDemoMix(ctx: HubContext, clipUrl: string, now: number): void {
       const id = `demo${hash(pick)}`;
       const status = c.id === "mix:halloween-tv" && i >= 20 ? (i === 23 ? "downloading" : "queued") : "ready";
       if (!mix.store.video(id)) {
+        const durationS = 180 + Math.floor(r() * 120);
+        const height = r() > 0.4 ? 2160 : 1080;
         mix.store.saveVideo({
           id,
           url: `https://www.youtube.com/watch?v=${id}`,
           title: `${pick} (Official Video)`,
           ...(artist && track ? { artist, track } : {}),
           uploader: `${artist ?? "Artist"}VEVO`,
-          durationS: 180 + Math.floor(r() * 120),
-          height: r() > 0.4 ? 2160 : 1080,
+          durationS,
+          height,
           status,
-          ...(status === "ready" ? { path: file } : {}),
+          // About what YouTube's VP9/AV1 runs to: 4K near 2.5 MB a second, 1080p near 0.6.
+          ...(status === "ready" ? { path: file, sizeBytes: Math.round(durationS * (height >= 2160 ? 2.5e6 : 0.6e6)) } : {}),
           ...(status === "downloading" ? { progress: 0.62 } : {}),
           addedAt: now - 2 * 86_400_000 + i,
         });

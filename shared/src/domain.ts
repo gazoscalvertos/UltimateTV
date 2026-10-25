@@ -670,6 +670,8 @@ export interface MixEntry {
 
 export interface MixChannelInfo extends MixChannel {
   counts: Record<MixVideoStatus, number>;
+  /** Space the channel's downloaded videos take on the NAS. */
+  readyBytes: number;
   /** The guide channel's id (mix:…). */
   channelId: Id;
 }
@@ -699,4 +701,6 @@ export interface MixOverview {
   working?: string;
   /** Free space where the videos are kept. */
   diskFreeBytes?: number;
+  /** Downloaded videos across every channel (a video on two channels counts once), and their size. */
+  totals: { ready: number; bytes: number };
 }

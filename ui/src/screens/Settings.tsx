@@ -3,7 +3,7 @@
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
 import type { Certification, MixChannelInfo, Profile, PublicSettings } from "@ultimatetv/shared";
-import { CERTIFICATIONS } from "@ultimatetv/shared";
+import { CERTIFICATIONS, formatBytes } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -51,7 +51,7 @@ export function Settings(props: { section?: string }) {
   const [box] = createResource(() => agent.info());
   const [section, setSection] = createSignal(props.section ?? "profiles");
   const [mix, { refetch: refetchMix }] = createResource(
-    () => section() === "music",
+    () => section() === "music" || section() === "about",
     (open) => (open ? hub.mixChannels().catch(() => null) : Promise.resolve(null)),
   );
   let mixTimer: number | undefined;
@@ -274,6 +274,11 @@ export function Settings(props: { section?: string }) {
                       hint={m().working ?? (m().downloader.ok ? "Idle" : undefined)}
                       value={<Status ok={m().downloader.ok} text={m().downloader.ok ? `yt-dlp ${m().downloader.version ?? ""}` : (m().downloader.error ?? "Not working")} />}
                     />
+                    <Row
+                      label="Downloaded"
+                      hint={m().diskFreeBytes !== undefined ? `${formatBytes(m().diskFreeBytes!)} free on the NAS` : undefined}
+                      value={`${m().totals.ready} video${m().totals.ready === 1 ? "" : "s"} · ${formatBytes(m().totals.bytes)}`}
+                    />
                     <For each={m().channels}>
                       {(c) => {
                         const waiting = c.counts.queued + c.counts.downloading;
@@ -281,7 +286,7 @@ export function Settings(props: { section?: string }) {
                           <Row
                             label={`${c.number}  ${c.name}`}
                             icon="music"
-                            hint={[`${c.counts.ready} of ${c.target} videos ready`, waiting ? `${waiting} to download` : "", c.enabled ? "" : "turned off", c.error ?? ""].filter(Boolean).join(" · ")}
+                            hint={[`${c.counts.ready} of ${c.target} videos downloaded (${formatBytes(c.readyBytes)})`, waiting ? `${waiting} to download` : "", c.enabled ? "" : "turned off", c.error ?? ""].filter(Boolean).join(" · ")}
                             value={<Status ok={c.enabled && c.counts.ready > 0} text={c.counts.ready ? "On air" : waiting ? "Filling up" : "No videos"} />}
                             onSelect={() => openMix(c)}
                           />
@@ -289,9 +294,6 @@ export function Settings(props: { section?: string }) {
                       }}
                     </For>
                     <Row label="Create a channel" icon="plus" hint="Name it and say what it should play; the Hub finds the videos" onSelect={() => void createMix()} />
-                    <Show when={m().diskFreeBytes !== undefined}>
-                      <Row label="Space on the NAS" value={`${Math.round(m().diskFreeBytes! / 1024 ** 3)} GB free`} />
-                    </Show>
                   </>
                 )}
               </Show>
@@ -377,6 +379,9 @@ export function Settings(props: { section?: string }) {
               <Row label="TV remote (HDMI-CEC)" value={<Status ok={Boolean(box()?.cec?.connected)} text={box()?.cec?.connected ? "Connected" : "Not connected"} />} />
               <Show when={status()?.diskTotalBytes}>
                 <Row label="NAS space" value={`${Math.round((status()!.diskFreeBytes ?? 0) / 1024 ** 3)} GB free of ${Math.round(status()!.diskTotalBytes! / 1024 ** 3)} GB`} />
+              </Show>
+              <Show when={mix()}>
+                {(m) => <Row label="Music videos" hint={m().channels.map((c) => `${c.name} ${c.counts.ready} (${formatBytes(c.readyBytes)})`).join(" · ")} value={`${m().totals.ready} · ${formatBytes(m().totals.bytes)}`} />}
               </Show>
               <Row label="Reload the app" icon="restart" onSelect={() => void agent.reload()} />
             </Show>
