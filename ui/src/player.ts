@@ -129,6 +129,8 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
     ...(info.artwork ? { artwork: info.artwork } : {}),
     subtitles: info.externalSubtitles.map((t) => ({ url: t.url, lang: t.lang, label: t.label })),
     ...(info.queue?.length ? { queue: info.queue } : {}),
+    ...(info.fill ? { fill: true } : {}),
+    ...(info.crops ? { crops: info.crops } : {}),
     ...(s ? { preferredAudioLang: s.preferredAudioLang, preferredSubtitleLang: s.preferredSubtitleLang, subtitlesByDefault: s.subtitlesByDefault } : {}),
   });
   setNowPlaying({ req, info, since, ...(opts.title ? { title: opts.title } : {}), ...(opts.quiet ? { quiet: true } : {}) });

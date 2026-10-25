@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { MixOverview, PlaybackInfo } from "@ultimatetv/shared";
 import type { HubConfig } from "../src/config.js";
 import { HubContext } from "../src/context.js";
+import { cropFromLog } from "../src/cropdetect.js";
 import { nextLoop, planSlots } from "../src/mixchannels.js";
 import { buildServer } from "../src/server.js";
 import { cleanVideoTitle, displayTitle, judge, type Run, type YtInfo } from "../src/ytdlp.js";
@@ -51,6 +52,19 @@ describe("shuffling a channel", () => {
     expect(planSlots(0, 5000, new Map([["a", 1000]]), { bag: ["gone", "a"], loop: ["gone", "a"] }, undefined).slots.map((s) => s.videoId)).toEqual(["a", "a", "a", "a", "a"]);
     expect(planSlots(0, 5000, new Map(), { bag: [], loop: [] }, undefined).slots).toEqual([]);
     expect(nextLoop(["a", "b"], ["a", "b"], "a", seeded(2))[0]).toBe("b");
+  });
+});
+
+describe("finding baked-in black bars", () => {
+  const log = (crop: string) => `Stream #0:0: Video: vp9 (Profile 0), yuv420p(tv), 3840x2160, SAR 1:1 DAR 16:9, 25 fps\n[Parsed_cropdetect_0 @ 0x1] x1:0 x2:3839 y1:0 y2:2159 w:3840 h:2160 x:0 y:0 pts:1 t:0.04 crop=3840:2160:0:0\n[Parsed_cropdetect_0 @ 0x1] x1:480 crop=${crop}\n`;
+  it("crops a 4:3 video pillarboxed into 16:9, and a letterbox", () => {
+    expect(cropFromLog(log("2880:2160:480:0"))).toBe("2880x2160+480+0");
+    expect(cropFromLog(log("3840:1600:0:280"))).toBe("3840x1600+0+280");
+  });
+  it("leaves full-frame video and slivers alone", () => {
+    expect(cropFromLog(log("3840:2160:0:0"))).toBe("");
+    expect(cropFromLog(log("3840:2140:0:10"))).toBe("");
+    expect(cropFromLog("no video here")).toBe("");
   });
 });
 
@@ -112,7 +126,7 @@ describe("music video channels in the Hub", () => {
 
   beforeAll(async () => {
     tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-"));
-    ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: fakeYtDlp().run, mixPauseMs: 0, mixMinFreeBytes: 0 });
+    ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: fakeYtDlp().run, mixPauseMs: 0, mixMinFreeBytes: 0, mixCropDetect: async (f) => (f.includes("BetaTwo") ? "2880x2160+480+0" : "") });
   });
   afterAll(async () => {
     ctx.close();
@@ -155,6 +169,11 @@ describe("music video channels in the Hub", () => {
     const progs = ctx.guide.onChannel(c.id, now, 9);
     expect(progs[0]!.videoId).toBe(tuned!.first.videoId);
     expect(new Set(progs.slice(0, 3).map((p) => p.videoId)).size).toBe(3);
+    // The caption's titles and the per-video crops line up with what plays.
+    expect(tuned!.titles.length).toBe(tuned!.queue.length + 1);
+    expect(tuned!.titles[0]).toBe(progs[0]!.title);
+    const order = [tuned!.first.videoId, ...tuned!.queue];
+    expect(tuned!.crops).toEqual(order.map((id) => (id === "BetaTwo0" ? "2880x2160+480+0" : "")));
   });
 
   it("taking a video off reshuffles without it and doesn't pick it again", async () => {

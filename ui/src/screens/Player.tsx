@@ -10,6 +10,7 @@ import { hub } from "../api";
 import { DialogFrame } from "../components/Dialog";
 import { StartingCard } from "../components/Starting";
 import { Icon } from "../components/Icon";
+import { MusicCaption } from "../components/MusicCaption";
 import { openProgramme, recordFlow } from "../components/ProgrammeCard";
 import { Progress } from "../components/Rail";
 import { useKeys } from "../keys";
@@ -146,6 +147,15 @@ export function Player() {
   const bannerChannelId = () => browse() ?? liveChannelId();
   const [nn, { refetch }] = createResource(bannerChannelId, async (id) => (await hub.nowNext([id])).items[0] as NowNext | undefined);
   createEffect(on(() => Math.floor(now() / 60_000), () => void refetch(), { defer: true }));
+  // Music channels change programme every few minutes: look again as each one ends.
+  createEffect(() => {
+    const end = nn()?.now?.end;
+    if (!end) return;
+    const t = window.setTimeout(() => void refetch(), Math.max(1000, end - Date.now() + 500));
+    onCleanup(() => clearTimeout(t));
+  });
+  const [tunedAt, setTunedAt] = createSignal(Date.now());
+  createEffect(on(nowPlaying, () => setTunedAt(Date.now())));
 
   // Up Next when an episode ends.
   createEffect(
@@ -425,6 +435,19 @@ export function Player() {
 
       <Show when={digits()}>
         <div class="digits-overlay">{digits()}</div>
+      </Show>
+
+      {/* Music channel caption, while the banner is down */}
+      <Show when={live() && !osd() && nowPlaying()?.info.titles}>
+        {(titles) => (
+          <MusicCaption
+            titles={titles()}
+            schedule={browsing() ? undefined : nn()}
+            channelName={channelById(liveChannelId())?.name ?? ""}
+            tunedAt={tunedAt()}
+            {...(channelById(liveChannelId())?.logo ? { logo: channelById(liveChannelId())!.logo! } : {})}
+          />
+        )}
       </Show>
 
       {/* Live banner */}
