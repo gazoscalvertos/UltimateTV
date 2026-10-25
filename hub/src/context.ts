@@ -5,6 +5,7 @@ import path from "node:path";
 import type { Settings } from "@ultimatetv/shared";
 import { ChannelStore } from "./channels.js";
 import { ConnectionGuard } from "./connections.js";
+import type { CropDetect } from "./cropdetect.js";
 import { Db } from "./db.js";
 import { GuideStore } from "./epg.js";
 import { EventBus } from "./events.js";
@@ -42,6 +43,8 @@ export interface ContextOptions {
   mixPauseMs?: number;
   /** Free space music video downloads leave on the NAS (tests: 0). */
   mixMinFreeBytes?: number;
+  /** Finds black bars in downloaded music videos (tests pass a fake). */
+  mixCropDetect?: CropDetect;
   demo?: boolean;
 }
 
@@ -139,6 +142,7 @@ export class HubContext {
       ...(opts.demo ? { demo: true } : {}),
       ...(opts.mixPauseMs !== undefined ? { pauseMs: opts.mixPauseMs } : {}),
       ...(opts.mixMinFreeBytes !== undefined ? { minFreeBytes: opts.mixMinFreeBytes } : {}),
+      ...(opts.mixCropDetect ? { cropDetect: opts.mixCropDetect } : {}),
     });
     this.settings.onChange((s) => this.rebuildClients(s));
     this.rebuildClients(this.settings.get());

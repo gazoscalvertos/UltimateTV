@@ -18,6 +18,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 - Updating the Hub shows what's new: the Hub asks GitHub what's on main since the code it runs and
   lists the merged changes by name, with the count, on the phone's Updates and in the TV's
   Settings › About (which can now update the Hub too). Both check again every 5 minutes while open.
+- Settings shows how many music videos have downloaded and the space they take, per channel and
+  in total: on the TV (Music channels and About) and at the top of the phone's settings page.
+- Music video channels fill the screen: black bars baked into a video are cropped off, and any
+  other shape is zoomed to fill. A caption at the bottom shows the artist and song as each video
+  starts, and what's coming up next for its last five seconds. Needs a Hub and a box update.
 - The phone remote's arrows now move around the TV's Settings (and any screen that was still
   loading): focus no longer jumps back to the first item after a key from the phone or HDMI-CEC.
 - The phone's settings page has a Music channels section: add, edit, turn off, reshuffle and delete

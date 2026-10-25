@@ -335,7 +335,8 @@ export interface PlaybackInfo {
   /** Intro/credits markers from Jellyfin media segments. */
   skip: { kind: "intro" | "recap" | "credits"; startMs: number; endMs: number }[];
   /** The next episode, for autoplay. */
-  next?: PlaybackRequest & { name: string };
+  /** What plays next (the next episode), with its still and summary for the Up Next card. */
+  next?: PlaybackRequest & { name: string; image?: string; overview?: string };
   /** Shown before an interrupting action, e.g. a recording that would stop. */
   warning?: string;
   /** Still or backdrop shown while the stream starts. */
@@ -344,6 +345,12 @@ export interface PlaybackInfo {
   logo?: string;
   /** Music video channels: what plays after `url`, in order. The TV tunes in again when it runs out. */
   queue?: string[];
+  /** "Artist – Song" for `url` and then each of `queue`, for the music channel's caption. */
+  titles?: string[];
+  /** Fill the screen, cropping any black bars (music videos come in every shape). */
+  fill?: boolean;
+  /** Black bars baked into each video (mpv video-crop "WxH+X+Y", "" for none), in the order of `titles`. */
+  crops?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -674,6 +681,8 @@ export interface MixEntry {
 
 export interface MixChannelInfo extends MixChannel {
   counts: Record<MixVideoStatus, number>;
+  /** Space the channel's downloaded videos take on the NAS. */
+  readyBytes: number;
   /** The guide channel's id (mix:…). */
   channelId: Id;
 }
@@ -703,4 +712,6 @@ export interface MixOverview {
   working?: string;
   /** Free space where the videos are kept. */
   diskFreeBytes?: number;
+  /** Downloaded videos across every channel (a video on two channels counts once), and their size. */
+  totals: { ready: number; bytes: number };
 }

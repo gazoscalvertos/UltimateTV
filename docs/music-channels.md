@@ -26,6 +26,17 @@ video reshuffles everything after the one on now.
 When the TV tunes in, it starts the video on now from where the schedule has got to, then plays
 the next six hours of videos straight on (mpv's playlist), and tunes in again when they run out.
 
+Every video fills the screen. After each download the Hub runs ffmpeg's cropdetect over the
+keyframes to find black bars baked into the upload (a 4:3 video pillarboxed into 16:9, a film-style
+letterbox) and the box crops them off (mpv `video-crop`). Whatever is left that isn't 16:9 is
+zoomed to fill (mpv `panscan=1`), trimming the edges rather than showing bars. Videos downloaded
+before this are checked once when the Hub starts.
+
+Like a music TV channel, a caption slides in at the bottom left as each video starts: the
+channel's logo, **Now playing**, the artist and the song. For the last five seconds of each video
+it shows **Coming up next** with the next artist and song. On the box the timing comes from mpv
+(which video of the playlist is on, and how long it has left); in a browser it follows the guide.
+
 ## On the TV
 
 **Settings › Music channels** shows each channel, how many videos are ready and what the Hub is

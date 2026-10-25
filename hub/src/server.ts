@@ -669,6 +669,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // -------------------------------------------------------------------------
   // Playback
 
+  // The TV asks for the next episode while the current one plays; the answer comes straight back.
+  app.post("/api/play/prefetch", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest>) => {
+    void playback.prefetch(req.body, filterOf(req)).catch((err) => ctx.log.warn({ err: String(err) }, "Next episode lookup failed"));
+    return { ok: true };
+  });
   app.post("/api/play", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest & { force?: boolean }>) => playback.resolve(req.body, hubBase(req), filterOf(req)));
 
   app.post("/api/progress", async (req: Req<Record<string, string>, Record<string, string>, { key: string; positionMs: number; durationMs?: number; event?: "start" | "progress" | "stop"; paused?: boolean; title?: TitleRef }>) => {

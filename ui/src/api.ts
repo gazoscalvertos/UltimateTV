@@ -150,6 +150,7 @@ export const hub = {
   deleteReminder: (id: string) => api<{ ok: true }>(`/api/reminders/${enc(id)}`, { method: "DELETE" }),
 
   play: (req: PlaybackRequest & { force?: boolean }) => api<PlaybackInfo>("/api/play", { method: "POST", body: req }),
+  prefetch: (req: PlaybackRequest) => api<{ ok: boolean }>("/api/play/prefetch", { method: "POST", body: req }),
   progress: (body: { key: string; positionMs: number; durationMs?: number; event?: "start" | "progress" | "stop"; paused?: boolean; title?: TitleRef }) =>
     api<{ ok: true }>("/api/progress", { method: "POST", body }),
 

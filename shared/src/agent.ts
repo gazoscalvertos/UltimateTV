@@ -26,6 +26,8 @@ export interface PlayerState {
   status: "idle" | "loading" | "playing" | "paused" | "buffering" | "ended" | "error";
   positionMs: number;
   durationMs?: number;
+  /** Which of a list (PlayOptions.queue) is playing: 0 is `url`, 1 the first of `queue`. */
+  playlistPos?: number;
   /** For live TV: how far behind live the player is (pause live). */
   behindLiveMs?: number;
   /** Seconds of buffer the player holds ahead/behind, for the pause-live bar. */
@@ -56,6 +58,10 @@ export interface PlayOptions {
   nightMode?: boolean;
   /** More to play after `url`, in order (music video channels). The state is "ended" once the last one ends. */
   queue?: string[];
+  /** Zoom to fill the screen, cropping the edges rather than showing black bars. */
+  fill?: boolean;
+  /** Per file crop ("WxH+X+Y", "" for none): `url` first, then each of `queue`. */
+  crops?: string[];
 }
 
 /** Where video is drawn: full screen, or the guide's preview window (in CSS pixels of the UI). */

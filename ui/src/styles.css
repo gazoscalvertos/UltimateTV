@@ -1423,26 +1423,49 @@ kbd.key-blue {
 }
 .up-next {
   position: absolute;
-  right: 6rem;
-  bottom: 6rem;
-  width: 34rem;
-  padding: 1.8rem 2rem;
+  right: 4rem;
+  bottom: 4rem;
+  width: 30rem;
   border-radius: 1rem;
+  overflow: hidden;
   background: rgba(8, 12, 22, 0.92);
   box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.55);
+  animation: rise 0.3s var(--ease);
+}
+.up-next-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.up-next-body {
+  padding: 1.1rem 1.4rem 1.2rem;
 }
 .up-next-label {
   margin: 0;
   color: var(--accent-2);
+  font-size: 1rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 .up-next h3 {
-  font-size: 1.6rem;
-  margin: 0.4rem 0 1rem;
+  font-size: 1.3rem;
+  margin: 0.3rem 0 0.4rem;
 }
-.up-next p:last-child {
+.up-next-overview {
+  margin: 0 0 0.6rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.up-next-keys {
   margin: 0;
   color: var(--muted);
+  font-size: 0.95rem;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -2750,4 +2773,86 @@ kbd.key-blue {
   margin: 0;
   font-size: 1.05rem;
   color: var(--muted);
+}
+
+/* Music channel caption: a music TV lower third, bottom left over the video. */
+.music-caption {
+  position: absolute;
+  left: 5rem;
+  bottom: 5rem;
+  display: flex;
+  align-items: stretch;
+  max-width: 70rem;
+  filter: drop-shadow(0 0.8rem 2rem rgba(0, 0, 0, 0.55));
+  animation: caption-in 0.6s var(--ease);
+}
+@keyframes caption-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4rem);
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+.music-caption-tag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 8.5rem;
+  padding: 0.8rem 1.2rem;
+  background: var(--accent);
+  border-radius: 0.6rem 0 0 0.6rem;
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.music-caption-tag img {
+  max-width: 9rem;
+  max-height: 4.4rem;
+  border-radius: 0.3rem;
+}
+.music-caption-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 1rem 2.4rem 1.1rem 1.8rem;
+  background: linear-gradient(90deg, rgba(6, 9, 16, 0.92), rgba(6, 9, 16, 0.78));
+  border-left: 0.35rem solid var(--accent-2);
+  border-radius: 0 0.6rem 0.6rem 0;
+}
+.music-caption-label {
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent-2);
+}
+.music-caption.next .music-caption-label {
+  color: var(--amber);
+}
+.music-caption.next .music-caption-body {
+  border-left-color: var(--amber);
+}
+.music-caption-artist {
+  margin-top: 0.2rem;
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.music-caption-song {
+  font-size: 1.7rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #e3e8f2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
