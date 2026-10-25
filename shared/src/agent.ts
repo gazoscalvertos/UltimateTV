@@ -1,6 +1,9 @@
 // The contract between the TV UI and whatever plays video: the Electron box shell (mpv) on the
 // mini PC, or an HTML <video> fallback when the UI runs in a normal browser for development.
 
+import type { Action } from "./keys.js";
+import type { MusicPage, MusicTracks, SpotifyCommand, SpotifyState, WebAppCommand, WebAppId, WebAppState } from "./music.js";
+
 export interface AudioTrack {
   id: number;
   lang?: string;
@@ -142,6 +145,24 @@ export interface BoxAgent {
   software(check: boolean): Promise<BoxSoftware | null>;
   /** Installs the latest app and OS updates, then restarts the TV app. */
   update(): Promise<void>;
+
+  // Music (see music.ts). Older box shells lack these: check with agentHas first.
+  spotify(): Promise<SpotifyState>;
+  spotifyLibrary(kind: "playlists" | "albums" | "artists", offset: number): Promise<MusicPage>;
+  spotifyTracks(uri: string): Promise<MusicTracks>;
+  /** Plays a playlist, album or artist, from `skipTo` (a track in it) or shuffled. */
+  spotifyPlay(uri: string, options?: { skipTo?: string; shuffle?: boolean }): Promise<void>;
+  spotifyControl(command: SpotifyCommand): Promise<void>;
+  onSpotify(listener: (state: SpotifyState) => void): () => void;
+  /** Shows a music service's web player over the UI; Back on the remote hides it again. */
+  openWebApp(id: WebAppId): Promise<void>;
+  closeWebApp(): Promise<void>;
+  /** A key from the phone remote, for the web player while it shows. */
+  webAppKey(action: Action): Promise<void>;
+  webAppText(text: string): Promise<void>;
+  webAppControl(command: WebAppCommand): Promise<void>;
+  webApp(): Promise<WebAppState>;
+  onWebApp(listener: (state: WebAppState) => void): () => void;
 }
 
 declare global {

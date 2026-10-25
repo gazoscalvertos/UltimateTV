@@ -197,6 +197,28 @@ try {
   await wait(1500);
   await shot("27-search-channels");
 
+  // Music: what's playing, the Spotify library, then a playlist's songs.
+  await page.goto(`${base}/app/`);
+  await wait(1500);
+  await tab("Music");
+  await wait(1500);
+  await shot("28-music");
+  await key("ArrowDown", 2);
+  await shot("29-music-library");
+  await page.locator(".card", { hasText: "Clubland Classics" }).first().focus();
+  await key("Enter");
+  await wait(1500);
+  await key("ArrowDown", 3);
+  await shot("30-music-playlist");
+  await key("Escape");
+  // Spotify before anyone has signed in on the box.
+  await page.goto(`${base}/app/?demo-music=pair`);
+  await wait(1500);
+  await tab("Music");
+  await wait(1500);
+  await key("ArrowDown");
+  await shot("31-music-spotify-sign-in");
+
   // Play a film for the on-screen display.
   await page.goto(`${base}/app/`);
   await wait(1500);

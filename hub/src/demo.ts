@@ -147,7 +147,7 @@ function wrap(text: string, max: number): string[] {
   return lines.slice(0, 3);
 }
 
-/** Generated artwork: posters, backdrops, episode stills and channel logos. */
+/** Generated artwork: posters, backdrops, episode stills, channel logos and album covers. */
 export function demoArt(kind: string, seed: string): string {
   const [dark, mid, accent] = palette(seed);
   const n = parseInt(hash(seed + kind), 36);
@@ -176,6 +176,9 @@ export function demoArt(kind: string, seed: string): string {
     const lines = wrap((t?.name ?? seed).toUpperCase(), 12);
     const text = lines.map((l, i) => `<text x="32" y="${470 + (i - lines.length + 1) * 52}" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-weight="800" font-size="46" letter-spacing="1" fill="#fff">${esc(l)}</text>`).join("");
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600"><defs><linearGradient id="g" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="${mid}"/><stop offset="1" stop-color="${dark}"/></linearGradient><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0.45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.75"/></linearGradient></defs><rect width="400" height="600" fill="url(#g)"/>${circles(400, 600, 4)}${horizon(400, 600)}<rect width="400" height="600" fill="url(#s)"/>${text}<text x="32" y="530" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" fill="${accent}" font-weight="600">${t ? `${t.year} · ${esc(t.genres[0] ?? "")}` : ""}</text></svg>`;
+  }
+  if (kind === "cover") {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${mid}"/><stop offset="1" stop-color="${dark}"/></linearGradient></defs><rect width="600" height="600" fill="url(#g)"/>${circles(600, 600, 4)}<circle cx="300" cy="300" r="${90 + (n % 60)}" fill="none" stroke="${accent}" stroke-width="10" opacity="0.6"/></svg>`;
   }
   // backdrop / still
   const w = kind === "still" ? 640 : 1920;
