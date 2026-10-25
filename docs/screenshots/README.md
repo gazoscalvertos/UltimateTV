@@ -17,3 +17,7 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 19 | Playing a film, with the on-screen display |
 | 20, 21 | The Kids profile: only kids' channels and titles |
 | 22, 23 | The phone remote and the setup page on a phone |
+| 24 | The playback stats overlay (Blue while playing) |
+| 25 | TV Guide showing a custom guide, with the channel lists above the grid |
+| 26 | Building a custom guide: pick channels on the left, put them in order on the right |
+| 27 | Search finds channels by name, with what's on them now |

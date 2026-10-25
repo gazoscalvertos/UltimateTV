@@ -13,6 +13,16 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- TV Guide: each channel shows its name next to its logo (the live banner too).
+- TV Guide: the channel lists sit above the grid, so you can pick one with the remote (Up from
+  the top row) as well as step through them with Blue. Empty categories are left out and each
+  list shows how many channels it has.
+- Custom guides: build your own guide with your choice and order of channels (TV Guide › New
+  guide), keep as many as you like, and make any list the one a profile's guide opens on (Make
+  default). Channel up and down on live TV stay within the list you were browsing.
+- Search finds channels by name with or without spaces ("bbcone", "itv 1") and shows what's on
+  them now.
+
 - The box's sound output is at full volume (the TV's remote sets the volume); it had kept the
   analog output's 40%.
 - Phone remote: pressing an arrow no longer moves buttons around the pad (the pressed look shared

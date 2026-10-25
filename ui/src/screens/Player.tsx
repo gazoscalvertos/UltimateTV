@@ -370,9 +370,10 @@ export function Player() {
         <div class="banner">
           <div class="banner-channel">
             <span class="banner-number">{channelById(bannerChannelId())?.number}</span>
-            <Show when={channelById(bannerChannelId())?.logo} fallback={<span class="banner-name">{channelById(bannerChannelId())?.name}</span>}>
-              <img class="banner-logo" src={channelById(bannerChannelId())!.logo} alt="" />
+            <Show when={channelById(bannerChannelId())?.logo}>
+              <img class="banner-logo" src={channelById(bannerChannelId())!.logo} alt="" onError={(e) => (e.currentTarget.style.display = "none")} />
             </Show>
+            <span class="banner-name">{channelById(bannerChannelId())?.name}</span>
             <Show when={browsing()}>
               <span class="flag">Press OK to watch</span>
             </Show>

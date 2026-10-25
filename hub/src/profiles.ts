@@ -96,7 +96,7 @@ export class ProfileStore {
     return this.pub(p);
   }
 
-  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels">> & { pin?: string | null }): Profile | undefined {
+  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide">> & { pin?: string | null }): Profile | undefined {
     const list = this.all();
     const p = list.find((x) => x.id === id);
     if (!p) return undefined;
@@ -105,6 +105,10 @@ export class ProfileStore {
     if (patch.maxCertification && CERTIFICATIONS.includes(patch.maxCertification)) p.maxCertification = patch.maxCertification;
     if (patch.channelCategories) p.channelCategories = patch.channelCategories;
     if (patch.allowedChannels) p.allowedChannels = patch.allowedChannels;
+    if (patch.defaultGuide !== undefined) {
+      if (patch.defaultGuide) p.defaultGuide = String(patch.defaultGuide);
+      else delete p.defaultGuide;
+    }
     if (patch.pin === null) {
       delete p.pinHash;
       delete p.pinSalt;

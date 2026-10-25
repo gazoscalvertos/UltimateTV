@@ -6,7 +6,7 @@ import fastifyStatic from "@fastify/static";
 import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import QRCode from "qrcode";
-import type { Certification, Channel, ChannelCategory, GuideWindow, HubStatus, IptvSource, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
+import type { Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import type { HubConfig } from "./config.js";
@@ -83,6 +83,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "POST /api/profiles",
     "PATCH /api/profiles/:id",
     "DELETE /api/profiles/:id",
+    "POST /api/guides",
+    "PATCH /api/guides/:id",
+    "DELETE /api/guides/:id",
     "POST /api/downloads",
     "DELETE /api/downloads/:id",
   ]);
@@ -325,8 +328,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const now = Date.now();
     const from = Number(req.query.from ?? now - 30 * 60_000);
     const to = Number(req.query.to ?? from + 4 * 3_600_000);
-    let channels = filterOf(req).channels(ctx.channels.list());
-    channels = filterCategory(channels, req.query.category);
+    let channels = ctx.guides.channelsFor(req.query.category, filterOf(req).channels(ctx.channels.list()));
     if (req.query.channels) {
       const ids = new Set(req.query.channels.split(","));
       channels = channels.filter((c) => ids.has(c.id));
@@ -336,12 +338,47 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   app.get("/api/nownext", async (req: Req<Record<string, string>, { ids?: string; category?: string }>) => {
-    let channels = filterCategory(filterOf(req).channels(ctx.channels.list()), req.query.category);
+    let channels = ctx.guides.channelsFor(req.query.category, filterOf(req).channels(ctx.channels.list()));
     if (req.query.ids) {
       const ids = new Set(req.query.ids.split(","));
       channels = channels.filter((c) => ids.has(c.id));
     }
     return { items: library.nowNextFor(channels) };
+  });
+
+  /** The lists the guide can show this profile, its custom guides and which one it opens on. */
+  app.get("/api/guides", async (req): Promise<GuideChoices> => {
+    const who = viewer(req);
+    const channels = who.filter.channels(ctx.channels.list());
+    return { choices: ctx.guides.choices(channels), custom: ctx.guides.list(), default: ctx.guides.resolveDefault(who.profile?.defaultGuide, channels) };
+  });
+
+  app.post("/api/guides", async (req: Req<Record<string, string>, Record<string, string>, { name?: string; channels?: string[] }>, reply) => {
+    const g = ctx.guides.create(req.body ?? {});
+    ctx.events.emit({ type: "guide.updated" });
+    return reply.code(201).send(g);
+  });
+
+  app.patch("/api/guides/:id", async (req: Req<{ id: string }, Record<string, string>, { name?: string; channels?: string[] }>, reply) => {
+    const g = ctx.guides.update(req.params.id, req.body ?? {});
+    if (!g) return reply.code(404).send({ error: "That guide has been deleted" });
+    ctx.events.emit({ type: "guide.updated" });
+    return g;
+  });
+
+  app.delete("/api/guides/:id", async (req: Req<{ id: string }>, reply) => {
+    if (!ctx.guides.remove(req.params.id)) return reply.code(404).send({ error: "That guide has been deleted" });
+    ctx.events.emit({ type: "guide.updated" });
+    return { ok: true };
+  });
+
+  /** Which list the current profile's guide opens on. Anyone can choose their own, Kids included. */
+  app.put("/api/guides/default", async (req: Req<Record<string, string>, Record<string, string>, { guide?: string }>, reply) => {
+    const who = viewer(req);
+    if (!who.profile) return reply.code(400).send({ error: "Choose a profile first" });
+    const p = ctx.profiles.update(who.profile.id, { defaultGuide: String(req.body?.guide ?? "") });
+    ctx.events.emit({ type: "profiles.changed" });
+    return p;
   });
 
   app.get("/api/channels/:id/programmes", async (req: Req<{ id: string }, { from?: string; limit?: string }>) => {
@@ -605,13 +642,6 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.decorate("hub", ctx);
   return app as unknown as FastifyInstance & { hub: HubContext };
-}
-
-function filterCategory(channels: Channel[], category?: string): Channel[] {
-  if (!category || category === "all") return channels;
-  if (category === "favourites") return channels.filter((c) => c.favourite);
-  if (category === "uhd") return channels.filter((c) => c.maxHeight >= 2160);
-  return channels.filter((c) => c.category === (category as ChannelCategory));
 }
 
 function marksFor(ctx: HubContext, from: number, to: number): Record<string, ProgrammeMark> {

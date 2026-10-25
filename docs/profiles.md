@@ -8,6 +8,19 @@ The TV starts with two profiles, **Family** (adult) and **Kids**. Add, rename or
 - **Films and TV:** only titles rated up to the profile's limit (PG by default, and anything up to 15 in the profile's options). Titles with no rating are shown only if their genres include Kids or Family. Jellyfin titles use Jellyfin's own parental rating.
 - **No settings, no deleting recordings, no downloads, no series link changes.** The Hub refuses these for a Kids profile even if someone tries from a browser.
 
+## Custom guides
+
+Above the TV Guide's grid are the channel lists: all channels, favourites, your custom guides and
+each category. Press Up from the top row to pick one, or Blue to step through them.
+
+- **New guide** builds one: OK on a channel on the left adds or removes it; on the right, OK picks
+  a channel up so Up and Down move it, and Red takes it out. Blue changes the category on the
+  left, Yellow adds everything it shows, and the number keys jump to a channel.
+- **Make default** saves the list you're on as the one this profile's guide opens on. Each profile
+  keeps its own, Kids included.
+- Custom guides are shared by the household; only adults can build, change or delete them. A Kids
+  profile only sees the kids' channels in them.
+
 ## The PIN
 
 Set a 4-digit PIN on the adult profile (**Settings › Profiles and PIN › Family › Set a PIN**). Then:

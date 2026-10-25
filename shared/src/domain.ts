@@ -73,6 +73,33 @@ export interface GuideWindow {
 
 export type ProgrammeMark = "recording" | "scheduled" | "series" | "reminder";
 
+/** A guide the household built by hand: its own choice and order of channels. */
+export interface CustomGuide {
+  id: Id;
+  name: string;
+  /** Channel ids in the order the guide shows them. */
+  channels: Id[];
+}
+
+/**
+ * One of the channel lists the guide can show: everything, favourites, a category or a custom
+ * guide. `id` is what `/api/guide?category=` takes.
+ */
+export interface GuideChoice {
+  id: string;
+  label: string;
+  kind: "all" | "favourites" | "category" | "custom";
+  /** Channels in it that this profile can see. */
+  count: number;
+}
+
+export interface GuideChoices {
+  choices: GuideChoice[];
+  custom: CustomGuide[];
+  /** The list this profile's guide opens on ("" for all channels). */
+  default: string;
+}
+
 export interface NowNext {
   channel: Channel;
   now?: Programme;
@@ -355,6 +382,8 @@ export interface Profile {
   channelCategories: ChannelCategory[];
   /** Kids: extra channels allowed by hand. */
   allowedChannels: Id[];
+  /** The channel list the guide opens on: a GuideChoice id ("" or missing = all channels). */
+  defaultGuide?: string;
 }
 
 // ---------------------------------------------------------------------------

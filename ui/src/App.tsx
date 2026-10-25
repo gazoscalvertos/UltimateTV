@@ -13,6 +13,7 @@ import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, stopPl
 import { Browse } from "./screens/Browse";
 import { Details } from "./screens/Details";
 import { Guide } from "./screens/Guide";
+import { GuideEditor } from "./screens/GuideEditor";
 import { Home } from "./screens/Home";
 import { Planner } from "./screens/Planner";
 import { Player } from "./screens/Player";
@@ -175,6 +176,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "guide"}>
             <Guide />
+          </Match>
+          <Match when={(() => { const r = nav.current(); return r.name === "guide-edit" ? r : null; })()}>
+            {(r) => <GuideEditor {...(r().id ? { id: r().id } : {})} />}
           </Match>
           <Match when={nav.current().name === "player"}>
             <Player />

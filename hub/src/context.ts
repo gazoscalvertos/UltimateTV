@@ -9,6 +9,7 @@ import { Db } from "./db.js";
 import { GuideStore } from "./epg.js";
 import { EventBus } from "./events.js";
 import type { Fetch } from "./http.js";
+import { CustomGuideStore } from "./guides.js";
 import { Ingestor } from "./ingest/index.js";
 import type { Logger } from "./log.js";
 import { ProfileStore } from "./profiles.js";
@@ -49,6 +50,7 @@ export class HubContext {
   readonly ingest: Ingestor;
   readonly progress: ProgressStore;
   readonly profiles: ProfileStore;
+  readonly guides: CustomGuideStore;
   readonly proxy: StreamProxy;
   readonly downloads: DownloadManager;
   readonly log: Logger;
@@ -76,6 +78,7 @@ export class HubContext {
     this.recordings = new RecordingStore(this.db);
     this.progress = new ProgressStore(this.db);
     this.profiles = new ProfileStore(this.db);
+    this.guides = new CustomGuideStore(this.db);
     this.proxy = new StreamProxy(this.guard, this.fetchImpl);
     this.ingest = new Ingestor(this.db, this.settings, this.channels, this.guide, this.log, this.fetchImpl);
     const settingsStore = this.settings;

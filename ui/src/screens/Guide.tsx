@@ -1,9 +1,10 @@
 // The TV guide, Sky-style: live TV keeps playing in the corner, details of the highlighted
 // programme beside it, and a grid of channels against time. Left/right walk through programmes,
-// up/down through channels, digits jump to a channel number, Record records.
+// up/down through channels, digits jump to a channel number, Record records. Above the grid, the
+// channel lists: all channels, favourites, custom guides and categories (Blue steps through them).
 
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import type { Channel, GuideWindow, Programme, ProgrammeMark } from "@ultimatetv/shared";
+import type { Channel, GuideChoice, GuideWindow, Programme, ProgrammeMark } from "@ultimatetv/shared";
 import { clockTime, dayLabel, digitOf, episodeLabel } from "@ultimatetv/shared";
 import { agent } from "../agent";
 import { hub } from "../api";
@@ -11,10 +12,10 @@ import { Icon } from "../components/Icon";
 import { openProgramme, recordFlow, timeRange } from "../components/ProgrammeCard";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
-import { move } from "../focus";
+import { focus, move } from "../focus";
 import { useKeys } from "../keys";
-import { channels as allChannels, liveChannelId, nowPlaying, play, stopPlayback } from "../player";
-import { nav, now } from "../store";
+import { channels as allChannels, guideList, liveChannelId, nowPlaying, play, setGuideList, setListChannels, stopPlayback } from "../player";
+import { errorToast, isKids, nav, now, profile, toast } from "../store";
 
 const SLOT = 30 * 60_000;
 const SPAN = 2 * 3_600_000; // Two hours across the grid, as on Sky.
@@ -22,19 +23,24 @@ const SPAN = 2 * 3_600_000; // Two hours across the grid, as on Sky.
 const MAX_ROWS = 7;
 const floorSlot = (ms: number) => Math.floor(ms / SLOT) * SLOT;
 
-const CATEGORIES: { id: string; label: string }[] = [
-  { id: "", label: "All channels" },
-  { id: "favourites", label: "Favourites" },
-  { id: "entertainment", label: "Entertainment" },
-  { id: "films", label: "Films" },
-  { id: "sport", label: "Sport" },
-  { id: "news", label: "News" },
-  { id: "documentaries", label: "Documentaries" },
-  { id: "kids", label: "Kids" },
-];
-
 export function Guide() {
-  const [category, setCategory] = createSignal("");
+  const [lists, { refetch: refetchLists }] = createResource(() => hub.guides());
+  const choices = (): GuideChoice[] => lists()?.choices ?? [{ id: "", label: "All channels", kind: "all", count: 0 }];
+  // The list this profile last looked at in this session, else its saved default. Null until known,
+  // so the grid doesn't load all channels first and then jump.
+  const remembered = guideList();
+  const [category, setCategoryRaw] = createSignal<string | null>(remembered && remembered.profileId === (profile()?.id ?? null) ? remembered.id : null);
+  const setCategory = (id: string) => {
+    setCategoryRaw(id);
+    setGuideList({ profileId: profile()?.id ?? null, id });
+  };
+  createEffect(() => {
+    const l = lists();
+    if (!l) return;
+    const c = category();
+    // First visit, or the list shown has been deleted: open on the profile's default.
+    if (c === null || !l.choices.some((x) => x.id === c)) setCategory(l.default);
+  });
   const [winStart, setWinStart] = createSignal(floorSlot(Date.now()));
   const [anchor, setAnchor] = createSignal(Date.now());
   const [row, setRow] = createSignal(0);
@@ -43,7 +49,11 @@ export function Guide() {
   const [rows, setRows] = createSignal(MAX_ROWS);
   const [loadRange, setLoadRange] = createSignal({ from: floorSlot(Date.now()) - 3 * 3_600_000, to: floorSlot(Date.now()) + 9 * 3_600_000 });
   const [guide, { refetch }] = createResource(
-    () => ({ ...loadRange(), category: category() }),
+    () => {
+      // If the lists can't load, fall back to all channels rather than an empty guide.
+      const c = category() ?? (lists.error ? "" : null);
+      return c === null ? false : { ...loadRange(), category: c };
+    },
     (k) => hub.guide(k.from, k.to, k.category || undefined),
   );
   // Keep the last good window while a new one loads, so the grid never blanks.
@@ -52,9 +62,17 @@ export function Guide() {
     const g = guide();
     if (g) setData(g);
   });
-  onCleanup(onHubEvent((e) => (e.type === "recordings.changed" || e.type === "guide.updated" ? void refetch() : undefined)));
+  onCleanup(
+    onHubEvent((e) => {
+      if (e.type === "recordings.changed" || e.type === "guide.updated") void refetch();
+      if (e.type === "guide.updated" || e.type === "profiles.changed") void refetchLists();
+    }),
+  );
 
   const channels = createMemo<Channel[]>(() => data()?.channels ?? []);
+  createEffect(() => setListChannels(channels()));
+  const currentChoice = () => choices().find((c) => c.id === category());
+  const isDefault = () => (lists()?.default ?? "") === category();
   const visible = createMemo(() => channels().slice(top(), top() + rows()));
   const channel = () => channels()[row()];
 
@@ -165,8 +183,30 @@ export function Guide() {
 
   let digitTimer: number | undefined;
   const jumpTo = (n: number) => {
-    const i = channels().findIndex((c) => c.number >= n);
+    // A custom guide has its own order, so look for the exact number before the nearest one above.
+    const exact = channels().findIndex((c) => c.number === n);
+    const i = exact >= 0 ? exact : channels().findIndex((c) => c.number >= n);
     if (i >= 0) setRow(i);
+  };
+
+  const pickList = (id: string) => {
+    if (id !== category()) {
+      setCategory(id);
+      setRow(0);
+      setTop(0);
+    }
+    focus(grid);
+  };
+  const makeDefault = async () => {
+    const c = currentChoice();
+    if (!c) return;
+    try {
+      await hub.setDefaultGuide(c.id);
+      await refetchLists();
+      toast(`The guide will open on ${c.label} for ${profile()?.name ?? "this profile"}`, "good");
+    } catch (err) {
+      errorToast(err);
+    }
   };
 
   useKeys((a) => {
@@ -230,10 +270,9 @@ export function Guide() {
         setAnchor(anchor() + 86_400_000);
         return true;
       case "blue": {
-        const i = CATEGORIES.findIndex((c) => c.id === category());
-        setCategory(CATEGORIES[(i + 1) % CATEGORIES.length]!.id);
-        setRow(0);
-        setTop(0);
+        const list = choices();
+        const i = list.findIndex((c) => c.id === category());
+        pickList(list[(i + 1) % list.length]!.id);
         return true;
       }
       case "back":
@@ -290,11 +329,46 @@ export function Guide() {
         </div>
       </div>
 
+      <div class="guide-lists" data-focus-group data-scroll-x="40">
+        <For each={choices()}>
+          {(c) => (
+            <button class="chip" classList={{ active: c.id === category(), "chip-custom": c.kind === "custom" }} data-focus onClick={() => pickList(c.id)}>
+              <Show when={c.kind === "custom"}>
+                <Icon name="list" />
+              </Show>
+              {c.label}
+              <span class="gl-count">{c.count}</span>
+              <Show when={(lists()?.default ?? "") === c.id}>
+                <Icon name="star" class="gl-default" />
+              </Show>
+            </button>
+          )}
+        </For>
+        <Show when={lists() && !isDefault()}>
+          <button class="chip chip-action" data-focus onClick={() => void makeDefault()}>
+            <Icon name="star" />
+            Make default
+          </button>
+        </Show>
+        <Show when={!isKids()}>
+          <Show when={currentChoice()?.kind === "custom"}>
+            <button class="chip chip-action" data-focus onClick={() => nav.push({ name: "guide-edit", id: category()! })}>
+              <Icon name="edit" />
+              Edit
+            </button>
+          </Show>
+          <button class="chip chip-action" data-focus onClick={() => nav.push({ name: "guide-edit" })}>
+            <Icon name="plus" />
+            New guide
+          </button>
+        </Show>
+      </div>
+
       <div class="guide-grid" tabindex="-1" data-focus data-autofocus ref={grid}>
         <div class="gg-header">
           <div class="gg-day">
             <span>{dayLabel(anchor())}</span>
-            <span class="gg-category">{CATEGORIES.find((c) => c.id === category())?.label}</span>
+            <span class="gg-category">{currentChoice()?.label ?? ""}</span>
           </div>
           <div class="gg-times">
             <For each={slots()}>
@@ -317,9 +391,10 @@ export function Guide() {
                 <div class="gg-row" classList={{ "gg-row-active": isRow() }}>
                   <div class="gg-channel">
                     <span class="gg-number">{c.number}</span>
-                    <Show when={c.logo} fallback={<span class="gg-name">{c.name}</span>}>
-                      <img class="gg-logo" src={c.logo} alt={c.name} />
+                    <Show when={c.logo}>
+                      <img class="gg-logo" src={c.logo} alt="" onError={(e) => (e.currentTarget.style.display = "none")} />
                     </Show>
+                    <span class="gg-name">{c.name}</span>
                   </div>
                   <div class="gg-line">
                     <Show when={cellsOf(c)} fallback={<div class="gg-cell gg-empty" classList={{ selected: isRow() }} style={{ left: "0%", width: "100%" }}><span>No information</span></div>}>
@@ -348,6 +423,9 @@ export function Guide() {
               );
             }}
           </For>
+          <Show when={data() && !channels().length}>
+            <p class="gg-none">No channels in {currentChoice()?.label ?? "this list"} yet.</p>
+          </Show>
           <Show when={nowLeft() >= 0 && nowLeft() <= 100}>
             <div class="gg-now" style={{ left: `calc(var(--gg-channel-w) + (100% - var(--gg-channel-w)) * ${nowLeft() / 100})` }} />
           </Show>
@@ -368,7 +446,7 @@ export function Guide() {
           <kbd class="key-yellow" /> +24 hours
         </span>
         <span>
-          <kbd class="key-blue" /> Categories
+          <kbd class="key-blue" /> Next list
         </span>
         <span>
           <kbd>OK</kbd> Watch or details
