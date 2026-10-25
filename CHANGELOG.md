@@ -15,6 +15,8 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Music channels no longer take a second upload of a song they already have (a lyric video and
+  a clip of the same song, say).
 - Music channels: a download that hangs is stopped after five quiet minutes and tried again, so
   it no longer holds up every download behind it. Channels made from a search or two (a
   Christmas channel, say) now keep reading further down YouTube's results until they're full.

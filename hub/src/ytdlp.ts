@@ -104,6 +104,25 @@ export function overlap(pick: string, info: Pick<YtInfo, "title" | "uploader" | 
   return want.filter((w) => have.has(w)).length / want.length;
 }
 
+const NOT_THE_SONG = new Set(["clip", "mv", "song", "hd", "4k", "uhd", "hq", "remastered", "remaster", "version", "edit", "from"]);
+
+/**
+ * The song a video is of, as plain words ("what it sounds like"), whoever uploaded it and however
+ * it's labelled, so a channel doesn't take the same song twice. "" when it can't tell.
+ */
+export function songKey(v: { title: string; track?: string }): string {
+  let song = v.track ?? "";
+  if (!song) {
+    const t = cleanVideoTitle(v.title);
+    const quoted = /[“"‘]([^”"’]{2,})[”"’]/.exec(t);
+    const parts = t.split(/\s+[-–—]\s+/);
+    song = quoted ? quoted[1]! : parts.length > 1 ? parts[1]! : t;
+  }
+  return words(song.replace(/[([][^)\]]*[)\]]/g, " "))
+    .filter((w) => !NOT_THE_SONG.has(w) && !/^(19|20)\d\d$/.test(w))
+    .join(" ");
+}
+
 /** Scores a search result against a channel's rules; `pick` is the track it should be. */
 export function judge(info: YtInfo, rules: Rules, pick?: string): { score: number; rejected: string[] } {
   const rejected: string[] = [];
