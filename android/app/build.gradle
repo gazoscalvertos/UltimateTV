@@ -10,12 +10,28 @@ android {
         applicationId "tv.ultimate.remote"
         minSdk 26
         targetSdk 35
-        versionCode 2
-        versionName "0.2.0"
+        versionCode 3
+        versionName "0.3.0"
+    }
+
+    // One key for every build, so a new APK installs over the old one. (CI makes a fresh debug key
+    // each run otherwise, and Android refuses an update signed with a different key.) It's a home
+    // app installed by hand, so the key being public doesn't matter.
+    signingConfigs {
+        shared {
+            storeFile rootProject.file("remote.keystore")
+            storePassword "android"
+            keyAlias "remote"
+            keyPassword "android"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig signingConfigs.shared
+        }
         release {
+            signingConfig signingConfigs.shared
             minifyEnabled false
         }
     }

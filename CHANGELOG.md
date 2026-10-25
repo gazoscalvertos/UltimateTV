@@ -21,6 +21,9 @@ the commit they were built from in Settings › About, so you can tell exactly w
   shuffle. They're in the guide under Music with a programme for each video. Create your own, add
   artists or songs, take videos off and reshuffle in Settings › Music channels. See
   [docs/music-channels.md](docs/music-channels.md), which also covers the API an AI curator will use.
+- The Hub serves the Android remote at `/api/remote/app.apk` (CI publishes each build from main),
+  and the remote shows a banner when a newer app is out. The app (0.3.0) is now always signed with
+  the same key, so updates install over it; uninstall 0.1/0.2 once first.
 - Music tab: Spotify and Deezer on the TV. The box is a Spotify Connect speaker ("UltimateTV" in
   the Spotify app, via go-librespot, which the box installer now builds). Sign in once with the
   code the TV shows (spotify.com/pair, Premium needed), then play your playlists, albums, artists

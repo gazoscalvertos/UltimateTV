@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -144,6 +145,8 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new Bridge(), "UltimateTVApp");
         // The settings page asks with confirm() and prompt(), which only show with a chrome client.
         web.setWebChromeClient(new WebChromeClient());
+        // Downloads (the remote's own APK) go to the browser, which saves and installs them.
+        web.setDownloadListener((url, userAgent, contentDisposition, mimetype, length) -> openInBrowser(url));
         web.setWebViewClient(new WebViewClient() {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
@@ -161,9 +164,34 @@ public class MainActivity extends Activity {
             main.post(() -> showSetup(null));
         }
 
+        /** The app's version code, so the page can say when a newer app is on the Hub. */
+        @JavascriptInterface
+        @SuppressWarnings("deprecation")
+        public int version() {
+            try {
+                // versionCode rather than getLongVersionCode(), which needs Android 9.
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+            } catch (Exception e) {
+                return 0;
+            }
+        }
+
+        @JavascriptInterface
+        public void open(String url) {
+            main.post(() -> openInBrowser(url));
+        }
+
         @JavascriptInterface
         public void listen() {
             main.post(MainActivity.this::startListening);
+        }
+    }
+
+    private void openInBrowser(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (ActivityNotFoundException ignored) {
+            // No browser: nothing sensible to do.
         }
     }
 
