@@ -44,9 +44,9 @@ The **Watch** tab at the bottom chooses what the TV plays, without using the TV'
 - **Music**: your Spotify playlists, albums and artists. Play, shuffle, or start at a song.
 - **Search**: films, series, channels, programmes and recordings.
 
-![Guide on the phone](screenshots/36-phone-guide.png)
-![Films on the phone](screenshots/37-phone-films.png)
-![A film on the phone](screenshots/38-phone-title.png)
+![Guide on the phone](screenshots/37-phone-guide.png)
+![Films on the phone](screenshots/38-phone-films.png)
+![A film on the phone](screenshots/39-phone-title.png)
 
 ## Stats
 
@@ -56,7 +56,7 @@ login), then what's playing and how far through, picture and sound quality, buff
 speed, the screen mode and HDMI details, CPU, graphics, memory, temperatures, disks and network
 for the box and the Hub, and their recent logs.
 
-![Stats](screenshots/39-phone-stats.png)
+![Stats](screenshots/40-phone-stats.png)
 
 ## Settings
 

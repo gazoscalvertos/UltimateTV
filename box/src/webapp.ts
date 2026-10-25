@@ -5,13 +5,65 @@
 
 import { session, WebContentsView, type BrowserWindow, type Input, type WebContents } from "electron";
 import path from "node:path";
-import type { Action, WebAppCommand, WebAppId, WebAppState } from "@ultimatetv/shared";
+import type { Action, WebAppCommand, WebAppId, WebAppLoginResult, WebAppState } from "@ultimatetv/shared";
 
 type Log = (line: string) => void;
 
-const APPS: Record<WebAppId, { url: string; hosts: RegExp }> = {
-  deezer: { url: "https://www.deezer.com/", hosts: /(^|\.)deezer\.com$/ },
+const APPS: Record<WebAppId, { url: string; login: string; cookie: string; hosts: RegExp }> = {
+  // "arl" is the cookie Deezer keeps you signed in with.
+  deezer: { url: "https://www.deezer.com/", login: "https://www.deezer.com/login", cookie: "arl", hosts: /(^|\.)deezer\.com$/ },
 };
+
+/**
+ * Runs in the page: fills in the email and password boxes (one step or two, as the page asks)
+ * the way typing would, so the site's own scripts see it, and presses the page's submit button.
+ */
+function fillLogin(email: string, password: string): Promise<WebAppLoginResult> {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const shown = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+  const find = (sel: string) => Array.from(document.querySelectorAll<HTMLInputElement>(sel)).find(shown);
+  const type = (el: HTMLInputElement, value: string) => {
+    el.focus();
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(el, value);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  const submit = (el: HTMLInputElement) => {
+    const scope: ParentNode = el.form ?? document;
+    const button = Array.from(scope.querySelectorAll<HTMLElement>('button[type="submit"],input[type="submit"]')).find(shown);
+    if (button) button.click();
+    else if (el.form) el.form.requestSubmit();
+    else el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));
+  };
+  return (async () => {
+    const done = new Set<string>();
+    for (let i = 0; i < 40; i++) {
+      const pw = find('input[type="password"]');
+      const em = find('input[type="email"],input[name="email"],input[name="login"],input[autocomplete="username"],input[autocomplete="email"]');
+      let typed: HTMLInputElement | undefined;
+      if (em && !done.has("email")) {
+        type(em, email);
+        done.add("email");
+        typed = em;
+      }
+      if (pw && !done.has("password")) {
+        type(pw, password);
+        done.add("password");
+        typed = pw;
+      }
+      if (typed) {
+        await sleep(400);
+        submit(typed);
+        if (done.has("password")) return "submitted";
+      }
+      await sleep(500);
+    }
+    return done.size ? "partial" : "no-form";
+  })();
+}
 
 /** Phone remote keys, as key presses on the page. */
 const KEYS: Partial<Record<Action, string>> = { up: "Up", down: "Down", left: "Left", right: "Right", ok: "Enter" };
@@ -29,8 +81,43 @@ export class WebApps {
     private readonly log: Log,
   ) {}
 
+  private signedIn: boolean | undefined;
+
   state(): WebAppState {
-    return { open: this.shown, ...(this.id ? { app: this.id } : {}), ...(this.nowPlaying ? { nowPlaying: this.nowPlaying } : {}) };
+    return { open: this.shown, ...(this.id ? { app: this.id } : {}), ...(this.signedIn !== undefined ? { signedIn: this.signedIn } : {}), ...(this.nowPlaying ? { nowPlaying: this.nowPlaying } : {}) };
+  }
+
+  /** Whether the service's sign-in cookie is in its browser profile (looked at without loading the page). */
+  async checkSignedIn(id: WebAppId = "deezer"): Promise<void> {
+    const cookies = await session.fromPartition(`persist:${id}`).cookies.get({ name: APPS[id].cookie }).catch(() => []);
+    const signedIn = cookies.some((c) => c.value && (!c.expirationDate || c.expirationDate * 1000 > Date.now()));
+    if (signedIn !== this.signedIn) {
+      this.signedIn = signedIn;
+      this.emit();
+    }
+  }
+
+  /** A login typed on the phone: show the page, go to its login form if it isn't there, fill it in. */
+  async login(id: WebAppId, login: { email: string; password: string }): Promise<WebAppLoginResult> {
+    await this.open(id);
+    const wc = this.view!.webContents;
+    const run = () => wc.executeJavaScript(`(${fillLogin.toString()})(${JSON.stringify(login.email)}, ${JSON.stringify(login.password)})`) as Promise<WebAppLoginResult>;
+    const hasForm = await wc.executeJavaScript(`!!document.querySelector('input[type="password"],input[type="email"]')`).catch(() => false);
+    if (!hasForm) {
+      const loaded = new Promise<void>((resolve) => {
+        wc.once("did-finish-load", () => resolve());
+        setTimeout(resolve, 15_000);
+      });
+      void wc.loadURL(APPS[id].login).catch(() => undefined);
+      await loaded;
+    }
+    const result = await run().catch((e: Error) => {
+      this.log(`${id} login didn't run: ${e.message}`);
+      return "no-form" as const;
+    });
+    this.log(`${id} login from the phone: ${result}`);
+    setTimeout(() => void this.checkSignedIn(id), 6000);
+    return result;
   }
 
   onState(listener: (s: WebAppState) => void): () => void {
@@ -93,7 +180,10 @@ export class WebApps {
     this.id = id;
     this.log(`Opened ${id}`);
     clearInterval(this.poll);
-    this.poll = setInterval(() => void this.readNowPlaying(), 2000);
+    this.poll = setInterval(() => {
+      void this.readNowPlaying();
+      void this.checkSignedIn(id);
+    }, 2000);
   }
 
   private unload(): void {

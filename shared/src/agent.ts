@@ -3,7 +3,7 @@
 
 import type { HostStats } from "./domain.js";
 import type { Action } from "./keys.js";
-import type { MusicPage, MusicTracks, SpotifyCommand, SpotifyState, WebAppCommand, WebAppId, WebAppState } from "./music.js";
+import type { MusicPage, MusicTracks, SpotifyCommand, SpotifyState, WebAppCommand, WebAppId, WebAppLoginResult, WebAppState } from "./music.js";
 
 export interface AudioTrack {
   id: number;
@@ -166,6 +166,8 @@ export interface BoxAgent {
   webAppKey(action: Action): Promise<void>;
   webAppText(text: string): Promise<void>;
   webAppControl(command: WebAppCommand): Promise<void>;
+  /** Opens the service and fills in its login form with what was typed on the phone. */
+  webAppLogin(id: WebAppId, login: { email: string; password: string }): Promise<WebAppLoginResult>;
   webApp(): Promise<WebAppState>;
   onWebApp(listener: (state: WebAppState) => void): () => void;
 }

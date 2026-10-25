@@ -521,7 +521,10 @@ export type HubEvent =
   /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
   | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean }
   /** The phone asks the TV app something (what's playing, play this, seek); it answers at /api/tv/reply/:id. */
-  | { type: "tv.call"; id: string; method: TvMethod; args: unknown };
+  | { type: "tv.call"; id: string; method: TvMethod; args: unknown }
+
+  /** A music service login typed on the phone: the TV fetches it once from /api/music/login/:id. */
+  | { type: "music.login"; app: "deezer"; id: string };
 
 /** The Hub's own software, for the phone's settings page. */
 export interface HubSoftware {
