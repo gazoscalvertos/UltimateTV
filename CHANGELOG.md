@@ -10,8 +10,17 @@ the commit they were built from in Settings › About, so you can tell exactly w
   the next time it opens it (Settings › About › Reload the app does it straight away).
 - **Box**: Settings › About › Update the box, or wait for Monday 4 am. Over SSH:
   `sudo systemctl start ultimatetv-update`.
+- **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
+  `update.sh` to have been run once with `sudo` (it installs the helper that does the update).
 
 ## Unreleased
+
+- Phone remote: a ⚙ Settings button opens the phone settings page, which now covers everything the
+  TV's Settings does (picture and sound, recording, every profile and PIN, playback stats) plus
+  updating the Hub and the box, reloading the TV app and refreshing the guide.
+- Phone remote: voice control. Tap Voice and say a channel ("watch BBC One", "channel 101"), a
+  search ("search for Dune") or a command ("pause", "go home", "down three times"). The Android
+  app (0.2.0) uses the phone's speech recogniser; in Chrome, the keyboard's mic key stands in.
 
 - The box's sound output is at full volume (the TV's remote sets the volume); it had kept the
   analog output's 40%.

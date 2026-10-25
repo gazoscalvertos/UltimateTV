@@ -6,7 +6,7 @@ import fastifyStatic from "@fastify/static";
 import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import QRCode from "qrcode";
-import type { Certification, Channel, ChannelCategory, GuideWindow, HubStatus, IptvSource, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
+import type { BoxState, Certification, Channel, ChannelCategory, GuideWindow, HubStatus, IptvSource, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import type { HubConfig } from "./config.js";
@@ -21,8 +21,10 @@ import { ContentFilter } from "./profiles.js";
 import { ReportStore } from "./reports.js";
 import { JellyfinClient } from "./services/jellyfin.js";
 import { publicSettings, sourceKey } from "./settings.js";
+import { SelfUpdate } from "./selfupdate.js";
 import { sendFile } from "./streaming.js";
 import { systemReport, type SystemReport } from "./system.js";
+import { parseVoice } from "./voice.js";
 
 export interface ServerDeps {
   /** Overridable in tests so they don't shell out to ffmpeg/vainfo. */
@@ -53,6 +55,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   const getSystem = deps.systemReport ?? systemReport;
   app.addHook("onClose", async () => ctx.close());
 
+  /** TV apps listening on the event socket: the phone's box controls need one. */
+  let tvSockets = 0;
   const hubBase = (req: FastifyRequest) => config.publicUrl ?? `${req.protocol}://${req.headers.host ?? `${req.hostname}:${config.port}`}`;
   const setupUrl = (req: FastifyRequest) => `${hubBase(req)}/setup/`;
 
@@ -85,6 +89,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/profiles/:id",
     "POST /api/downloads",
     "DELETE /api/downloads/:id",
+    "POST /api/software/hub/update",
+    "POST /api/box/update",
   ]);
   app.addHook("preHandler", async (req) => {
     if (ADMIN_ROUTES.has(`${req.method} ${req.routeOptions.url}`) && !viewer(req).admin) {
@@ -277,6 +283,52 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const svg = await QRCode.toString(`${hubBase(req)}/remote/`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
     return reply.type("image/svg+xml").send(svg);
   });
+
+  /** Voice control: what the phone heard, turned into keys, a channel or a search. */
+  app.post("/api/remote/voice", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
+    const said = String(req.body?.text ?? "").slice(0, 200);
+    const cmd = parseVoice(said, ctx.channels.list());
+    if (cmd.kind === "keys") cmd.actions.forEach((action, i) => setTimeout(() => ctx.events.emit({ type: "remote.key", action }), i * 150));
+    if (cmd.kind === "channel") ctx.events.emit({ type: "remote.channel", channelId: cmd.channelId });
+    if (cmd.kind === "search") ctx.events.emit({ type: "remote.text", text: cmd.text.slice(0, 120) });
+    if (cmd.kind === "stats") ctx.events.emit({ type: "box.command", command: "stats", on: cmd.on });
+    if (cmd.kind === "reload") ctx.events.emit({ type: "box.command", command: "reload" });
+    if (cmd.kind !== "none" && said) ctx.events.emit({ type: "remote.said", text: cmd.say });
+    return { ...cmd, heard: said, tvConnected: tvSockets > 0 };
+  });
+
+  // -------------------------------------------------------------------------
+  // Software: the Hub updates through a helper on the Docker LXC; the box through the TV app.
+
+  const selfUpdate = new SelfUpdate(config.dataDir, HUB_BUILD);
+  let boxState: BoxState | null = null;
+  app.get("/api/software", async (req: Req<Record<string, string>, { check?: string }>) => ({
+    hub: await selfUpdate.status(req.query.check === "1"),
+    box: boxState,
+    tvConnected: tvSockets > 0,
+  }));
+  app.get("/api/software/hub/log", async (_req, reply) => reply.type("text/plain").send((await selfUpdate.log()) || "No update has run from here yet."));
+  app.post("/api/software/hub/update", async (_req, reply) => {
+    if (!(await selfUpdate.status(false)).canUpdate) {
+      return reply.code(409).send({ error: "The Hub's update helper isn't installed yet. Run tools/hub/update.sh on the server once to install it." });
+    }
+    await selfUpdate.request();
+    return reply.code(202).send({ ok: true });
+  });
+  /** The TV app reports the box's software here, when it starts and whenever it's asked. */
+  app.post("/api/box/state", async (req: Req<Record<string, string>, Record<string, string>, Partial<BoxState>>) => {
+    boxState = { software: req.body?.software ?? null, stats: Boolean(req.body?.stats), reportedAt: new Date().toISOString() };
+    return { ok: true };
+  });
+  const boxCommand = (command: "update" | "reload" | "report" | "stats", on?: boolean) => {
+    if (tvSockets === 0) throw Object.assign(new Error("The TV app isn't connected to the Hub. Is the box on?"), { statusCode: 409 });
+    ctx.events.emit(on === undefined ? { type: "box.command", command } : { type: "box.command", command, on });
+    return { ok: true };
+  };
+  app.post("/api/box/check", async () => boxCommand("report"));
+  app.post("/api/box/update", async () => boxCommand("update"));
+  app.post("/api/box/reload", async () => boxCommand("reload"));
+  app.post("/api/box/stats", async (req: Req<Record<string, string>, Record<string, string>, { on?: boolean }>) => boxCommand("stats", Boolean(req.body?.on)));
 
   // Jellyfin sign-in: Quick Connect (a code on the TV, approved on the phone) or name and password.
   app.post("/api/jellyfin/quickconnect", async (req: Req<Record<string, string>, Record<string, string>, { url: string }>) => {
@@ -562,7 +614,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   await app.register(fastifyWebsocket);
   app.get("/api/events", { websocket: true }, (socket) => {
     const off = ctx.events.on((e) => socket.send(JSON.stringify(e)));
-    socket.on("close", off);
+    tvSockets++;
+    socket.on("close", () => {
+      off();
+      tvSockets--;
+    });
     socket.send(JSON.stringify({ type: "hello", version: HUB_VERSION }));
   });
 

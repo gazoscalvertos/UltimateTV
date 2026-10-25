@@ -57,19 +57,33 @@
   .install { display: none; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-weight: 700; height: 46px; }
   .install.show { display: block; }
   .hint { text-align: center; color: var(--muted); font-size: 12px; margin: 0; }
+  .head-right { display: flex; align-items: center; gap: 10px; }
+  .gear { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--panel); color: var(--fg); }
+  .gear svg { width: 22px; height: 22px; }
+  .r4 .mic { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
+  .r4 .mic svg { color: #fff; }
+  .mic.listening { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(61, 139, 255, .25); } }
+  .heard { min-height: 1.3em; text-align: center; color: var(--muted); font-size: 13px; margin: -4px 0 0; }
+  .heard b { color: var(--fg); font-weight: 600; }
 </style>
 </head>
 <body>
 <header>
   <div class="brand"><span class="mark">U</span>TV Remote</div>
-  <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">Connecting…</span><button id="change-hub" hidden style="height:30px;padding:0 10px;font-size:12px;margin-left:6px">Change Hub</button></div>
+  <div class="head-right">
+    <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">Connecting…</span><button id="change-hub" hidden style="height:30px;padding:0 10px;font-size:12px;margin-left:6px">Change Hub</button></div>
+    <a class="gear" href="/setup/" id="settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+  </div>
 </header>
 <main>
   <button class="install" id="install">Install as an app</button>
+  <p class="heard" id="heard"></p>
 
-  <div class="row r3">
+  <div class="row r4">
     <button data-key="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg>Home</button>
     <button data-key="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 10v9"/></svg>Guide</button>
+    <button class="mic" id="voice" aria-label="Voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Voice</button>
     <button data-key="info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>Info</button>
   </div>
 
@@ -118,7 +132,7 @@
     <input id="text-input" placeholder="Type to search on the TV" autocomplete="off" enterkeyhint="search">
     <button type="submit">Send</button>
   </form>
-  <p class="hint">Hold an arrow to keep moving.</p>
+  <p class="hint">Hold an arrow to keep moving. Tap Voice and say “watch BBC One”, “search for Dune”, “pause” or “down three times”.</p>
 </main>
 <script>
 const conn = document.getElementById("conn");
@@ -171,8 +185,72 @@ document.getElementById("num-toggle").addEventListener("click", () => document.g
 document.getElementById("text").addEventListener("submit", (e) => {
   e.preventDefault();
   const input = document.getElementById("text-input");
-  void send("/api/remote/text", { text: input.value });
+  if (voiceByKeyboard) {
+    voiceByKeyboard = false;
+    input.placeholder = "Type to search on the TV";
+    void sendVoice(input.value);
+    input.value = "";
+  } else {
+    void send("/api/remote/text", { text: input.value });
+  }
   input.blur();
+});
+
+// Voice control. The Android app listens with the phone's own speech recogniser; Chrome can only
+// use the microphone over https, so on the plain-http Hub the keyboard's dictation key stands in.
+const heard = document.getElementById("heard");
+const voiceBtn = document.getElementById("voice");
+let voiceByKeyboard = false;
+const showHeard = (said, did) => {
+  heard.textContent = "";
+  const b = document.createElement("b");
+  b.textContent = said;
+  heard.append(b);
+  if (did) heard.append(` → ${did}`);
+};
+async function sendVoice(text) {
+  text = String(text || "").trim();
+  if (!text) return;
+  showHeard(`“${text}”`, "…");
+  try {
+    const res = await fetch("/api/remote/voice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    const r = await res.json();
+    if (!res.ok) throw new Error(r.error || res.statusText);
+    setConn("ok", "Connected");
+    showHeard(`“${text}”`, r.tvConnected === false ? `${r.say} (the TV app isn't connected)` : r.say);
+  } catch {
+    setConn("bad", "Can't reach the Hub");
+    showHeard(`“${text}”`, "couldn't reach the Hub");
+  }
+}
+const stopListening = () => voiceBtn.classList.remove("listening");
+window.utvVoiceResult = (text) => { stopListening(); void sendVoice(text); };
+window.utvVoiceError = (message) => { stopListening(); heard.textContent = message || "Didn't catch that"; };
+voiceBtn.addEventListener("click", () => {
+  if (navigator.vibrate) navigator.vibrate(12);
+  if (window.UltimateTVApp && window.UltimateTVApp.listen) {
+    voiceBtn.classList.add("listening");
+    window.UltimateTVApp.listen();
+    return;
+  }
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (Recognition && window.isSecureContext) {
+    const r = new Recognition();
+    r.lang = "en-GB";
+    r.interimResults = false;
+    r.maxAlternatives = 1;
+    r.onresult = (e) => window.utvVoiceResult(e.results[0][0].transcript);
+    r.onerror = (e) => window.utvVoiceError(e.error === "no-speech" ? "Didn't hear anything" : "Voice didn't work: " + e.error);
+    r.onend = stopListening;
+    voiceBtn.classList.add("listening");
+    r.start();
+    return;
+  }
+  voiceByKeyboard = true;
+  const input = document.getElementById("text-input");
+  input.placeholder = "Tap the keyboard's mic, speak, then Send";
+  input.focus();
+  heard.textContent = "Tap the microphone on your keyboard and speak. The Android app listens by itself.";
 });
 
 // Check the Hub is there.

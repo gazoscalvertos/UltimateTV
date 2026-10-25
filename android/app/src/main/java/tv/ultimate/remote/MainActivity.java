@@ -1,12 +1,15 @@
 package tv.ultimate.remote;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.speech.RecognizerIntent;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -14,6 +17,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -28,14 +32,20 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+
+import org.json.JSONObject;
 
 /**
  * The UltimateTV phone remote. It asks once for the Hub's address, then shows the Hub's remote
- * page full screen. The phone's Back button and volume keys work as remote keys too.
+ * page full screen. The phone's Back button and volume keys work as remote keys too, and the
+ * Voice button listens with the phone's speech recogniser (WebView pages can't use the microphone
+ * over the Hub's plain http).
  */
 public class MainActivity extends Activity {
     private static final String DEFAULT_HUB = "http://192.168.0.19:8095";
     private static final int BG = Color.rgb(7, 11, 20);
+    private static final int VOICE_REQUEST = 1;
 
     private SharedPreferences prefs;
     private WebView web;
@@ -132,6 +142,8 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         web.addJavascriptInterface(new Bridge(), "UltimateTVApp");
+        // The settings page asks with confirm() and prompt(), which only show with a chrome client.
+        web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
@@ -142,12 +154,46 @@ public class MainActivity extends Activity {
         setContentView(web);
     }
 
-    /** Lets the remote page offer "Change Hub". */
+    /** Lets the remote page offer "Change Hub" and voice control. */
     private class Bridge {
         @JavascriptInterface
         public void changeHub() {
             main.post(() -> showSetup(null));
         }
+
+        @JavascriptInterface
+        public void listen() {
+            main.post(MainActivity.this::startListening);
+        }
+    }
+
+    private void startListening() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-GB");
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a channel, a film or a command");
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        try {
+            startActivityForResult(intent, VOICE_REQUEST);
+        } catch (ActivityNotFoundException e) {
+            voiceError("This phone has no speech recogniser. Install or enable the Google app.");
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != VOICE_REQUEST || web == null) return;
+        ArrayList<String> results = data != null ? data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS) : null;
+        if (resultCode == RESULT_OK && results != null && !results.isEmpty()) {
+            web.evaluateJavascript("window.utvVoiceResult && window.utvVoiceResult(" + JSONObject.quote(results.get(0)) + ")", null);
+        } else {
+            voiceError("Didn't catch that");
+        }
+    }
+
+    private void voiceError(String message) {
+        if (web != null) web.evaluateJavascript("window.utvVoiceError && window.utvVoiceError(" + JSONObject.quote(message) + ")", null);
     }
 
     @Override
@@ -156,7 +202,10 @@ public class MainActivity extends Activity {
         // The phone's Back button is the TV's Back button; volume keys change channel.
         switch (keyCode) {
             case KeyEvent.KEYCODE_BACK:
-                sendKey("back");
+                // On the settings page Back returns to the remote; on the remote it's the TV's Back.
+                String url = web.getUrl();
+                if (url != null && !url.contains("/remote/") && web.canGoBack()) web.goBack();
+                else sendKey("back");
                 return true;
             case KeyEvent.KEYCODE_VOLUME_UP:
                 sendKey("channelUp");

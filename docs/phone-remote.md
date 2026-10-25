@@ -18,6 +18,44 @@ The Android app is the same remote in its own app, with two extras: the phone's 
 
 To point it at a different Hub later, use **Change Hub** at the bottom of the remote.
 
+## Settings
+
+Tap ⚙ at the top of the remote for the settings page. It has everything the TV's Settings has
+(picture and sound, recording, profiles and PINs, playback stats) plus sources and logins, and:
+
+- **Updates and the TV**: what the Hub and the box run, whether there's something newer, and
+  buttons to update either one, reload the TV app or refresh channels and the guide.
+- The Hub can only update itself from here once `update.sh` has been run with `sudo` on the Docker
+  LXC (`sudo bash /containers/UltimateTV/tools/hub/update.sh`). That installs a small systemd
+  helper which runs the same update when the phone asks; its output is at `/api/software/hub/log`.
+- Once a PIN is set, changes ask for a grown-up's PIN.
+
+In the Android app the phone's Back button returns from settings to the remote.
+
+![Phone settings](screenshots/23-phone-setup.png)
+
+## Voice
+
+Tap **Voice** and speak. The Hub works out what you meant:
+
+| Say | What happens |
+| --- | --- |
+| "watch BBC One", "put on Sky News", "Channel 4" | switches to that channel |
+| "channel 101", "channel one oh one" | switches by number |
+| "search for Dune", "find Bluey", "play The Office" | searches on the TV |
+| "pause", "play", "stop", "fast forward", "rewind", "record" | the play controls |
+| "go home", "guide", "back", "OK", "info", "next channel" | the remote's keys |
+| "down three times", "right" | arrows (up to 20) |
+| "show stats", "stats off", "reload the app" | the TV app |
+
+Anything else is searched for. What was heard, and what it did, shows above the buttons and on the TV.
+
+- **Android app**: it uses the phone's speech recogniser (the Google app), so nothing needs setting up.
+- **Chrome**: browsers only allow the microphone on https pages, and the Hub is plain http, so the
+  Voice button puts the cursor in the text box instead: tap the keyboard's mic key, speak, then Send.
+
+![Voice](screenshots/25-phone-voice.png)
+
 ## Tips
 
 - Swipe on the pad to move, tap to press OK, and hold an arrow to repeat.

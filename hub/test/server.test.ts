@@ -146,6 +146,28 @@ describe("hub API", () => {
     const qr = await app.inject("/api/remote/qr.svg");
     expect(qr.headers["content-type"]).toContain("image/svg+xml");
   });
+
+  it("understands voice commands from the phone", async () => {
+    await start();
+    expect((await app.inject({ method: "POST", url: "/api/remote/voice", payload: { text: "pause" } })).json()).toMatchObject({ kind: "keys", actions: ["pause"], heard: "pause", tvConnected: false });
+    expect((await app.inject({ method: "POST", url: "/api/remote/voice", payload: { text: "search for dune" } })).json()).toMatchObject({ kind: "search", text: "dune" });
+  });
+
+  it("updates the Hub through the helper, and the box through the TV app", async () => {
+    await start();
+    const sw = (await app.inject("/api/software")).json();
+    expect(sw).toMatchObject({ hub: { canUpdate: false, updating: false }, box: null, tvConnected: false });
+    expect((await app.inject({ method: "POST", url: "/api/software/hub/update" })).statusCode).toBe(409);
+    await mkdir(path.join(tmp, "data", "update"), { recursive: true });
+    await writeFile(path.join(tmp, "data", "update", "helper"), "2026-10-25T10:00:00+00:00\n");
+    await writeFile(path.join(tmp, "data", "update", "result"), "ok 2026-10-25T10:05:00+00:00\n");
+    expect((await app.inject({ method: "POST", url: "/api/software/hub/update" })).statusCode).toBe(202);
+    expect((await app.inject("/api/software")).json().hub).toMatchObject({ canUpdate: true, updating: true, lastUpdate: { ok: true, at: "2026-10-25T10:05:00+00:00" } });
+    // No TV app on the event socket: the box can't be asked.
+    expect((await app.inject({ method: "POST", url: "/api/box/update" })).statusCode).toBe(409);
+    await app.inject({ method: "POST", url: "/api/box/state", payload: { software: { commit: "abc", updating: false }, stats: true } });
+    expect((await app.inject("/api/software")).json().box).toMatchObject({ software: { commit: "abc" }, stats: true });
+  });
 });
 
 describe("diagnostics", () => {

@@ -1,6 +1,8 @@
 // Domain model shared by the Hub, the TV UI and the box shell.
 // Times are epoch milliseconds (UTC) everywhere; the UI formats them in local time.
 
+import type { BoxSoftware } from "./agent.js";
+
 export type Id = string;
 
 // ---------------------------------------------------------------------------
@@ -458,6 +460,8 @@ export interface HubStatus {
 }
 
 export type HubEvent =
+  /** Sent on each (re)connect of the event socket. */
+  | { type: "hello"; version: string }
   | { type: "recordings.changed" }
   | { type: "recording.started"; recording: Recording }
   | { type: "recording.finished"; recording: Recording }
@@ -470,4 +474,29 @@ export type HubEvent =
   | { type: "toast"; message: string }
   /** From the phone remote: a key press, or text typed on the phone. */
   | { type: "remote.key"; action: string }
-  | { type: "remote.text"; text: string };
+  | { type: "remote.text"; text: string }
+  /** From phone voice control: switch to a channel, or say what was understood. */
+  | { type: "remote.channel"; channelId: string }
+  | { type: "remote.said"; text: string }
+  /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
+  | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean };
+
+/** The Hub's own software, for the phone's settings page. */
+export interface HubSoftware {
+  commit?: string;
+  date?: string;
+  /** The newest commit on main, when GitHub answered. */
+  latest?: string;
+  /** The update helper is installed on the Docker LXC (tools/hub/update.sh installs it). */
+  canUpdate: boolean;
+  /** An update has been asked for or is running. */
+  updating: boolean;
+  lastUpdate?: { at: string; ok: boolean };
+}
+
+/** What the TV app last told the Hub about the box. */
+export interface BoxState {
+  software: BoxSoftware | null;
+  stats: boolean;
+  reportedAt: string;
+}
