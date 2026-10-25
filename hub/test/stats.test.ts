@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HostStats } from "@ultimatetv/shared";
-import { statsWarnings, type WarningInput } from "../src/stats.js";
+import { hotSensors, statsWarnings, type WarningInput } from "../src/stats.js";
 
 const host = (extra: Partial<HostStats> = {}): HostStats => ({
   hostname: "h",
@@ -44,6 +44,13 @@ describe("stats warnings", () => {
     expect(w.map((x) => x.text).join("\n")).toMatch(/30 minutes ago[\s\S]*/);
     expect(w.some((x) => x.text.includes("401 Unauthorized"))).toBe(true);
     expect(w.some((x) => x.text.includes("nearly full"))).toBe(true);
+  });
+
+  it("judges heat by the processor's sensor, not the ACPI zone", () => {
+    expect(hotSensors([{ name: "acpitz", celsius: 95 }, { name: "x86_pkg_temp", celsius: 52 }])).toEqual([]);
+    expect(hotSensors([{ name: "acpitz", celsius: 95 }])).toEqual([]);
+    expect(hotSensors([{ name: "acpitz", celsius: 40 }, { name: "x86_pkg_temp", celsius: 97 }])).toEqual([{ name: "x86_pkg_temp", celsius: 97 }]);
+    expect(hotSensors([{ name: "iwlwifi_1", celsius: 92 }])).toEqual([{ name: "iwlwifi_1", celsius: 92 }]);
   });
 
   it("spots dropped frames while playing", () => {

@@ -16,12 +16,24 @@ export interface WarningInput {
 
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((100 * part) / whole) : 0);
 
+const CPU_SENSOR = /x86_pkg_temp|coretemp|k10temp|tctl|tdie|tcpu|cpu/i;
+
+/**
+ * Sensors at 90°C or more. When the processor has its own sensor, only that counts: the ACPI
+ * zone ("acpitz") on many mini PCs reads a fixed or meaningless value (95°C on Gary's box) and
+ * would raise a false alarm.
+ */
+export function hotSensors(temps: HostStats["temperatures"]): HostStats["temperatures"] {
+  const cpu = temps.filter((t) => CPU_SENSOR.test(t.name));
+  return (cpu.length ? cpu : temps.filter((t) => t.name !== "acpitz")).filter((t) => t.celsius >= 90);
+}
+
 function hostWarnings(h: HostStats, where: "box" | "hub", name: string): StatsWarning[] {
   const out: StatsWarning[] = [];
   const memUsed = pct(h.memory.totalMb - h.memory.availableMb, h.memory.totalMb);
   if (memUsed >= 90) out.push({ level: "warn", where, text: `${name} memory is ${memUsed}% used` });
   if ((h.cpu.usagePct ?? 0) >= 90) out.push({ level: "warn", where, text: `${name} CPU is busy (${h.cpu.usagePct}%)` });
-  const hot = h.temperatures.filter((t) => t.celsius >= 90);
+  const hot = hotSensors(h.temperatures);
   if (hot.length) out.push({ level: "bad", where, text: `${name} is running hot: ${hot.map((t) => `${t.name} ${t.celsius}°C`).join(", ")}` });
   for (const d of h.disks) {
     if (d.totalGb > 0 && d.freeGb / d.totalGb < 0.1) out.push({ level: d.freeGb / d.totalGb < 0.03 ? "bad" : "warn", where, text: `${name} ${d.label} disk is nearly full (${d.freeGb} GB free)` });
