@@ -15,6 +15,10 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- The phone remote's arrows now move around the TV's Settings (and any screen that was still
+  loading): focus no longer jumps back to the first item after a key from the phone or HDMI-CEC.
+- The phone's settings page has a Music channels section: add, edit, turn off, reshuffle and delete
+  channels, look for more videos, and add or remove videos by link.
 - Phone remote: a Now Playing card with a progress bar, skip, live and track buttons; a Watch
   tab to start anything on the TV from the phone (guide, films, TV, recordings, Spotify, search);
   and a Stats page for the box and the Hub (playback quality, HDMI, CPU, GPU, memory, disks,
