@@ -15,6 +15,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Deezer login from the phone: the Music tab shows a QR code (until the box is logged in). Scan
+  it, type your Deezer email and password on the phone, and the TV opens Deezer and fills in its
+  login page. The Hub only holds what you typed in memory, for two minutes at most, and hands it
+  to the TV once.
+
 - Music video channels: the Hub makes its own live channels from music videos it downloads to the
   NAS (`Music Videos` folder) in HD or 4K with yt-dlp. It starts with Clubland TV (390), House TV
   (391) and Halloween TV (392), about 30 videos each, and every pass through a channel is a fresh

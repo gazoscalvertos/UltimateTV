@@ -6,6 +6,7 @@ import fastifyStatic from "@fastify/static";
 import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import QRCode from "qrcode";
+import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
 import type { BoxState, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
@@ -297,6 +298,25 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (!/^https:\/\/[^\s]{1,500}$/.test(text)) return reply.code(400).send({ error: "Only https addresses" });
     const svg = await QRCode.toString(text, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
     return reply.type("image/svg+xml").header("Cache-Control", "public, max-age=600").send(svg);
+  });
+  // Logging the TV in to Deezer from the phone (see musiclogin.ts).
+  const musicLogins = new MusicLogins();
+  app.get("/music-login/", async (_req, reply) => reply.type("text/html").header("Cache-Control", "no-store").send(MUSIC_LOGIN_PAGE));
+  app.get("/api/music/login/qr.svg", async (req, reply) => {
+    const svg = await QRCode.toString(`${hubBase(req)}/music-login/`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    return reply.type("image/svg+xml").send(svg);
+  });
+  app.post("/api/music/login", async (req: Req<Record<string, string>, Record<string, string>, { app?: string; email?: string; password?: string }>, reply) => {
+    const email = String(req.body?.email ?? "").trim().slice(0, 200);
+    const password = String(req.body?.password ?? "").slice(0, 200);
+    if (req.body?.app !== "deezer" || !email || !password) return reply.code(400).send({ error: "Enter your email and password" });
+    if (tvSockets === 0) return reply.code(409).send({ error: "The TV app isn't connected to the Hub. Is the box on?" });
+    ctx.events.emit({ type: "music.login", app: "deezer", id: musicLogins.add({ email, password }) });
+    return { ok: true };
+  });
+  app.get("/api/music/login/:id", async (req: Req<{ id: string }>, reply) => {
+    const login = musicLogins.take(req.params.id);
+    return login ? reply.header("Cache-Control", "no-store").send(login) : reply.code(404).send({ error: "That login has gone; send it again" });
   });
   app.get("/api/remote/qr.svg", async (req, reply) => {
     const svg = await QRCode.toString(`${hubBase(req)}/remote/`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });

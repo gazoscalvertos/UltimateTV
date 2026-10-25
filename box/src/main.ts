@@ -125,6 +125,7 @@ async function main(): Promise<void> {
     webPlaying = playing;
   });
   spotify.start();
+  void webApps.checkSignedIn();
 
   let suspendTimer: NodeJS.Timeout | undefined;
   cec.onPower((active) => {
@@ -176,6 +177,7 @@ async function main(): Promise<void> {
     webAppText: (t: never) => webApps.text(t),
     webAppControl: (c: never) => webApps.control(c),
     webApp: async () => webApps.state(),
+    webAppLogin: (id: never, login: never) => webApps.login(id, login),
   };
   diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!() });
 

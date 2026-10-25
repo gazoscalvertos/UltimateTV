@@ -71,7 +71,12 @@ export interface WebAppState {
   open: boolean;
   /** Loaded, open or not; music keeps playing while it's hidden. */
   app?: WebAppId;
+  /** Deezer's sign-in cookie is there (undefined until the box has looked). */
+  signedIn?: boolean;
   nowPlaying?: { title: string; artist?: string; album?: string; artwork?: string; playing: boolean };
 }
 
 export type WebAppCommand = "playPause" | "pause" | "next" | "prev";
+
+/** How a login typed on the phone went: filled in and sent, or the page had no login form. */
+export type WebAppLoginResult = "submitted" | "partial" | "no-form";

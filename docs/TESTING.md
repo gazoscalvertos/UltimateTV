@@ -54,7 +54,7 @@ Update the box first (Settings › About › Update the box): the update builds 
 2. Play a playlist, then Shuffle; skip with Next and the remote's fast forward; change the volume. Sound comes from the TV.
 3. In the Spotify app on your phone, pick **UltimateTV** from the devices list: it carries on playing on the TV, and the Music tab follows.
 4. Start a film: the music pauses. Press Play/Pause on Home with no film playing: the music plays and pauses.
-5. Deezer: open it from Music services and log in once (email and password; Google or Facebook login won't open). Arrows move a blue highlight, OK presses, Play/Pause plays. Back returns to the app and the music keeps going, with Deezer's song in Now Playing. Note anything you can't reach with the arrows.
+5. Deezer: scan the "Log in to Deezer" QR code in Music services, type your email and password on the phone and press Log in on the TV. Deezer opens on the TV and logs in (tick any "I'm not a robot" box with the remote). Google or Facebook login won't open. Arrows move a blue highlight, OK presses, Play/Pause plays. Back returns to the app and the music keeps going, with Deezer's song in Now Playing. Note anything you can't reach with the arrows.
 6. If Spotify says it isn't set up: `systemctl --user -M tv@ status ultimatetv-spotify` and `journalctl --user -M tv@ -u ultimatetv-spotify` on the box.
 
 ## 7. TV remote (when the Pulse-Eight adapter arrives)
