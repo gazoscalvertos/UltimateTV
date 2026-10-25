@@ -345,6 +345,12 @@ export interface PlaybackInfo {
   logo?: string;
   /** Music video channels: what plays after `url`, in order. The TV tunes in again when it runs out. */
   queue?: string[];
+  /** "Artist – Song" for `url` and then each of `queue`, for the music channel's caption. */
+  titles?: string[];
+  /** Fill the screen, cropping any black bars (music videos come in every shape). */
+  fill?: boolean;
+  /** Black bars baked into each video (mpv video-crop "WxH+X+Y", "" for none), in the order of `titles`. */
+  crops?: string[];
 }
 
 // ---------------------------------------------------------------------------

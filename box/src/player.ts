@@ -18,7 +18,7 @@ type MpvTrack = {
 
 type VideoParams = { w?: number; h?: number; gamma?: string; primaries?: string; colormatrix?: string; pixelformat?: string; "hw-pixelformat"?: string } | null;
 
-const WATCHED = ["time-pos", "duration", "pause", "paused-for-cache", "core-idle", "eof-reached", "idle-active", "track-list", "video-params", "container-fps", "hwdec-current", "audio-codec-name", "audio-params", "demuxer-cache-state", "current-ao"];
+const WATCHED = ["time-pos", "duration", "pause", "paused-for-cache", "core-idle", "eof-reached", "idle-active", "track-list", "video-params", "container-fps", "hwdec-current", "audio-codec-name", "audio-params", "demuxer-cache-state", "current-ao", "playlist-pos"];
 
 /** Whether mpv's video parameters describe HDR (PQ or HLG transfer). */
 export function isHdr(params: VideoParams): boolean {
@@ -272,10 +272,12 @@ export class Player {
     const pos = Number(p["time-pos"] ?? 0);
     const state: PlayerState = { status, positionMs: Math.round(pos * 1000), audioTracks: audio, subtitleTracks: subs };
     const duration = Number(p["duration"]);
-    if (!this.live && Number.isFinite(duration) && duration > 0) state.durationMs = Math.round(duration * 1000);
+    // A list's videos each have a length, so the TV can time its captions.
+    if ((!this.live || this.queued) && Number.isFinite(duration) && duration > 0) state.durationMs = Math.round(duration * 1000);
     const cache = p["demuxer-cache-state"] as { "cache-end"?: number; "cache-duration"?: number; "raw-input-rate"?: number } | undefined;
     if (cache?.["cache-duration"] !== undefined) state.bufferedMs = Math.round(cache["cache-duration"] * 1000);
     if (cache?.["raw-input-rate"]) state.downloadKbps = Math.round((cache["raw-input-rate"] * 8) / 1000);
+    if (this.queued && typeof p["playlist-pos"] === "number" && p["playlist-pos"] >= 0) state.playlistPos = p["playlist-pos"];
     if (this.live && !this.queued && cache?.["cache-end"] !== undefined) state.behindLiveMs = Math.max(0, Math.round((cache["cache-end"] - pos) * 1000));
     const vp = p["video-params"] as VideoParams;
     if (vp?.w && vp.h) {
@@ -347,9 +349,16 @@ export class Player {
     opts.push(`cache-secs=${o.live ? 3600 : 60}`);
     // TorBox can take a minute or two to hand over a file it's still fetching; don't give up first.
     if (!o.live) opts.push("network-timeout=300");
+    const crop = (i: number) => (o.crops?.[i] && /^\d+x\d+\+\d+\+\d+$/.test(o.crops[i]) ? `video-crop=${o.crops[i]}` : "");
+    if (crop(0)) opts.push(crop(0));
     await this.setNightMode(Boolean(o.nightMode));
+    // panscan 1 crops the longer side so the picture fills the screen with no black bars.
+    await this.mpv.set("panscan", o.fill ? 1 : 0).catch(() => undefined);
     await this.mpv.command("loadfile", o.url, "replace", -1, opts.join(","));
-    for (const next of o.queue ?? []) await this.mpv.command("loadfile", next, "append").catch(() => undefined);
+    for (const [i, next] of (o.queue ?? []).entries()) {
+      const c = crop(i + 1);
+      await (c ? this.mpv.command("loadfile", next, "append", -1, c) : this.mpv.command("loadfile", next, "append")).catch(() => undefined);
+    }
     for (const s of o.subtitles ?? []) await this.mpv.command("sub-add", s.url, "auto", s.label, s.lang).catch(() => undefined);
     await this.mpv.set("pause", false);
   }

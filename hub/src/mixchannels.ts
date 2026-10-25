@@ -14,6 +14,7 @@ import path from "node:path";
 import type { Channel, MixCandidate, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixVideo, MixVideoStatus, Programme } from "@ultimatetv/shared";
 import { normaliseChannelName } from "@ultimatetv/shared";
 import type { ChannelStore } from "./channels.js";
+import { type CropDetect, ffmpegCropDetect } from "./cropdetect.js";
 import { slug } from "./channels.js";
 import type { Db } from "./db.js";
 import type { GuideStore } from "./epg.js";
@@ -174,6 +175,8 @@ export const searchCurator: Curator = {
 
 interface StoredVideo extends MixVideo {
   thumbPath?: string;
+  /** Black bars baked into the picture, as mpv's video-crop ("" when there are none). */
+  crop?: string;
 }
 
 export class MixStore {
@@ -260,6 +263,8 @@ export interface MixOptions {
   minFreeBytes?: number;
   /** Demo mode: videos point at test clips that don't need to exist. */
   demo?: boolean;
+  /** Finds baked-in black bars (default ffmpeg's cropdetect). */
+  cropDetect?: CropDetect;
 }
 
 type Job = { kind: "curate"; channelId: string } | { kind: "download"; videoId: string };
@@ -561,7 +566,7 @@ export class MixManager {
   }
 
   /** What the TV plays when tuned to this channel: the video on now from where it has got to, then the rest. */
-  tuneIn(channelId: string, now = Date.now()): { first: { videoId: string; offsetMs: number; programme: Programme }; queue: string[] } | null {
+  tuneIn(channelId: string, now = Date.now()): { first: { videoId: string; offsetMs: number; programme: Programme }; queue: string[]; titles: string[]; crops: string[] } | null {
     this.extend(channelId, now);
     const upcoming = this.o.guide.onChannel(channelId, now, 200).filter((p) => p.start < now + QUEUE_AHEAD);
     const playable = upcoming.filter((p) => {
@@ -571,7 +576,7 @@ export class MixManager {
     const [first, ...rest] = playable;
     if (!first?.videoId) return null;
     const offsetMs = Math.max(0, now - first.start);
-    return { first: { videoId: first.videoId, offsetMs, programme: first }, queue: rest.map((p) => p.videoId!) };
+    return { first: { videoId: first.videoId, offsetMs, programme: first }, queue: rest.map((p) => p.videoId!), titles: playable.map((p) => p.title), crops: playable.map((p) => this.store.video(p.videoId!)?.crop ?? "") };
   }
 
   // -------------------------------------------------------------------------
@@ -598,6 +603,23 @@ export class MixManager {
     // downloads of the videos already chosen: one search and one download at a time.
     void this.loop("curate");
     void this.loop("download");
+    void this.findBars();
+  }
+
+  /** Checks videos downloaded before bar detection existed, one at a time. */
+  private async findBars(): Promise<void> {
+    for (const v of this.store.videosWithStatus("ready")) {
+      if (this.stopped) return;
+      if (v.crop !== undefined || !v.path || !existsSync(v.path)) continue;
+      const crop = await this.barsOf(v.path);
+      const now = this.store.video(v.id);
+      if (now?.status === "ready") this.store.saveVideo({ ...now, crop });
+    }
+  }
+
+  private barsOf(file: string): Promise<string> {
+    if (this.o.demo) return Promise.resolve("");
+    return (this.o.cropDetect ?? ffmpegCropDetect)(file).catch(() => "");
   }
 
   stop(): void {
@@ -810,6 +832,7 @@ export class MixManager {
       if (got.fps) ready.fps = got.fps;
       if (got.durationS) ready.durationS = Math.round(got.durationS);
       if (existsSync(thumb)) ready.thumbPath = thumb;
+      ready.crop = await this.barsOf(got.path);
       this.store.saveVideo(ready);
       this.o.log.info({ video: v.id, title: v.title, height: ready.height }, "Music video downloaded");
     } catch (err) {

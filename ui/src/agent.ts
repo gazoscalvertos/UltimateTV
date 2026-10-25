@@ -75,6 +75,7 @@ class BrowserAgent implements BoxAgent {
     clearInterval(this.timer);
     this.fake = null;
     this.live = o.live;
+    this.video.style.objectFit = o.fill ? "cover" : "";
     this.still.style.backgroundImage = o.artwork ? `url("${o.artwork}")` : "";
     this.still.classList.toggle("show", Boolean(o.artwork));
     this.emit({ status: "loading", positionMs: o.startMs ?? 0, audioTracks: [{ id: 1, lang: "eng", title: "English", codec: "eac3", channels: 6, selected: true }], subtitleTracks: (o.subtitles ?? []).map((s, i) => ({ id: i + 1, lang: s.lang, title: s.label, external: true, selected: false })) });
