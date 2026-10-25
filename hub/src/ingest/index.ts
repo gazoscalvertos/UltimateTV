@@ -51,9 +51,13 @@ export function splitYear(name: string): { name: string; year?: number } {
   return cleaned ? { name: cleaned, year: Number(yearText) } : { name: name.trim() };
 }
 
-/** Drops provider prefixes like "EN - " or "|UK| " from VOD names. */
+/**
+ * Drops provider prefixes like "EN - ", "|UK| ", "[DE] " or "4K-FR-HDR - " from VOD names, so the
+ * copies of a film in every language match it. Each part of a dashed prefix is two or three
+ * capitals or contains a digit, so a title such as "TRON: Legacy" stays whole.
+ */
 export function cleanVodName(name: string): string {
-  return name.replace(/^\s*(\|[A-Z]{2,3}\||[A-Z]{2,3}\s*[-:|])\s*/, "").trim();
+  return name.replace(/^\s*(\|[A-Z0-9-]{2,12}\||\[[A-Z0-9-]{2,12}\]|(?:[A-Z]{2,3}|(?=[A-Z]*\d)[A-Z0-9]{2,4})(?:-(?:[A-Z]{2,3}|(?=[A-Z]*\d)[A-Z0-9]{2,4}))*\s*[-:|])\s*/, "").trim();
 }
 
 /** A readable reason, including what undici hides in `cause` ("fetch failed" alone says nothing). */

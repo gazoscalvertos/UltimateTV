@@ -35,7 +35,7 @@ export function chooseVersion(title: TitleDetails, episodeId?: string): Promise<
         <p class="dialog-message">The best one is picked for you when you press Play. Ready means it starts straight away.</p>
         <Show when={streams()} fallback={<div class="spinner" />}>
           <Show when={streams()!.streams.length} fallback={<p class="empty">No versions found yet.</p>}>
-            <div class="version-list">
+            <div class="version-list" data-scroll-y="8">
               <For each={streams()!.streams}>
                 {(s: StreamRow, i) => (
                   <button
@@ -98,6 +98,15 @@ export function Details(props: { id: string }) {
     }
     void play({ kind: "title", id: title.id }, { title: refOf(title), fromStart });
   };
+  // The episode Play starts (the first unwatched), and the one the remote is on, for Versions.
+  const nextEpisode = () => {
+    const eps = episodes() ?? [];
+    return eps.find((e) => !e.watched) ?? eps[0];
+  };
+  const [focusedEpisode, setFocusedEpisode] = createSignal<Episode | null>(null);
+  const episodeVersions = (e: Episode | undefined | null) => {
+    if (e) void chooseVersion(d()!, `s${e.season}e${e.episode}`);
+  };
   const playEpisode = (e: Episode) => void play({ kind: "title", id: d()!.id, episodeId: `s${e.season}e${e.episode}` }, { title: refOf(d()!) });
 
   const save = async () => {
@@ -111,7 +120,8 @@ export function Details(props: { id: string }) {
 
   useKeys((a) => {
     if (a === "yellow" && d()) {
-      void chooseVersion(d()!);
+      if (d()!.kind === "series") episodeVersions(focusedEpisode() ?? nextEpisode());
+      else void chooseVersion(d()!);
       return true;
     }
     if (a === "play" && d()) {
@@ -181,6 +191,13 @@ export function Details(props: { id: string }) {
                       <Icon name="list" /> Versions
                     </button>
                   </Show>
+                  <Show when={t().kind === "series" && nextEpisode()}>
+                    {(e) => (
+                      <button class="btn btn-large" data-focus onClick={() => episodeVersions(e())}>
+                        <Icon name="list" /> Versions of {episodeLabel(e().season, e().episode)}
+                      </button>
+                    )}
+                  </Show>
                   <Show when={t().kind === "movie" && !isKids() && !t().inLibrary && streams()?.streams.some((s) => s.downloadable)}>
                     <button class="btn btn-large" data-focus onClick={() => void save()}>
                       <Icon name="download" /> Save to NAS
@@ -206,7 +223,7 @@ export function Details(props: { id: string }) {
                     <Show when={episodes()} fallback={<div class="spinner" />}>
                       <For each={episodes()}>
                         {(e) => (
-                          <button class="card card-wide card-episode" data-focus onClick={() => playEpisode(e)}>
+                          <button class="card card-wide card-episode" data-focus onFocus={() => setFocusedEpisode(e)} onBlur={() => setFocusedEpisode(null)} onClick={() => playEpisode(e)}>
                             <div class="card-art">
                               <Show when={e.still} fallback={<div class="card-fallback">{episodeLabel(e.season, e.episode)}</div>}>
                                 <img src={e.still} alt="" loading="lazy" />

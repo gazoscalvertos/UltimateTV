@@ -26,6 +26,8 @@ export interface PlayerState {
   behindLiveMs?: number;
   /** Seconds of buffer the player holds ahead/behind, for the pause-live bar. */
   bufferedMs?: number;
+  /** How fast the stream is arriving, while it starts. */
+  downloadKbps?: number;
   audioTracks: AudioTrack[];
   subtitleTracks: SubTrack[];
   video?: { width: number; height: number; fps?: number; hdr?: string; codec?: string; hwdec?: string };

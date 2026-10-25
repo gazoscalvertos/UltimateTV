@@ -8,10 +8,12 @@ import { clockTime, digitOf } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { DialogFrame } from "../components/Dialog";
+import { StartingCard } from "../components/Starting";
 import { Icon } from "../components/Icon";
 import { openProgramme, recordFlow } from "../components/ProgrammeCard";
 import { Progress } from "../components/Rail";
 import { useKeys } from "../keys";
+import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
 import { nav, now, openDialog, setShowStats, showStats, toast } from "../store";
 
@@ -65,6 +67,21 @@ function StatsOverlay() {
 
 export function Player() {
   const live = () => nowPlaying()?.info.live ?? false;
+  // Until the first frame shows, the "starting" card stands in for the picture.
+  const [played, setPlayed] = createSignal(false);
+  createEffect(on(nowPlaying, () => setPlayed(false)));
+  createEffect(() => {
+    if (playerState().status === "playing" || playerState().status === "paused") setPlayed(true);
+  });
+  const opening = () => !played() && (playerState().status === "loading" || playerState().status === "buffering");
+  const stopAndBack = () => (nav.back() ? undefined : nav.reset({ name: "home" }));
+  const otherVersion = async () => {
+    const np = nowPlaying();
+    if (np?.req.kind !== "title") return;
+    const { id, episodeId } = np.req;
+    const title = await hub.title(id).catch(() => null);
+    if (title) void chooseVersion(title, episodeId);
+  };
   const [osd, setOsd] = createSignal(true);
   const [browse, setBrowse] = createSignal<string | null>(null);
   const [showNext, setShowNext] = createSignal(false);
@@ -351,9 +368,41 @@ export function Player() {
 
   return (
     <div class="screen player" data-layer>
-      <Show when={playerState().status === "loading" || playerState().status === "buffering"}>
+      <Show when={opening() && nowPlaying()}>
+        {(np) => (
+          <div class="player-spinner">
+            <StartingCard
+              title={np().title?.name ?? np().info.title}
+              {...(np().info.source?.label ? { source: np().info.source!.label } : {})}
+              step={playerState().status === "loading" ? "Connecting" : "Buffering"}
+              since={np().since}
+              {...(playerState().downloadKbps ? { downloadKbps: playerState().downloadKbps! } : {})}
+              {...(playerState().bufferedMs ? { bufferedMs: playerState().bufferedMs! } : {})}
+            />
+          </div>
+        )}
+      </Show>
+      <Show when={!opening() && playerState().status === "buffering"}>
         <div class="player-spinner">
           <div class="spinner" />
+        </div>
+      </Show>
+      <Show when={playerState().status === "error"}>
+        <div class="player-spinner">
+          <DialogFrame close={() => void stopAndBack()} class="player-error">
+            <h2>That didn't play</h2>
+            <p class="dialog-message">{playerState().error ?? "The stream didn't start."} Another version may work.</p>
+            <div class="dialog-options">
+              <Show when={nowPlaying()?.req.kind === "title"}>
+                <button class="btn btn-primary" data-focus data-autofocus onClick={() => void otherVersion()}>
+                  <Icon name="list" /> Choose another version
+                </button>
+              </Show>
+              <button class="btn" data-focus data-autofocus={nowPlaying()?.req.kind === "title" ? undefined : ""} onClick={() => void stopAndBack()}>
+                Back
+              </button>
+            </div>
+          </DialogFrame>
         </div>
       </Show>
 

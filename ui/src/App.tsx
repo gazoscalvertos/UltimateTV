@@ -2,14 +2,15 @@
 // handles things that can happen anywhere (reminders, a recording taking the connection,
 // the TV going to standby).
 
-import { createEffect, ErrorBoundary, For, Match, on, onCleanup, onMount, Switch } from "solid-js";
+import { createEffect, ErrorBoundary, For, Match, on, onCleanup, onMount, Show, Switch } from "solid-js";
 import { agent } from "./agent";
 import { ApiError, hub, session } from "./api";
 import { choose, DialogHost } from "./components/Dialog";
+import { StartingCard } from "./components/Starting";
 import { startEvents, onHubEvent } from "./events";
 import { activeLayer, current, focus, focusFirst } from "./focus";
 import { onBack, useKeys } from "./keys";
-import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, stopPlayback } from "./player";
+import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, starting, cancelStarting, stopPlayback } from "./player";
 import { Browse } from "./screens/Browse";
 import { Details } from "./screens/Details";
 import { Guide } from "./screens/Guide";
@@ -35,6 +36,19 @@ function ScreenError(props: { error: unknown; reset: () => void }) {
           Try again
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Over everything while a title is looked up: Back cancels it, other keys wait. */
+function StartingLayer(props: { name: string; since: number }) {
+  useKeys((a) => {
+    if (a === "back") cancelStarting();
+    return true;
+  });
+  return (
+    <div class="starting-layer">
+      <StartingCard title={props.name} step="Finding the best version" since={props.since} />
     </div>
   );
 }
@@ -196,6 +210,7 @@ export function App() {
           </Match>
         </Switch>
       </ErrorBoundary>
+      <Show when={starting()}>{(st) => <StartingLayer name={st().name} since={st().since} />}</Show>
       <DialogHost />
       <div class="toasts">
         <For each={toasts()}>{(t) => <div class={`toast toast-${t.tone}`}>{t.message}</div>}</For>
