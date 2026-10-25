@@ -15,6 +15,10 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Rename the app: call it GazosTV (or anything up to 24 characters) from the phone's settings page
+  (App name) or the TV's Settings › About › App name. The new name shows on the TV's top bar, the
+  phone remote, the settings pages, the box's "can't reach the Hub" screen and in the Spotify app's
+  device list. Needs a Hub and a box update.
 - Breaking news from the phone: the remote's News button puts a BBC News style "BREAKING NEWS"
   bar along the bottom of the TV, over whatever is on, with your own message (and channel name).
   It stays for 30 seconds to 15 minutes, or until you take it down. Needs a Hub and a box update.

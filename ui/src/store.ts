@@ -1,7 +1,7 @@
 // App-wide state: where we are, who's watching, toasts and dialogs.
 
 import { createSignal, type JSX } from "solid-js";
-import type { MusicItem, Profile } from "@ultimatetv/shared";
+import { DEFAULT_APP_NAME, type MusicItem, type Profile } from "@ultimatetv/shared";
 
 export type Route =
   | { name: "profiles" }
@@ -46,6 +46,28 @@ export const nav = {
 
 // ---------------------------------------------------------------------------
 // Profile
+
+// The app's name, set on the phone's settings page. Remembered so the TV starts with it before
+// the Hub answers; the page title carries it to the box, which shows it while the Hub is away.
+function readAppName(): string {
+  try {
+    return localStorage.getItem("utv-app-name") || DEFAULT_APP_NAME;
+  } catch {
+    return DEFAULT_APP_NAME;
+  }
+}
+const [appName, setAppNameSignal] = createSignal(readAppName());
+export { appName };
+document.title = appName();
+export function setAppName(name: string): void {
+  setAppNameSignal(name);
+  document.title = name;
+  try {
+    localStorage.setItem("utv-app-name", name);
+  } catch {
+    // Private storage off: the name still shows once the Hub answers.
+  }
+}
 
 export const [profile, setProfile] = createSignal<Profile | null>(null);
 export const isKids = () => profile()?.kind === "kids";

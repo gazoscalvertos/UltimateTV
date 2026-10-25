@@ -2,7 +2,7 @@
 
 import { For, Show } from "solid-js";
 import { clockTime } from "@ultimatetv/shared";
-import { isKids, nav, now, profile, type Route } from "../store";
+import { appName, isKids, nav, now, profile, type Route } from "../store";
 import { Icon } from "./Icon";
 
 type Tab = { label: string; route: Route; match: Route["name"]; adults?: boolean };
@@ -27,8 +27,8 @@ export function TopBar() {
   return (
     <header class="topbar" data-focus-group data-focus-only="up">
       <div class="brand">
-        <span class="brand-mark">U</span>
-        <span class="brand-name">UltimateTV</span>
+        <span class="brand-mark">{appName().slice(0, 1).toUpperCase()}</span>
+        <span class="brand-name">{appName()}</span>
       </div>
       <nav class="tabs">
         <For each={TABS.filter((t) => !(t.adults && isKids()))}>

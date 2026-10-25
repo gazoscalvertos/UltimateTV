@@ -81,7 +81,7 @@ public class MainActivity extends Activity {
         box.addView(title);
 
         TextView hint = new TextView(this);
-        hint.setText(error != null ? error : "Enter the address of the UltimateTV Hub on your home network. It's shown in Settings › Phone remote on the TV.");
+        hint.setText(error != null ? error : "Enter the address of your TV's Hub on your home network. It's shown in Settings › Phone remote on the TV.");
         hint.setTextColor(error != null ? Color.rgb(255, 120, 135) : Color.rgb(154, 166, 189));
         hint.setTextSize(15);
         hint.setPadding(0, dp(12), 0, dp(24));

@@ -12,6 +12,7 @@
 //   SPOTIFY_API   the Spotify receiver's local API (default http://127.0.0.1:3678)
 
 import { execFile } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "electron";
 import os from "node:os";
 import path from "node:path";
@@ -22,7 +23,7 @@ import { Diagnostics } from "./diagnostics.js";
 import { Display } from "./display.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
-import { Spotify } from "./spotify.js";
+import { renameSpotifyDevice, Spotify } from "./spotify.js";
 import { Updates } from "./updates.js";
 import { WebApps } from "./webapp.js";
 
@@ -48,9 +49,20 @@ app.setName("ultimatetv");
 let win: BrowserWindow | null = null;
 let blocker: number | null = null;
 
+// The app's name as the Hub last gave it (the TV UI's page title), for when the Hub can't be reached.
+const NAME_FILE = path.join(app.getPath("userData"), "app-name");
+let appName = (() => {
+  try {
+    return readFileSync(NAME_FILE, "utf8").trim() || "UltimateTV";
+  } catch {
+    return "UltimateTV";
+  }
+})();
+const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
 const offlinePage = (reason: string) =>
   `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html><html><body style="margin:0;height:100vh;display:grid;place-items:center;background:#0a0f1a;color:#e8edf5;font:32px system-ui,sans-serif;text-align:center">
-<div><div style="font-size:64px;font-weight:700;margin-bottom:24px">UltimateTV</div>Can't reach the Hub at ${HUB_URL}<br><span style="opacity:.6;font-size:24px">${reason.replace(/</g, "&lt;")} · trying again</span></div>
+<div><div style="font-size:64px;font-weight:700;margin-bottom:24px">${escapeHtml(appName)}</div>Can't reach the Hub at ${HUB_URL}<br><span style="opacity:.6;font-size:24px">${escapeHtml(reason)} · trying again</span></div>
 <script>setTimeout(()=>location.replace(${JSON.stringify(`${HUB_URL}/app/`)}),5000)</script></body></html>`)}`;
 
 async function main(): Promise<void> {
@@ -208,12 +220,26 @@ async function main(): Promise<void> {
     transparent: true,
     backgroundColor: "#00000000",
     show: false,
-    title: "UltimateTV",
+    title: appName,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false, backgroundThrottling: false },
   });
   win.setMenu(null);
   win.webContents.setZoomFactor(1);
   win.once("ready-to-show", () => win?.show());
+  // The TV UI titles its page with the app's name: remember it, and give Spotify the same name.
+  win.webContents.on("page-title-updated", (_e, title) => {
+    const name = title.trim();
+    if (!win?.webContents.getURL().startsWith(HUB_URL) || !name || name.length > 24) return;
+    if (name !== appName) {
+      appName = name;
+      try {
+        writeFileSync(NAME_FILE, name);
+      } catch (e) {
+        log(`Couldn't save the app's name: ${(e as Error).message}`);
+      }
+    }
+    void renameSpotifyDevice(name, log);
+  });
   win.webContents.on("did-fail-load", (_e, code, desc, url) => {
     if (url.startsWith(HUB_URL) && code !== -3) {
       log(`UI didn't load (${desc})`);
