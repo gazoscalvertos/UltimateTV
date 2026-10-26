@@ -15,6 +15,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Android app for phones and tablets** (`/api/client/app.apk`, [docs/android-client.md](docs/android-client.md)):
+  watch live TV, catch-up, recordings, films and TV on the home Wi-Fi, and download films,
+  episodes and recordings to watch anywhere. Jellyfin titles can download a smaller 720p copy.
+  When the phone would take the IPTV connection from the TV, it asks first. Update the Hub to get
+  it.
 - Pop-ups on the TV: a doorbell showing who's at the door, a meeting, an alarm. Send a title,
   text, a picture, a video or a mix, from the phone remote's new **Pop-up** button or from Home
   Assistant and scripts through `POST /api/notify`, and choose where it goes (middle, a corner, top,

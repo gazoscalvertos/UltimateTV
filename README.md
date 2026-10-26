@@ -16,6 +16,7 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md). See [
 - **The Hub** runs in Docker on the home server. It reads the IPTV playlist and EPG, records to the NAS, talks to Jellyfin, AIOStreams and TorBox, and serves the TV app, the setup page and the phone remote.
 - **The box** (the GMKtec mini PC) boots straight into the TV app: an Electron window over mpv, with HDR, refresh rate matching and Dolby passthrough. The TV remote works through a Pulse-Eight USB-CEC adapter.
 - **The phone remote** works over Wi-Fi from any Android phone, as a web app or a small installable app.
+- **The Android app** watches everything on a phone or tablet at home, and downloads films, episodes and recordings for the road ([docs/android-client.md](docs/android-client.md)).
 
 ## Setting it up
 
@@ -51,7 +52,7 @@ In a normal browser the keyboard is the remote: arrows, Enter (OK), Escape (Back
 | `hub/` | The home server: sources, EPG, recorder, series link, profiles, API; plus the setup page and phone remote in `hub/public/` |
 | `ui/` | The TV app (SolidJS), served by the Hub at `/app/` |
 | `box/` | The box shell: Electron, mpv control, display modes, HDMI-CEC |
-| `android/` | The phone remote as an Android app |
+| `android/` | The Android apps: the phone remote (`app/`) and the watching client (`client/`) |
 | `tools/box/` | Box installer and probe |
 | `tools/pxe/` | PXE server for reinstalling the box over the network |
 | `tools/screenshots/` | Screenshot capture |

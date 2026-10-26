@@ -77,6 +77,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ...who, filter: new ContentFilter(who.profile) };
   };
   const filterOf = (req: FastifyRequest) => viewer(req).filter;
+  /** The Android client names itself ("phone:<id>") so it can share the IPTV connection politely. */
+  const deviceOf = (req: FastifyRequest): string | undefined => {
+    const v = req.headers["x-device"];
+    return typeof v === "string" && /^phone:[\w-]{1,64}$/.test(v) ? v : undefined;
+  };
   /** Anything that changes the household's setup or deletes things needs an adult (and the PIN once it's set). */
   const ADMIN_ROUTES = new Set([
     "PUT /api/settings",
@@ -423,6 +428,17 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       .send(apk.stream);
   });
 
+  const clientApp = new RemoteApp(config.dataDir, fetch, { tag: "client-app", file: "ultimatetv.apk" });
+  app.get("/api/client/app.apk", async (_req, reply) => {
+    const apk = await clientApp.open();
+    if (!apk) return reply.code(503).type("text/plain").send("The Hub couldn't get the app from GitHub. Try again in a minute.");
+    return reply
+      .type("application/vnd.android.package-archive")
+      .header("Content-Length", apk.size)
+      .header("Content-Disposition", 'attachment; filename="ultimatetv.apk"')
+      .send(apk.stream);
+  });
+
   /** Voice control: what the phone heard, turned into keys, a channel or a search. */
   app.post("/api/remote/voice", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
     const said = String(req.body?.text ?? "").slice(0, 200);
@@ -706,7 +722,19 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     void playback.prefetch(req.body, filterOf(req)).catch((err) => ctx.log.warn({ err: String(err) }, "Next episode lookup failed"));
     return { ok: true };
   });
-  app.post("/api/play", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest & { force?: boolean }>) => playback.resolve(req.body, hubBase(req), filterOf(req)));
+  app.post("/api/play", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest & { force?: boolean }>) => {
+    const holder = deviceOf(req);
+    return playback.resolve(req.body, hubBase(req), filterOf(req), holder ? { holder } : {});
+  });
+  /** What the Android client downloads for offline viewing: like /api/play, but never live TV. */
+  app.post("/api/offline", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest & { smaller?: boolean }>, reply) => {
+    const { smaller, ...request } = req.body ?? ({} as PlaybackRequest);
+    if (request.kind === "channel") return reply.code(422).send({ error: "Live TV can't be downloaded. Record it, then download the recording." });
+    const holder = deviceOf(req);
+    const info = await playback.resolve(request, hubBase(req), filterOf(req), { download: true, smaller: Boolean(smaller), ...(holder ? { holder } : {}) });
+    if (info.live) return reply.code(422).send({ error: "This is still recording. Download it once it has finished." });
+    return info;
+  });
 
   app.post("/api/progress", async (req: Req<Record<string, string>, Record<string, string>, { key: string; positionMs: number; durationMs?: number; event?: "start" | "progress" | "stop"; paused?: boolean; title?: TitleRef }>) => {
     const b = req.body;

@@ -236,6 +236,29 @@ export class JellyfinClient {
     return `${this.base}/Videos/${itemId}/stream?${q}`;
   }
 
+  /**
+   * A smaller H.264/AAC stereo copy that Jellyfin makes on the fly as HLS, for phones to download
+   * or play when the original is huge (a 4K remux on a phone).
+   */
+  hlsUrl(itemId: string, mediaSourceId: string | undefined, session: string, maxHeight = 720, videoBitrate = 3_000_000): string {
+    const q = new URLSearchParams({
+      api_key: this.auth.token ?? "",
+      MediaSourceId: mediaSourceId ?? itemId,
+      DeviceId: `ultimatetv-${session}`,
+      PlaySessionId: session,
+      VideoCodec: "h264",
+      AudioCodec: "aac",
+      MaxHeight: String(maxHeight),
+      VideoBitrate: String(videoBitrate),
+      AudioBitrate: "160000",
+      MaxAudioChannels: "2",
+      TranscodingMaxAudioChannels: "2",
+      SegmentContainer: "ts",
+      BreakOnNonKeyFrames: "false",
+    });
+    return `${this.base}/Videos/${itemId}/master.m3u8?${q}`;
+  }
+
   subtitleUrl(itemId: string, mediaSourceId: string, index: number, codec = "srt"): string {
     const ext = codec === "ass" || codec === "ssa" ? codec : "srt";
     return `${this.base}/Videos/${itemId}/${mediaSourceId}/Subtitles/${index}/0/Stream.${ext}?api_key=${encodeURIComponent(this.auth.token ?? "")}`;

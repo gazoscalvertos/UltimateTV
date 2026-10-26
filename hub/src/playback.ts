@@ -1,6 +1,7 @@
 // Turns "play this" into a URL the box can open, plus everything the player needs: resume point,
 // subtitles, skip markers, frame rate and what plays next.
 
+import { randomBytes } from "node:crypto";
 import type { Channel, PlaybackInfo, PlaybackRequest, StreamCandidate, TitleRef } from "@ultimatetv/shared";
 import { episodeLabel } from "@ultimatetv/shared";
 import { catchupUrl } from "./catchup.js";
@@ -24,25 +25,49 @@ export class PlaybackError extends Error {
 const streamCache = new Map<string, { at: number; streams: StreamCandidate[] }>();
 const STREAM_CACHE_MS = 30 * 60_000;
 
+/** Who is asking and why: the TV by default, or a phone watching or downloading for later. */
+export interface PlayContext {
+  /** The device: "box" (the TV) or "phone:<id>". */
+  holder?: string;
+  /** Resolving for an offline download: IPTV waits for a free connection, Jellyfin can send a smaller copy. */
+  download?: boolean;
+  smaller?: boolean;
+}
+
 export class Playback {
   constructor(
     private ctx: HubContext,
     private library: Library,
   ) {}
 
-  async resolve(req: PlaybackRequest & { force?: boolean }, hubBase: string, f: ContentFilter = NO_FILTER): Promise<PlaybackInfo> {
+  async resolve(req: PlaybackRequest & { force?: boolean }, hubBase: string, f: ContentFilter = NO_FILTER, pc: PlayContext = {}): Promise<PlaybackInfo> {
     if (f.kids) this.check(req, f);
     switch (req.kind) {
       case "channel":
-        return this.channel(req.id, hubBase, req.force ?? false);
+        return this.channel(req.id, hubBase, req.force ?? false, pc);
       case "catchup":
-        return this.catchup(req.id, req.start, hubBase, req.force ?? false);
+        return this.catchup(req.id, req.start, hubBase, req.force ?? false, pc);
       case "recording":
-        return this.recording(req.id, hubBase);
+        return this.recording(req.id, hubBase, pc);
       case "title":
       case "stream":
-        return this.title(req, hubBase, f, req.force ?? false);
+        return this.title(req, hubBase, f, req.force ?? false, pc);
     }
+  }
+
+  /**
+   * A phone about to take the only IPTV connection from the TV (or another phone): ask first, so
+   * nobody's programme stops without warning. The TV itself just switches, as it always has.
+   */
+  private askBeforeTakingOver(key: string, pc: PlayContext): void {
+    const holder = pc.holder;
+    if (!holder || holder === "box" || pc.download) return;
+    const verdict = this.ctx.guard.check(key, "view");
+    if (verdict.ok) return;
+    const other = verdict.preempts.find((l) => [...l.holders].some(([h, k]) => k === "view" && h !== holder));
+    if (!other) return;
+    const who = other.holders.has("box") ? "the TV" : "another phone";
+    throw new PlaybackError(`Your IPTV connection is in use on ${who} (${other.label}). Watching here will stop it there.`, "busy");
   }
 
   /** The stream list for a title or episode, from the last 30 minutes if it was looked up then. */
@@ -76,7 +101,7 @@ export class Playback {
     if (!channel || !f.channel(channel)) throw new NotAllowedError();
   }
 
-  private channel(id: string, hubBase: string, force: boolean): PlaybackInfo {
+  private channel(id: string, hubBase: string, force: boolean, pc: PlayContext = {}): PlaybackInfo {
     const channel = this.ctx.channels.get(id);
     if (!channel) throw new PlaybackError("That channel isn't available", "not-found");
     if (channel.mix) return this.mixChannel(channel, hubBase);
@@ -86,9 +111,13 @@ export class Playback {
       const names = recs.map((r) => `${r.programme.title} is recording on ${r.channelName}`).join(". ");
       throw new PlaybackError(`${names || "Your IPTV connection is busy"}. Switching channel will stop the recording.`, "busy", recs.map((r) => r.id));
     }
+    if (!force) this.askBeforeTakingOver(LiveRelay.key(id), pc);
+    const q = new URLSearchParams();
+    if (force) q.set("force", "1");
+    if (pc.holder && pc.holder !== "box") q.set("holder", pc.holder);
     const { now } = this.ctx.guide.nowNext(id);
     const info: PlaybackInfo = {
-      url: `${hubBase}/api/live/${encodeURIComponent(id)}.ts${force ? "?force=1" : ""}`,
+      url: `${hubBase}/api/live/${encodeURIComponent(id)}.ts${q.size ? `?${q}` : ""}`,
       title: channel.name,
       live: true,
       startMs: 0,
@@ -132,12 +161,13 @@ export class Playback {
     return info;
   }
 
-  private catchup(programmeId: string, _start: number | undefined, hubBase: string, force: boolean): PlaybackInfo {
+  private catchup(programmeId: string, _start: number | undefined, hubBase: string, force: boolean, pc: PlayContext = {}): PlaybackInfo {
     const p = this.ctx.guide.get(programmeId);
     if (!p) throw new PlaybackError("That programme isn't in the guide any more", "not-found");
     const url = catchupUrl(this.ctx.channels.feeds(p.channelId), p.start, p.end, { settings: this.ctx.settings.get(), timeZoneOf: (s) => this.ctx.ingest.sourceMeta(s)?.timeZone });
     if (!url) throw new PlaybackError("Catch-up isn't available for this programme", "unavailable");
-    const token = this.ctx.proxy.register({ url, label: `Catch-up: ${p.title}`, iptv: true, force });
+    if (!force) this.askBeforeTakingOver(`catchup:${p.id}`, pc);
+    const token = this.ctx.proxy.register({ url, label: `Catch-up: ${p.title}`, iptv: true, force, ...this.lease(pc) });
     const progress = this.ctx.progress.get(`programme:${p.id}`);
     return {
       url: `${hubBase}/api/stream/${token}`,
@@ -153,12 +183,17 @@ export class Playback {
     };
   }
 
-  private recording(id: string, hubBase: string): PlaybackInfo {
+  /** Who holds the proxy's IPTV lease: a phone's download waits behind anyone watching. */
+  private lease(pc: PlayContext): { holder?: string; kind?: "view" | "background" } {
+    return { ...(pc.holder ? { holder: pc.holder } : {}), ...(pc.download ? { kind: "background" as const } : {}) };
+  }
+
+  private recording(id: string, hubBase: string, pc: PlayContext = {}): PlaybackInfo {
     const r = this.ctx.recordings.get(id);
     if (!r) throw new PlaybackError("That recording has been deleted", "not-found");
     if (r.status === "recording" && r.method === "live") {
       // Still recording: watch it live (shares the recording's stream), Sky-style "play from start" comes once it finishes.
-      return { ...this.channel(r.channelId, hubBase, false), title: r.programme.title, progressKey: `recording:${id}` };
+      return { ...this.channel(r.channelId, hubBase, false, pc), title: r.programme.title, progressKey: `recording:${id}` };
     }
     if (r.status !== "completed" || !r.path) throw new PlaybackError("This recording isn't ready yet", "unavailable");
     const p = r.programme;
@@ -177,7 +212,7 @@ export class Playback {
     };
   }
 
-  private async title(req: PlaybackRequest, hubBase: string, f: ContentFilter, force = false): Promise<PlaybackInfo> {
+  private async title(req: PlaybackRequest, hubBase: string, f: ContentFilter, force = false, pc: PlayContext = {}): Promise<PlaybackInfo> {
     if (f.kids) await this.library.details(req.id, f);
     const ep = req.episodeId ? episodeNumbers(req.episodeId) : undefined;
     const streams = await this.titleStreams(req.id, req.episodeId);
@@ -225,12 +260,13 @@ export class Playback {
     if (chosen.kind === "xtream") {
       // Ask now rather than letting the player hit a 409: the TV can then offer "Switch anyway".
       const verdict = this.ctx.guard.check(`vod:${chosen.id}`, "view");
-      if (!verdict.ok && verdict.blockedBy.length > 0 && !force) {
+      if (!verdict.ok && verdict.blockedBy.length > 0 && !force && !pc.download) {
         const recs = this.ctx.recordings.withStatus("recording");
         const names = recs.map((r) => `${r.programme.title} is recording on ${r.channelName}`).join(". ");
         throw new PlaybackError(`${names || "Your IPTV connection is busy"}. Playing this will stop the recording.`, "busy", recs.map((r) => r.id));
       }
-      const token = this.ctx.proxy.register({ url: chosen.url, label: `IPTV: ${details.name}`, iptv: true, force });
+      if (!force) this.askBeforeTakingOver(`vod:${chosen.id}`, pc);
+      const token = this.ctx.proxy.register({ url: chosen.url, label: `IPTV: ${details.name}`, iptv: true, force, ...this.lease(pc) });
       info.url = `${hubBase}/api/stream/${token}`;
     }
 
@@ -254,6 +290,12 @@ export class Playback {
           .filter((s) => /intro|recap|outro|credits/i.test(s.Type))
           .map((s) => ({ kind: /intro/i.test(s.Type) ? "intro" : /recap/i.test(s.Type) ? "recap" : "credits", startMs: ticksToMs(s.StartTicks), endMs: ticksToMs(s.EndTicks) }));
         info.progressKey = `jellyfin:${itemId}`;
+        if (pc.smaller) {
+          info.url = jf.hlsUrl(itemId, src?.Id, randomBytes(8).toString("hex"));
+          info.hls = true;
+          // Roughly 3.2 Mbit/s for the picture and sound together.
+          if (info.durationMs && info.quality) info.quality = { ...info.quality, sizeBytes: Math.round((info.durationMs / 1000) * 400_000), height: Math.min(info.quality.height, 720), codec: "h264", audio: "aac", hdr: "sdr", channels: 2 };
+        }
       }
     } else {
       const p = this.ctx.progress.get(info.progressKey);
