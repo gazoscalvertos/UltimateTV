@@ -41,7 +41,7 @@ The Hub is only reachable on the home network, so away from home only downloads 
 
 | File | What it does |
 |------|--------------|
-| `Hub.kt` | The Hub's API, with the `X-Profile` and `X-Device` headers |
+| `Hub.kt` | The Hub's API, with the `X-Profile` and `X-Device` headers, and `X-Device-Token` once paired with the TV (Settings › Pair with the TV, needed for Play on the TV; see [pairing.md](pairing.md)) |
 | `Offline.kt`, `DownloadsService.kt` | Downloads (Media3), saved artwork and subtitles, offline progress |
 | `PlayerActivity.kt` | The player |
 | `ui/` | The screens |

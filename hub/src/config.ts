@@ -22,6 +22,8 @@ export interface HubConfig {
   demo: boolean;
   /** Address the phone setup QR code points at, when the Hub can't work it out (behind a proxy). */
   publicUrl?: string;
+  /** Phones and screens must pair before they can control the TV (on unless PAIRING=off). */
+  pairing?: boolean;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -38,6 +40,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     remoteDir: env.REMOTE_DIR ?? path.resolve(here, "../public/remote"),
     mediaRoot: env.MEDIA_ROOT ?? "/mnt/nas",
     demo: env.DEMO === "1" || env.DEMO === "true",
+    pairing: env.PAIRING !== "off",
   };
   if (env.PUBLIC_URL) config.publicUrl = env.PUBLIC_URL.replace(/\/+$/, "");
   return config;

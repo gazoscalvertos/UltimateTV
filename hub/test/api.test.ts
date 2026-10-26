@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { GuideWindow, HomeScreen, PlaybackInfo, TitleDetails } from "@ultimatetv/shared";
 import type { HubConfig } from "../src/config.js";
 import { buildServer } from "../src/server.js";
+import { pairAsTv } from "./helpers.js";
 
 let tmp: string;
 let app: Awaited<ReturnType<typeof buildServer>>;
@@ -24,6 +25,7 @@ beforeAll(async () => {
     demo: true,
   };
   app = await buildServer(config, { systemReport: async () => ({ ffmpeg: null, hwaccels: [], renderNode: null, vaapi: { available: false, driver: null, profiles: [] }, checks: { av1HardwareDecode: false, hevcHardwareEncode: false, hevc10HardwareEncode: false } }) });
+  await pairAsTv(app);
 });
 
 afterAll(async () => {

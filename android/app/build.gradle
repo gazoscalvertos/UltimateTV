@@ -10,8 +10,8 @@ android {
         applicationId "tv.ultimate.remote"
         minSdk 26
         targetSdk 35
-        versionCode 4
-        versionName "0.4.0"
+        versionCode 5
+        versionName "0.5.0"
     }
 
     // One key for every build, so a new APK installs over the old one. (CI makes a fresh debug key
@@ -40,4 +40,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+dependencies {
+    // Scans the TV's pairing QR code with Google Play services' scanner: no camera permission needed.
+    implementation "com.google.android.gms:play-services-code-scanner:16.1.0"
 }

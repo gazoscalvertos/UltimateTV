@@ -58,6 +58,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -140,6 +143,33 @@ fun SettingsScreen(nav: NavHostController) {
     var hubUrl by remember { mutableStateOf(prefs.hub) }
     var wifiOnly by remember { mutableStateOf(prefs.wifiOnly) }
     var smaller by remember { mutableStateOf(prefs.smaller) }
+    var paired by remember { mutableStateOf<Boolean?>(null) }
+    var pairCode by remember { mutableStateOf("") }
+    LaunchedEffect(ui.online) { if (ui.online) paired = runCatching { app.hub.paired() }.getOrNull() }
+    fun pairWith(code: String) {
+        scope.launch {
+            runCatching { app.hub.pair(code, android.os.Build.MODEL ?: "Android phone") }
+                .onSuccess { paired = true; pairCode = ""; ui.say("Paired with the TV") }
+                .onFailure { ui.say(explain(it)) }
+        }
+    }
+    // The TV's QR code is an address like http://192.168.0.19:8095/remote/?pair=ABCDEFGH: it gives the Hub too.
+    fun scanTv() {
+        val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
+        GmsBarcodeScanning.getClient(context, options).startScan()
+            .addOnSuccessListener { code ->
+                val uri = Uri.parse(code.rawValue ?: "")
+                val pair = runCatching { uri.getQueryParameter("pair") }.getOrNull()
+                if (pair == null || uri.scheme?.startsWith("http") != true) {
+                    ui.say("That isn't the TV's code. Scan the one in Settings › Phones and remotes.")
+                    return@addOnSuccessListener
+                }
+                prefs.hub = "${uri.scheme}://${uri.authority}"
+                hubUrl = prefs.hub
+                pairWith(pair)
+            }
+            .addOnFailureListener { ui.say("The scanner didn't start. Type the code shown on the TV instead.") }
+    }
     fun browse(url: String) = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
     Column {
         Header("Settings", nav, back = !isWide())
@@ -164,6 +194,25 @@ fun SettingsScreen(nav: NavHostController) {
                 TextButton(onClick = { hubUrl = tv.ultimate.client.Prefs.DEFAULT_HUB }) { Text("Default") }
             }
             Text("The app streams on the home Wi-Fi. Away from home, your downloads still play.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider()
+
+            Text("Pair with the TV", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            Text(
+                when (paired) {
+                    true -> "Paired: this phone can play things on the TV."
+                    false -> "Needed to play things on the TV. On the TV, open Settings › Phones and remotes, then scan the code or type the letters under it."
+                    null -> "Checking…"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (paired != true) {
+                OutlinedButton(onClick = { scanTv() }, modifier = Modifier.fillMaxWidth()) { Text("Scan the TV's code") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(value = pairCode, onValueChange = { pairCode = it }, label = { Text("Code on the TV") }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = { pairWith(pairCode) }, enabled = pairCode.isNotBlank() && ui.online) { Text("Pair") }
+                }
+            }
             HorizontalDivider()
 
             Text("Downloads", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)

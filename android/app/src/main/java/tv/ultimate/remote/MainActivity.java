@@ -17,6 +17,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -38,11 +39,16 @@ import java.util.ArrayList;
 
 import org.json.JSONObject;
 
+import com.google.mlkit.vision.barcode.common.Barcode;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
+
 /**
  * The UltimateTV phone remote. It asks once for the Hub's address, then shows the Hub's remote
  * page full screen. The phone's Back button and volume keys work as remote keys too, and the
  * Voice button listens with the phone's speech recogniser (WebView pages can't use the microphone
- * over the Hub's plain http).
+ * over the Hub's plain http). The Hub only takes control from paired phones: scanning the code
+ * the TV shows (Settings › Phones and remotes) both finds the Hub and pairs the phone.
  */
 public class MainActivity extends Activity {
     private static final String DEFAULT_HUB = "http://192.168.0.19:8095";
@@ -85,11 +91,18 @@ public class MainActivity extends Activity {
         box.addView(title);
 
         TextView hint = new TextView(this);
-        hint.setText(error != null ? error : "Enter the address of your TV's Hub on your home network. It's shown in Settings › Phone remote on the TV.");
+        hint.setText(error != null ? error : "On the TV, open Settings › Phones and remotes and scan the code. Or type the Hub's address, shown under the code.");
         hint.setTextColor(error != null ? Color.rgb(255, 120, 135) : Color.rgb(154, 166, 189));
         hint.setTextSize(15);
         hint.setPadding(0, dp(12), 0, dp(24));
         box.addView(hint);
+
+        final Button scan = new Button(this);
+        scan.setText("Scan the TV's code");
+        scan.setTextSize(17);
+        scan.setAllCaps(false);
+        scan.setOnClickListener(v -> startScan(true));
+        box.addView(scan, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(56)));
 
         final EditText input = new EditText(this);
         input.setText(hub != null ? hub : DEFAULT_HUB);
@@ -141,6 +154,10 @@ public class MainActivity extends Activity {
     }
 
     private void showRemote() {
+        showRemote(hub + "/remote/");
+    }
+
+    private void showRemote(String page) {
         web = new WebView(this);
         web.setBackgroundColor(BG);
         WebSettings s = web.getSettings();
@@ -176,7 +193,7 @@ public class MainActivity extends Activity {
                 if (request.isForMainFrame()) showSetup("Couldn't open the remote at " + hub + ". Is the Hub running?");
             }
         });
-        web.loadUrl(hub + "/remote/");
+        web.loadUrl(page);
         setContentView(web);
     }
 
@@ -208,6 +225,12 @@ public class MainActivity extends Activity {
         public void listen() {
             main.post(MainActivity.this::startListening);
         }
+
+        /** The page's pairing screen: scan the TV's code; the answer goes to window.utvScanResult. */
+        @JavascriptInterface
+        public void scan() {
+            main.post(() -> startScan(false));
+        }
     }
 
     private void openInBrowser(String url) {
@@ -216,6 +239,48 @@ public class MainActivity extends Activity {
         } catch (ActivityNotFoundException ignored) {
             // No browser: nothing sensible to do.
         }
+    }
+
+    /**
+     * Scans the TV's pairing code, an address like http://192.168.0.19:8095/remote/?pair=ABCDEFGH.
+     * From the setup screen it also sets the Hub's address and opens the remote, which pairs.
+     */
+    private void startScan(boolean fromSetup) {
+        GmsBarcodeScannerOptions options = new GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build();
+        GmsBarcodeScanning.getClient(this, options).startScan()
+                .addOnSuccessListener(code -> {
+                    String text = code.getRawValue() != null ? code.getRawValue() : "";
+                    Uri uri = Uri.parse(text);
+                    String pair = null;
+                    try {
+                        pair = uri.getQueryParameter("pair");
+                    } catch (UnsupportedOperationException ignored) {
+                        // Not an address at all (a Wi-Fi code, say): handled below.
+                    }
+                    if (fromSetup) {
+                        if (uri.getScheme() == null || !uri.getScheme().startsWith("http") || uri.getAuthority() == null) {
+                            showSetup("That isn't the TV's code. Scan the one in Settings › Phones and remotes.");
+                            return;
+                        }
+                        hub = uri.getScheme() + "://" + uri.getAuthority();
+                        prefs.edit().putString("hub", hub).apply();
+                        showRemote(hub + "/remote/" + (pair != null ? "?pair=" + Uri.encode(pair) : ""));
+                    } else if (web != null) {
+                        web.evaluateJavascript("window.utvScanResult && window.utvScanResult(" + JSONObject.quote(text) + ")", null);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    String message = "The scanner didn't start. Type the code shown on the TV instead.";
+                    if (fromSetup) showSetup(message);
+                    else if (web != null) web.evaluateJavascript("window.utvScanError && window.utvScanError(" + JSONObject.quote(message) + ")", null);
+                });
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // The pairing cookie is written to disk now rather than later, in case the app is closed.
+        CookieManager.getInstance().flush();
     }
 
     private void startListening() {
@@ -284,6 +349,9 @@ public class MainActivity extends Activity {
                 c.setReadTimeout(3000);
                 c.setDoOutput(true);
                 c.setRequestProperty("Content-Type", "application/json");
+                // The pairing cookie the Hub gave the remote page: key presses need it too.
+                String cookie = CookieManager.getInstance().getCookie(address);
+                if (cookie != null) c.setRequestProperty("Cookie", cookie);
                 try (OutputStream out = c.getOutputStream()) {
                     out.write(("{\"action\":\"" + action + "\"}").getBytes(StandardCharsets.UTF_8));
                 }

@@ -80,6 +80,7 @@
   .pill.warn { background: rgba(242, 179, 61, .15); color: var(--warn); }
   code { font-size: 13px; background: #0d1526; padding: 2px 5px; border-radius: 6px; word-break: break-all; }
 </style>
+<script src="/remote/pair.js"></script>
 </head>
 <body>
 <main>
@@ -89,7 +90,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -174,6 +175,20 @@
       </div>
       <button>Add profile</button>
     </form>
+  </section>
+
+  <section id="devices">
+    <h2>Phones and remotes <span class="pill" id="devices-pill"></span></h2>
+    <p class="hint">Only phones and screens paired with the TV can work it. To add a phone, scan the code in Settings › Phones and remotes on the TV. Remove anything you don't recognise.</p>
+    <ul class="list" id="devices-list"></ul>
+    <h2 style="margin-top:18px">Home Assistant and scripts</h2>
+    <p class="hint">Pop-ups, news flashes and key presses from Home Assistant or a script need this key, sent as the header <code>X-Api-Key</code> (or <code>Authorization: Bearer …</code>). It can't change settings or play things.</p>
+    <div class="actions">
+      <button class="secondary small" type="button" id="key-show">Show the key</button>
+      <button class="secondary small" type="button" id="key-new">Make a new key</button>
+      <button class="secondary small danger" type="button" id="unpair-me">Unpair this phone</button>
+    </div>
+    <p class="hint" id="key-box" hidden style="margin:12px 0 0"><code id="key-text"></code></p>
   </section>
 
   <section id="iptv">
@@ -347,6 +362,57 @@ $("#profile-add").onsubmit = async (e) => {
   const name = f.name.value.trim();
   if (!name) return toast("Give the profile a name.", true);
   try { await api("/api/profiles", { method: "POST", body: { name, kind: f.kind.value } }); f.reset(); toast(`${name} added`); loadProfiles(); } catch (err) { toast(err.message, true); }
+};
+
+// Phones and screens paired with the TV.
+const ago = (t) => {
+  const mins = Math.round((Date.now() - t) / 60_000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins} minutes ago`;
+  if (mins < 24 * 60) return `${Math.round(mins / 60)} hours ago`;
+  return new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+};
+async function loadDevices() {
+  const d = await api("/api/devices");
+  $("#devices-pill").textContent = d.enforced ? `${d.devices.length} paired` : "Pairing off";
+  $("#devices-pill").className = "pill" + (d.enforced ? " ok" : " bad");
+  const list = $("#devices-list");
+  list.innerHTML = "";
+  for (const p of d.pending) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span><b></b><small></small></span><span class="actions" style="margin:0"></span>`;
+    li.querySelector("b").textContent = `${p.name} wants to join`;
+    li.querySelector("small").textContent = `Let it in if the screen shows ${p.code}${p.ip ? ` · ${p.ip}` : ""}`;
+    li.lastChild.append(
+      button("Let in", "", () => api(`/api/devices/pending/${encodeURIComponent(p.id)}`, { method: "POST" }).then(() => { toast(`${p.name} paired`); loadDevices(); }).catch((e) => toast(e.message, true))),
+      button("Turn away", "secondary", () => api(`/api/devices/pending/${encodeURIComponent(p.id)}`, { method: "DELETE" }).then(loadDevices).catch((e) => toast(e.message, true))),
+    );
+    list.append(li);
+  }
+  for (const dev of d.devices) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span><b></b><small></small></span><span class="actions" style="margin:0"></span>`;
+    li.querySelector("b").textContent = `${dev.name}${dev.id === d.me ? " (this phone)" : ""}`;
+    li.querySelector("small").textContent = `${dev.kind === "tv" ? "TV screen" : "Phone"} · paired ${ago(dev.pairedAt)} · last used ${ago(dev.lastSeenAt)}${dev.ip ? ` · ${dev.ip}` : ""}`;
+    li.lastChild.append(
+      button("Rename", "secondary", () => { const n = prompt("Name", dev.name); if (n && n.trim()) api(`/api/devices/${encodeURIComponent(dev.id)}`, { method: "PATCH", body: { name: n.trim() } }).then(loadDevices).catch((e) => toast(e.message, true)); }),
+      button("Remove", "secondary danger", async () => {
+        if (!confirm(`Remove ${dev.name}? It will have to pair again to work the TV.`)) return;
+        try { await api(`/api/devices/${encodeURIComponent(dev.id)}`, { method: "DELETE" }); toast(`${dev.name} removed`); dev.id === d.me ? location.reload() : loadDevices(); } catch (e) { toast(e.message, true); }
+      }),
+    );
+    list.append(li);
+  }
+}
+const showKey = (key) => { $("#key-text").textContent = key; $("#key-box").hidden = false; };
+$("#key-show").onclick = () => api("/api/pair/api-key").then((r) => showKey(r.key)).catch((e) => toast(e.message, true));
+$("#key-new").onclick = () => {
+  if (!confirm("Make a new key? Anything using the old one (Home Assistant, scripts) stops working until you give it the new one.")) return;
+  api("/api/pair/api-key", { method: "POST" }).then((r) => { showKey(r.key); toast("New key made"); }).catch((e) => toast(e.message, true));
+};
+$("#unpair-me").onclick = () => {
+  if (!confirm("Unpair this phone? It will have to scan the TV's code again to work the TV.")) return;
+  fetch("/api/pair/forget", { method: "POST" }).then(() => location.reload());
 };
 
 // Music video channels.
@@ -683,6 +749,7 @@ $("#jf-qc").onclick = async () => {
 };
 
 load().catch((err) => toast(err.message, true));
+loadDevices().catch(() => {});
 loadSoftware(true).then(checkBox).catch(() => {});
 // Keep checking GitHub while the page is open (the Hub asks it at most every 5 minutes).
 setInterval(() => { if (!document.hidden && !software?.hub.updating) loadSoftware(true).catch(() => {}); }, 5 * 60_000);

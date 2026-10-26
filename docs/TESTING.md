@@ -24,8 +24,9 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 
 ## 3. Phone remote
 
-1. Settings › Phone remote: scan the code. Arrows, OK, Back, colour keys, numbers and typing in Search should all work.
-2. Install the Android app ([phone-remote.md](phone-remote.md)). Volume up and down should change channel.
+1. Settings › Phones and remotes: scan the code with the phone's camera. The remote opens and pairs (the phone appears in the TV's list). Arrows, OK, Back, colour keys, numbers and typing in Search should all work.
+2. Install the Android app ([phone-remote.md](phone-remote.md)) and tap **Scan the TV's code**. Volume up and down should change channel.
+3. Pairing ([pairing.md](pairing.md)): a phone that hasn't paired (a private browser tab) gets the pairing screen and can't press keys. Remove the phone on the TV: its next key press brings the pairing screen back. A pop-up from Home Assistant without the API key is refused; with it, it shows.
 
 ## 4. Recording and series link
 

@@ -7,6 +7,7 @@ import type {
   Conflict,
   Download,
   CustomGuide,
+  DeviceList,
   GuideChoices,
   GuideWindow,
   HomeScreen,
@@ -17,6 +18,8 @@ import type {
   MixEntry,
   MixOverview,
   NowNext,
+  PairedDevice,
+  PairingCode,
   PlaybackInfo,
   PlaybackRequest,
   Profile,
@@ -174,6 +177,15 @@ export const hub = {
   /** The Hub's own version, checked against GitHub's main. */
   hubSoftware: () => api<{ hub: HubSoftware }>("/api/software?check=1").then((r) => r.hub),
   updateHub: () => api<{ ok: true }>("/api/software/hub/update", { method: "POST" }),
+
+  /** Phones and screens paired with the TV, and the code that pairs another. */
+  devices: () => api<DeviceList>("/api/devices"),
+  pairCode: () => api<PairingCode>("/api/pair/code"),
+  renameDevice: (id: string, name: string) => api<PairedDevice>(`/api/devices/${enc(id)}`, { method: "PATCH", body: { name } }),
+  removeDevice: (id: string) => api<{ ok: true }>(`/api/devices/${enc(id)}`, { method: "DELETE" }),
+  letScreenIn: (id: string) => api<PairedDevice>(`/api/devices/pending/${enc(id)}`, { method: "POST" }),
+  turnScreenAway: (id: string) => api<{ ok: boolean }>(`/api/devices/pending/${enc(id)}`, { method: "DELETE" }),
+  apiKey: (fresh = false) => api<{ key: string }>("/api/pair/api-key", fresh ? { method: "POST" } : {}),
 };
 
 /** Live updates from the Hub. Reconnects on its own. */

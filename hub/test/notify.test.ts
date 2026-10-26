@@ -7,6 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HubEvent } from "@ultimatetv/shared";
 import { buildServer } from "../src/server.js";
+import { pairAsTv } from "./helpers.js";
 
 // The smallest PNG: one transparent pixel.
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
@@ -18,6 +19,7 @@ let camera: Server | undefined;
 beforeEach(async () => {
   tmp = await mkdtemp(path.join(os.tmpdir(), "utv-notify-"));
   app = await buildServer({ port: 0, host: "127.0.0.1", dataDir: path.join(tmp, "data"), clipsDir: path.join(tmp, "clips"), probeDir: path.join(tmp, "probe"), uiDir: path.join(tmp, "ui"), setupDir: path.join(tmp, "setup"), mediaRoot: tmp, demo: false }, { systemReport: async () => ({}) as never });
+  await pairAsTv(app);
 });
 
 afterEach(async () => {

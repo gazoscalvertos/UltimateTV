@@ -43,3 +43,19 @@ export function liveFetch(opts: { failFirst?: number; chunkMs?: number; chunkByt
   }) as typeof fetch;
   return { impl, calls: () => calls, urls };
 }
+
+/**
+ * Pairs the test as the TV (the first screen is let in) and makes every later `app.inject` send
+ * its token, so tests about other things needn't pair. Returns the token (empty when a TV had paired already).
+ */
+export async function pairAsTv(app: { inject: (...args: never[]) => unknown }): Promise<string> {
+  const inject = (app.inject as unknown as (o: object) => Promise<{ json(): { token: string } }>).bind(app);
+  const token = (await inject({ method: "POST", url: "/api/pair/screen", payload: { name: "Test TV" } })).json().token;
+  // Restarted on the same data: the TV paired last time, so this screen would wait. Leave inject be.
+  if (!token) return "";
+  (app as { inject: unknown }).inject = (opts: string | { headers?: Record<string, string> }) => {
+    const o = typeof opts === "string" ? { url: opts } : opts;
+    return inject({ ...o, headers: { "x-device-token": token, ...o.headers } });
+  };
+  return token;
+}

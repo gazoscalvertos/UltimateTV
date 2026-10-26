@@ -10,7 +10,7 @@ import { cropFromLog } from "../src/cropdetect.js";
 import { nextLoop, planSlots } from "../src/mixchannels.js";
 import { buildServer } from "../src/server.js";
 import { cleanVideoTitle, displayTitle, judge, songKey, YtDlp, type Run, type YtInfo } from "../src/ytdlp.js";
-import { channel } from "./helpers.js";
+import { channel, pairAsTv } from "./helpers.js";
 
 const silent = { info() {}, warn() {}, error() {}, debug() {}, child() { return silent; } } as never;
 
@@ -293,6 +293,7 @@ describe("music video channels over the API", () => {
       demo: true,
     };
     app = await buildServer(config, { systemReport: async () => ({ ffmpeg: null, hwaccels: [], renderNode: null, vaapi: { available: false, driver: null, profiles: [] }, checks: { av1HardwareDecode: false, hevcHardwareEncode: false, hevc10HardwareEncode: false } }) });
+    await pairAsTv(app);
   });
   afterAll(async () => {
     await app.close();

@@ -2,7 +2,7 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { Certification, MixChannelInfo, Profile, PublicSettings } from "@ultimatetv/shared";
+import type { Certification, MixChannelInfo, PairedDevice, PendingScreen, Profile, PublicSettings } from "@ultimatetv/shared";
 import { CERTIFICATIONS, formatBytes } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
@@ -10,6 +10,7 @@ import { askPin, askText, choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
+import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, setShowStats, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 
@@ -41,6 +42,15 @@ function Status(props: { ok: boolean; text: string }) {
   );
 }
 
+/** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
+const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
+const ago = (t: number) => {
+  const mins = Math.round((Date.now() - t) / 60_000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins} minutes ago`;
+  if (mins < 24 * 60) return `${Math.round(mins / 60)} hours ago`;
+  return new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+};
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const cycle = <T,>(list: readonly T[], value: T): T => list[(list.indexOf(value) + 1) % list.length]!;
 
@@ -154,6 +164,80 @@ export function Settings(props: { section?: string }) {
   };
   onCleanup(onHubEvent((e) => (e.type === "profiles.changed" ? void refetchProfiles() : undefined)));
 
+  // Phones and screens paired with the TV, and the code that pairs another.
+  const [devices, { refetch: refetchDevices }] = createResource(
+    () => (section() === "remote" ? pairStamp() + 1 : 0),
+    (open) => (open ? hub.devices().catch(() => null) : Promise.resolve(null)),
+  );
+  const [pairCode] = createResource(
+    () => (section() === "remote" ? pairStamp() + 1 : 0),
+    (open) => (open ? hub.pairCode().catch(() => null) : Promise.resolve(null)),
+  );
+  const deviceMenu = async (d: PairedDevice) => {
+    const me = d.id === devices()?.me;
+    const pick = await choose({
+      title: d.name,
+      message: `${d.kind === "tv" ? "A TV screen" : "A phone"}, paired ${ago(d.pairedAt)} and last used ${ago(d.lastSeenAt)}${d.ip ? ` from ${d.ip}` : ""}.`,
+      options: [
+        { label: "Rename", value: "rename", icon: "edit" },
+        { label: me ? "Unpair this screen" : "Remove", value: "remove", icon: "trash", tone: "danger" as const },
+      ],
+    });
+    try {
+      if (pick === "rename") {
+        const name = await askText("Name", d.name);
+        if (name?.trim()) await hub.renameDevice(d.id, name);
+      }
+      if (pick === "remove" && (await confirm(`Remove ${d.name}?`, me ? "This screen stops getting updates from the Hub until a paired phone lets it back in." : "It will have to scan the code again to work the TV.", "Remove", true))) {
+        await hub.removeDevice(d.id);
+        toast(`${d.name} removed`, "good");
+        if (me) location.reload();
+      }
+      await refetchDevices();
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  const pendingMenu = async (p: PendingScreen) => {
+    const pick = await choose({
+      title: `Let ${p.name} in?`,
+      message: `Only if that screen shows the code ${p.code}${p.ip ? ` (it's at ${p.ip})` : ""}.`,
+      options: [
+        { label: "Let it in", value: "yes", icon: "check" },
+        { label: "Turn it away", value: "no", tone: "danger" as const },
+      ],
+    });
+    try {
+      if (pick === "yes") {
+        await hub.letScreenIn(p.id);
+        toast(`${p.name} paired`, "good");
+      }
+      if (pick === "no") await hub.turnScreenAway(p.id);
+      await refetchDevices();
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  const showApiKey = async () => {
+    try {
+      const { key } = await hub.apiKey();
+      const pick = await choose({
+        title: "Key for Home Assistant",
+        message: `${key}  ·  Sent as the X-Api-Key header, it lets Home Assistant or a script show pop-ups, news flashes and press keys, and nothing else. It's easier to copy from the phone: the Hub's settings page, under Phones.`,
+        options: [
+          { label: "Done", value: "done" },
+          { label: "Make a new key", value: "new", icon: "restart" },
+        ],
+      });
+      if (pick === "new" && (await confirm("Make a new key?", "Anything using the old one stops working until you give it the new one.", "New key", true))) {
+        await hub.apiKey(true);
+        toast("New key made. See it on the phone's settings page.", "good");
+      }
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+
   const rename = async () => {
     const name = await askText("Call the app", appName());
     if (name === undefined || name.trim() === appName()) return;
@@ -250,7 +334,7 @@ export function Settings(props: { section?: string }) {
     { id: "recording", label: "Recording" },
     { id: "music", label: "Music channels" },
     { id: "sources", label: "Sources" },
-    { id: "remote", label: "Phone remote" },
+    { id: "remote", label: "Phones and remotes" },
     { id: "about", label: "About" },
   ];
 
@@ -371,7 +455,7 @@ export function Settings(props: { section?: string }) {
                   />
                 </div>
                 <div class="qr-card">
-                  <img src="/api/setup/qr.svg" alt="" />
+                  <img src={`/api/setup/qr.svg?v=${pairStamp()}`} alt="" />
                   <p>
                     Scan with your phone to set up sources
                     <br />
@@ -382,18 +466,34 @@ export function Settings(props: { section?: string }) {
             </Show>
 
             <Show when={section() === "remote"}>
-              <h2>Phone remote</h2>
+              <h2>Phones and remotes</h2>
               <div class="sources">
                 <div class="sources-list">
-                  <p class="hint">Use your Android phone as the remote: scan the code, then choose Add to Home screen (or Install app) in Chrome. It works over your Wi-Fi with arrows, OK, Back, colour keys, numbers, channel up and down, and typing for search.</p>
-                  <p class="hint">The TV's own remote takes over once the Pulse-Eight adapter is plugged in, and the phone remote keeps working alongside it.</p>
+                  <p class="hint">Only paired phones can work the TV. Scan the code with the phone's camera (or the {appName()} Remote app) and it pairs by itself; on Android, choose Add to Home screen afterwards. Remove anything you don't recognise.</p>
+                  <For each={devices()?.pending ?? []}>
+                    {(p) => <Row label={`${p.name} wants to join`} hint={`Let it in only if it shows ${p.code}`} icon="lock" value={<Status ok={false} text="Waiting" />} onSelect={() => void pendingMenu(p)} />}
+                  </For>
+                  <For each={devices()?.devices ?? []}>
+                    {(d) => (
+                      <Row
+                        label={d.name}
+                        hint={`${d.kind === "tv" ? "TV screen" : "Phone"} · last used ${ago(d.lastSeenAt)}`}
+                        value={d.id === devices()?.me ? "This screen" : ""}
+                        onSelect={() => void deviceMenu(d)}
+                      />
+                    )}
+                  </For>
+                  <Show when={devices() && !devices()!.enforced}>
+                    <Row label="Pairing is off" hint="The Hub was started with PAIRING=off, so anything on the network can work the TV" value={<Status ok={false} text="Off" />} />
+                  </Show>
+                  <Row label="Home Assistant key" hint="For pop-ups, news flashes and key presses from Home Assistant or a script" icon="lock" onSelect={() => void showApiKey()} />
                 </div>
                 <div class="qr-card">
-                  <img src="/api/remote/qr.svg" alt="" />
+                  <img src={`/api/remote/qr.svg?v=${pairStamp()}`} alt="" />
                   <p>
-                    Scan to open the remote
-                    <br />
-                    <span class="muted">{settings()!.setupUrl.replace(/\/setup\/?$/, "/remote/")}</span>
+                    Scan to pair a phone, or type
+                    <span class="pair-code">{pairCode() ? spaced(pairCode()!.code) : "…"}</span>
+                    <span class="muted">at {settings()!.setupUrl.replace(/\/setup\/?$/, "/remote/")}</span>
                   </p>
                 </div>
               </div>

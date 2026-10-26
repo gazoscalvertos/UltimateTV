@@ -551,7 +551,9 @@ export type HubEvent =
   | { type: "tv.call"; id: string; method: TvMethod; args: unknown }
 
   /** A music service login typed on the phone: the TV fetches it once from /api/music/login/:id. */
-  | { type: "music.login"; app: "deezer"; id: string };
+  | { type: "music.login"; app: "deezer"; id: string }
+  /** A phone or screen paired or was removed, a screen is waiting to be let in, or the pairing code was used. */
+  | { type: "devices.changed" };
 
 /** The Hub's own software, for the phone's settings page. */
 export interface HubSoftware {
@@ -782,4 +784,42 @@ export interface MixOverview {
   diskFreeBytes?: number;
   /** Downloaded videos across every channel (a video on two channels counts once), and their size. */
   totals: { ready: number; bytes: number };
+}
+
+/** A phone, tablet or screen that has paired with the Hub and may control the TV. */
+export interface PairedDevice {
+  id: string;
+  name: string;
+  /** "tv" is a screen running the TV app; "phone" is a remote or the Android app. */
+  kind: "tv" | "phone";
+  pairedAt: number;
+  lastSeenAt: number;
+  /** The address it last called from. */
+  ip?: string;
+}
+
+/** A second screen asking to join; a paired device lets it in after checking the code matches. */
+export interface PendingScreen {
+  id: string;
+  name: string;
+  code: string;
+  ip?: string;
+  at: number;
+}
+
+/** What the TV shows to pair a phone: the code (also in the QR code's address) and when it runs out. */
+export interface PairingCode {
+  code: string;
+  /** The address the QR code opens: the phone remote with the code in it. */
+  url: string;
+  expiresAt: number;
+}
+
+export interface DeviceList {
+  devices: PairedDevice[];
+  pending: PendingScreen[];
+  /** The device asking, when it's paired. */
+  me: string | null;
+  /** False when the Hub was started with PAIRING=off. */
+  enforced: boolean;
 }

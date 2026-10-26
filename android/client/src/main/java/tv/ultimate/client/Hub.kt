@@ -1,5 +1,6 @@
 // Talks to the Hub on the home network. Every request says which profile is watching (so Kids
-// only sees what it's allowed) and which phone this is (so it can share the IPTV connection).
+// only sees what it's allowed), which phone this is (so it can share the IPTV connection) and,
+// once the phone has paired with the TV's code, its pairing token (needed to play on the TV).
 
 package tv.ultimate.client
 
@@ -32,6 +33,10 @@ class Prefs(context: Context) {
     var profileName: String?
         get() = sp.getString("profileName", null)
         set(v) { sp.edit().putString("profileName", v).commit() }
+    /** From pairing with the TV (Settings › Pair with the TV): lets the phone work the TV. */
+    var deviceToken: String?
+        get() = sp.getString("deviceToken", null)
+        set(v) { sp.edit().putString("deviceToken", v).commit() }
     var profileKind: String?
         get() = sp.getString("profileKind", null)
         set(v) { sp.edit().putString("profileKind", v).commit() }
@@ -76,6 +81,7 @@ class Hub(private val prefs: Prefs) {
         c.setRequestProperty("X-Device", prefs.device)
         prefs.profileId?.let { c.setRequestProperty("X-Profile", it) }
         prefs.profileToken?.let { c.setRequestProperty("X-Profile-Token", it) }
+        prefs.deviceToken?.let { c.setRequestProperty("X-Device-Token", it) }
         if (body != null) {
             c.doOutput = true
             c.setRequestProperty("Content-Type", "application/json")
@@ -135,6 +141,14 @@ class Hub(private val prefs: Prefs) {
     /** The same for a download: never live TV, and Jellyfin can send a smaller copy. */
     suspend fun offline(req: PlaybackRequest, smaller: Boolean): PlaybackInfo = post("/api/offline", playBody(req, false) + ("smaller" to smaller), timeoutMs = 120_000)
     suspend fun playOnTv(req: PlaybackRequest, title: TitleRef?) = raw("/api/tv/call/play", "POST", mapOf("req" to req, "title" to title))
+
+    /** Whether the Hub knows this phone as paired. */
+    suspend fun paired(): Boolean = get<Map<String, Any?>>("/api/pair", 5000)["paired"] == true
+    /** Pairs with the code on the TV (or the address its QR code holds) and keeps the token. */
+    suspend fun pair(code: String, name: String) {
+        val r = post<Map<String, Any?>>("/api/pair", mapOf("code" to code, "name" to name))
+        prefs.deviceToken = r["token"] as String
+    }
 
     suspend fun progress(key: String, positionMs: Long, durationMs: Long?, event: String, paused: Boolean, title: TitleRef?) {
         val body = mutableMapOf<String, Any>("key" to key, "positionMs" to positionMs, "event" to event, "paused" to paused)

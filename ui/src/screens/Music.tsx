@@ -9,6 +9,7 @@ import { Progress } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { useKeys } from "../keys";
 import { activeMusic, duration, likedSongs, music, musicPlayPause, musicSkip, openWebApp, spotify, spotifyPosition, webApp } from "../music";
+import { pairStamp } from "../pairing";
 import { stopPlayback } from "../player";
 import { appName, errorToast, nav } from "../store";
 
@@ -196,7 +197,7 @@ function Services() {
         <Show when={webApp().signedIn !== true}>
           <div class="service-login">
             <div class="qr-card">
-              <img src="/api/music/login/qr.svg" alt="" />
+              <img src={`/api/music/login/qr.svg?v=${pairStamp()}`} alt="" />
             </div>
             <div class="service-login-text">
               <h3>Log in to Deezer</h3>
