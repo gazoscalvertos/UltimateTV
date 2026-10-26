@@ -1066,6 +1066,29 @@ kbd.key-blue {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.gg-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+.gg-name {
+  max-width: 100%;
+}
+.gg-quality {
+  padding: 0 0.35rem;
+  border: 0.1rem solid rgba(255, 255, 255, 0.35);
+  border-radius: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.03em;
+}
+.gg-quality-4k {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .gg-line {
   position: relative;
   flex: 1;
