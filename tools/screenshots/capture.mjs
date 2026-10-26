@@ -21,6 +21,19 @@ const out = path.join(root, "docs/screenshots");
 const port = Number(process.env.PORT ?? 18095);
 const base = `http://127.0.0.1:${port}`;
 
+/** A made-up doorbell camera picture for the pop-up screenshot. */
+const DOORBELL_SNAPSHOT = `<body style="margin:0"><svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs><radialGradient id="v" cx="50%" cy="45%" r="75%"><stop offset="55%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".75"/></radialGradient></defs>
+  <rect width="1280" height="720" fill="#5d6b5a"/><rect y="470" width="1280" height="250" fill="#8a8478"/><rect x="0" y="0" width="1280" height="140" fill="#a9c4d8"/>
+  <rect x="80" y="120" width="300" height="360" fill="#3d4a3a" rx="30"/><rect x="900" y="160" width="300" height="320" fill="#3f4c3d" rx="30"/>
+  <rect x="560" y="300" width="160" height="12" fill="#6f6556"/>
+  <path d="M520 720c10-150 60-250 120-260s110 110 120 260z" fill="#c45a1c"/><rect x="560" y="470" width="160" height="22" fill="#2a2a2a"/>
+  <circle cx="640" cy="390" r="62" fill="#e0b48f"/><path d="M578 380c0-50 30-75 62-75s62 25 62 75c-10-25-30-40-62-40s-52 15-62 40z" fill="#3b2a1e"/>
+  <rect x="690" y="500" width="150" height="110" fill="#b88a55" stroke="#8c6638" stroke-width="4"/><path d="M690 540h150" stroke="#d8c39f" stroke-width="10"/>
+  <rect width="1280" height="720" fill="url(#v)"/>
+  <text x="34" y="56" font-family="monospace" font-size="30" fill="#fff">FRONT DOOR</text><text x="1246" y="56" text-anchor="end" font-family="monospace" font-size="30" fill="#fff">25/10/2026 18:42:07</text>
+</svg></body>`;
+
 async function startHub() {
   const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-shots-"));
   const hub = spawn(process.execPath, [path.join(root, "hub/dist/index.js")], {
@@ -269,6 +282,22 @@ try {
   await wait(1200);
   await shot("43-news-flash");
   await fetch(`${base}/api/flash`, { method: "DELETE" });
+  // Pop-ups: the doorbell camera's picture in the middle (OK closes it), then two in the corners.
+  const camera = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  await camera.setContent(DOORBELL_SNAPSHOT);
+  const snapshot = await camera.screenshot({ type: "jpeg", quality: 85 });
+  await camera.close();
+  await fetch(`${base}/api/notify?kind=doorbell&title=${encodeURIComponent("Someone's at the front door")}&text=${encodeURIComponent("Parcel delivery")}&seconds=60`, { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: snapshot });
+  await wait(1200);
+  await shot("45-notice-doorbell");
+  await key("Enter");
+  if (await page.locator(".notice").count()) errors.push("OK didn't close the doorbell pop-up");
+  const notify = (body) => fetch(`${base}/api/notify`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  await notify({ kind: "meeting", title: "Team call in 5 minutes", text: "Weekly planning, Teams link on your laptop", sound: "none" });
+  await notify({ kind: "info", title: "Washing machine finished", text: "Time to hang it out", size: "small", sound: "none" });
+  await wait(1200);
+  await shot("46-notice-corners");
+  await fetch(`${base}/api/notify`, { method: "DELETE" });
   await key("Escape");
 
   // Kids profile.
@@ -330,6 +359,16 @@ try {
   await phone.waitForTimeout(300);
   await phone.screenshot({ path: path.join(out, "44-phone-news.png") });
   console.log("  44-phone-news.png");
+  // Sending a pop-up.
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
+  await phone.click("#notify-btn");
+  await phone.waitForTimeout(600);
+  await phone.click('#pu-kind [data-v="doorbell"]');
+  await phone.fill("#pu-title", "Someone's at the front door");
+  await phone.waitForTimeout(300);
+  await phone.screenshot({ path: path.join(out, "47-phone-popup.png") });
+  console.log("  47-phone-popup.png");
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.click("#settings");
