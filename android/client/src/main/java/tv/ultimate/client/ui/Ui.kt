@@ -31,6 +31,8 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
     /** A short "Starting…" card while the Hub looks something up. */
     var working by mutableStateOf<String?>(null)
     var ask by mutableStateOf<Ask?>(null)
+    /** What the household calls the app (GazosTV, …), from the Hub's settings. */
+    var appName by mutableStateOf(App.instance.prefs.appName)
 
     suspend fun confirm(title: String, message: String, yes: String, no: String = "Cancel"): Boolean {
         val answer = CompletableDeferred<Boolean>()

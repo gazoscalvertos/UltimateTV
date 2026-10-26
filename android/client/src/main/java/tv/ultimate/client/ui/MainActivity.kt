@@ -43,6 +43,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -126,6 +133,10 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
             val wasOnline = ui.online
             ui.online = reachable
             if (reachable) {
+                app.hub.runCatching { appName() }.getOrNull()?.let { name ->
+                    ui.appName = name
+                    app.prefs.appName = name
+                }
                 Offline.syncPositions(app.hub)
                 if (app.prefs.profileId == null) nav.navigate("profiles")
             } else if (wasOnline || startTab == null) {
@@ -182,6 +193,23 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
                 }
             }
         }
+    }
+
+    // The app stopped last time: show why, so it can be sent on.
+    var crash by remember { mutableStateOf(app.crashFile.takeIf { it.exists() }?.readText()) }
+    val clipboard = LocalClipboardManager.current
+    crash?.let { text ->
+        val close = {
+            app.crashFile.delete()
+            crash = null
+        }
+        AlertDialog(
+            onDismissRequest = close,
+            title = { Text("The app stopped last time") },
+            text = { Text(text.take(4000), Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodySmall) },
+            confirmButton = { TextButton(onClick = { clipboard.setText(AnnotatedString(text)); close() }) { Text("Copy") } },
+            dismissButton = { TextButton(onClick = close) { Text("Close") } },
+        )
     }
 
     ui.ask?.let { a ->

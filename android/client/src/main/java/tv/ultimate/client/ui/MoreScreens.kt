@@ -100,7 +100,7 @@ fun SearchScreen(nav: NavHostController) {
         )
         error?.let { Text(explain(it), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
-            items(results, key = { "${it.kind}:${it.id}" }) { r ->
+            items(results) { r ->
                 Row(
                     Modifier.fillMaxWidth().clickable {
                         when (r.kind) {
@@ -242,7 +242,7 @@ fun SettingsScreen(nav: NavHostController) {
             }, modifier = Modifier.fillMaxWidth()) { Text("Phone remote for the TV") }
             OutlinedButton(onClick = { browse("${prefs.hub}/setup/") }, modifier = Modifier.fillMaxWidth()) { Text("Hub setup page") }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("UltimateTV for Android ${BuildConfig.VERSION_NAME}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${ui.appName} for Android ${BuildConfig.VERSION_NAME}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = {
                     scope.launch {
                         runCatching { app.hub.clientVersion() }
@@ -301,7 +301,7 @@ fun ProfilesScreen(nav: NavHostController) {
         Loaded(list) { ps ->
             val locked = ps.locked == true
             LazyVerticalGrid(GridCells.Adaptive(120.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                items(ps.profiles.orEmpty(), key = { it.id }) { p ->
+                items(ps.profiles.orEmpty()) { p ->
                     val needsPin = p.hasPin == true || (locked && p.kind == "adult")
                     Column(Modifier.clickable { if (needsPin) pinFor = p else choose(p, null) }, horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.size(88.dp).clip(CircleShape).background(colourOf(p.colour)), contentAlignment = Alignment.Center) {

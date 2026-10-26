@@ -26,20 +26,24 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putString("hub", v.trim().trimEnd('/')).apply()
     var profileId: String?
         get() = sp.getString("profile", null)
-        set(v) = sp.edit().putString("profile", v).apply()
+        set(v) { sp.edit().putString("profile", v).commit() }
     var profileToken: String?
         get() = sp.getString("token", null)
-        set(v) = sp.edit().putString("token", v).apply()
+        set(v) { sp.edit().putString("token", v).commit() }
     var profileName: String?
         get() = sp.getString("profileName", null)
-        set(v) = sp.edit().putString("profileName", v).apply()
+        set(v) { sp.edit().putString("profileName", v).commit() }
     /** From pairing with the TV (Settings › Pair with the TV): lets the phone work the TV. */
     var deviceToken: String?
         get() = sp.getString("deviceToken", null)
-        set(v) = sp.edit().putString("deviceToken", v).apply()
+        set(v) { sp.edit().putString("deviceToken", v).commit() }
     var profileKind: String?
         get() = sp.getString("profileKind", null)
-        set(v) = sp.edit().putString("profileKind", v).apply()
+        set(v) { sp.edit().putString("profileKind", v).commit() }
+    /** The household's name for the app (Settings on the Hub), remembered for when it's away. */
+    var appName: String
+        get() = sp.getString("appName", null) ?: "UltimateTV"
+        set(v) = sp.edit().putString("appName", v).apply()
     /** Downloads wait for Wi-Fi (on by default: a film is several gigabytes). */
     var wifiOnly: Boolean
         get() = sp.getBoolean("wifiOnly", true)
@@ -152,6 +156,8 @@ class Hub(private val prefs: Prefs) {
         if (title != null) body["title"] = title
         raw("/api/progress", "POST", body, 8000)
     }
+
+    suspend fun appName(): String? = (get<Map<String, Any?>>("/api/settings", 5000)["appName"] as? String)?.takeIf { it.isNotBlank() }
 
     suspend fun clientVersion(): AppVersion = get("/setup/client-app.json", 5000)
 

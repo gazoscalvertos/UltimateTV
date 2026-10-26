@@ -86,7 +86,7 @@ fun LibraryScreen(nav: NavHostController) {
         Loaded(rails) { list ->
             if (list.isEmpty()) Empty("Nothing here yet. Add Jellyfin or an addon on the Hub's setup page.")
             LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-                items(list, key = { it.id }) { r -> PosterRail(r.title, r.items.orEmpty()) { details(nav, it.id) } }
+                items(list) { r -> PosterRail(r.title, r.items.orEmpty()) { details(nav, it.id) } }
             }
         }
     }
@@ -157,7 +157,7 @@ fun DetailsScreen(nav: NavHostController, id: String) {
                 if (d.kind == "series") {
                     item {
                         LazyRow(Modifier.padding(top = 16.dp), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(d.seasons.orEmpty(), key = { it.season }) { s -> FilterChip(selected = s.season == season, onClick = { season = s.season }, label = { Text(s.name) }) }
+                            items(d.seasons.orEmpty()) { s -> FilterChip(selected = s.season == season, onClick = { season = s.season }, label = { Text(s.name) }) }
                         }
                     }
                     when (val st = seasonLoad.state) {
@@ -174,7 +174,7 @@ fun DetailsScreen(nav: NavHostController, id: String) {
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             }
-                            items(episodes, key = { "${it.season}-${it.episode}" }) { e ->
+                            items(episodes) { e ->
                                 EpisodeRow(
                                     e,
                                     downloaded(d.id, "s${e.season}e${e.episode}"),
@@ -287,7 +287,7 @@ private fun VersionSheet(d: TitleDetails, e: Episode?, download: Boolean, close:
                     if (list.isEmpty()) Text("Nothing to play this from yet.", Modifier.padding(vertical = 16.dp))
                     val chosen = list.find { it.id == picked } ?: list.firstOrNull { it.ready == true } ?: list.firstOrNull()
                     LazyColumn(Modifier.heightIn(max = 380.dp)) {
-                        items(list, key = { it.id }) { s -> VersionRow(s, s.id == chosen?.id) { picked = s.id } }
+                        items(list) { s -> VersionRow(s, s.id == chosen?.id) { picked = s.id } }
                     }
                     if (download && chosen != null) {
                         if (chosen.kind == "jellyfin") {

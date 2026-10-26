@@ -72,8 +72,8 @@ fun RecordingsScreen(nav: NavHostController) {
             LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                 fun section(title: String, rs: List<Recording>) {
                     if (rs.isEmpty()) return
-                    item(key = "h-$title") { SectionTitle(title) }
-                    items(rs, key = { it.id }) { r ->
+                    item { SectionTitle(title) }
+                    items(rs) { r ->
                         RecordingRow(r, entries.find { it.item.progressKey == "recording:${r.id}" }, list.reload)
                     }
                 }
