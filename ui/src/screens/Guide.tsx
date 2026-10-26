@@ -394,7 +394,12 @@ export function Guide() {
                     <Show when={c.logo}>
                       <img class="gg-logo" src={c.logo} alt="" onError={(e) => (e.currentTarget.style.display = "none")} />
                     </Show>
-                    <span class="gg-name">{c.name}</span>
+                    <span class="gg-title">
+                      <span class="gg-name">{c.name}</span>
+                      <Show when={qualityLabel(c.maxHeight)}>
+                        {(label) => <span class="gg-quality" classList={{ "gg-quality-4k": c.maxHeight >= 2160 }}>{label()}</span>}
+                      </Show>
+                    </span>
                   </div>
                   <div class="gg-line">
                     <Show when={cellsOf(c)} fallback={<div class="gg-cell gg-empty" classList={{ selected: isRow() }} style={{ left: "0%", width: "100%" }}><span>No information</span></div>}>
@@ -457,4 +462,15 @@ export function Guide() {
       </footer>
     </div>
   );
+}
+
+/**
+ * The best quality a channel has, from its feeds' names ("FHD", "4K"). Untagged feeds aren't
+ * labelled: the provider didn't say, and guessing SD would often be wrong.
+ */
+export function qualityLabel(maxHeight: number): string | undefined {
+  if (maxHeight >= 2160) return "4K";
+  if (maxHeight >= 1080) return "FHD";
+  if (maxHeight >= 720) return "HD";
+  return undefined;
 }
