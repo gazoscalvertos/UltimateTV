@@ -157,7 +157,7 @@ public class MainActivity extends Activity {
         showRemote(hub + "/remote/");
     }
 
-    private void showRemote(String url) {
+    private void showRemote(String page) {
         web = new WebView(this);
         web.setBackgroundColor(BG);
         WebSettings s = web.getSettings();
@@ -193,7 +193,7 @@ public class MainActivity extends Activity {
                 if (request.isForMainFrame()) showSetup("Couldn't open the remote at " + hub + ". Is the Hub running?");
             }
         });
-        web.loadUrl(url);
+        web.loadUrl(page);
         setContentView(web);
     }
 
