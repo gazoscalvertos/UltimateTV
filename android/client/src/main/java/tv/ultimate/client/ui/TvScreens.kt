@@ -93,7 +93,7 @@ fun HomeScreen(nav: NavHostController) {
     val hub = App.instance.hub
     val home = rememberLoad(ui.online) { hub.home() }
     Column {
-        Header("UltimateTV", nav)
+        Header(ui.appName, nav)
         Loaded(home) { h ->
             LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                 h.hero?.let { hero ->
@@ -117,18 +117,18 @@ fun HomeScreen(nav: NavHostController) {
                     }
                 }
                 for (rail in h.rails.orEmpty()) {
-                    item(key = rail.id) {
+                    item {
                         when (rail.kind) {
                             "channels" -> if (!rail.channels.isNullOrEmpty()) {
                                 SectionTitle(rail.title)
                                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    items(rail.channels, key = { it.channel.id }) { n -> ChannelCard(n) { ui.play(PlaybackRequest("channel", n.channel.id), name = n.channel.name) } }
+                                    items(rail.channels) { n -> ChannelCard(n) { ui.play(PlaybackRequest("channel", n.channel.id), name = n.channel.name) } }
                                 }
                             }
                             "recordings" -> if (!rail.recordings.isNullOrEmpty()) {
                                 SectionTitle(rail.title)
                                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    items(rail.recordings, key = { it.id }) { r -> RecordingCard(r) { ui.play(PlaybackRequest("recording", r.id), name = r.programme.title) } }
+                                    items(rail.recordings) { r -> RecordingCard(r) { ui.play(PlaybackRequest("recording", r.id), name = r.programme.title) } }
                                 }
                             }
                             else -> PosterRail(rail.title, rail.items.orEmpty()) { details(nav, it.id) }
@@ -151,7 +151,7 @@ fun GuideScreen(nav: NavHostController) {
         Loaded(choices) { c ->
             val current = selected ?: c.default.orEmpty()
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(c.choices.orEmpty().filter { it.count > 0 }, key = { it.id }) { g ->
+                items(c.choices.orEmpty().filter { it.count > 0 }) { g ->
                     FilterChip(selected = g.id == current, onClick = { selected = g.id }, label = { Text(g.label) })
                 }
             }
@@ -166,7 +166,7 @@ fun GuideScreen(nav: NavHostController) {
             Loaded(list) { rows ->
                 if (rows.isEmpty()) Empty("No channels in this list.")
                 LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
-                    items(rows, key = { it.channel.id }) { n ->
+                    items(rows) { n ->
                         ChannelRow(n, play = { ui.play(PlaybackRequest("channel", n.channel.id), name = n.channel.name) }, schedule = { channel(nav, n.channel.id, n.channel.name) })
                     }
                 }
@@ -230,9 +230,9 @@ fun ChannelScreen(nav: NavHostController, id: String, name: String) {
                     val d = day(p.start)
                     if (d != lastDay) {
                         lastDay = d
-                        item(key = "day-$d") { SectionTitle(d) }
+                        item { SectionTitle(d) }
                     }
-                    item(key = p.id) {
+                    item {
                         val onNow = p.start <= now && p.end > now
                         Row(Modifier.fillMaxWidth().clickable { open = p }.padding(horizontal = 16.dp, vertical = 10.dp)) {
                             Text(clock(p.start), Modifier.width(56.dp), color = if (onNow) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)

@@ -161,7 +161,7 @@ fun PosterRail(title: String, items: List<TitleRef>, open: (TitleRef) -> Unit) {
     if (items.isEmpty()) return
     SectionTitle(title)
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(items, key = { it.id }) { Poster(it) { open(it) } }
+        items(items) { Poster(it) { open(it) } }
     }
 }
 
