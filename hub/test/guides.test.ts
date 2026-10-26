@@ -7,7 +7,7 @@ import type { HubConfig } from "../src/config.js";
 import { Db } from "../src/db.js";
 import { CustomGuideStore } from "../src/guides.js";
 import { buildServer } from "../src/server.js";
-import { channel, programme } from "./helpers.js";
+import { channel, programme, pairAsTv } from "./helpers.js";
 
 describe("CustomGuideStore", () => {
   const channels = [channel("a", { number: 101 }), channel("b", { number: 102, category: "sport", favourite: true }), channel("c", { number: 103 })];
@@ -56,6 +56,7 @@ describe("custom guides over the API", () => {
       demo: true,
     };
     app = await buildServer(config, { systemReport: async () => ({ ffmpeg: null, hwaccels: [], renderNode: null, vaapi: { available: false, driver: null, profiles: [] }, checks: { av1HardwareDecode: false, hevcHardwareEncode: false, hevc10HardwareEncode: false } }) });
+    await pairAsTv(app);
   });
 
   afterAll(async () => {

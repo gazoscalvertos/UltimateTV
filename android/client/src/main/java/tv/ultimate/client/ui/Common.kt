@@ -94,7 +94,7 @@ fun <T> Loaded(loader: Loader<T>, content: @Composable (T) -> Unit) {
 }
 
 fun explain(e: Throwable): String = when (e) {
-    is ApiError -> e.message ?: "The Hub said no"
+    is ApiError -> if (e.code == "pair" && e.status == 401) "Pair this phone with the TV first: Settings › Pair with the TV" else e.message ?: "The Hub said no"
     is java.net.ConnectException, is java.net.SocketTimeoutException, is java.net.UnknownHostException, is java.net.NoRouteToHostException ->
         "Can't reach the Hub. Is the phone on the home Wi-Fi?"
     else -> e.message ?: "Something went wrong"

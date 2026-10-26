@@ -2200,6 +2200,47 @@ kbd.key-blue {
   font-weight: 400;
   font-size: 0.9rem;
 }
+.qr-card .pair-code {
+  display: block;
+  margin: 0.3rem 0 0.2rem;
+  font: 800 2.1rem/1.1 ui-monospace, "DejaVu Sans Mono", monospace;
+  letter-spacing: 0.18rem;
+  word-break: normal;
+}
+
+/* A second screen waiting to be let in by a paired phone or TV. */
+.pairing-wait {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  text-align: center;
+}
+.pairing-wait > div {
+  width: 56rem;
+  max-width: 90vw;
+}
+.pairing-wait h1 {
+  margin: 0 0 1.2rem;
+  font-size: 3rem;
+}
+.pairing-wait p {
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 1.5rem;
+  line-height: 1.45;
+}
+.pairing-code {
+  display: inline-block;
+  margin-top: 2.4rem;
+  padding: 1.4rem 3rem;
+  border-radius: 1.2rem;
+  background: var(--panel);
+  font: 800 6rem/1 ui-monospace, "DejaVu Sans Mono", monospace;
+  letter-spacing: 1.2rem;
+}
 
 /* Playback stats: a compact panel in the top left, over the video. */
 .stats-overlay {

@@ -4,11 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import fastifyWebsocket from "@fastify/websocket";
-import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import QRCode from "qrcode";
 import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
 import { registerNotices } from "./notify.js";
-import type { BoxState, NewsFlash, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
+import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { cleanAppName, renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
@@ -18,6 +18,7 @@ import { HubContext } from "./context.js";
 import { demoArt, seedDemo } from "./demo.js";
 import { BoxReportStore, cleanBoxReport, renderDiagnostics, RollingFile, type LogRing } from "./diagnostics.js";
 import { Library, NotAllowedError } from "./library.js";
+import { Pairing, PairingError } from "./pairing.js";
 import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
 import { ContentFilter } from "./profiles.js";
@@ -63,8 +64,71 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   /** TV apps listening on the event socket: the phone's box controls need one. */
   let tvSockets = 0;
+  const deviceSockets = new Map<string, Set<{ close(code?: number, reason?: string): void }>>();
   const hubBase = (req: FastifyRequest) => config.publicUrl ?? `${req.protocol}://${req.headers.host ?? `${req.hostname}:${config.port}`}`;
   const setupUrl = (req: FastifyRequest) => `${hubBase(req)}/setup/`;
+
+  // Pairing: only phones and screens that have paired (see pairing.ts) may control the TV.
+  const pairing = new Pairing(ctx.db, config.pairing !== false, () => ctx.events.emit({ type: "devices.changed" }));
+  const DEVICE_COOKIE = "utv_device";
+  const header = (req: FastifyRequest, name: string) => {
+    const v = req.headers[name];
+    return typeof v === "string" && v ? v : undefined;
+  };
+  const bearer = (req: FastifyRequest) => /^Bearer\s+(\S+)$/i.exec(header(req, "authorization") ?? "")?.[1];
+  const deviceToken = (req: FastifyRequest) => {
+    const cookie = (header(req, "cookie") ?? "").split(/;\s*/).find((c) => c.startsWith(`${DEVICE_COOKIE}=`));
+    const b = bearer(req);
+    return header(req, "x-device-token") ?? (b && !b.startsWith("utv_") ? b : undefined) ?? (cookie ? decodeURIComponent(cookie.slice(DEVICE_COOKIE.length + 1)) : undefined);
+  };
+  const apiKeyOf = (req: FastifyRequest) => header(req, "x-api-key") ?? bearer(req);
+  const paired = new WeakMap<FastifyRequest, PairedDevice>();
+  const deviceAsking = (req: FastifyRequest): PairedDevice | undefined => {
+    if (!paired.has(req)) {
+      const d = pairing.authenticate(deviceToken(req), req.ip);
+      if (d) paired.set(req, d);
+    }
+    return paired.get(req);
+  };
+  /** Hands a paired browser its token as a cookie, so every page on the Hub sends it. */
+  const keepToken = (reply: FastifyReply, token: string) =>
+    reply.header("Set-Cookie", `${DEVICE_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${10 * 365 * 86_400}; HttpOnly; SameSite=Strict`);
+  /**
+   * What each controlling route needs: "tv" a paired screen, "paired" any paired phone or screen,
+   * "script" either of those or the API key (Home Assistant: pop-ups, news flashes, key presses).
+   */
+  const NEEDS = new Map<string, "tv" | "paired" | "script">([
+    ["POST /api/remote/key", "script"],
+    ["POST /api/remote/text", "script"],
+    ["POST /api/remote/voice", "paired"],
+    ["POST /api/flash", "script"],
+    ["DELETE /api/flash", "script"],
+    ["POST /api/notify", "script"],
+    ["POST /api/notify/media", "script"],
+    ["DELETE /api/notify/:id", "script"],
+    ["DELETE /api/notify", "script"],
+    ["POST /api/tv/call/:method", "paired"],
+    ["POST /api/music/login", "paired"],
+    ["POST /api/box/check", "paired"],
+    ["POST /api/box/update", "paired"],
+    ["POST /api/box/reload", "paired"],
+    ["POST /api/box/stats", "paired"],
+    ["GET /api/devices", "paired"],
+    ["PATCH /api/devices/:id", "paired"],
+    ["DELETE /api/devices/:id", "paired"],
+    ["POST /api/devices/pending/:id", "paired"],
+    ["DELETE /api/devices/pending/:id", "paired"],
+    ["GET /api/pair/api-key", "paired"],
+    ["POST /api/pair/api-key", "paired"],
+    ["POST /api/tv/reply/:id", "tv"],
+    ["POST /api/box/state", "tv"],
+    ["GET /api/music/login/:id", "tv"],
+    ["GET /api/pair/code", "tv"],
+    ["GET /api/remote/qr.svg", "tv"],
+    ["GET /api/setup/qr.svg", "tv"],
+    ["GET /api/music/login/qr.svg", "tv"],
+  ]);
+  const NOT_PAIRED = "Pair this phone with the TV first: on the TV, open Settings › Phones and remotes and scan the code";
 
   // Who's asking: the TV sends its profile (and a token once a PIN has been entered); the phone
   // setup page sends just a token after asking for a PIN.
@@ -114,7 +178,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/mix-channels/:id/videos/:videoId",
   ]);
   app.addHook("preHandler", async (req) => {
-    if (ADMIN_ROUTES.has(`${req.method} ${req.routeOptions.url}`) && !viewer(req).admin) {
+    const route = `${req.method} ${req.routeOptions.url}`;
+    const need = NEEDS.get(route) ?? (ADMIN_ROUTES.has(route) ? "paired" : undefined);
+    if (need && pairing.enforced) {
+      const device = deviceAsking(req);
+      if (!device && !(need === "script" && pairing.checkApiKey(apiKeyOf(req)))) throw Object.assign(new Error(NOT_PAIRED), { statusCode: 401, code: "pair" });
+      if (need === "tv" && device?.kind !== "tv") throw Object.assign(new Error("Only the TV can do that"), { statusCode: 403, code: "pair" });
+    }
+    if (ADMIN_ROUTES.has(route) && !viewer(req).admin) {
       throw Object.assign(new Error("Ask a grown-up: this needs the PIN"), { statusCode: 403, code: "pin" });
     }
   });
@@ -123,10 +194,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (err instanceof PlaybackError) return reply.code(err.code === "busy" ? 409 : err.code === "not-found" ? 404 : 422).send({ error: err.message, code: err.code, recordings: err.recordings });
     if (err instanceof ConnectionBusyError) return reply.code(409).send({ error: err.message, code: "busy", recordings: err.blockingRecordings });
     if (err instanceof NotAllowedError) return reply.code(403).send({ error: err.message, code: "profile" });
+    if (err instanceof PairingError) return reply.code(err.statusCode).send({ error: err.message, code: "pair" });
     const status = (err as { statusCode?: number }).statusCode ?? 500;
     if (status >= 500) log.error({ err: String(err) }, "Request failed");
     const code = (err as { code?: unknown }).code;
-    return reply.code(status).send({ error: err instanceof Error ? err.message : String(err), ...(code === "pin" ? { code } : {}) });
+    return reply.code(status).send({ error: err instanceof Error ? err.message : String(err), ...(code === "pin" || code === "pair" ? { code } : {}) });
   });
 
   // -------------------------------------------------------------------------
@@ -334,9 +406,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ok: true };
   });
 
+  // The TV's QR codes carry the pairing code, so scanning one also pairs the phone.
+  const withPairCode = (req: FastifyRequest, url: string) => (pairing.enforced ? `${url}?pair=${pairing.currentCode(hubBase(req)).code}` : url);
   app.get("/api/setup/qr.svg", async (req, reply) => {
-    const svg = await QRCode.toString(setupUrl(req), { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
-    return reply.type("image/svg+xml").send(svg);
+    const svg = await QRCode.toString(withPairCode(req, setupUrl(req)), { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    return reply.type("image/svg+xml").header("Cache-Control", "no-store").send(svg);
   });
 
   // -------------------------------------------------------------------------
@@ -397,8 +471,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   const musicLogins = new MusicLogins();
   app.get("/music-login/", async (_req, reply) => reply.type("text/html").header("Cache-Control", "no-store").send(MUSIC_LOGIN_PAGE));
   app.get("/api/music/login/qr.svg", async (req, reply) => {
-    const svg = await QRCode.toString(`${hubBase(req)}/music-login/`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
-    return reply.type("image/svg+xml").send(svg);
+    const svg = await QRCode.toString(withPairCode(req, `${hubBase(req)}/music-login/`), { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    return reply.type("image/svg+xml").header("Cache-Control", "no-store").send(svg);
   });
   app.post("/api/music/login", async (req: Req<Record<string, string>, Record<string, string>, { app?: string; email?: string; password?: string }>, reply) => {
     const email = String(req.body?.email ?? "").trim().slice(0, 200);
@@ -413,9 +487,66 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return login ? reply.header("Cache-Control", "no-store").send(login) : reply.code(404).send({ error: "That login has gone; send it again" });
   });
   app.get("/api/remote/qr.svg", async (req, reply) => {
-    const svg = await QRCode.toString(`${hubBase(req)}/remote/`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
-    return reply.type("image/svg+xml").send(svg);
+    const svg = await QRCode.toString(withPairCode(req, `${hubBase(req)}/remote/`), { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    return reply.type("image/svg+xml").header("Cache-Control", "no-store").send(svg);
   });
+
+  // -------------------------------------------------------------------------
+  // Pairing phones and screens (see pairing.ts)
+
+  /** Whether the asking browser or app is paired. Anyone may ask. */
+  app.get("/api/pair", async (req) => {
+    const device = deviceAsking(req);
+    return { paired: Boolean(device) || !pairing.enforced, enforced: pairing.enforced, device: device ?? null };
+  });
+  /** A phone sends the code from the TV (typed, or from the QR code's address) and its name. */
+  app.post("/api/pair", async (req: Req<Record<string, string>, Record<string, string>, { code?: string; name?: string }>, reply) => {
+    const { token, device } = pairing.pair(req.body?.code, req.body?.name, req.ip);
+    log.info({ device: device.name, ip: req.ip }, "Phone paired");
+    return keepToken(reply, token).send({ token, device });
+  });
+  /** A screen running the TV app asks to join: let in at once if it's the first, otherwise it waits. */
+  app.post("/api/pair/screen", async (req: Req<Record<string, string>, Record<string, string>, { name?: string }>, reply) => {
+    const already = deviceAsking(req);
+    if (already?.kind === "tv") return { device: already };
+    const r = pairing.requestScreen(req.body?.name, req.ip);
+    if ("pending" in r) return reply.code(202).send(r);
+    log.info({ device: r.device.name, ip: req.ip }, "Screen paired");
+    return keepToken(reply, r.token).send(r);
+  });
+  app.post("/api/pair/screen/:id", async (req: Req<{ id: string }, Record<string, string>, { secret?: string }>, reply) => {
+    const r = pairing.collect(req.params.id, req.body?.secret);
+    if (r === "waiting") return reply.code(202).send({ waiting: true });
+    if (r === "gone") return reply.code(404).send({ error: "That request was turned down or ran out. Ask again.", code: "pair" });
+    return keepToken(reply, r.token).send(r);
+  });
+  /** The code the TV shows under its QR code. */
+  app.get("/api/pair/code", async (req) => pairing.currentCode(hubBase(req)));
+  /** Unpairs the asking device. */
+  app.post("/api/pair/forget", async (req, reply) => {
+    const device = deviceAsking(req);
+    if (device) pairing.revoke(device.id);
+    return reply.header("Set-Cookie", `${DEVICE_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict`).send({ ok: true });
+  });
+  /** The key for Home Assistant and scripts: X-Api-Key or Authorization: Bearer. */
+  app.get("/api/pair/api-key", async () => ({ key: pairing.apiKey() }));
+  app.post("/api/pair/api-key", async () => ({ key: pairing.newApiKey() }));
+
+  app.get("/api/devices", async (req): Promise<DeviceList> => ({ devices: pairing.devices(), pending: pairing.pendingScreens(), me: deviceAsking(req)?.id ?? null, enforced: pairing.enforced }));
+  app.patch("/api/devices/:id", async (req: Req<{ id: string }, Record<string, string>, { name?: string }>, reply) => {
+    const d = pairing.rename(req.params.id, req.body?.name);
+    return d ?? reply.code(404).send({ error: "That device has been removed" });
+  });
+  app.delete("/api/devices/:id", async (req: Req<{ id: string }>, reply) => {
+    if (!pairing.revoke(req.params.id)) return reply.code(404).send({ error: "That device has been removed" });
+    for (const s of deviceSockets.get(req.params.id) ?? []) s.close(4401, "Unpaired");
+    return { ok: true };
+  });
+  app.post("/api/devices/pending/:id", async (req: Req<{ id: string }>, reply) => {
+    const d = pairing.approve(req.params.id);
+    return d ?? reply.code(404).send({ error: "That screen stopped asking. Ask again from it." });
+  });
+  app.delete("/api/devices/pending/:id", async (req: Req<{ id: string }>) => ({ ok: pairing.deny(req.params.id) }));
 
   const remoteApp = new RemoteApp(config.dataDir);
   app.get("/api/remote/app.apk", async (_req, reply) => {
@@ -928,12 +1059,23 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // Live updates for the TV
 
   await app.register(fastifyWebsocket);
-  app.get("/api/events", { websocket: true }, (socket) => {
+  app.get("/api/events", { websocket: true }, (socket, req) => {
+    // Only paired screens hear what the phones ask of the TV. A TV app from before pairing (the box,
+    // just after the Hub updated) is told to reload, which brings in the app that pairs itself.
+    if (pairing.enforced && deviceAsking(req)?.kind !== "tv") {
+      socket.send(JSON.stringify({ type: "box.command", command: "reload" }));
+      socket.close(4401, "Pair this screen first");
+      return;
+    }
     const off = ctx.events.on((e) => socket.send(JSON.stringify(e)));
     tvSockets++;
+    // Kept by device, so unpairing a screen cuts it off at once.
+    const id = deviceAsking(req)?.id;
+    if (id) deviceSockets.set(id, new Set([...(deviceSockets.get(id) ?? []), socket]));
     socket.on("close", () => {
       off();
       tvSockets--;
+      if (id) deviceSockets.get(id)?.delete(socket);
     });
     socket.send(JSON.stringify({ type: "hello", version: HUB_VERSION }));
   });

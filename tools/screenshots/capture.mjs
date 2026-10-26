@@ -84,6 +84,10 @@ try {
   await page.goto(`${base}/app/`);
   await wait(1200);
   await shot("01-profiles");
+  // The TV paired itself (the first screen is trusted); the phone's calls below send its key.
+  const tvToken = (await page.context().cookies()).find((c) => c.name === "utv_device")?.value;
+  if (!tvToken) throw new Error("The TV app didn't pair with the Hub");
+  const asTv = { "X-Device-Token": tvToken };
 
   await key("Enter");
   await wait(1500);
@@ -171,8 +175,12 @@ try {
   await shot("17-profile-menu");
   await key("Escape");
   await key("ArrowLeft");
+  // A phone pairs with the TV's code, so the list shows it.
+  const { code } = await (await fetch(`${base}/api/pair/code`, { headers: asTv })).json();
+  const phonePairing = await (await fetch(`${base}/api/pair`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, name: "Gary's Pixel" }) })).json();
+  if (!phonePairing.token) throw new Error(`The phone didn't pair: ${JSON.stringify(phonePairing)}`);
   await key("ArrowDown", 5);
-  await wait(800);
+  await wait(1200);
   await shot("18-settings-phone-remote");
 
   // Music video channels: the list in Settings, one channel, watching it and its guide.
@@ -278,26 +286,26 @@ try {
   await shot("24-playback-stats");
   await key("b");
   // A news flash from the phone, over the film.
-  await fetch(`${base}/api/flash`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: "Dinner is ready: pause the film and come to the table", seconds: 60 }) });
+  await fetch(`${base}/api/flash`, { method: "POST", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ text: "Dinner is ready: pause the film and come to the table", seconds: 60 }) });
   await wait(1200);
   await shot("43-news-flash");
-  await fetch(`${base}/api/flash`, { method: "DELETE" });
+  await fetch(`${base}/api/flash`, { method: "DELETE", headers: asTv });
   // Pop-ups: the doorbell camera's picture in the middle (OK closes it), then two in the corners.
   const camera = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   await camera.setContent(DOORBELL_SNAPSHOT);
   const snapshot = await camera.screenshot({ type: "jpeg", quality: 85 });
   await camera.close();
-  await fetch(`${base}/api/notify?kind=doorbell&title=${encodeURIComponent("Someone's at the front door")}&text=${encodeURIComponent("Parcel delivery")}&seconds=60`, { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: snapshot });
+  await fetch(`${base}/api/notify?kind=doorbell&title=${encodeURIComponent("Someone's at the front door")}&text=${encodeURIComponent("Parcel delivery")}&seconds=60`, { method: "POST", headers: { ...asTv, "Content-Type": "image/jpeg" }, body: snapshot });
   await wait(1200);
   await shot("45-notice-doorbell");
   await key("Enter");
   if (await page.locator(".notice").count()) errors.push("OK didn't close the doorbell pop-up");
-  const notify = (body) => fetch(`${base}/api/notify`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const notify = (body) => fetch(`${base}/api/notify`, { method: "POST", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify(body) });
   await notify({ kind: "meeting", title: "Team call in 5 minutes", text: "Weekly planning, Teams link on your laptop", sound: "none" });
   await notify({ kind: "info", title: "Washing machine finished", text: "Time to hang it out", size: "small", sound: "none" });
   await wait(1200);
   await shot("46-notice-corners");
-  await fetch(`${base}/api/notify`, { method: "DELETE" });
+  await fetch(`${base}/api/notify`, { method: "DELETE", headers: asTv });
   await key("Escape");
 
   // Kids profile.
@@ -315,6 +323,13 @@ try {
   // Phone remote and phone setup.
   const phone = await browser.newPage({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, reducedMotion: "reduce" });
   phone.on("pageerror", (e) => errors.push(`phone: ${e.message}`));
+  // Unpaired, the remote asks for the TV's code first.
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
+  await phone.fill(".utv-pair .code", "K7QM-4XPD");
+  await phone.screenshot({ path: path.join(out, "48-phone-pair.png") });
+  console.log("  48-phone-pair.png");
+  await phone.context().addCookies([{ name: "utv_device", value: phonePairing.token, url: base }]);
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.screenshot({ path: path.join(out, "22-phone-remote.png") });

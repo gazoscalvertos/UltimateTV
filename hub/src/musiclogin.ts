@@ -55,6 +55,7 @@ export const MUSIC_LOGIN_PAGE = `<!doctype html>
   .ok { color: #35c27a; } .bad { color: #ff5468; }
   small { display: block; margin-top: 26px; color: #66728a; font-size: 13px; }
 </style>
+<script src="/remote/pair.js"></script>
 </head>
 <body>
 <main>

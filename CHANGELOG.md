@@ -15,6 +15,14 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Pairing phones with the TV** ([docs/pairing.md](docs/pairing.md)): only phones that have
+  scanned the code in the TV's new Settings › Phones and remotes can press keys, play things, send
+  pop-ups and news flashes, change settings or start updates. The same screen lists every paired
+  phone and screen to rename or remove. Home Assistant and scripts send pop-ups with an API key
+  (`X-Api-Key`), shown on the phone's settings page: **existing Home Assistant commands need the
+  header added** (docs/notifications.md). The box pairs itself when the Hub updates; phones get a
+  pairing screen. Scanning needs Android remote 0.5.0 and Android app 0.2.0 (both can type the code
+  instead). `PAIRING=off` in the Hub's `.env` turns it off.
 - **Android app for phones and tablets** (`/api/client/app.apk`, [docs/android-client.md](docs/android-client.md)):
   watch live TV, catch-up, recordings, films and TV on the home Wi-Fi, and download films,
   episodes and recordings to watch anywhere. Jellyfin titles can download a smaller 720p copy.

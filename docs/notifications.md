@@ -13,8 +13,12 @@ Pop-ups in the middle or full screen, alarms, and ones that stay until closed ta
 **OK** and **Back**: either closes the newest one. Small ones in a corner leave the remote alone and
 go by themselves, with a thin line along the bottom running down the time left.
 
-The Hub has no password on this, like the rest of its API, so keep it on the home network: don't
-forward port 8095 on the router.
+Only paired phones and things holding the Hub's **API key** can send pop-ups (see
+[Pairing](pairing.md)). Find the key on the phone's settings page under **Phones** (or on the TV,
+Settings › Phones and remotes › Home Assistant key) and send it with every request as the header
+`X-Api-Key: utv_…` (or `Authorization: Bearer utv_…`). The key can send pop-ups, news flashes and
+key presses, and nothing else. Still keep the Hub on the home network: don't forward port 8095 on
+the router.
 
 ## From the phone
 
@@ -28,7 +32,7 @@ with **Take down**.
 
 ## The API
 
-`POST http://192.168.0.19:8095/api/notify` with a JSON body. Everything is optional except that
+`POST http://192.168.0.19:8095/api/notify` with a JSON body and the `X-Api-Key` header. Everything is optional except that
 there must be at least one of `title`, `text`, `image` or `video`.
 
 | Field | What it does | Default |
@@ -72,7 +76,7 @@ other fields in the address. Handy from a script that has just saved a snapshot:
 
 ```sh
 curl -X POST "http://192.168.0.19:8095/api/notify?kind=doorbell&title=Front%20door&position=bottom-right" \
-  -H "Content-Type: image/jpeg" --data-binary @snapshot.jpg
+  -H "X-Api-Key: $UTV_KEY" -H "Content-Type: image/jpeg" --data-binary @snapshot.jpg
 ```
 
 Or upload it first with `POST /api/notify/media` (the file as the body), which answers
@@ -88,26 +92,29 @@ Uploads can be up to 200 MB. The Hub keeps the last 30 and forgets them when it 
 ### Examples
 
 ```sh
+# The key from the phone's settings page (Phones › Show the key)
+UTV_KEY=utv_…
+
 # A message in the corner for 10 seconds
-curl -X POST http://192.168.0.19:8095/api/notify -H "Content-Type: application/json" \
+curl -X POST http://192.168.0.19:8095/api/notify -H "X-Api-Key: $UTV_KEY" -H "Content-Type: application/json" \
   -d '{"title": "Dinner is ready", "seconds": 10}'
 
 # A meeting, top right, without a sound
-curl -X POST http://192.168.0.19:8095/api/notify -H "Content-Type: application/json" \
+curl -X POST http://192.168.0.19:8095/api/notify -H "X-Api-Key: $UTV_KEY" -H "Content-Type: application/json" \
   -d '{"kind": "meeting", "title": "Team call in 5 minutes", "text": "Weekly planning", "sound": "none"}'
 
 # An alarm that pauses the film and beeps until someone presses OK
-curl -X POST http://192.168.0.19:8095/api/notify -H "Content-Type: application/json" \
+curl -X POST http://192.168.0.19:8095/api/notify -H "X-Api-Key: $UTV_KEY" -H "Content-Type: application/json" \
   -d '{"id": "alarm", "kind": "alarm", "title": "Time to leave for school", "pause": true}'
 
 # Take the alarm down from somewhere else
-curl -X DELETE http://192.168.0.19:8095/api/notify/alarm
+curl -X DELETE http://192.168.0.19:8095/api/notify/alarm -H "X-Api-Key: $UTV_KEY"
 ```
 
 ## Home Assistant
 
-Add one REST command to `configuration.yaml` that sends whatever it's given, and restart Home
-Assistant:
+Put the Hub's API key in `secrets.yaml` (`tv_api_key: utv_…`), add one REST command to
+`configuration.yaml` that sends whatever it's given, and restart Home Assistant:
 
 ```yaml
 rest_command:
@@ -115,6 +122,8 @@ rest_command:
     url: http://192.168.0.19:8095/api/notify
     method: post
     content_type: application/json
+    headers:
+      X-Api-Key: !secret tv_api_key
     payload: "{{ notice | to_json }}"
 ```
 

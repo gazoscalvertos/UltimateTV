@@ -29,6 +29,7 @@ import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
 import { closeTopDialog, nav, setAppName, setProfile, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
+import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
 
 function ScreenError(props: { error: unknown; reset: () => void }) {
@@ -149,7 +150,8 @@ export function App() {
   });
 
   onMount(() => {
-    startEvents();
+    // The Hub only sends events to a paired screen.
+    void pairScreen().then(startEvents);
     startRemoteBridge();
     startPhoneBridge();
     void startMusic();
@@ -245,6 +247,17 @@ export function App() {
         </Switch>
       </ErrorBoundary>
       <Show when={starting()}>{(st) => <StartingLayer name={st().name} since={st().since} />}</Show>
+      <Show when={pairingWait()}>
+        {(w) => (
+          <div class="pairing-wait">
+            <div>
+              <h1>Let this screen in</h1>
+              <p>Only paired screens can show what's on and be worked from a phone. On a paired phone, open the Hub's settings page and choose Phones; or on your TV, Settings › Phones and remotes. Let in “{w().name}” when it shows this code:</p>
+              <div class="pairing-code">{w().code}</div>
+            </div>
+          </div>
+        )}
+      </Show>
       <NewsFlash />
       <Notices />
       <DialogHost />

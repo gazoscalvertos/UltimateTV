@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { sampleReport } from "../../shared/test/fixtures.js";
 import type { HubConfig } from "../src/config.js";
 import { buildServer, HUB_VERSION } from "../src/server.js";
+import { pairAsTv } from "./helpers.js";
 import type { SystemReport } from "../src/system.js";
 
 const fakeSystem: SystemReport = {
@@ -29,6 +30,7 @@ async function start(overrides: Partial<HubConfig> = {}) {
     ...overrides,
   };
   app = await buildServer(config, { systemReport: async () => fakeSystem });
+  await pairAsTv(app);
   return app;
 }
 

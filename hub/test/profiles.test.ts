@@ -7,6 +7,7 @@ import type { HubConfig } from "../src/config.js";
 import { Db } from "../src/db.js";
 import { certificationRank, ContentFilter, ProfileStore } from "../src/profiles.js";
 import { buildServer } from "../src/server.js";
+import { pairAsTv } from "./helpers.js";
 
 describe("ProfileStore", () => {
   it("starts with a Family and a Kids profile", () => {
@@ -79,6 +80,7 @@ describe("profiles over the API", () => {
       demo: true,
     };
     app = await buildServer(config, { systemReport: async () => ({ ffmpeg: null, hwaccels: [], renderNode: null, vaapi: { available: false, driver: null, profiles: [] }, checks: { av1HardwareDecode: false, hevcHardwareEncode: false, hevc10HardwareEncode: false } }) });
+    await pairAsTv(app);
   });
 
   afterAll(async () => {

@@ -1,12 +1,12 @@
 # The phone remote
 
-Any phone on the home Wi-Fi can drive the TV: arrows and OK, Back, Home, Guide, Info, the colour keys, numbers, channel up and down, play controls, and typing for search. Key presses go to the Hub, and the Hub passes them to the TV app.
+Any phone on the home Wi-Fi that has paired with the TV ([Pairing](pairing.md)) can drive it: arrows and OK, Back, Home, Guide, Info, the colour keys, numbers, channel up and down, play controls, and typing for search. Key presses go to the Hub, and the Hub passes them to the TV app.
 
 ![Phone remote](screenshots/22-phone-remote.png)
 
 ## As a web app (any phone)
 
-On the TV, open **Settings › Phone remote** and scan the code, or open `http://192.168.0.19:8095/remote/` on the phone. In Chrome, choose **Add to Home screen**.
+On the TV, open **Settings › Phones and remotes** and scan the code with the phone's camera: the remote opens and pairs the phone. (Or open `http://192.168.0.19:8095/remote/` and type the code shown on the TV.) In Chrome, choose **Add to Home screen**.
 
 ## As an Android app
 
@@ -17,7 +17,10 @@ The Android app is the same remote in its own app, with two extras: the phone's 
    in the latest **CI** run's `ultimatetv-remote-apk` artifact, or build it with
    `cd android && gradle assembleDebug`.
 2. Open the downloaded file. Android asks to allow installing from that app the first time.
-3. Open **UltimateTV Remote**. It suggests `http://192.168.0.19:8095`; change it if the Hub's address is different, and tap **Connect**.
+3. Open **UltimateTV Remote** and tap **Scan the TV's code**, then scan the code in Settings ›
+   Phones and remotes on the TV. That finds the Hub and pairs the phone. (Or type the Hub's address
+   and tap **Connect**, then type the code from the TV.) The scanner is Google Play services'
+   own, so the app needs no camera permission.
 
 When a newer app is on the Hub, the remote shows a banner: tap it to install the update. From 0.3.0
 every build is signed with the same key (`android/remote.keystore`), so updates install over the
