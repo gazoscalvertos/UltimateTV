@@ -1,9 +1,10 @@
 // Full-screen playback. Live TV gets Sky's banner (now/next, browse other channels with up/down
 // without changing, channel numbers); films, episodes and recordings get a seek bar, skip intro,
-// audio and subtitle options, and Up Next.
+// audio and subtitle options, and Up Next: the first thing in the play queue, or else the next
+// episode.
 
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import type { NowNext, PlaybackStats } from "@ultimatetv/shared";
+import type { NowNext, PlaybackRequest, PlaybackStats, TitleRef } from "@ultimatetv/shared";
 import { clockTime, digitOf } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
@@ -16,7 +17,18 @@ import { Progress } from "../components/Rail";
 import { useKeys } from "../keys";
 import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
+import { queue } from "../queue";
 import { nav, now, openDialog, setShowStats, showStats, toast } from "../store";
+
+interface UpNext {
+  req: PlaybackRequest;
+  name: string;
+  title?: TitleRef;
+  image?: string;
+  overview?: string;
+  /** From the play queue, rather than the next episode. */
+  queued: boolean;
+}
 
 function fmt(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -76,15 +88,31 @@ export function Player() {
   });
   const opening = () => !played() && !nowPlaying()?.quiet && (playerState().status === "loading" || playerState().status === "buffering");
 
-  // Look up the next episode's versions near the end of this one, so it starts straight away.
-  let prefetched: unknown = null;
+  // What plays when this ends: the first thing queued (always, as it was asked for), else the
+  // next episode (when autoplay is on).
+  const upNext = createMemo((): UpNext | null => {
+    const np = nowPlaying();
+    if (!np || np.info.live) return null;
+    const q = queue()[0];
+    if (q) return { req: q.req, name: q.subtitle ? `${q.name} · ${q.subtitle}` : q.name, queued: true, ...(q.title ? { title: q.title } : {}), ...(q.image ? { image: q.image } : {}) };
+    const n = np.info.next;
+    if (!n) return null;
+    const { name, image, overview, ...req } = n;
+    return { req, name, queued: false, ...(np.title ? { title: np.title } : {}), ...(image ? { image } : {}), ...(overview ? { overview } : {}) };
+  });
+
+  // Look up what's next near the end of this, so it starts straight away.
+  let prefetched = "";
   createEffect(() => {
     const np = nowPlaying();
     const st = playerState();
-    if (!np?.info.next || np.info.live || prefetched === np || !st.durationMs) return;
+    const next = upNext();
+    if (!np || !next || next.req.kind !== "title" || !st.durationMs) return;
     if (st.positionMs < st.durationMs - Math.min(5 * 60_000, st.durationMs / 4) && skip()?.kind !== "credits") return;
-    prefetched = np;
-    void hub.prefetch(np.info.next).catch(() => undefined);
+    const key = `${np.since}|${next.req.id}|${next.req.episodeId ?? ""}`;
+    if (prefetched === key) return;
+    prefetched = key;
+    void hub.prefetch(next.req).catch(() => undefined);
   });
   const stopAndBack = () => (nav.back() ? undefined : nav.reset({ name: "home" }));
   const otherVersion = async () => {
@@ -109,14 +137,20 @@ export function Player() {
     return st.durationMs ? Math.max(0, Math.ceil((st.durationMs - st.positionMs) / 1000)) : null;
   };
   const showNextCard = () => {
-    const np = nowPlaying();
-    if (!np?.info.next || np.info.live || nextHidden() || !played()) return false;
+    if (!upNext() || nextHidden() || !played()) return false;
     const left = remainingS();
     return skip()?.kind === "credits" || playerState().status === "ended" || (left !== null && left <= 30);
   };
+  // The next episode carries straight on; something else from the queue gets its "starting" card.
   const playNext = () => {
-    const np = nowPlaying();
-    if (np?.info.next) void play(np.info.next, { quiet: true, ...(np.title ? { title: np.title } : {}) });
+    const next = upNext();
+    if (next) void play(next.req, { ...(next.queued ? {} : { quiet: true }), ...(next.title ? { title: next.title } : {}) });
+  };
+  const nextLabel = () => {
+    const next = upNext();
+    const what = next?.queued ? "Up next from your queue" : "Next episode";
+    const counting = (next?.queued || autoplay()) && remainingS() !== null && playerState().status !== "ended";
+    return counting ? `${what} in ${remainingS()} s` : what;
   };
   let hideTimer: number | undefined;
   let digitTimer: number | undefined;
@@ -157,7 +191,7 @@ export function Player() {
   const [tunedAt, setTunedAt] = createSignal(Date.now());
   createEffect(on(nowPlaying, () => setTunedAt(Date.now())));
 
-  // Up Next when an episode ends.
+  // Up Next when a film or episode ends.
   createEffect(
     on(
       () => playerState().status,
@@ -166,8 +200,9 @@ export function Player() {
         // A music video channel ran through the videos it was given: tune in again for the next ones.
         if (status === "ended" && np?.info.live && np.info.queue && np.req.kind === "channel") return void play(np.req);
         if (status !== "ended" || !np || np.info.live) return;
-        if (np.info.next && !nextHidden() && autoplay()) playNext();
-        else if (!np.info.next || nextHidden()) nav.back();
+        const next = upNext();
+        if (next && !nextHidden() && (next.queued || autoplay())) playNext();
+        else if (!next || nextHidden()) nav.back();
       },
     ),
   );
@@ -559,16 +594,14 @@ export function Player() {
         </button>
       </Show>
 
-      <Show when={showNextCard() && nowPlaying()?.info.next}>
+      <Show when={showNextCard() && upNext()}>
         {(next) => (
           <div class="up-next">
             <Show when={next().image}>
               <img class="up-next-image" src={next().image} alt="" />
             </Show>
             <div class="up-next-body">
-              <p class="up-next-label">
-                {autoplay() && remainingS() !== null && playerState().status !== "ended" ? `Next episode in ${remainingS()} s` : "Next episode"}
-              </p>
+              <p class="up-next-label">{nextLabel()}</p>
               <h3>{next().name}</h3>
               <Show when={next().overview}>
                 <p class="up-next-overview">{next().overview}</p>

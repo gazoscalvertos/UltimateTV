@@ -1,5 +1,5 @@
 // A film or series: artwork, the best version ready to play, every other version (library,
-// IPTV, TorBox via AIOStreams), seasons and episodes, and Save to NAS.
+// IPTV, TorBox via AIOStreams), seasons and episodes, Add to queue, and Save to NAS.
 
 import { createEffect, createResource, createSignal, For, Show } from "solid-js";
 import type { Episode, TitleDetails, TitleRef } from "@ultimatetv/shared";
@@ -11,6 +11,7 @@ import { Progress } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { useKeys } from "../keys";
 import { play } from "../player";
+import { addToQueue } from "../queue";
 import { errorToast, isKids, openDialog, toast } from "../store";
 
 const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
@@ -109,6 +110,25 @@ export function Details(props: { id: string }) {
   };
   const playEpisode = (e: Episode) => void play({ kind: "title", id: d()!.id, episodeId: `s${e.season}e${e.episode}` }, { title: refOf(d()!) });
 
+  // Queue the film, or an episode (the next one to watch, or the one the remote is on with Green).
+  const queueIt = (e?: Episode | null) => {
+    const t = d()!;
+    if (t.kind === "series") {
+      if (!e) return;
+      const still = e.still ?? t.backdrop ?? t.poster;
+      void addToQueue({
+        req: { kind: "title", id: t.id, episodeId: `s${e.season}e${e.episode}` },
+        title: refOf(t),
+        name: t.name,
+        subtitle: [episodeLabel(e.season, e.episode), e.name].filter(Boolean).join(" · "),
+        ...(still ? { image: still } : {}),
+      });
+      return;
+    }
+    const art = t.backdrop ?? t.poster;
+    void addToQueue({ req: { kind: "title", id: t.id }, title: refOf(t), name: t.name, ...(t.year ? { subtitle: String(t.year) } : {}), ...(art ? { image: art } : {}) });
+  };
+
   const save = async () => {
     try {
       await hub.download(d()!.id);
@@ -122,6 +142,10 @@ export function Details(props: { id: string }) {
     if (a === "yellow" && d()) {
       if (d()!.kind === "series") episodeVersions(focusedEpisode() ?? nextEpisode());
       else void chooseVersion(d()!);
+      return true;
+    }
+    if (a === "green" && d()) {
+      queueIt(d()!.kind === "series" ? (focusedEpisode() ?? nextEpisode()) : null);
       return true;
     }
     if (a === "play" && d()) {
@@ -198,6 +222,18 @@ export function Details(props: { id: string }) {
                       </button>
                     )}
                   </Show>
+                  <Show when={t().kind === "movie"}>
+                    <button class="btn btn-large" data-focus onClick={() => queueIt()}>
+                      <Icon name="plus" /> Add to queue
+                    </button>
+                  </Show>
+                  <Show when={t().kind === "series" && nextEpisode()}>
+                    {(e) => (
+                      <button class="btn btn-large" data-focus onClick={() => queueIt(e())}>
+                        <Icon name="plus" /> Queue {episodeLabel(e().season, e().episode)}
+                      </button>
+                    )}
+                  </Show>
                   <Show when={t().kind === "movie" && !isKids() && !t().inLibrary && streams()?.streams.some((s) => s.downloadable)}>
                     <button class="btn btn-large" data-focus onClick={() => void save()}>
                       <Icon name="download" /> Save to NAS
@@ -217,6 +253,9 @@ export function Details(props: { id: string }) {
                       )}
                     </For>
                   </div>
+                  <p class="details-hint">
+                    <kbd class="key-green" /> Add the episode you're on to your queue
+                  </p>
                 </section>
                 <section class="rail" data-row>
                   <div class="rail-track episodes" data-scroll-x="96" data-focus-group>

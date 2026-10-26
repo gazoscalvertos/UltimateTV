@@ -6,6 +6,7 @@ import type { Channel, PlaybackInfo, PlaybackRequest, PlayerState, TitleRef } fr
 import { agent } from "./agent";
 import { ApiError, hub } from "./api";
 import { choose } from "./components/Dialog";
+import { startedPlaying } from "./queue";
 import { errorToast, nav } from "./store";
 
 export interface NowPlaying {
@@ -135,6 +136,7 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
   });
   setNowPlaying({ req, info, since, ...(opts.title ? { title: opts.title } : {}), ...(opts.quiet ? { quiet: true } : {}) });
   if (req.kind === "channel") setLiveChannelId(req.id);
+  startedPlaying(req);
   void report("start");
   clearInterval(reportTimer);
   if (!info.live) reportTimer = window.setInterval(() => void report("progress"), 10_000);

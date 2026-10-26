@@ -47,6 +47,12 @@
     if (!r.ok) throw new Error(d.error || r.statusText);
     return d;
   }
+  async function del(path) {
+    const r = await fetch(path, { method: "DELETE" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  }
   const key = (action) => post("/api/remote/key", { action }).catch(() => toast("Can't reach the Hub", true));
 
   async function playOnTv(req, title, fromStart) {
@@ -55,6 +61,19 @@
     try {
       await call("play", { req, ...(title ? { title } : {}), ...(fromStart ? { fromStart: true } : {}) });
       setTimeout(poll, 800);
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+
+  // The TV's play queue: it plays in order when what's on ends, ahead of the next episode.
+  const ordinal = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+  async function queueIt(item) {
+    try {
+      const r = await post("/api/queue", item);
+      const at = r.queue.findIndex((i) => i.id === r.item.id) + 1;
+      toast(at <= 1 ? `${item.name} plays next` : `${item.name} is ${ordinal(at)} in the queue`);
+      if (current === "queue") void showQueue();
     } catch (e) {
       toast(e.message, true);
     }
@@ -441,6 +460,7 @@
       if (what === "guide") await showGuide();
       if (what === "movie" || what === "series") await showRails(what);
       if (what === "recordings") await showRecordings();
+      if (what === "queue") await showQueue();
       if (what === "music") await showMusic("playlists");
       if (what === "search") showSearch();
     } catch (e) {
@@ -511,11 +531,13 @@
     openSheet(`${d.backdrop ? `<div class="hero" style="background-image:url('${esc(d.backdrop)}')"></div>` : ""}
       <h2>${esc(d.name)}</h2><p class="meta">${esc(meta)}</p>
       ${d.overview ? `<p class="overview">${esc(d.overview)}</p>` : ""}
-      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}` : ""}</div>
+      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button>` : ""}</div>
       ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="list" id="s-eps"></div>` : ""}
       <button class="link" data-close>Close</button>`);
     if ($("s-play")) $("s-play").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef);
     if ($("s-start")) $("s-start").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef, true);
+    const art = d.backdrop ?? d.poster;
+    if ($("s-queue")) $("s-queue").onclick = () => queueIt({ req: { kind: "title", id: d.id }, title: titleRef, name: d.name, ...(d.year ? { subtitle: String(d.year) } : {}), ...(art ? { image: art } : {}) });
     if (seasons.length) {
       const pick = async () => {
         const s = seasons[Number($("s-season").value)];
@@ -527,13 +549,19 @@
         $("s-eps").innerHTML = eps.length
           ? eps
               .map(
-                (e, i) => `<button class="item ep" data-ep="${i}"><span class="text"><b>${e.episode}. ${esc(e.name)}</b>${e.overview ? `<small>${esc(e.overview.slice(0, 140))}${e.overview.length > 140 ? "…" : ""}</small>` : ""}${e.progress ? `<i class="bar"><i style="width:${Math.round(e.progress * 100)}%"></i></i>` : ""}</span>${e.watched ? `<span class="tick">✓</span>` : ""}</button>`,
+                (e, i) => `<div class="ep-row"><button class="item ep" data-ep="${i}"><span class="text"><b>${e.episode}. ${esc(e.name)}</b>${e.overview ? `<small>${esc(e.overview.slice(0, 140))}${e.overview.length > 140 ? "…" : ""}</small>` : ""}${e.progress ? `<i class="bar"><i style="width:${Math.round(e.progress * 100)}%"></i></i>` : ""}</span>${e.watched ? `<span class="tick">✓</span>` : ""}</button><button class="qbtn" data-q="${i}" aria-label="Add to queue">+</button></div>`,
               )
               .join("")
           : `<p class="empty">No episodes listed.</p>`;
         for (const b of $("s-eps").querySelectorAll("[data-ep]")) {
           const e = eps[Number(b.dataset.ep)];
           b.onclick = () => playOnTv({ kind: "title", id: d.id, episodeId: `s${e.season}e${e.episode}` }, titleRef);
+        }
+        for (const b of $("s-eps").querySelectorAll("[data-q]")) {
+          const e = eps[Number(b.dataset.q)];
+          const still = e.still ?? art;
+          b.onclick = () =>
+            queueIt({ req: { kind: "title", id: d.id, episodeId: `s${e.season}e${e.episode}` }, title: titleRef, name: d.name, subtitle: `S${e.season} E${e.episode} · ${e.name}`, ...(still ? { image: still } : {}) });
         }
       };
       $("s-season").onchange = pick;
@@ -542,6 +570,26 @@
       $("s-season").value = String(Math.max(0, first));
       void pick();
     }
+  }
+
+  // The queue: tap to play now, ↑ to play next, ✕ to take off.
+  async function showQueue() {
+    const { queue } = await get("/api/queue");
+    if (current !== "queue") return;
+    if (!queue.length) return (body.innerHTML = `<p class="empty">Nothing queued. Add films and episodes with Add to queue or +, and they play one after another on the TV.</p>`);
+    body.innerHTML = `<div class="list">${queue
+      .map(
+        (q, i) => `<div class="ep-row"><button class="item" data-qi="${i}"><span class="logo">${q.image ? `<img src="${esc(q.image)}" alt="" loading="lazy" style="object-fit:cover;width:100%;height:100%">` : i + 1}</span><span class="text"><b>${esc(q.name)}</b>${q.subtitle ? `<span>${esc(q.subtitle)}</span>` : ""}<small>${i === 0 ? "Plays next" : ordinal(i + 1)}</small></span></button>${i ? `<button class="qbtn" data-qup="${i}" aria-label="Play next">↑</button>` : ""}<button class="qbtn danger" data-qx="${i}" aria-label="Remove">✕</button></div>`,
+      )
+      .join("")}</div><div class="actions"><button id="q-clear">Clear the queue</button></div>`;
+    const act = (fn) => fn().then(showQueue, (e) => toast(e.message, true));
+    for (const b of body.querySelectorAll("[data-qi]")) {
+      const q = queue[Number(b.dataset.qi)];
+      b.onclick = () => playOnTv(q.req, q.title).then(() => setTimeout(() => current === "queue" && showQueue(), 1000));
+    }
+    for (const b of body.querySelectorAll("[data-qup]")) b.onclick = () => act(() => post(`/api/queue/${encodeURIComponent(queue[Number(b.dataset.qup)].id)}/move`, { to: 0 }));
+    for (const b of body.querySelectorAll("[data-qx]")) b.onclick = () => act(() => del(`/api/queue/${encodeURIComponent(queue[Number(b.dataset.qx)].id)}`));
+    $("q-clear").onclick = () => act(() => del("/api/queue"));
   }
 
   // Recordings: finished ones to watch, and what's recording now.

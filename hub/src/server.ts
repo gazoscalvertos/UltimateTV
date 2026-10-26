@@ -8,6 +8,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import QRCode from "qrcode";
 import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
 import { registerNotices } from "./notify.js";
+import { registerQueue } from "./queue.js";
 import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { cleanAppName, renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
@@ -108,6 +109,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["DELETE /api/notify/:id", "script"],
     ["DELETE /api/notify", "script"],
     ["POST /api/tv/call/:method", "paired"],
+    ["POST /api/queue", "paired"],
+    ["POST /api/queue/:id/move", "paired"],
+    ["DELETE /api/queue/:id", "paired"],
+    ["DELETE /api/queue", "paired"],
     ["POST /api/music/login", "paired"],
     ["POST /api/box/check", "paired"],
     ["POST /api/box/update", "paired"],
@@ -847,6 +852,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // -------------------------------------------------------------------------
   // Playback
+
+  // The play queue: what plays after this, ahead of the next episode.
+  registerQueue(app, ctx, filterOf);
 
   // The TV asks for the next episode while the current one plays; the answer comes straight back.
   app.post("/api/play/prefetch", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest>) => {

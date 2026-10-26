@@ -29,6 +29,7 @@ import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
 import { closeTopDialog, nav, setAppName, setProfile, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
+import { startQueue } from "./queue";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
 
@@ -154,6 +155,7 @@ export function App() {
     void pairScreen().then(startEvents);
     startRemoteBridge();
     startPhoneBridge();
+    startQueue();
     void startMusic();
     void restoreSession();
     const loadAppName = () => hub.settings().then((s) => setAppName(s.appName), () => undefined);
