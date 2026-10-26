@@ -9,7 +9,7 @@ import { HubContext } from "../src/context.js";
 import { cropFromLog } from "../src/cropdetect.js";
 import { nextLoop, planSlots } from "../src/mixchannels.js";
 import { buildServer } from "../src/server.js";
-import { cleanVideoTitle, displayTitle, judge, type Run, type YtInfo } from "../src/ytdlp.js";
+import { cleanVideoTitle, displayTitle, judge, songKey, YtDlp, type Run, type YtInfo } from "../src/ytdlp.js";
 import { channel } from "./helpers.js";
 
 const silent = { info() {}, warn() {}, error() {}, debug() {}, child() { return silent; } } as never;
@@ -214,6 +214,63 @@ describe("music video channel work lanes", () => {
       ctx.close();
       await rm(tmp, { recursive: true, force: true });
     }
+  });
+});
+
+describe("telling uploads of the same song apart", () => {
+  it("finds the song whoever uploaded it", () => {
+    expect(songKey({ title: "HUNTR/X - What It Sounds Like (Official Lyric Video) | KPop Demon Hunters" })).toBe("what it sounds like");
+    expect(songKey({ title: "“What It Sounds Like” Clip | KPop Demon Hunters" })).toBe("what it sounds like");
+    expect(songKey({ title: "“Takedown” Song – K-POP DEMON HUNTERS Clip (2025)" })).toBe("takedown");
+    expect(songKey({ title: "anything", track: "Your Idol" })).toBe(songKey({ title: "Saja Boys - Your Idol (MV)" }));
+    expect(songKey({ title: "Wham! - Last Christmas (Official 4K Video)" })).not.toBe(songKey({ title: "Mariah Carey - All I Want For Christmas Is You" }));
+  });
+});
+
+describe("searching deeper and hung downloads", () => {
+  it("carries on down a search's results over passes until the channel is full", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-deep-"));
+    const pages: string[] = [];
+    // 25 results a page, only two of them good enough (the rest are SD).
+    const run: Run = async (args) => {
+      if (args[0] === "--version") return { code: 0, stdout: "2026.10.01\n", stderr: "" };
+      const search = args.find((a) => a.startsWith("ytsearch"));
+      if (!search) return { code: 1, stdout: "", stderr: "ERROR: unexpected" };
+      const items = args.includes("--playlist-items") ? args[args.indexOf("--playlist-items") + 1]! : "1:25";
+      pages.push(items);
+      const from = Number(items.split(":")[0]);
+      const lines = Array.from({ length: 25 }, (_, i) => {
+        const n = from + i;
+        return JSON.stringify({ id: `vid${n}`, title: `Singer ${n} - Song ${n} (Official Video)`, duration: 200, height: n % 25 === 1 || n % 25 === 2 ? 2160 : 360 });
+      });
+      return { code: 0, stdout: lines.join("\n"), stderr: "" };
+    };
+    const ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: run, mixPauseMs: 0, mixMinFreeBytes: 0 });
+    try {
+      const c = ctx.mix.create({ name: "Festive TV", brief: "x", queries: ["festive songs"], target: 10 });
+      expect(await ctx.mix.curate(c.id)).toBeGreaterThan(0);
+      expect(pages).toEqual(["1:25", "26:50", "51:75"]);
+      const first = ctx.mix.store.entries(c.id).length;
+      expect(first).toBeLessThan(10);
+      // The next pass starts where this one stopped, and fills it.
+      await ctx.mix.curate(c.id);
+      expect(pages[3]).toBe("76:100");
+      expect(ctx.mix.store.entries(c.id).length).toBe(10);
+      expect(new Set(ctx.mix.store.entries(c.id).map((e) => e.video.id)).size).toBe(10);
+    } finally {
+      ctx.close();
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("stops a download that goes quiet", async () => {
+    const run: Run = (_args, opts) =>
+      new Promise((_resolve, reject) => {
+        opts?.signal?.addEventListener("abort", () => reject(new Error("The operation was aborted")));
+      });
+    const yt = new YtDlp(run);
+    yt.stallMs = 30;
+    await expect(yt.download("https://example.com/v", "v", os.tmpdir(), { minHeight: 720, maxHeight: 2160 })).rejects.toThrow(/stalled/);
   });
 });
 

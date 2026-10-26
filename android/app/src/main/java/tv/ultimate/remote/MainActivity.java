@@ -18,6 +18,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -47,11 +48,14 @@ public class MainActivity extends Activity {
     private static final String DEFAULT_HUB = "http://192.168.0.19:8095";
     private static final int BG = Color.rgb(7, 11, 20);
     private static final int VOICE_REQUEST = 1;
+    private static final int FILE_REQUEST = 2;
 
     private SharedPreferences prefs;
     private WebView web;
     private String hub;
     private final Handler main = new Handler(Looper.getMainLooper());
+    /** The page's photo or video picker (Pop-up on the TV) waiting for the phone's gallery. */
+    private ValueCallback<Uri[]> fileCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,7 +85,7 @@ public class MainActivity extends Activity {
         box.addView(title);
 
         TextView hint = new TextView(this);
-        hint.setText(error != null ? error : "Enter the address of the UltimateTV Hub on your home network. It's shown in Settings › Phone remote on the TV.");
+        hint.setText(error != null ? error : "Enter the address of your TV's Hub on your home network. It's shown in Settings › Phone remote on the TV.");
         hint.setTextColor(error != null ? Color.rgb(255, 120, 135) : Color.rgb(154, 166, 189));
         hint.setTextSize(15);
         hint.setPadding(0, dp(12), 0, dp(24));
@@ -144,7 +148,26 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         web.addJavascriptInterface(new Bridge(), "UltimateTVApp");
         // The settings page asks with confirm() and prompt(), which only show with a chrome client.
-        web.setWebChromeClient(new WebChromeClient());
+        // It also opens the gallery for the remote's "Add photo or video".
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (fileCallback != null) fileCallback.onReceiveValue(null);
+                fileCallback = callback;
+                // Built by hand: the params' own intent only offers the first type (photos, not videos).
+                Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
+                pick.addCategory(Intent.CATEGORY_OPENABLE);
+                pick.setType("*/*");
+                pick.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {"image/*", "video/*"});
+                try {
+                    startActivityForResult(Intent.createChooser(pick, "Photo or video"), FILE_REQUEST);
+                    return true;
+                } catch (ActivityNotFoundException e) {
+                    fileCallback = null;
+                    return false;
+                }
+            }
+        });
         // Downloads (the remote's own APK) go to the browser, which saves and installs them.
         web.setDownloadListener((url, userAgent, contentDisposition, mimetype, length) -> openInBrowser(url));
         web.setWebViewClient(new WebViewClient() {
@@ -211,6 +234,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FILE_REQUEST) {
+            if (fileCallback != null) fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+            fileCallback = null;
+            return;
+        }
         if (requestCode != VOICE_REQUEST || web == null) return;
         ArrayList<String> results = data != null ? data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS) : null;
         if (resultCode == RESULT_OK && results != null && !results.isEmpty()) {

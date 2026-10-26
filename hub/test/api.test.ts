@@ -19,6 +19,7 @@ beforeAll(async () => {
     probeDir: path.join(tmp, "probe"),
     uiDir: path.join(tmp, "ui"),
     setupDir: path.join(tmp, "setup"),
+    remoteDir: new URL("../public/remote", import.meta.url).pathname,
     mediaRoot: path.join(tmp, "media"),
     demo: true,
   };
@@ -122,6 +123,17 @@ describe("Hub API in demo mode", () => {
     expect(s.body).not.toContain("secret-key");
     expect(s.body).not.toContain("eyJzZWNyZXQ");
     expect(s.json()).toMatchObject({ tmdb: true, addons: [{ name: "AIOStreams" }] });
+  });
+
+  it("renames the app", async () => {
+    expect((await app.inject("/api/settings")).json()).toMatchObject({ appName: "UltimateTV" });
+    const saved = await app.inject({ method: "PUT", url: "/api/settings", payload: { appName: "  GazosTV  " } });
+    expect(saved.json()).toMatchObject({ appName: "GazosTV" });
+    expect((await app.inject("/api/settings")).json()).toMatchObject({ appName: "GazosTV" });
+    const manifest = await app.inject("/remote/manifest.webmanifest");
+    expect(manifest.json()).toMatchObject({ name: "GazosTV Remote" });
+    // Blank goes back to the default.
+    expect((await app.inject({ method: "PUT", url: "/api/settings", payload: { appName: " " } })).json()).toMatchObject({ appName: "UltimateTV" });
   });
 
   it("refuses to add the same IPTV source twice", async () => {

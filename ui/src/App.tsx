@@ -7,6 +7,7 @@ import { agent } from "./agent";
 import { ApiError, hub, session } from "./api";
 import { choose, DialogHost } from "./components/Dialog";
 import { NewsFlash } from "./components/NewsFlash";
+import { Notices } from "./components/Notices";
 import { StartingCard } from "./components/Starting";
 import { startEvents, onHubEvent } from "./events";
 import { activeLayer, current, focus, focusFirst } from "./focus";
@@ -26,7 +27,7 @@ import { Player } from "./screens/Player";
 import { Profiles } from "./screens/Profiles";
 import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
-import { closeTopDialog, nav, setProfile, toast, toasts } from "./store";
+import { closeTopDialog, nav, setAppName, setProfile, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { startRemoteBridge } from "./remote";
 
@@ -153,8 +154,11 @@ export function App() {
     startPhoneBridge();
     void startMusic();
     void restoreSession();
+    const loadAppName = () => hub.settings().then((s) => setAppName(s.appName), () => undefined);
+    void loadAppName();
     onCleanup(
       onHubEvent(async (e) => {
+        if (e.type === "settings.changed") void loadAppName();
         if (e.type === "reminder") {
           const r = e.reminder;
           const pick = await choose({
@@ -242,6 +246,7 @@ export function App() {
       </ErrorBoundary>
       <Show when={starting()}>{(st) => <StartingLayer name={st().name} since={st().since} />}</Show>
       <NewsFlash />
+      <Notices />
       <DialogHost />
       <div class="toasts">
         <For each={toasts()}>{(t) => <div class={`toast toast-${t.tone}`}>{t.message}</div>}</For>

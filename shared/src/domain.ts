@@ -438,7 +438,18 @@ export interface IptvSourceStatus {
   error?: string;
 }
 
+/** What the app is called until it's renamed on the phone's settings page. */
+export const DEFAULT_APP_NAME = "UltimateTV";
+
+/** A name for the app as typed: trimmed, one line, at most 24 characters; blank gives the default. */
+export function cleanAppName(name: string | undefined): string {
+  const clean = (name ?? "").replace(/\s+/g, " ").trim().slice(0, 24).trim();
+  return clean || DEFAULT_APP_NAME;
+}
+
 export interface Settings {
+  /** The app's name everywhere it's shown (the TV, the phone remote, the setup pages, Spotify). */
+  appName: string;
   iptv: IptvSource[];
   xmltvUrls: string[];
   jellyfin?: { url: string; userId: string; token: string; serverName?: string };
@@ -475,6 +486,7 @@ export interface Settings {
 
 /** Settings as the UI sees them: secrets replaced by a flag saying they're set. */
 export interface PublicSettings {
+  appName: string;
   iptv: { id: Id; kind: "xtream" | "m3u"; name: string; connections: number; host: string; status?: IptvSourceStatus }[];
   xmltvCount: number;
   jellyfin?: { url: string; serverName?: string };
@@ -529,6 +541,10 @@ export type HubEvent =
   | { type: "remote.said"; text: string }
   /** A news flash typed on the phone, shown along the bottom of the TV over anything; null takes it down. */
   | { type: "flash"; flash: NewsFlash | null }
+  /** A pop-up sent to the TV through /api/notify (a doorbell, a meeting, an alarm); a notice with the same id replaces it. */
+  | { type: "notice"; notice: TvNotice }
+  /** Takes a pop-up down, or all of them without an id. */
+  | { type: "notice.clear"; id?: string }
   /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
   | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean }
   /** The phone asks the TV app something (what's playing, play this, seek); it answers at /api/tv/reply/:id. */
@@ -551,6 +567,42 @@ export interface HubSoftware {
   /** An update has been asked for or is running. */
   updating: boolean;
   lastUpdate?: { at: string; ok: boolean };
+}
+
+/** Where a pop-up sits on the TV. "full" covers the whole screen. */
+export type NoticePosition = "center" | "top" | "bottom" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "full";
+export const NOTICE_POSITIONS: readonly NoticePosition[] = ["center", "top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right", "full"];
+export type NoticeSize = "small" | "medium" | "large";
+export const NOTICE_SIZES: readonly NoticeSize[] = ["small", "medium", "large"];
+/** The look (icon and colour) and the sound it makes by default. */
+export type NoticeKind = "info" | "doorbell" | "meeting" | "alarm" | "warning";
+export const NOTICE_KINDS: readonly NoticeKind[] = ["info", "doorbell", "meeting", "alarm", "warning"];
+export type NoticeSound = "none" | "ping" | "chime" | "alarm";
+export const NOTICE_SOUNDS: readonly NoticeSound[] = ["none", "ping", "chime", "alarm"];
+
+/** A pop-up on the TV with any mix of a title, text, a picture and a video, sent from the phone or any device on the home network. */
+export interface TvNotice {
+  id: string;
+  kind: NoticeKind;
+  title?: string;
+  text?: string;
+  /** Picture and video addresses the TV loads: the Hub's own copy (/api/notify/media/…) or a web address. */
+  image?: string;
+  video?: string;
+  /** The video plays without sound. */
+  muted: boolean;
+  position: NoticePosition;
+  size: NoticeSize;
+  sound: NoticeSound;
+  /** Pause what's playing while it shows, and carry on when it goes. */
+  pause: boolean;
+  /** Turn the TV on (HDMI-CEC) when it arrives. */
+  wake: boolean;
+  /** When it goes by itself (ms since 1970, the Hub's clock), or null to stay until dismissed. */
+  until: number | null;
+  /** How long it has left as the Hub sends it, so the TV needn't trust its clock to match the Hub's. */
+  leftMs: number | null;
+  at: number;
 }
 
 /** A "breaking news" ticker along the bottom of the TV, written on the phone. */

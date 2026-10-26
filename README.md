@@ -30,7 +30,8 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md). See [
 4. **Phone remote:** scan the code in Settings › Phone remote, or install the Android app ([docs/phone-remote.md](docs/phone-remote.md)).
 5. **Music video channels:** Clubland TV, House TV and Halloween TV fill themselves on the first start; make your own in Settings › Music channels ([docs/music-channels.md](docs/music-channels.md)).
 6. **Profiles:** set a PIN on the adult profile so the children stay in Kids ([docs/profiles.md](docs/profiles.md)).
-7. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
+7. **Pop-ups:** put the doorbell camera, a meeting or an alarm on the TV from Home Assistant or the phone ([docs/notifications.md](docs/notifications.md)).
+8. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 
 ## Development
 

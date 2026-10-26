@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { statfs } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -7,8 +7,9 @@ import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import QRCode from "qrcode";
 import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
+import { registerNotices } from "./notify.js";
 import type { BoxState, NewsFlash, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
-import { renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
+import { cleanAppName, renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
@@ -276,6 +277,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (body.recording) patch.recording = { ...s.recording, ...body.recording };
     if (body.playback) patch.playback = { ...s.playback, ...body.playback };
     if (body.numbering) patch.numbering = body.numbering;
+    if (body.appName !== undefined) patch.appName = cleanAppName(body.appName);
     if (body.channelFilter !== undefined) {
       try {
         if (body.channelFilter) new RegExp(body.channelFilter);
@@ -382,6 +384,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ctx.events.emit({ type: "flash", flash: null });
     return { ok: true };
   });
+  // Pop-ups on the TV from the phone or anything on the home network (a doorbell, an alarm).
+  await registerNotices(app, ctx, config.dataDir);
   /** A QR code for a web address the TV shows, such as Spotify's sign-in page. */
   app.get("/api/qr.svg", async (req: Req<Record<string, string>, { text?: string }>, reply) => {
     const text = String(req.query.text ?? "");
@@ -964,7 +968,18 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   await serveDir(config.probeDir, "/probe/", "Probe page not built. Run `npm run build` first.", true);
   await serveDir(config.uiDir, "/app/", "TV app not built. Run `npm run build` first.");
   await serveDir(config.setupDir, "/setup/", "Setup page missing.");
-  if (config.remoteDir) await serveDir(config.remoteDir, "/remote/", "Phone remote missing.");
+  if (config.remoteDir) {
+    const remoteDir = config.remoteDir;
+    // The install name follows the app's name, so a renamed app installs as "GazosTV Remote".
+    app.get("/remote/manifest.webmanifest", async (_req, reply) => {
+      const manifest = JSON.parse(readFileSync(path.join(remoteDir, "manifest.webmanifest"), "utf8")) as Record<string, unknown>;
+      const name = ctx.settings.get().appName;
+      manifest.name = `${name} Remote`;
+      manifest.description = `Control ${name} on the TV from your phone.`;
+      return reply.type("application/manifest+json").header("Cache-Control", "no-cache").send(manifest);
+    });
+    await serveDir(remoteDir, "/remote/", "Phone remote missing.");
+  }
 
   // Test clips are served with range requests so players can seek.
   if (existsSync(config.clipsDir)) {

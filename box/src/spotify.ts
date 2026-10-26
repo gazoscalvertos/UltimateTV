@@ -1,9 +1,16 @@
 // Spotify on the box: go-librespot runs as a Spotify Connect receiver for the tv user (see
-// tools/box/install.sh) and plays through PipeWire to the TV. Phones see it as "UltimateTV" in
+// tools/box/install.sh) and plays through PipeWire to the TV. Phones see it by the app's name in
 // Spotify's device list; the Music tab drives it through its local API
 // (https://github.com/devgianlu/go-librespot/blob/master/api-spec.yml).
 
+import { execFile } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import type { MusicItem, MusicPage, MusicTracks, SpotifyCommand, SpotifyState } from "@ultimatetv/shared";
+
+const run = promisify(execFile);
 
 type Log = (line: string) => void;
 
@@ -238,4 +245,20 @@ export function libraryItem(kind: "playlists" | "albums" | "artists", i: Record<
     if (sub) item.subtitle = sub;
   }
   return item;
+}
+
+/**
+ * Renames the box in Spotify's device list by rewriting device_name in go-librespot's config and
+ * restarting it (it reads the name only at start). Does nothing when the name is already right.
+ */
+export async function renameSpotifyDevice(name: string, log: Log, configFile = path.join(os.homedir(), ".config/go-librespot/config.yml")): Promise<boolean> {
+  const text = await readFile(configFile, "utf8").catch(() => null);
+  if (text === null) return false;
+  const line = `device_name: ${JSON.stringify(name)}`;
+  const current = /^device_name:.*$/m.exec(text)?.[0];
+  if (current === line || current === `device_name: ${name}`) return false;
+  await writeFile(configFile, current ? text.replace(/^device_name:.*$/m, line) : `${line}\n${text}`);
+  await run("systemctl", ["--user", "restart", "ultimatetv-spotify.service"]).catch((e: Error) => log(`Couldn't restart Spotify after renaming it: ${e.message}`));
+  log(`Spotify now shows the box as ${name}`);
+  return true;
 }

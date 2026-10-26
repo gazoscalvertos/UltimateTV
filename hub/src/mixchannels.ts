@@ -22,7 +22,7 @@ import type { EventBus } from "./events.js";
 import type { Logger } from "./log.js";
 import { MIX_SEEDS, type MixSeed } from "./mixseeds.js";
 import type { SettingsStore } from "./settings.js";
-import { displayTitle, overlap, toCandidate, type YtDlp, type YtInfo } from "./ytdlp.js";
+import { displayTitle, overlap, songKey, toCandidate, type YtDlp, type YtInfo } from "./ytdlp.js";
 
 const HOUR = 3_600_000;
 /** How far ahead the guide is filled, and when it is topped up. */
@@ -30,6 +30,10 @@ const PLAN_AHEAD = 48 * HOUR;
 const TOP_UP_BELOW = 40 * HOUR;
 /** How much of the schedule the TV is handed at once; it tunes in again when it runs out. */
 const QUEUE_AHEAD = 6 * HOUR;
+/** Searches go this far down YouTube's results, a page at a time, a few pages each pass. */
+const SEARCH_PAGE = 25;
+const SEARCH_DEPTH = 200;
+const SEARCH_PAGES_PER_PASS = 3;
 /** Leave this much room on the NAS. */
 const MIN_FREE_BYTES = 10 * 1024 ** 3;
 const RECURATE_AFTER = 24 * HOUR;
@@ -177,6 +181,8 @@ interface StoredVideo extends MixVideo {
   thumbPath?: string;
   /** Black bars baked into the picture, as mpv's video-crop ("" when there are none). */
   crop?: string;
+  /** Downloads of it that hung and were stopped. */
+  stalls?: number;
 }
 
 export class MixStore {
@@ -607,7 +613,8 @@ export class MixManager {
     this.extendAll();
     this.timers.push(setInterval(() => this.extendAll(), 30 * 60_000));
     this.timers.push(setInterval(() => this.queueCurations(), 6 * HOUR));
-    this.queueCurations();
+    // After a restart (an update, say) channels short of videos look again straight away.
+    this.queueCurations(Date.now(), true);
     this.running = true;
     // Two lanes, so a long curation (or a restart part-way through one) never holds up the
     // downloads of the videos already chosen: one search and one download at a time.
@@ -651,12 +658,12 @@ export class MixManager {
     return this.downloader;
   }
 
-  /** Channels short of videos, and not looked at for a day, get curated. */
-  queueCurations(now = Date.now()): void {
+  /** Channels short of videos, and not looked at for a day (or at all, with `any`), get curated. */
+  queueCurations(now = Date.now(), any = false): void {
     for (const c of this.store.channels()) {
       if (!c.enabled) continue;
       const have = this.store.entries(c.id).filter((e) => e.video.status !== "failed").length;
-      if (have < c.target && (!c.curatedAt || now - c.curatedAt > RECURATE_AFTER)) this.queue({ kind: "curate", channelId: c.id });
+      if (have < c.target && (any || !c.curatedAt || now - c.curatedAt > RECURATE_AFTER)) this.queue({ kind: "curate", channelId: c.id });
     }
   }
 
@@ -733,12 +740,15 @@ export class MixManager {
     const tried = new Set(this.o.db.getKv<string[]>(`mix-tried:${channelId}`) ?? []);
     const blocked = new Set(this.o.db.getKv<string[]>(`mix-blocked:${channelId}`) ?? []);
     const titles = entries.map((e) => displayTitle(e.video));
+    const songs = new Set(entries.filter((e) => e.video.status !== "failed").map((e) => songKey(e.video)).filter(Boolean));
     let added = 0;
     const usable = (cand: MixCandidate) => {
       if (cand.rejected.length || blocked.has(cand.id)) return false;
       const known = this.store.video(cand.id);
       if (known?.status === "failed" || entries.some((e) => e.video.id === cand.id)) return false;
       // Another upload of a song the channel already has.
+      const key = songKey(cand);
+      if (key && songs.has(key)) return false;
       const t = displayTitle(cand);
       return !titles.some((have) => overlap(have, { title: t }) >= 0.85 && overlap(t, { title: have }) >= 0.85);
     };
@@ -746,14 +756,16 @@ export class MixManager {
       const v = this.store.video(cand.id) ?? this.newVideo(cand);
       this.addToChannel(c, v, origin);
       titles.push(displayTitle(cand));
+      const key = songKey(cand);
+      if (key) songs.add(key);
       entries.push({ video: v, origin, addedAt: now });
       need--;
       added++;
     };
     let failures = 0;
-    const searchFor = async (q: string, n: number): Promise<YtInfo[]> => {
+    const searchFor = async (q: string, n: number, offset = 0): Promise<YtInfo[]> => {
       try {
-        const r = await yt.search(q, n);
+        const r = await yt.search(q, n, offset);
         failures = 0;
         return r;
       } catch (err) {
@@ -776,13 +788,29 @@ export class MixManager {
       this.o.db.setKv(`mix-tried:${channelId}`, [...tried]);
       await new Promise((r) => setTimeout(r, Math.min(this.o.pauseMs ?? 2000, 2000)));
     }
+    // Each search carries on further down YouTube's results where the last pass stopped, so a
+    // channel with only a search or two still fills up over a few passes.
+    let depth = this.o.db.getKv<Record<string, number>>(`mix-depth:${channelId}`) ?? {};
+    // Every search has been read to the end: start again from the top (YouTube's results change).
+    if (plan.queries.length && plan.queries.every((q) => (depth[q] ?? 0) >= SEARCH_DEPTH)) depth = {};
     for (const q of plan.queries) {
-      if (need <= 0 || failures >= 3) break;
-      this.busy.curate = `Searching for ${q}`;
-      const found = (await searchFor(q, 25)).map((i) => toCandidate(i, c)).filter(usable).sort((a, b) => b.score - a.score);
-      for (const cand of found) {
-        if (need <= 0) break;
-        if (usable(cand)) take(cand, `search: ${q}`);
+      for (let pages = 0; pages < SEARCH_PAGES_PER_PASS; pages++) {
+        if (need <= 0 || failures >= 3 || this.stopped) break;
+        const offset = depth[q] ?? 0;
+        if (offset >= SEARCH_DEPTH) break;
+        this.busy.curate = `Searching for ${q}${offset ? ` (results ${offset + 1}–${offset + SEARCH_PAGE})` : ""}`;
+        const got = await searchFor(q, SEARCH_PAGE, offset);
+        if (!got.length) break;
+        const found = got.map((i) => toCandidate(i, c)).filter(usable).sort((a, b) => b.score - a.score);
+        for (const cand of found) {
+          if (need <= 0) break;
+          if (usable(cand)) take(cand, `search: ${q}`);
+        }
+        // Only move on once this page has nothing left to give.
+        if (need > 0) {
+          depth[q] = offset + SEARCH_PAGE;
+          this.o.db.setKv(`mix-depth:${channelId}`, depth);
+        }
       }
     }
     const fresh = this.store.channel(channelId);
@@ -793,6 +821,8 @@ export class MixManager {
       this.store.saveChannel(fresh);
     }
     this.changed(channelId);
+    // Still short but getting somewhere: carry on down the search results after the queued downloads.
+    if (need > 0 && added > 0 && failures < 3 && !this.stopped) this.queue({ kind: "curate", channelId });
     return added;
   }
 
@@ -846,7 +876,17 @@ export class MixManager {
       this.store.saveVideo(ready);
       this.o.log.info({ video: v.id, title: v.title, height: ready.height }, "Music video downloaded");
     } catch (err) {
-      const failed: StoredVideo = { ...v, status: "failed", error: (err as Error).message.slice(0, 300) };
+      const message = (err as Error).message;
+      // A hung download gets one more go before the video counts as failed.
+      if (message.startsWith("The download stalled") && !v.stalls) {
+        const again: StoredVideo = { ...v, status: "queued", stalls: 1 };
+        delete again.progress;
+        this.store.saveVideo(again);
+        this.o.log.warn({ video: v.id, title: v.title }, "Music video download stalled; trying again");
+        this.changed(channelIds[0]);
+        return;
+      }
+      const failed: StoredVideo = { ...v, status: "failed", error: message.slice(0, 300) };
       delete failed.progress;
       this.store.saveVideo(failed);
       this.o.log.warn({ video: v.id, err: failed.error }, "Music video download failed");

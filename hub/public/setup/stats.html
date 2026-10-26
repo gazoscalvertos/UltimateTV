@@ -242,6 +242,7 @@ async function refresh() {
 refresh();
 setInterval(() => $("auto").checked && refresh(), 3000);
 document.addEventListener("visibilitychange", refresh);
+fetch("/api/settings").then((r) => r.json()).then((s) => { if (s.appName) document.title = `${s.appName} stats`; }).catch(() => {});
 </script>
 </body>
 </html>

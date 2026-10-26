@@ -20,6 +20,10 @@ const TYPES: Record<string, string> = {
   ".avi": "video/x-msvideo",
   ".srt": "application/x-subrip",
   ".jpg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".mov": "video/quicktime",
 };
 
 export async function sendFile(request: FastifyRequest, reply: FastifyReply, file: string): Promise<FastifyReply> {

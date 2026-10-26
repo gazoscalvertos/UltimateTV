@@ -228,7 +228,7 @@ udevadm control --reload-rules
 udevadm trigger --subsystem-match=tty --subsystem-match=rc --subsystem-match=cec || true
 
 # --------------------------------------------------------------------------------------------
-# Spotify: go-librespot makes the box a Spotify Connect speaker ("UltimateTV" in the Spotify app)
+# Spotify: go-librespot makes the box a Spotify Connect speaker (the app's name in the Spotify app)
 # and gives the Music tab a local API. It runs as the tv user, playing through PipeWire.
 
 install_spotify() {
@@ -260,7 +260,14 @@ install_spotify() {
 if [ "${SPOTIFY:-1}" != 0 ] && install_spotify; then
   say "Setting up Spotify Connect"
   install -d -o "$TV_USER" -g "$TV_USER" "$home/.config/go-librespot"
+  # Keep the name the app was given (the TV app renames the device when the app is renamed).
+  spotify_name="$(grep -m1 '^device_name:' "$home/.config/go-librespot/config.yml" 2>/dev/null || true)"
   install -m644 -o "$TV_USER" -g "$TV_USER" "$files/go-librespot.yml" "$home/.config/go-librespot/config.yml"
+  if [ -n "$spotify_name" ]; then
+    awk -v line="$spotify_name" '/^device_name:/ { print line; next } { print }' "$home/.config/go-librespot/config.yml" > "$home/.config/go-librespot/config.yml.new" \
+      && mv "$home/.config/go-librespot/config.yml.new" "$home/.config/go-librespot/config.yml" \
+      && chown "$TV_USER:$TV_USER" "$home/.config/go-librespot/config.yml"
+  fi
   install -Dm644 "$files/ultimatetv-spotify.service" /etc/systemd/user/ultimatetv-spotify.service
   # For the tv user only (an admin logging in mustn't start a second one).
   install -d -o "$TV_USER" -g "$TV_USER" "$home/.config/systemd" "$home/.config/systemd/user" "$home/.config/systemd/user/default.target.wants"

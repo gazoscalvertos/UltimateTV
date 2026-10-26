@@ -68,6 +68,12 @@ the same screen.
 ![News flash on the TV](screenshots/43-news-flash.png)
 ![Writing it on the phone](screenshots/44-phone-news.png)
 
+## Pop-ups
+
+**Pop-up** at the bottom of the remote puts a message, photo or video on the TV, where you choose:
+the doorbell, dinner, a meeting, an alarm. Home Assistant can send the same pop-ups. See
+[Pop-ups on the TV](notifications.md).
+
 ## Settings
 
 Tap ⚙ at the top of the remote for the settings page. It has everything the TV's Settings has

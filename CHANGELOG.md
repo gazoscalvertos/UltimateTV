@@ -20,6 +20,21 @@ the commit they were built from in Settings › About, so you can tell exactly w
   episodes and recordings to watch anywhere. Jellyfin titles can download a smaller 720p copy.
   When the phone would take the IPTV connection from the TV, it asks first. Update the Hub to get
   it.
+- Pop-ups on the TV: a doorbell showing who's at the door, a meeting, an alarm. Send a title,
+  text, a picture, a video or a mix, from the phone remote's new **Pop-up** button or from Home
+  Assistant and scripts through `POST /api/notify`, and choose where it goes (middle, a corner, top,
+  bottom, full screen), its size, how long it stays and its sound. It can pause the film while it
+  shows. See docs/notifications.md. Needs a Hub and a box update; picking a photo in the Android
+  remote needs its new version (0.4.0).
+- Music channels no longer take a second upload of a song they already have (a lyric video and
+  a clip of the same song, say).
+- Music channels: a download that hangs is stopped after five quiet minutes and tried again, so
+  it no longer holds up every download behind it. Channels made from a search or two (a
+  Christmas channel, say) now keep reading further down YouTube's results until they're full.
+- Rename the app: call it GazosTV (or anything up to 24 characters) from the phone's settings page
+  (App name) or the TV's Settings › About › App name. The new name shows on the TV's top bar, the
+  phone remote, the settings pages, the box's "can't reach the Hub" screen and in the Spotify app's
+  device list. Needs a Hub and a box update.
 - Breaking news from the phone: the remote's News button puts a BBC News style "BREAKING NEWS"
   bar along the bottom of the TV, over whatever is on, with your own message (and channel name).
   It stays for 30 seconds to 15 minutes, or until you take it down. Needs a Hub and a box update.

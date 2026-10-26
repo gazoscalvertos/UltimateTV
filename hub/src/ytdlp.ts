@@ -104,6 +104,25 @@ export function overlap(pick: string, info: Pick<YtInfo, "title" | "uploader" | 
   return want.filter((w) => have.has(w)).length / want.length;
 }
 
+const NOT_THE_SONG = new Set(["clip", "mv", "song", "hd", "4k", "uhd", "hq", "remastered", "remaster", "version", "edit", "from"]);
+
+/**
+ * The song a video is of, as plain words ("what it sounds like"), whoever uploaded it and however
+ * it's labelled, so a channel doesn't take the same song twice. "" when it can't tell.
+ */
+export function songKey(v: { title: string; track?: string }): string {
+  let song = v.track ?? "";
+  if (!song) {
+    const t = cleanVideoTitle(v.title);
+    const quoted = /[“"‘]([^”"’]{2,})[”"’]/.exec(t);
+    const parts = t.split(/\s+[-–—]\s+/);
+    song = quoted ? quoted[1]! : parts.length > 1 ? parts[1]! : t;
+  }
+  return words(song.replace(/[([][^)\]]*[)\]]/g, " "))
+    .filter((w) => !NOT_THE_SONG.has(w) && !/^(19|20)\d\d$/.test(w))
+    .join(" ");
+}
+
 /** Scores a search result against a channel's rules; `pick` is the track it should be. */
 export function judge(info: YtInfo, rules: Rules, pick?: string): { score: number; rejected: string[] } {
   const rejected: string[] = [];
@@ -180,6 +199,9 @@ export class YtDlp {
     private extra: string[] = [],
   ) {}
 
+  /** A download that prints nothing for this long has hung (YouTube stopped sending) and is stopped. */
+  stallMs = 5 * 60_000;
+
   private args(list: string[]): string[] {
     // YouTube needs a JavaScript runtime; Node is already in the Hub's image.
     return ["--js-runtimes", "node", "--no-warnings", "--ignore-config", ...this.extra, ...list];
@@ -198,8 +220,11 @@ export class YtDlp {
   }
 
   /** Searches YouTube, with full details (picture size) for each result. */
-  async search(query: string, limit = 8): Promise<YtInfo[]> {
-    const r = await this.run(this.args(["--dump-json", "--skip-download", "--no-playlist", "--ignore-errors", `ytsearch${Math.min(Math.max(limit, 1), 30)}:${query}`]), { timeoutMs: 180_000 });
+  /** Search results `offset + 1` to `offset + limit`, so later passes can look further down the list. */
+  async search(query: string, limit = 8, offset = 0): Promise<YtInfo[]> {
+    const n = Math.min(Math.max(limit, 1), 30);
+    const page = offset > 0 ? ["--playlist-items", `${offset + 1}:${offset + n}`] : [];
+    const r = await this.run(this.args(["--dump-json", "--skip-download", "--no-playlist", "--ignore-errors", ...page, `ytsearch${offset + n}:${query}`]), { timeoutMs: 300_000 });
     const out: YtInfo[] = [];
     for (const line of r.stdout.split("\n")) {
       if (!line.trim()) continue;
@@ -249,25 +274,51 @@ export class YtDlp {
       url,
     ]);
     let done: Downloaded | undefined;
+    // yt-dlp can sit forever on a connection YouTube has stopped answering, which would hold up
+    // every download behind it, so a download that goes quiet is stopped.
+    const watch = new AbortController();
+    let stalled = false;
+    let quiet: NodeJS.Timeout | undefined;
+    const alive = () => {
+      clearTimeout(quiet);
+      quiet = setTimeout(() => {
+        stalled = true;
+        watch.abort();
+      }, this.stallMs);
+    };
+    const cancel = () => watch.abort();
+    signal?.addEventListener("abort", cancel);
+    alive();
     // Video and audio download one after the other; the video is most of it.
     let part = 0;
     let lastTotal = 0;
-    const r = await this.run(args, {
-      ...(signal ? { signal } : {}),
-      timeoutMs: 60 * 60_000,
-      onLine: (line) => {
-        const p = /^PROGRESS (\S+) (\S+) (\S+)/.exec(line);
-        if (p) {
-          const got = Number(p[1]);
-          const total = Number(p[2]) || Number(p[3]);
-          if (total && total !== lastTotal && got < total * 0.05 && lastTotal) part++;
-          if (total) lastTotal = total;
-          if (total && onProgress) onProgress(Math.min(0.99, part === 0 ? (got / total) * 0.9 : 0.9 + (got / total) * 0.09));
-          return;
-        }
-        done = parseDone(line) ?? done;
-      },
-    });
+    let r: RunResult;
+    try {
+      r = await this.run(args, {
+        signal: watch.signal,
+        timeoutMs: 60 * 60_000,
+        onLine: (line) => {
+          alive();
+          const p = /^PROGRESS (\S+) (\S+) (\S+)/.exec(line);
+          if (p) {
+            const got = Number(p[1]);
+            const total = Number(p[2]) || Number(p[3]);
+            if (total && total !== lastTotal && got < total * 0.05 && lastTotal) part++;
+            if (total) lastTotal = total;
+            if (total && onProgress) onProgress(Math.min(0.99, part === 0 ? (got / total) * 0.9 : 0.9 + (got / total) * 0.09));
+            return;
+          }
+          done = parseDone(line) ?? done;
+        },
+      });
+    } catch (err) {
+      if (stalled) throw new Error(`The download stalled (nothing from YouTube for ${Math.round(this.stallMs / 60_000)} minutes)`);
+      throw err;
+    } finally {
+      clearTimeout(quiet);
+      signal?.removeEventListener("abort", cancel);
+    }
+    if (stalled) throw new Error(`The download stalled (nothing from YouTube for ${Math.round(this.stallMs / 60_000)} minutes)`);
     // Runners that don't stream lines still return the output.
     for (const line of done ? [] : r.stdout.split("\n")) done = parseDone(line) ?? done;
     if (r.code !== 0 || !done) {

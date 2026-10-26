@@ -10,7 +10,7 @@ import { TopBar } from "../components/TopBar";
 import { useKeys } from "../keys";
 import { activeMusic, duration, likedSongs, music, musicPlayPause, musicSkip, openWebApp, spotify, spotifyPosition, webApp } from "../music";
 import { stopPlayback } from "../player";
-import { errorToast, nav } from "../store";
+import { appName, errorToast, nav } from "../store";
 
 /** A ticking clock for progress bars, while the screen is open. */
 export function useTicker(ms = 500): () => number {
@@ -148,7 +148,7 @@ function Welcome() {
       <h1 class="page-title">Music</h1>
       <p class="empty">
         <Show when={spotify().signedIn} fallback="Play Deezer below, or set up Spotify.">
-          Pick a playlist below, or choose <b>{spotify().deviceName ?? "UltimateTV"}</b> in the Spotify app on your phone.
+          Pick a playlist below, or choose <b>{spotify().deviceName ?? appName()}</b> in the Spotify app on your phone.
         </Show>
       </p>
     </section>
@@ -171,7 +171,7 @@ function SpotifyPair() {
               <h2>Sign in to Spotify</h2>
               <p>Scan the code with your phone, or go to {pair().url.replace(/^https?:\/\//, "").replace(/\?.*$/, "")} and enter:</p>
               <div class="pair-code">{pair().code}</div>
-              <p class="muted">Spotify needs a Premium account to play on the TV. Once you're signed in, your playlists appear here, and the TV shows up as {s().deviceName ?? "UltimateTV"} in the Spotify app.</p>
+              <p class="muted">Spotify needs a Premium account to play on the TV. Once you're signed in, your playlists appear here, and the TV shows up as {s().deviceName ?? appName()} in the Spotify app.</p>
             </div>
           </>
         )}
@@ -207,7 +207,7 @@ function Services() {
         <Show when={spotify().signedIn}>
           <div class="service-card service-spotify">
             <span class="service-name">Spotify</span>
-            <span class="service-sub">Signed in{spotify().username ? ` as ${spotify().username}` : ""}. Cast from your phone to {spotify().deviceName ?? "UltimateTV"}.</span>
+            <span class="service-sub">Signed in{spotify().username ? ` as ${spotify().username}` : ""}. Cast from your phone to {spotify().deviceName ?? appName()}.</span>
           </div>
         </Show>
       </div>

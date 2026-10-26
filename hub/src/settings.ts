@@ -1,8 +1,9 @@
-import type { IptvSource, IptvSourceStatus, PublicSettings, Settings } from "@ultimatetv/shared";
+import { DEFAULT_APP_NAME, type IptvSource, type IptvSourceStatus, type PublicSettings, type Settings } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 
 export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
   return {
+    appName: DEFAULT_APP_NAME,
     iptv: [],
     xmltvUrls: [],
     addonUrls: [],
@@ -139,6 +140,7 @@ function mergeSettings(base: Settings, patch: Partial<Settings>): Settings {
 
 export function publicSettings(s: Settings, setupUrl: string, statusOf?: (sourceId: string) => IptvSourceStatus | undefined): PublicSettings {
   const result: PublicSettings = {
+    appName: s.appName,
     iptv: s.iptv.map((src: IptvSource) => {
       const entry: PublicSettings["iptv"][number] = { id: src.id, kind: src.kind, name: src.name, connections: src.connections, host: hostOf(src.url) };
       const status = statusOf?.(src.id);
