@@ -464,7 +464,7 @@ async function loadMix() {
       button("Look for more", "secondary", () => mixDo(mixPath(c, "/curate"), { method: "POST" }, "Looking for more videos now")),
       button("Reshuffle", "secondary", () => mixDo(mixPath(c, "/shuffle"), { method: "POST" }, "Reshuffled after this video")),
       button(c.enabled ? "Turn off" : "Turn on", "secondary", () => mixDo(mixPath(c), { method: "PATCH", body: { enabled: !c.enabled } }, c.enabled ? `${c.name} is off` : `${c.name} is on`)),
-      button("Delete", "secondary danger", () => { if (confirm(`Delete ${c.name} and its downloaded videos?`)) mixDo(mixPath(c), { method: "DELETE" }, `${c.name} deleted`); }),
+      button("Delete", "secondary danger", () => { if (confirm(`Delete ${c.name} and the videos it downloaded? Files added from the NAS stay.`)) mixDo(mixPath(c), { method: "DELETE" }, `${c.name} deleted`); }),
     );
     edit.innerHTML = `
       <div class="row"><div><label>Name</label><input name="name"></div><div><label>Number</label><input name="number" type="number" disabled></div></div>
@@ -504,11 +504,42 @@ async function loadMixVideos(c, el) {
     const url = e.target.url.value.trim();
     if (url) mixDo(mixPath(c, "/videos"), { method: "POST", body: { url } }, "Added. It downloads in a minute or two.");
   };
+  // Files already on the NAS: type a path, or browse to it.
+  const nas = document.createElement("form");
+  nas.className = "mix-add-video";
+  nas.innerHTML = `<label>Add from the NAS<small> a video file, or a folder to add all its videos</small></label><div class="row"><input name="path" placeholder="/mnt/nas/Music Videos/…" autocomplete="off"><button class="small" style="margin:0">Add</button></div><button type="button" class="small secondary" style="margin:6px 0 0">Browse the NAS</button><div class="nas-browse"></div>`;
+  const addPath = (p) => api(mixPath(c, "/files"), { method: "POST", body: { paths: [p] } })
+    .then((r) => { toast(r.added ? `${r.added} video${r.added === 1 ? "" : "s"} added${r.skipped.length ? `; ${r.skipped.length} skipped (${r.skipped[0]})` : ""}` : r.skipped[0] || "Already on the channel", !r.added); loadMix(); })
+    .catch((e) => toast(e.message, true));
+  nas.onsubmit = (e) => { e.preventDefault(); const p = nas.path.value.trim(); if (p) addPath(p); };
+  const box = nas.querySelector(".nas-browse");
+  const browse = async (dir) => {
+    let l;
+    try { l = await api(`/api/mix/nas${dir ? `?dir=${encodeURIComponent(dir)}` : ""}`); } catch (e) { return toast(e.message, true); }
+    box.innerHTML = `<p class="hint" style="margin:8px 0 4px"></p><ul></ul>`;
+    box.querySelector("p").textContent = l.dir || "Shares on the Hub";
+    const items = box.querySelector("ul");
+    const item = (label, action, btn) => {
+      const li = document.createElement("li");
+      const t = document.createElement("span");
+      t.textContent = label;
+      li.append(t);
+      if (btn) li.append(btn); else { t.style.cursor = "pointer"; t.onclick = action; }
+      items.append(li);
+    };
+    if (l.dir) item("⬆ Up a folder", () => browse(l.parent || ""));
+    if (l.dir && l.files.length) item(`All ${l.files.length} videos in this folder`, null, button("Add all", "secondary", () => addPath(l.dir)));
+    for (const d of l.folders) item(`📁 ${d.name}`, () => browse(d.path));
+    for (const v of l.files) item(`${v.name} (${Math.round(v.sizeBytes / 1024 ** 2)} MB)`, null, button("Add", "secondary", () => addPath(v.path)));
+    if (!l.folders.length && !l.files.length) item("Nothing here", () => {});
+  };
+  nas.querySelector("button[type=button]").onclick = () => browse("");
   const ul = el.querySelector("ul");
+  el.insertBefore(nas, ul);
   for (const { video: v, origin } of videos) {
     const li = document.createElement("li");
     const t = document.createElement("span");
-    const status = v.status === "ready" ? `${v.height}p · ${Math.floor(v.durationS / 60)}:${String(v.durationS % 60).padStart(2, "0")}` : v.status === "downloading" ? `downloading${v.progress ? ` ${Math.round(v.progress * 100)}%` : ""}` : v.status === "failed" ? `failed${v.error ? `: ${v.error}` : ""}` : "waiting";
+    const status = v.status === "ready" ? `${v.source === "nas" ? "on the NAS · " : ""}${v.height}p · ${Math.floor(v.durationS / 60)}:${String(v.durationS % 60).padStart(2, "0")}` : v.status === "downloading" ? `downloading${v.progress ? ` ${Math.round(v.progress * 100)}%` : ""}` : v.status === "failed" ? `failed${v.error ? `: ${v.error}` : ""}` : "waiting";
     t.innerHTML = `<b></b><small></small>`;
     t.querySelector("b").textContent = v.title;
     t.querySelector("small").textContent = ` ${status} · ${origin}`;

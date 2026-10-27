@@ -175,6 +175,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "POST /api/mix-channels/:id/curate",
     "POST /api/mix-channels/:id/shuffle",
     "POST /api/mix-channels/:id/videos",
+    "POST /api/mix-channels/:id/files",
+    "GET /api/mix/nas",
     "DELETE /api/mix-channels/:id/videos/:videoId",
   ]);
   app.addHook("preHandler", async (req) => {
@@ -938,6 +940,16 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.post("/api/mix-channels/:id/videos", async (req: Req<{ id: string }, Record<string, string>, { url?: string; id?: string; origin?: string }>, reply) =>
     reply.code(201).send(await ctx.mix.addVideo(req.params.id, req.body ?? {})),
   );
+
+  /** Video files already on the NAS: `paths` are files, or folders whose videos all go on. */
+  app.post("/api/mix-channels/:id/files", async (req: Req<{ id: string }, Record<string, string>, { paths?: string[]; path?: string }>) => {
+    const b = req.body ?? {};
+    const paths = Array.isArray(b.paths) ? b.paths.map(String) : b.path ? [String(b.path)] : [];
+    return ctx.mix.addFiles(req.params.id, paths);
+  });
+
+  /** The NAS shares, or a folder in them, for picking video files for a music channel. */
+  app.get("/api/mix/nas", async (req: Req<Record<string, string>, { dir?: string }>) => ctx.mix.browseNas(req.query.dir || undefined));
 
   app.delete("/api/mix-channels/:id/videos/:videoId", async (req: Req<{ id: string; videoId: string }>) => {
     await ctx.mix.removeVideo(req.params.id, req.params.videoId);
