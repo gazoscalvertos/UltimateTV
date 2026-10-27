@@ -54,7 +54,7 @@ export function choose<T>(o: { title: string; message?: string; image?: string; 
       <Show when={o.message}>
         <p class="dialog-message">{o.message}</p>
       </Show>
-      <div class="dialog-options">
+      <div class="dialog-options" data-scroll-y="0">
         <For each={o.options}>
           {(opt, i) => (
             <button class={`btn ${opt.tone === "danger" ? "btn-danger" : ""} ${i() === 0 ? "btn-primary" : ""}`} data-focus data-autofocus={i() === 0 ? "" : undefined} onClick={() => close(opt.value)}>
