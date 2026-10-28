@@ -15,6 +15,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- Phone settings › Guide lists and channels: put the TV Guide's lists (favourites, custom guides,
+  categories) in your own order, choose which list each profile's guide opens on, build and
+  reorder custom guides, and give any channel a new number (taking another's swaps them), a
+  different category (kept through channel refreshes), a favourite star or hide it.
+
 - **Take the Hub on a trip** ([docs/travel.md](docs/travel.md)): `sudo bash tools/hub/travel.sh
   away` on the box builds a Hub there, takes the home Hub's data (profiles, settings, channels,
   pairing, scare clips), copies the music videos onto the box and points the TV app at it;

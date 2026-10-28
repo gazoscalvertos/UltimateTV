@@ -527,6 +527,16 @@ try {
   await phone.waitForTimeout(1500);
   await phone.screenshot({ path: path.join(out, "23-phone-setup.png"), fullPage: true });
   console.log("  23-phone-setup.png");
+  // Guide lists, custom guides and channels on the phone settings page.
+  await phone.goto(`${base}/setup/#lists`);
+  await phone.waitForTimeout(1500);
+  await phone.locator("#cg-list button", { hasText: "Edit" }).first().click();
+  await phone.waitForTimeout(400);
+  await phone.selectOption("#ch-filter", "sport");
+  await phone.evaluate(() => (document.getElementById("toast").hidden = true));
+  await phone.waitForTimeout(400);
+  await phone.locator("#lists").screenshot({ path: path.join(out, "63-phone-guide-lists.png") });
+  console.log("  63-phone-guide-lists.png");
 } finally {
   await browser.close();
   hub.kill();

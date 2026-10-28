@@ -18,6 +18,8 @@ each category. Press Up from the top row to pick one, or Blue to step through th
   left, Yellow adds everything it shows, and the number keys jump to a channel.
 - **Make default** saves the list you're on as the one this profile's guide opens on. Each profile
   keeps its own, Kids included.
+- The phone settings page (Guide lists and channels) does all of this too, and also sets the
+  order of the lists, every channel's number and category, and favourites.
 - Custom guides are shared by the household; only adults can build, change or delete them. A Kids
   profile only sees the kids' channels in them.
 
