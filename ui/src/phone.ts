@@ -1,5 +1,5 @@
 // Answers the phone remote: what's playing (for its Now Playing card and Stats page), and requests
-// to play something, seek, pick a track, drive the music or download to the box. The Hub relays each call as a
+// to play something, seek, pick a track, drive the music, download to the box or save to the NAS. The Hub relays each call as a
 // "tv.call" event and waits for the answer posted back to /api/tv/reply/:id.
 
 import type { PlaybackRequest, SpotifyCommand, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
@@ -9,6 +9,7 @@ import { allEpisodes, canDownload, downloadToBox, episodeRequest, episodesOf, fi
 import { onHubEvent } from "./events";
 import { music, spotify, webApp } from "./music";
 import { channels, liveChannelId, nowPlaying, play, playerState } from "./player";
+import { saveEpisodes, saveToNas } from "./save";
 import { isKids, nav, profile } from "./store";
 
 /** What the phone's "On the TV box" list shows: no pictures (they're data: URLs on the box), just links to them. */
@@ -49,6 +50,26 @@ async function downloadFromPhone(a: { titleId?: string; episodeId?: string; seas
   return downloadsForPhone();
 }
 
+/**
+ * Save to NAS asked for on the phone: what's playing (this exact copy), a film, an episode or a
+ * series. Through the TV, so its profile decides (Kids can't, adults may need the PIN).
+ */
+async function saveFromPhone(a: { playing?: boolean; titleId?: string; episodeId?: string; season?: number }) {
+  if (a.playing) {
+    const np = nowPlaying();
+    if (!np || np.req.kind !== "title" || !np.info.savable) throw new Error("What's playing can't be saved to the NAS");
+    const req = { titleId: np.req.id, ...(np.req.episodeId ? { episodeId: np.req.episodeId } : {}), ...(np.info.streamId ? { streamId: np.info.streamId } : {}) };
+    await saveToNas(req, [np.title?.name ?? np.info.title, np.info.subtitle].filter(Boolean).join(" "));
+  } else if (a.titleId) {
+    const t = await hub.title(a.titleId);
+    if (t.kind === "series" && a.season !== undefined) await saveEpisodes(t, await episodesOf(t, a.season), `${t.name} series ${a.season}`);
+    else await saveToNas({ titleId: t.id, ...(a.episodeId ? { episodeId: a.episodeId } : {}) }, a.episodeId ? `${t.name} ${a.episodeId.toUpperCase()}` : t.name);
+  } else {
+    throw new Error("Nothing to save");
+  }
+  return { ok: true };
+}
+
 async function now(): Promise<TvNow> {
   const np = nowPlaying();
   const p = profile();
@@ -63,6 +84,7 @@ async function now(): Promise<TvNow> {
     const art = np.info.artwork ?? np.title?.backdrop ?? np.title?.poster ?? np.info.logo;
     if (art) playing.artwork = art;
     if (np.info.source) playing.source = np.info.source.label;
+    if (np.info.savable && np.req.kind === "title" && !np.downloadId && !isKids()) playing.savable = true;
     const c = np.req.kind === "channel" ? channels().find((x) => x.id === (liveChannelId() ?? np.req.id)) : undefined;
     if (c) playing.channel = { id: c.id, number: c.number, name: c.name };
   }
@@ -111,6 +133,7 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
   },
   downloads: async () => downloadsForPhone(),
   download: async (a: Parameters<typeof downloadFromPhone>[0]) => downloadFromPhone(a),
+  saveToNas: async (a: Parameters<typeof saveFromPhone>[0]) => saveFromPhone(a),
   downloadRemove: async (a: { id: string }) => {
     if (isKids()) throw new Error("Ask a grown-up to delete downloads");
     await removeFromBox(a.id);

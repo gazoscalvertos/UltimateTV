@@ -627,7 +627,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "saveToNas"]);
   const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
   let tvCallSeq = 0;
   app.post("/api/tv/call/:method", async (req: Req<{ method: string }, Record<string, string>, unknown>, reply) => {
@@ -1143,13 +1143,15 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   app.get("/api/search", async (req: Req<Record<string, string>, { q?: string }>) => ({ results: await library.search(req.query.q ?? "", Date.now(), filterOf(req)) }));
 
-  // Downloads to the NAS.
+  // Downloads to the NAS (Save to NAS), then added to Jellyfin.
   app.get("/api/downloads", async () => ({ downloads: ctx.downloads.list() }));
   app.post("/api/downloads", async (req: Req<Record<string, string>, Record<string, string>, { titleId: string; episodeId?: string; streamId?: string }>, reply) => {
     const { titleId, episodeId, streamId } = req.body;
     const ep = episodeId ? episodeNumbers(episodeId) : undefined;
     const streams = await library.streams(titleId, ep);
-    const pick = streamId ? streams.find((s) => s.id === streamId) : streams.find((s) => s.downloadable && s.ready && s.kind !== "xtream") ?? streams.find((s) => s.downloadable);
+    // The version asked for (the one playing, or picked in Versions), else the best one to save.
+    const chosen = streamId ? streams.find((s) => s.id === streamId && s.downloadable) : undefined;
+    const pick = chosen ?? streams.find((s) => s.downloadable && s.ready && s.kind !== "xtream") ?? streams.find((s) => s.downloadable);
     if (!pick?.downloadable) return reply.code(422).send({ error: "There's no copy of this that can be saved to the NAS" });
     const details = await library.details(titleId);
     const request: Parameters<typeof ctx.downloads.add>[0] = { title: details.name, kind: details.kind, url: pick.url };

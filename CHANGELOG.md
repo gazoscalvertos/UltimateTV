@@ -15,6 +15,12 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Save to NAS and Jellyfin, before and while watching** ([docs/save-to-nas.md](docs/save-to-nas.md)):
+  Save to NAS now works for episodes and whole series too, Red in Versions saves that exact
+  version, the player's Options has **Keep a copy** for the copy that's playing, and the phone has
+  Save buttons (title sheet, 💾 per episode, Now Playing). The Hub checks the file lands in one of
+  Jellyfin's library folders before telling Jellyfin, and the TV says when it's saved and in
+  Jellyfin (or where Jellyfin looks instead). Pressing Save twice keeps one copy.
 - **Steady update status**: the phone's Updates card no longer flips between "Couldn't check" and
   "Update available". The Hub keeps GitHub's last answer (a quick reload used to drop it), shares
   one check between everyone asking, waits a minute after a failure and falls back to git's own
