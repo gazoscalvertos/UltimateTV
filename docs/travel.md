@@ -50,10 +50,17 @@ The box's Hub has its own address on the hotel network. The TV's QR codes (Setti
 | Profiles, PINs, Kids, jump scares, the screensaver themes | ✓ | |
 | The music video channels (Clubland, House, Halloween, Spooky TV and your own) | ✓ Copied onto the box. New videos for them download on the box too. | |
 | New recordings | ✓ Saved on the box, then sent to the NAS when you get home | |
-| Jellyfin films and TV | | ✓ Jellyfin is at 192.168.0.23 |
+| Films, episodes and recordings you **downloaded to the box** | ✓ Even with no internet at all | |
+| Jellyfin films and TV | | ✓ Jellyfin is at 192.168.0.23 (or download them to the box before you go) |
 | Recordings made before the trip, the photo screensaver | | ✓ They're on the NAS, and only the music videos are copied |
 
-With no internet at all, nothing on the box has anything to play. Films downloaded to a phone with the Android app still play there.
+With no internet at all, the box still plays what you downloaded to it (see below) and the music video channels. Films downloaded to a phone with the Android app still play there.
+
+### Downloading to the box before you go
+
+At home, before the trip, choose **Download to box** on a film, a series (one episode, a whole series, or every series) or a recording (Recordings › OK). The phone remote does the same from its title pages (**Download to TV box**, or ⤓ beside an episode or recording), and its **On the box** tab shows what's there. The box fetches them one at a time onto its own disk, and the TV gets a **Downloaded** tab listing them. Press OK on one to play it. Anything downloaded plays from the box's disk wherever the Hub is, so it works in the hotel with no VPN home, and at home it starts straight away. See [downloads.md](downloads.md) for the details.
+
+`travel.sh away` and `travel.sh status` say how much is downloaded. Downloads and the music video copies share the box's disk, and each keeps 10 GB free.
 
 ### Reaching home (optional): Tailscale
 

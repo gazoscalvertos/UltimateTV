@@ -1,14 +1,53 @@
 // Answers the phone remote: what's playing (for its Now Playing card and Stats page), and requests
-// to play something, seek, pick a track or drive the music. The Hub relays each call as a
+// to play something, seek, pick a track, drive the music or download to the box. The Hub relays each call as a
 // "tv.call" event and waits for the answer posted back to /api/tv/reply/:id.
 
 import type { PlaybackRequest, SpotifyCommand, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
 import { agent, onBox } from "./agent";
-import { api } from "./api";
+import { api, hub } from "./api";
+import { allEpisodes, canDownload, downloadToBox, episodeRequest, episodesOf, filmRequest, recordingRequest, removeFromBox, visibleDownloads } from "./downloads";
 import { onHubEvent } from "./events";
 import { music, spotify, webApp } from "./music";
 import { channels, liveChannelId, nowPlaying, play, playerState } from "./player";
-import { nav, profile } from "./store";
+import { isKids, nav, profile } from "./store";
+
+/** What the phone's "On the TV box" list shows: no pictures (they're data: URLs on the box), just links to them. */
+async function downloadsForPhone() {
+  if (!canDownload()) throw new Error("The TV box needs updating before it can download (Settings › About on the TV)");
+  const d = await agent.downloads();
+  const visible = new Set(visibleDownloads().map((i) => i.id));
+  return {
+    ...d,
+    items: d.items
+      .filter((i) => !isKids() || visible.has(i.id))
+      .sort((a, b) => b.addedAt - a.addedAt)
+      .map(({ artwork: _artwork, ...i }) => i),
+  };
+}
+
+/** A download asked for on the phone: a film, an episode, a season, a whole series or a recording. */
+async function downloadFromPhone(a: { titleId?: string; episodeId?: string; season?: number; all?: boolean; recordingId?: string }) {
+  if (a.recordingId) {
+    const r = (await hub.planner()).recordings.find((x) => x.id === a.recordingId && x.status === "completed");
+    if (!r) throw new Error("That recording isn't ready to download");
+    await downloadToBox([recordingRequest(r)], r.programme.title);
+  } else if (a.titleId) {
+    // Through the Hub with the TV's profile, so a title Kids can't see can't be downloaded either.
+    const t = await hub.title(a.titleId);
+    if (t.kind === "movie") await downloadToBox([filmRequest(t)], t.name);
+    else if (a.all) await downloadToBox((await allEpisodes(t)).map((e) => episodeRequest(t, e)), t.name);
+    else if (a.season !== undefined) await downloadToBox((await episodesOf(t, a.season)).map((e) => episodeRequest(t, e)), `${t.name} series ${a.season}`);
+    else {
+      const m = /^s(\d+)e(\d+)$/.exec(a.episodeId ?? "");
+      const e = m ? (await episodesOf(t, Number(m[1]))).find((x) => x.episode === Number(m[2])) : undefined;
+      if (!e) throw new Error("Couldn't find that episode");
+      await downloadToBox([episodeRequest(t, e)], `${t.name} ${a.episodeId!.toUpperCase()}`);
+    }
+  } else {
+    throw new Error("Nothing to download");
+  }
+  return downloadsForPhone();
+}
 
 async function now(): Promise<TvNow> {
   const np = nowPlaying();
@@ -69,6 +108,13 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
   musicControl: async (a: SpotifyCommand) => {
     await music().spotifyControl(a);
     return { ok: true };
+  },
+  downloads: async () => downloadsForPhone(),
+  download: async (a: Parameters<typeof downloadFromPhone>[0]) => downloadFromPhone(a),
+  downloadRemove: async (a: { id: string }) => {
+    if (isKids()) throw new Error("Ask a grown-up to delete downloads");
+    await removeFromBox(a.id);
+    return downloadsForPhone();
   },
 };
 

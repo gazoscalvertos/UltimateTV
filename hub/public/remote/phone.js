@@ -55,6 +55,18 @@
   }
   const key = (action) => post("/api/remote/key", { action }).catch(() => toast("Can't reach the Hub", true));
 
+  // Downloads to the TV box: the TV app adds them (with its profile's rules) and the box fetches them.
+  async function downloadToBox(args) {
+    toast("Asking the TV box…");
+    try {
+      await call("download", args);
+      if (current === "downloads") void showDownloads();
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+  const size = (b) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.round((b || 0) / 1024 ** 2)} MB`);
+
   async function playOnTv(req, title, fromStart) {
     toast("Starting on the TV…");
     closeSheet();
@@ -684,6 +696,7 @@
       if (what === "movie" || what === "series") await showRails(what);
       if (what === "recordings") await showRecordings();
       if (what === "queue") await showQueue();
+      if (what === "downloads") await showDownloads();
       if (what === "music") await showMusic("playlists");
       if (what === "search") showSearch();
     } catch (e) {
@@ -754,13 +767,16 @@
     openSheet(`${d.backdrop ? `<div class="hero" style="background-image:url('${esc(d.backdrop)}')"></div>` : ""}
       <h2>${esc(d.name)}</h2><p class="meta">${esc(meta)}</p>
       ${d.overview ? `<p class="overview">${esc(d.overview)}</p>` : ""}
-      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button>` : ""}</div>
-      ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="list" id="s-eps"></div>` : ""}
+      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>` : ""}</div>
+      ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="actions"><button id="s-dl-season">Download this series to the TV box</button>${seasons.filter((s) => s.season > 0).length > 1 ? `<button id="s-dl-all">Download every series</button>` : ""}</div><div class="list" id="s-eps"></div>` : ""}
       <button class="link" data-close>Close</button>`);
     if ($("s-play")) $("s-play").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef);
     if ($("s-start")) $("s-start").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef, true);
     const art = d.backdrop ?? d.poster;
     if ($("s-queue")) $("s-queue").onclick = () => queueIt({ req: { kind: "title", id: d.id }, title: titleRef, name: d.name, ...(d.year ? { subtitle: String(d.year) } : {}), ...(art ? { image: art } : {}) });
+    if ($("s-dl")) $("s-dl").onclick = () => downloadToBox({ titleId: d.id });
+    if ($("s-dl-season")) $("s-dl-season").onclick = () => downloadToBox({ titleId: d.id, season: seasons[Number($("s-season").value)].season });
+    if ($("s-dl-all")) $("s-dl-all").onclick = () => downloadToBox({ titleId: d.id, all: true });
     if (seasons.length) {
       const pick = async () => {
         const s = seasons[Number($("s-season").value)];
@@ -772,13 +788,17 @@
         $("s-eps").innerHTML = eps.length
           ? eps
               .map(
-                (e, i) => `<div class="ep-row"><button class="item ep" data-ep="${i}"><span class="text"><b>${e.episode}. ${esc(e.name)}</b>${e.overview ? `<small>${esc(e.overview.slice(0, 140))}${e.overview.length > 140 ? "…" : ""}</small>` : ""}${e.progress ? `<i class="bar"><i style="width:${Math.round(e.progress * 100)}%"></i></i>` : ""}</span>${e.watched ? `<span class="tick">✓</span>` : ""}</button><button class="qbtn" data-q="${i}" aria-label="Add to queue">+</button></div>`,
+                (e, i) => `<div class="ep-row"><button class="item ep" data-ep="${i}"><span class="text"><b>${e.episode}. ${esc(e.name)}</b>${e.overview ? `<small>${esc(e.overview.slice(0, 140))}${e.overview.length > 140 ? "…" : ""}</small>` : ""}${e.progress ? `<i class="bar"><i style="width:${Math.round(e.progress * 100)}%"></i></i>` : ""}</span>${e.watched ? `<span class="tick">✓</span>` : ""}</button><button class="qbtn" data-q="${i}" aria-label="Add to queue">+</button><button class="qbtn" data-dl="${i}" aria-label="Download to the TV box">⤓</button></div>`,
               )
               .join("")
           : `<p class="empty">No episodes listed.</p>`;
         for (const b of $("s-eps").querySelectorAll("[data-ep]")) {
           const e = eps[Number(b.dataset.ep)];
           b.onclick = () => playOnTv({ kind: "title", id: d.id, episodeId: `s${e.season}e${e.episode}` }, titleRef);
+        }
+        for (const b of $("s-eps").querySelectorAll("[data-dl]")) {
+          const e = eps[Number(b.dataset.dl)];
+          b.onclick = () => downloadToBox({ titleId: d.id, episodeId: `s${e.season}e${e.episode}` });
         }
         for (const b of $("s-eps").querySelectorAll("[data-q]")) {
           const e = eps[Number(b.dataset.q)];
@@ -822,11 +842,47 @@
     if (!list.length) return (body.innerHTML = `<p class="empty">No recordings yet. Record from the Guide.</p>`);
     body.innerHTML = `<div class="list">${list
       .map(
-        (r, i) => `<button class="item" data-recording="${i}"><span class="text"><b>${esc(r.programme.title)}${r.status === "recording" ? ` <em class="rec">● REC</em>` : ""}</b>
-        ${r.programme.subtitle ? `<span>${esc(r.programme.subtitle)}</span>` : ""}<small>${esc(r.channelName)} · ${new Date(r.programme.start).toLocaleDateString([], { day: "numeric", month: "short" })} ${clock(r.programme.start)}${r.watched ? " · watched" : ""}</small></span></button>`,
+        (r, i) => `<div class="ep-row"><button class="item" data-recording="${i}"><span class="text"><b>${esc(r.programme.title)}${r.status === "recording" ? ` <em class="rec">● REC</em>` : ""}</b>
+        ${r.programme.subtitle ? `<span>${esc(r.programme.subtitle)}</span>` : ""}<small>${esc(r.channelName)} · ${new Date(r.programme.start).toLocaleDateString([], { day: "numeric", month: "short" })} ${clock(r.programme.start)}${r.watched ? " · watched" : ""}</small></span></button>${r.status === "completed" ? `<button class="qbtn" data-rdl="${i}" aria-label="Download to the TV box">⤓</button>` : ""}</div>`,
       )
       .join("")}</div>`;
     for (const b of body.querySelectorAll("[data-recording]")) b.onclick = () => playOnTv({ kind: "recording", id: list[Number(b.dataset.recording)].id });
+    for (const b of body.querySelectorAll("[data-rdl]")) b.onclick = () => downloadToBox({ recordingId: list[Number(b.dataset.rdl)].id });
+  }
+
+  // On the box: what's downloaded to the TV box to watch away from home, and what's still coming.
+  let downloadsTimer;
+  async function showDownloads() {
+    clearTimeout(downloadsTimer);
+    const d = await call("downloads");
+    if (current !== "downloads") return;
+    const head = `<p class="meta">${size(d.usedBytes)} on the box · ${size(Math.max(0, d.freeBytes - d.reserveBytes))} free · kept ${d.settings.keepDays ? `${d.settings.keepDays} days` : "until deleted"}${d.settings.deleteWatched ? ", or a day after watching" : ""}</p>`;
+    const status = (i) => {
+      if (i.status === "done") return [size(i.bytesTotal), i.watchedAt ? "watched" : "", i.expiresAt ? `goes ${new Date(i.expiresAt).toLocaleDateString([], { day: "numeric", month: "short" })}` : ""].filter(Boolean).join(" · ");
+      if (i.status === "downloading") return i.bytesTotal ? `Downloading ${Math.floor((i.bytesDone / i.bytesTotal) * 100)}% of ${size(i.bytesTotal)}${i.speedBps ? ` · ${size(i.speedBps)}/s` : ""}` : `Downloading · ${size(i.bytesDone)}`;
+      if (i.status === "failed") return `Didn't download: ${i.error || "it failed"}`;
+      return i.error ? `Waiting: ${i.error}` : "Waiting to download";
+    };
+    body.innerHTML = d.items.length
+      ? `${head}<div class="list">${d.items
+          .map(
+            (i, n) => `<div class="ep-row"><button class="item" data-dli="${n}"><span class="logo">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" style="object-fit:cover;width:100%;height:100%">` : "⤓"}</span><span class="text"><b>${esc(i.name)}</b>${i.subtitle ? `<span>${esc(i.subtitle)}</span>` : ""}<small>${esc(status(i))}</small>${i.status === "downloading" && i.bytesTotal ? `<i class="bar"><i style="width:${Math.round((i.bytesDone / i.bytesTotal) * 100)}%"></i></i>` : ""}</span>${i.status === "done" ? `<span class="tick">✓</span>` : ""}</button><button class="qbtn danger" data-dlx="${n}" aria-label="Delete from the box">✕</button></div>`,
+          )
+          .join("")}</div>`
+      : `${head}<p class="empty">Nothing on the TV box yet. Open a film, series or recording and choose Download to TV box (or ⤓), and it plays on the TV even away from home.</p>`;
+    for (const b of body.querySelectorAll("[data-dli]")) {
+      const i = d.items[Number(b.dataset.dli)];
+      b.onclick = () => (i.status === "done" ? playOnTv(i.req, i.title) : toast(status(i)));
+    }
+    for (const b of body.querySelectorAll("[data-dlx]")) {
+      const i = d.items[Number(b.dataset.dlx)];
+      b.onclick = () => {
+        if (!confirm(`Delete ${i.name}${i.subtitle ? ` (${i.subtitle})` : ""} from the TV box?`)) return;
+        call("downloadRemove", { id: i.id }).then(showDownloads, (e) => toast(e.message, true));
+      };
+    }
+    // Keep the percentages moving while something downloads.
+    if (d.items.some((i) => i.status === "downloading" || i.status === "queued")) downloadsTimer = setTimeout(() => current === "downloads" && document.visibilityState === "visible" && showDownloads().catch(() => undefined), 3000);
   }
 
   // Music: the Spotify library on the box.

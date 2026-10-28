@@ -612,8 +612,10 @@ export type HubEvent =
 export interface HubSoftware {
   commit?: string;
   date?: string;
-  /** The newest commit on main, when GitHub answered. */
+  /** The newest commit on main, from the last time GitHub answered (kept when a later check fails). */
   latest?: string;
+  /** When GitHub last answered (ISO). */
+  checkedAt?: string;
   /** How many commits main is ahead of the running Hub, and what they are (merged PRs by title). */
   behind?: number;
   changes?: SoftwareChange[];
@@ -691,7 +693,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl";
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {

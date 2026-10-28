@@ -683,10 +683,17 @@ const shortSha = (c) => (c ? c.slice(0, 7) : "unknown");
 const when = (iso) => new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const pill = (id, text, tone) => { $(id).textContent = text; $(id).className = "pill" + (tone ? " " + tone : ""); };
 let software = null;
+let softwareSeq = 0;
+/** "· checked 12:05" when the last answer from GitHub is over 15 minutes old (later checks failed). */
+const checked = (iso) => (iso && Date.now() - new Date(iso).getTime() > 15 * 60_000 ? ` · checked ${when(iso)}` : "");
 async function loadSoftware(check) {
-  software = await api(`/api/software${check ? "?check=1" : ""}`);
+  // Several loads overlap (the page opening, the box's report, "Check again"): only the newest one draws.
+  const seq = ++softwareSeq;
+  const st = await api(`/api/software${check ? "?check=1" : ""}`);
+  if (seq !== softwareSeq) return software;
+  software = st;
   const { hub, box, tvConnected } = software;
-  $("#hub-version").textContent = `${shortSha(hub.commit)}${hub.date ? " · " + when(hub.date) : ""}`;
+  $("#hub-version").textContent = `${shortSha(hub.commit)}${hub.date ? " · " + when(hub.date) : ""}${checked(hub.checkedAt)}`;
   $("#hub-last").textContent = hub.lastUpdate ? `Last update from here ${when(hub.lastUpdate.at)}${hub.lastUpdate.ok ? "" : " (it failed)"}` : "";
   if (hub.updating) pill("#hub-pill", "Updating…", "warn");
   else if (!hub.latest) pill("#hub-pill", "Couldn't check");
@@ -711,7 +718,7 @@ async function loadSoftware(check) {
 
   const sw = box?.software;
   $("#stats").checked = Boolean(box?.stats);
-  $("#box-version").textContent = sw ? `${shortSha(sw.commit)}${sw.date ? " · " + when(sw.date) : ""}${sw.branch && sw.branch !== "main" ? " · " + sw.branch : ""}` : tvConnected ? "Asking the box…" : "The TV app isn't connected. Is the box on?";
+  $("#box-version").textContent = sw ? `${shortSha(sw.commit)}${sw.date ? " · " + when(sw.date) : ""}${sw.branch && sw.branch !== "main" ? " · " + sw.branch : ""}${checked(sw.checkedAt)}` : tvConnected ? "Asking the box…" : "The TV app isn't connected. Is the box on?";
   $("#box-last").textContent = sw?.lastUpdate ? `Last update ${when(sw.lastUpdate.at)}${sw.lastUpdate.ok ? "" : " (it failed)"}` : "";
   if (!tvConnected) pill("#box-pill", "Off");
   else if (!sw) pill("#box-pill", "…");

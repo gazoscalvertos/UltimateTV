@@ -2,10 +2,11 @@
 
 import { For, Show } from "solid-js";
 import { clockTime } from "@ultimatetv/shared";
+import { visibleDownloads } from "../downloads";
 import { appName, isKids, nav, now, profile, type Route } from "../store";
 import { Icon } from "./Icon";
 
-type Tab = { label: string; route: Route; match: Route["name"]; adults?: boolean };
+type Tab = { label: string; route: Route; match: Route["name"]; adults?: boolean; when?: () => boolean };
 
 const TABS: Tab[] = [
   { label: "Home", route: { name: "home" }, match: "home" },
@@ -15,6 +16,8 @@ const TABS: Tab[] = [
   // Kids don't get the grown-ups' Spotify account (or its explicit songs).
   { label: "Music", route: { name: "music" }, match: "music", adults: true },
   { label: "Recordings", route: { name: "planner" }, match: "planner" },
+  // Once something is on the box's own disk (for a trip, say).
+  { label: "Downloaded", route: { name: "downloads" }, match: "downloads", when: () => visibleDownloads().length > 0 },
 ];
 
 function isActive(t: Tab): boolean {
@@ -31,7 +34,7 @@ export function TopBar() {
         <span class="brand-name">{appName()}</span>
       </div>
       <nav class="tabs">
-        <For each={TABS.filter((t) => !(t.adults && isKids()))}>
+        <For each={TABS.filter((t) => !(t.adults && isKids()) && (!t.when || t.when()))}>
           {(t) => (
             <button class="tab" classList={{ active: isActive(t) }} data-focus data-tab onClick={() => !isActive(t) && nav.replace(t.route)}>
               {t.label}
