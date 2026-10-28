@@ -33,7 +33,10 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 43, 44 | A breaking news flash over a film, and writing it on the phone |
 | 45, 46 | Pop-ups from /api/notify: a doorbell camera picture in the middle, and two in the corners |
 | 47 | Sending a pop-up from the phone |
-| 48 | Pairing a phone: typing the TV's code |
-| 53 | Settings › Screensaver: dimming, the theme, your photos folder and Try it now |
-| 54 | Screensavers full size: Northern lights, Fireplace, Halloween, Landscapes |
-| 55 | Every built-in screensaver on one sheet |
+| 48 | Pairing the phone remote with the code from the TV |
+| 54 | A film added to the queue with Green |
+| 55, 56 | Your queue on Home, and what selecting something in it offers |
+| 57 | The queue on the phone: play now, play next or remove |
+| 58 | Settings › Screensaver: dimming, the theme, your photos folder and Try it now |
+| 59 | Screensavers full size: Northern lights, Fireplace, Halloween, Landscapes |
+| 60 | Every built-in screensaver on one sheet |

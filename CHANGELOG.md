@@ -15,6 +15,13 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Play queue**: line up films, episodes and recordings to play one after another. On the TV,
+  Add to queue (or Green) on a film, "Queue S1 E3" on a series, or Green on any episode; on the
+  phone, Add to queue and the + beside each episode, and the new Watch › Queue tab to reorder,
+  remove or clear. Home shows "Your queue"; select something there to play it now, play it next
+  or take it off. When a film or episode ends, the first thing queued plays (with the Up Next card
+  and its countdown); with nothing queued, the next episode of the series carries on as before.
+  The queue lives on the Hub, so it survives restarts. Update both the Hub and the box.
 - **Halloween: a theme, Spooky TV and jump scares** ([docs/halloween.md](docs/halloween.md)):
   Settings › About › Theme wears a Halloween look (orange on deep purple, cobwebs, drifting fog and
   the odd bat) and starts on "auto", which puts it on from 25 October to 1 November and takes it off

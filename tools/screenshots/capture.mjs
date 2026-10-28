@@ -136,6 +136,10 @@ try {
   await wait(1000);
   await shot("11-versions");
   await key("Escape");
+  // Green queues the film.
+  await key("F2");
+  await wait(300);
+  await shot("54-film-queued");
   await key("Escape");
 
   await tab("TV Shows");
@@ -145,6 +149,20 @@ try {
   await wait(1500);
   await key("ArrowDown", 2);
   await shot("12-series-details");
+  // Green on an episode queues it, after the film.
+  await key("ArrowRight");
+  await key("F2");
+  await key("Escape");
+
+  // The queue on Home, and what selecting something in it offers.
+  await tab("Home");
+  await wait(1200);
+  await key("ArrowDown");
+  await wait(600);
+  await shot("55-home-queue");
+  await key("Enter");
+  await wait(600);
+  await shot("56-queue-actions");
   await key("Escape");
 
   await page.locator(".tab-icon").first().focus();
@@ -349,7 +367,7 @@ try {
   await key("ArrowDown");
   await page.locator(".settings-nav-item", { hasText: "Screensaver" }).first().focus();
   await wait(1200);
-  await shot("53-settings-screensaver");
+  await shot("58-settings-screensaver");
   const themes = ["aurora", "fireplace", "aquarium", "space", "snow", "rain", "ocean", "lava", "fireworks", "halloween", "christmas", "bounce", "landscapes", "art"];
   const frames = [];
   for (const theme of themes) {
@@ -363,8 +381,8 @@ try {
     const png = await page.screenshot();
     frames.push({ theme, png });
     if (["aurora", "fireplace", "halloween", "landscapes"].includes(theme)) {
-      await (await import("node:fs/promises")).writeFile(path.join(out, `54-screensaver-${theme}.png`), png);
-      console.log(`  54-screensaver-${theme}.png`);
+      await (await import("node:fs/promises")).writeFile(path.join(out, `59-screensaver-${theme}.png`), png);
+      console.log(`  59-screensaver-${theme}.png`);
     }
     await key("Escape");
     if (await page.locator(".screensaver").count()) errors.push(`A key didn't close the ${theme} screensaver`);
@@ -374,8 +392,8 @@ try {
     .map((f) => `<figure style="margin:0;position:relative"><img style="width:100%;display:block;border-radius:6px" src="data:image/png;base64,${f.png.toString("base64")}"><figcaption style="position:absolute;left:10px;bottom:8px;text-shadow:0 1px 4px #000">${f.theme}</figcaption></figure>`)
     .join("")}</body>`);
   await sheet.waitForTimeout(500);
-  await sheet.screenshot({ path: path.join(out, "55-screensavers.png") });
-  console.log("  55-screensavers.png");
+  await sheet.screenshot({ path: path.join(out, "60-screensavers.png") });
+  console.log("  60-screensavers.png");
   await sheet.close();
   await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ screensaver: { theme: "shuffle", clock: true } }) });
 
@@ -410,6 +428,24 @@ try {
   await phone.waitForTimeout(800);
   await phone.screenshot({ path: path.join(out, "25-phone-voice.png") });
   console.log("  25-phone-voice.png");
+  // The queue from the phone: what plays next on the TV.
+  // The TV is on the Kids profile now, which hides the films queued earlier: queue two CBBC
+  // programmes from earlier today, to watch on catch-up.
+  const { channels: all } = await (await fetch(`${base}/api/channels`, { headers: asTv })).json();
+  const cbbc = all.find((c) => c.name === "CBBC");
+  const { programmes } = await (await fetch(`${base}/api/channels/${cbbc.id}/programmes?from=${Date.now() - 4 * 3600_000}&limit=6`, { headers: asTv })).json();
+  for (const p of programmes.filter((x) => x.end < Date.now()).slice(-2)) {
+    await fetch(`${base}/api/queue`, {
+      method: "POST",
+      headers: { ...asTv, "Content-Type": "application/json" },
+      body: JSON.stringify({ req: { kind: "catchup", id: p.id, start: p.start }, name: p.title, subtitle: `CBBC · ${new Date(p.start).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`, ...(p.image ? { image: p.image } : {}) }),
+    });
+  }
+  await phone.locator('[data-tab="browse"]').click();
+  await phone.locator('[data-browse="queue"]').click();
+  await phone.waitForTimeout(800);
+  await phone.screenshot({ path: path.join(out, "57-phone-queue.png") });
+  console.log("  57-phone-queue.png");
   await phone.goto(`${base}/music-login/`);
   await phone.waitForTimeout(600);
   await phone.screenshot({ path: path.join(out, "36-phone-deezer-login.png") });
