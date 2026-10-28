@@ -88,6 +88,33 @@ describe("moving the Hub", () => {
     await app.close();
   });
 
+  it("lends the music video files with the key, and takes back new files from the trip", async () => {
+    const app = await start();
+    const video = path.join(tmp, "Music Videos", "song.mp4");
+    await mkdir(path.dirname(video), { recursive: true });
+    await writeFile(video, "music");
+    (app.hub.mix as { travelFiles(): string[] }).travelFiles = () => [video, path.join(tmp, "gone.jpg")];
+    const key = String((await app.inject({ url: "/api/hub/move-out" })).headers["x-move-key"]);
+    const h = { "x-move-key": key };
+
+    expect((await app.inject({ url: "/api/hub/move-files", headers: { "x-move-key": "nope" } })).statusCode).toBe(403);
+    expect((await app.inject({ url: "/api/hub/move-files", headers: h })).json()).toEqual({ files: [{ path: video, size: 5 }] });
+    const got = await app.inject({ url: `/api/hub/move-file?path=${encodeURIComponent(video)}`, headers: h });
+    expect(got.body).toBe("music");
+    expect((await app.inject({ url: `/api/hub/move-file?path=${encodeURIComponent(path.join(dataDir(), "hub.db"))}`, headers: h })).statusCode).toBe(404);
+
+    const recording = path.join(tmp, "Recordings", "Show", "ep.ts");
+    const put = (file: string, headers: Record<string, string> = h) =>
+      app.inject({ method: "PUT", url: `/api/hub/move-file?path=${encodeURIComponent(file)}`, headers: { ...headers, "content-type": "application/octet-stream" }, payload: Buffer.from("recorded") });
+    expect((await put(recording, { "x-move-key": "nope" })).statusCode).toBe(403);
+    expect((await put(recording)).statusCode).toBe(200);
+    expect(await readFile(recording, "utf8")).toBe("recorded");
+    expect((await put(video)).json()).toEqual({ ok: true, kept: true });
+    expect(await readFile(video, "utf8")).toBe("music");
+    expect((await put(path.join(tmp, "..", "outside.ts"))).statusCode).toBe(400);
+    await app.close();
+  });
+
   it("only hands the data to something paired in the last 15 minutes", async () => {
     const app = await start();
     const old = Date.now() - 20 * 60_000;

@@ -8,7 +8,7 @@ services:
     environment:
       PORT: ${HUB_PORT:-8095}
     volumes:
-      # The NAS shares, mounted on the box on demand (see docs/hub-on-box.md). rslave lets a share
-      # that mounts after the Hub starts (or comes back after a trip) show up inside it.
-      - /mnt/nas:/mnt/nas:rslave
-      - /mnt/nas2:/mnt/nas2:rslave
+      # The NAS as the trip sees it: the music videos travel.sh copied, at the paths they have on
+      # the NAS, and anything recorded or downloaded on the trip (sent back to the NAS by "home").
+      - /var/lib/ultimatetv/media/mnt/nas:/mnt/nas
+      - /var/lib/ultimatetv/media/mnt/nas2:/mnt/nas2

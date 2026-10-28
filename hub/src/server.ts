@@ -497,6 +497,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     log,
     deviceAsking,
     pairingEnforced: pairing.enforced,
+    travelFiles: () => ctx.mix.travelFiles(),
+    mediaRoot: config.mediaRoot,
     restart: deps.restart ?? (() => setTimeout(() => process.exit(0), 500)),
   });
   /** A QR code for a web address the TV shows, such as Spotify's sign-in page. */

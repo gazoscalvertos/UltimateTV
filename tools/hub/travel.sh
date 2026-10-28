@@ -3,15 +3,17 @@
 #
 #   sudo bash /opt/ultimatetv/tools/hub/travel.sh away     at home, before you pack the box
 #   sudo bash /opt/ultimatetv/tools/hub/travel.sh home     back home, with the box on the home network
+#   sudo bash /opt/ultimatetv/tools/hub/travel.sh sync     copy the music videos again (at home, while away)
 #   sudo bash /opt/ultimatetv/tools/hub/travel.sh status   where the Hub is now
 #   sudo bash /opt/ultimatetv/tools/hub/travel.sh cancel   call the trip off: the home Hub carries on
 #                                                          with the data it had, the box's is dropped
 #
 # "away" builds a Hub on the box (Docker), takes the home Hub's data (profiles, PINs, settings,
-# channels, pairing, scare clips) and points the TV app at the box's own Hub. The home Hub stands
-# by meanwhile: no recordings or guide refreshes, so the two never use the IPTV connection at once.
-# "home" sends the box's data (what you watched, settings you changed) back and points the TV app
-# at the home Hub again. See docs/travel.md.
+# channels, pairing, scare clips), copies the music videos the channels play onto the box, and
+# points the TV app at the box's own Hub. The home Hub stands by meanwhile: no recordings or guide
+# refreshes, so the two never use the IPTV connection at once. "home" sends the box's data (what
+# you watched, settings you changed) and anything recorded or downloaded on the trip back, and
+# points the TV app at the home Hub again. See docs/travel.md.
 
 set -euo pipefail
 
@@ -19,6 +21,8 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BOX_ENV=/etc/ultimatetv/box.env
 STATE=/etc/ultimatetv/travel.env
 WORK=/var/lib/ultimatetv/travel
+# Copies of the music videos, laid out as on the NAS: the box's Hub sees media/mnt/nas at /mnt/nas.
+MEDIA=/var/lib/ultimatetv/media
 LOCAL_PORT="${LOCAL_PORT:-8095}"
 LOCAL_HUB="http://127.0.0.1:$LOCAL_PORT"
 # Set from $STATE while the Hub is away.
@@ -64,8 +68,7 @@ build_local_hub() {
   systemctl enable --now docker > /dev/null
   local gid
   gid="$(getent group render | cut -d: -f3)"
-  # The NAS shares, when the box mounts them (docs/travel.md); empty folders otherwise.
-  mkdir -p /mnt/nas /mnt/nas2
+  mkdir -p "$MEDIA/mnt/nas" "$MEDIA/mnt/nas2"
   if [ ! -f "$APP_DIR/.env" ] || ! grep -q '^COMPOSE_FILE=' "$APP_DIR/.env"; then
     cat >> "$APP_DIR/.env" << EOF
 # The Hub on the TV box (tools/hub/travel.sh).
@@ -79,6 +82,38 @@ EOF
   GIT_COMMIT="$(git -C "$APP_DIR" rev-parse --short HEAD 2> /dev/null || true)" \
     BUILD_DATE="$(git -C "$APP_DIR" log -1 --format=%cI 2> /dev/null || true)" \
     compose build hub
+}
+
+# Copies the music videos the channels play from the home Hub, skipping the ones already here
+# from an earlier trip. What came from home is listed in $WORK/manifest, so "home" can tell which
+# files were made on the trip (recordings, new music videos) and send just those back.
+sync_music() {
+  local list total have free
+  say "Looking up the music videos"
+  list="$(curl -fsS --max-time 60 -H "X-Move-Key: $MOVE_KEY" "$HOME_HUB/api/hub/move-files")" || die "the home Hub didn't list its music videos; run '$0 sync' to try again"
+  # shellcheck disable=SC2016 # JavaScript, not shell
+  node -e '
+    const files = JSON.parse(process.argv[1]).files.filter((f) => /^\/mnt\/nas2?\//.test(f.path));
+    for (const f of files) console.log(`${f.size}\t${f.path}`);
+  ' "$list" > "$WORK/manifest"
+  total="$(awk -F'\t' '{ s += $1 } END { print s + 0 }' "$WORK/manifest")"
+  have="$(while IFS=$'\t' read -r size f; do [ "$(stat -c %s "$MEDIA$f" 2> /dev/null)" = "$size" ] && echo "$size"; done < "$WORK/manifest" | awk '{ s += $1 } END { print s + 0 }')"
+  free="$(df --output=avail -B1 "$MEDIA" | tail -1)"
+  # Keep 10 GB spare for the box itself and anything recorded on the trip.
+  if [ $((total - have + 10 * 1024 ** 3)) -gt "$free" ]; then
+    die "the music videos need $(numfmt --to=iec $((total - have))) more and the box has $(numfmt --to=iec "$free") free. Free some space and run '$0 sync', or '$0 cancel'"
+  fi
+  say "Copying $(wc -l < "$WORK/manifest") music video files ($(numfmt --to=iec "$total"), $(numfmt --to=iec "$have") already here)"
+  local n=0 failed=0
+  while IFS=$'\t' read -r size f; do
+    n=$((n + 1))
+    [ "$(stat -c %s "$MEDIA$f" 2> /dev/null)" = "$size" ] && continue
+    mkdir -p "$(dirname "$MEDIA$f")"
+    printf '  %s %s\n' "$n" "$(basename "$f")"
+    curl -fsS --retry 3 -C - --max-time 3600 -H "X-Move-Key: $MOVE_KEY" -G --data-urlencode "path=$f" -o "$MEDIA$f" "$HOME_HUB/api/hub/move-file" < /dev/null \
+      || { warn "couldn't copy $f"; failed=$((failed + 1)); }
+  done < "$WORK/manifest"
+  [ "$failed" = 0 ] || warn "$failed files didn't copy; run '$0 sync' to try them again"
 }
 
 away() {
@@ -118,6 +153,7 @@ AWAY_SINCE=$(date -Iseconds)
 EOF
   say "Home Hub data saved ($(du -h "$archive" | cut -f1)); starting the Hub on the box with it"
 
+  sync_music
   compose create hub
   docker cp "$archive" ultimatetv-hub:/data/restore.tar.gz
   compose up -d hub
@@ -127,6 +163,20 @@ EOF
   ip="$(ip -4 route get 1.1.1.1 2> /dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')"
   say "Done. The Hub now runs on this box. Phones reach it at http://${ip:-<box address>}:$LOCAL_PORT"
   say "When you're home again: sudo bash $APP_DIR/tools/hub/travel.sh home"
+}
+
+# Files the box's Hub made on the trip (recordings, new music videos) go back to the NAS first.
+send_back_files() {
+  local f sent=0
+  while IFS= read -r -d '' f; do
+    f="${f#"$MEDIA"}"
+    cut -f2 "$WORK/manifest" 2> /dev/null | grep -qxF "$f" && continue
+    printf '  sending back %s\n' "$f"
+    curl -fsS --max-time 7200 -X PUT -H "X-Move-Key: $MOVE_KEY" -H 'Content-Type: application/octet-stream' -G --data-urlencode "path=$f" -T "$MEDIA$f" "$HOME_HUB/api/hub/move-file" > /dev/null < /dev/null \
+      || { compose start hub > /dev/null; die "couldn't send $f back to the home Hub; the box's Hub is running again"; }
+    sent=$((sent + 1))
+  done < <(find "$MEDIA/mnt" -type f ! -name '*.part' -print0 2> /dev/null)
+  [ "$sent" = 0 ] || say "Sent $sent files made on the trip back to the NAS"
 }
 
 home() {
@@ -147,6 +197,7 @@ home() {
   archive="$WORK/to-home-$(date +%Y%m%d-%H%M).tar.gz"
   tar -czf "$archive" -C "$vol" "${items[@]}"
 
+  send_back_files
   say "Sending it to the home Hub ($(du -h "$archive" | cut -f1))"
   curl -fsS --max-time 1800 -H "X-Move-Key: $MOVE_KEY" -H "X-Device-Token: $TOKEN" -H 'Content-Type: application/gzip' --data-binary "@$archive" "$HOME_HUB/api/hub/move-in" > /dev/null \
     || { compose start hub > /dev/null; die "the home Hub didn't take the data; the box's Hub is running again"; }
@@ -171,6 +222,12 @@ cancel() {
   set_box_hub "$HOME_HUB"
 }
 
+sync() {
+  load_state
+  sync_music
+  say "Done. The box's Hub picks the new files up as it goes."
+}
+
 status() {
   if [ -f "$STATE" ]; then
     # shellcheck disable=SC1090
@@ -184,8 +241,9 @@ status() {
 
 case "${1:-}" in
   away) away ;;
+  sync) sync ;;
   home) home ;;
   cancel) cancel ;;
   status) status ;;
-  *) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

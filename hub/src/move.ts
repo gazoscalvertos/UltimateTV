@@ -7,6 +7,9 @@
 //   POST   /api/hub/move-in   the data from the trip (a .tar.gz, X-Move-Key) replaces this Hub's,
 //                            and the Hub restarts with it.
 //   DELETE /api/hub/move      (X-Move-Key) the trip's off: carry on with the data it already has.
+//   GET    /api/hub/move-files       (X-Move-Key) the music video files the channels play, so the
+//   GET    /api/hub/move-file?path=  box can take copies; PUT sends back a file made on the trip
+//   PUT    /api/hub/move-file?path=  (a recording, a new music video) that isn't here yet.
 //
 // Taking the data needs a phone or script paired in the last 15 minutes, so someone must have just
 // read the code off the TV. A restore is unpacked at the next start (applyPendingRestore), before
@@ -15,6 +18,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { mkdir, realpath, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
@@ -22,6 +26,8 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { PairedDevice } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 import type { Logger } from "./log.js";
+import { nasRoots } from "./nasvideos.js";
+import { sendFile } from "./streaming.js";
 
 /** What travels with the Hub besides the database. Logs, caches and temp files stay behind. */
 const MOVED_DIRS = ["scare-clips", "notify-media", "probe-reports"];
@@ -87,6 +93,10 @@ export interface MoveDeps {
   pairingEnforced: boolean;
   /** Restarts the Hub (Docker starts it again), so it comes back standing by or with the new data. */
   restart: () => void;
+  /** The music video files (and stills) the channels play. */
+  travelFiles?: () => string[];
+  /** Where the NAS shares are mounted, for files sent back from a trip. */
+  mediaRoot?: string;
   now?: () => number;
 }
 
@@ -98,18 +108,25 @@ export async function registerMove(app: FastifyInstance, d: MoveDeps): Promise<v
   };
 
   await app.register(async (scope) => {
-    // The archive is streamed to disk as it arrives: with the scare clips it can be large.
-    scope.addContentTypeParser(/^application\/(gzip|x-gzip|x-tar|octet-stream)/, { bodyLimit: 20 * 1024 ** 3 }, (_req, payload, done) => {
-      const tmp = path.join(d.dataDir, `${RESTORE_FILE}.part`);
-      mkdirSync(d.dataDir, { recursive: true });
-      pipeline(payload as Readable, createWriteStream(tmp)).then(
-        () => done(null, tmp),
-        (err: Error) => {
-          rmSync(tmp, { force: true });
-          done(err, undefined);
-        },
-      );
-    });
+    // Archives and files are streamed to disk by the routes, after they've checked the key.
+    scope.addContentTypeParser(/^application\/(gzip|x-gzip|x-tar|octet-stream)/, { bodyLimit: 50 * 1024 ** 3 }, (_req, payload, done) => done(null, payload));
+    const saveTo = async (body: unknown, file: string) => {
+      if (!body || typeof (body as Readable).pipe !== "function") throw Object.assign(new Error("Send the file as the request body (Content-Type: application/octet-stream)"), { statusCode: 400 });
+      const part = `${file}.part`;
+      try {
+        await pipeline(body as Readable, createWriteStream(part));
+        await rename(part, file);
+      } catch (err) {
+        await rm(part, { force: true });
+        throw err;
+      }
+    };
+    const checkKey = (req: FastifyRequest) => {
+      const moved = movedAway(d.db);
+      if (!moved || !keyMatches(moved, header(req, "x-move-key"))) {
+        throw Object.assign(new Error(moved ? "That isn't the key this Hub gave out when it moved" : "This Hub hasn't moved out"), { statusCode: 403, code: "move-key" });
+      }
+    };
 
     scope.get("/api/hub/move", async () => {
       const moved = movedAway(d.db);
@@ -154,25 +171,52 @@ export async function registerMove(app: FastifyInstance, d: MoveDeps): Promise<v
     });
 
     scope.post("/api/hub/move-in", async (req, reply) => {
-      const file = typeof req.body === "string" ? req.body : undefined;
-      const drop = () => file && rmSync(file, { force: true });
-      const moved = movedAway(d.db);
-      if (!moved || !keyMatches(moved, header(req, "x-move-key"))) {
-        drop();
-        return reply.code(403).send({ error: moved ? "That isn't the key this Hub gave out when it moved" : "This Hub hasn't moved out", code: "move-key" });
-      }
-      if (!file) return reply.code(400).send({ error: "Send the .tar.gz from the trip as the request body (Content-Type: application/gzip)" });
+      checkKey(req);
+      const file = path.join(d.dataDir, `${RESTORE_FILE}.in`);
+      await saveTo(req.body, file);
       try {
         const listed = execFileSync("tar", ["-tzf", file], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).split("\n");
         if (!listed.some((f) => f.replace(/^\.\//, "") === "hub.db")) throw new Error("no hub.db");
       } catch {
-        drop();
+        rmSync(file, { force: true });
         return reply.code(400).send({ error: "That isn't the Hub's data (a .tar.gz with hub.db in it)" });
       }
       renameSync(file, path.join(d.dataDir, RESTORE_FILE));
       d.log.info("The Hub's data is back from its trip; restarting with it");
       reply.raw.on("close", () => d.restart());
       return { ok: true, restarting: true };
+    });
+
+    scope.get("/api/hub/move-files", async (req) => {
+      checkKey(req);
+      const files: { path: string; size: number }[] = [];
+      for (const f of new Set(d.travelFiles?.() ?? [])) {
+        const info = await stat(f).catch(() => null);
+        if (info?.isFile()) files.push({ path: f, size: info.size });
+      }
+      return { files };
+    });
+
+    scope.get("/api/hub/move-file", async (req: FastifyRequest<{ Querystring: { path?: string } }>, reply) => {
+      checkKey(req);
+      const file = String(req.query.path ?? "");
+      if (!(d.travelFiles?.() ?? []).includes(file)) return reply.code(404).send({ error: "That isn't one of the music video files" });
+      return sendFile(req, reply, file);
+    });
+
+    scope.put("/api/hub/move-file", async (req: FastifyRequest<{ Querystring: { path?: string } }>, reply) => {
+      checkKey(req);
+      const file = path.normalize(String(req.query.path ?? ""));
+      const roots = await nasRoots(d.mediaRoot ?? "/mnt/nas");
+      const root = roots.find((r) => file.startsWith(`${r}/`));
+      if (!path.isAbsolute(file) || !root) return reply.code(400).send({ error: "Files can only come back to the NAS shares" });
+      if (existsSync(file)) return { ok: true, kept: true };
+      await mkdir(path.dirname(file), { recursive: true });
+      const dir = await realpath(path.dirname(file));
+      if (!dir.startsWith(`${root}/`) && dir !== root) return reply.code(400).send({ error: "Files can only come back to the NAS shares" });
+      await saveTo(req.body, file);
+      d.log.info({ file }, "A file came back from the trip");
+      return { ok: true };
     });
 
     scope.delete("/api/hub/move", async (req, reply) => {
