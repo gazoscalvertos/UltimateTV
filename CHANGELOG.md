@@ -15,6 +15,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Steady update status**: the phone's Updates card no longer flips between "Couldn't check" and
+  "Update available". The Hub keeps GitHub's last answer (a quick reload used to drop it), shares
+  one check between everyone asking, waits a minute after a failure and falls back to git's own
+  endpoint when the API's 60-an-hour limit runs out. The box's reports keep its last check too.
+  When the answer is over 15 minutes old the card says when it was checked.
 - **Download to the TV box** ([docs/downloads.md](docs/downloads.md)): films, episodes, whole
   series and recordings can be copied onto the box's own disk from the TV (**Download to box**) or
   the phone remote (⤓, and its **On the box** tab). They play from there with the NAS and Jellyfin

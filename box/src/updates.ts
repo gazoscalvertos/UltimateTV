@@ -30,6 +30,11 @@ export function remoteCommit(lsRemote: string, branch: string): string | undefin
 }
 
 export class Updates {
+  /** The last check that worked, kept so a failed or skipped check still shows it. */
+  private latest?: { key: string; sha: string; at: string };
+  /** A check on its way: asks at the same time share it. */
+  private checking?: Promise<void>;
+
   constructor(private readonly log: (line: string) => void) {}
 
   /** What the box runs, whether a newer version is out (when it can tell) and how the last update went. */
@@ -47,14 +52,30 @@ export class Updates {
       const at = new Date(unit.ExecMainExitTimestamp.replace(/^\w+ /, "").replace(/ \w+$/, ""));
       sw.lastUpdate = { at: Number.isNaN(at.getTime()) ? unit.ExecMainExitTimestamp : at.toISOString(), ok: unit.Result === "success" };
     }
-    if (check && v.repo && v.branch) {
-      // A private repository needs root's stored token, so an unanswered check just shows as unknown.
-      const latest = await run("git", ["ls-remote", v.repo, `refs/heads/${v.branch}`], { timeout: 15_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } })
-        .then((r) => remoteCommit(r.stdout, v.branch!))
-        .catch((e: Error) => (this.log(`Update check failed: ${e.message}`), undefined));
-      if (latest) sw.latest = latest;
+    if (v.repo && v.branch) {
+      const key = `${v.repo}#${v.branch}`;
+      if (check) await this.check(v.repo, v.branch);
+      if (this.latest?.key === key) {
+        sw.latest = this.latest.sha;
+        sw.checkedAt = this.latest.at;
+      }
     }
     return sw;
+  }
+
+  private check(repo: string, branch: string): Promise<void> {
+    this.checking ??= (async () => {
+      try {
+        // A private repository needs root's stored token, so an unanswered check keeps the last answer.
+        const sha = await run("git", ["ls-remote", repo, `refs/heads/${branch}`], { timeout: 15_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } })
+          .then((r) => remoteCommit(r.stdout, branch))
+          .catch((e: Error) => (this.log(`Update check failed: ${e.message}`), undefined));
+        if (sha) this.latest = { key: `${repo}#${branch}`, sha, at: new Date().toISOString() };
+      } finally {
+        this.checking = undefined;
+      }
+    })();
+    return this.checking;
   }
 
   /** Starts the update. The TV session restarts when it's done, a few minutes later. */

@@ -54,3 +54,46 @@ describe("SelfUpdate", () => {
     expect(current.changes).toBeUndefined();
   });
 });
+
+describe("SelfUpdate when GitHub stops answering", () => {
+  it("keeps the last answer, shares a check in flight, and falls back to git's endpoint", async () => {
+    const calls: string[] = [];
+    let api = true;
+    let git = true;
+    const fetchImpl = (async (url: string) => {
+      calls.push(url);
+      await new Promise((r) => setTimeout(r, 5));
+      if (url.endsWith("/commits/main")) return api ? new Response(LATEST) : new Response("rate limited", { status: 403 });
+      if (url.includes("/info/refs")) return git ? new Response(`001e# service=git-upload-pack\n003f${"c".repeat(40)} refs/heads/main\n`) : new Response("", { status: 500 });
+      if (url.includes("/compare/")) return Response.json({ ahead_by: 1, commits: [] });
+      return new Response("", { status: 404 });
+    }) as typeof fetch;
+    const su = new SelfUpdate(await mkdtemp(path.join(os.tmpdir(), "utv-su-")), { commit: "aaaaaaa" }, fetchImpl);
+    // Three checks at once ask GitHub once.
+    const all = await Promise.all([su.status(true), su.status(true), su.status(true)]);
+    expect(all.map((s) => s.latest)).toEqual([LATEST, LATEST, LATEST]);
+    expect(calls.filter((u) => u.endsWith("/commits/main"))).toHaveLength(1);
+    // A status without a check still has the answer (the phone page reloads that way).
+    expect((await su.status(false)).latest).toBe(LATEST);
+
+    // Five minutes on, the API is rate limited: git's endpoint answers instead.
+    const real = Date.now;
+    try {
+      Date.now = () => real() + 6 * 60_000;
+      api = false;
+      expect((await su.status(true)).latest).toBe("c".repeat(40));
+      // Both fail later on: the last answer stays, with when it was got.
+      Date.now = () => real() + 12 * 60_000;
+      git = false;
+      const sw = await su.status(true);
+      expect(sw.latest).toBe("c".repeat(40));
+      expect(sw.checkedAt).toBeDefined();
+      // And it doesn't ask again straight away.
+      const n = calls.length;
+      await su.status(true);
+      expect(calls.length).toBe(n);
+    } finally {
+      Date.now = real;
+    }
+  });
+});

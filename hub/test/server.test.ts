@@ -222,6 +222,10 @@ describe("hub API", () => {
     expect((await app.inject({ method: "POST", url: "/api/box/update" })).statusCode).toBe(409);
     await app.inject({ method: "POST", url: "/api/box/state", payload: { software: { commit: "abc", updating: false }, stats: true } });
     expect((await app.inject("/api/software")).json().box).toMatchObject({ software: { commit: "abc" }, stats: true });
+    // A report that didn't check GitHub keeps the last one that did.
+    await app.inject({ method: "POST", url: "/api/box/state", payload: { software: { commit: "abc", branch: "main", latest: "def", checkedAt: "2026-10-28T12:00:00Z", updating: false } } });
+    await app.inject({ method: "POST", url: "/api/box/state", payload: { software: { commit: "abc", branch: "main", updating: false } } });
+    expect((await app.inject("/api/software")).json().box.software).toMatchObject({ latest: "def", checkedAt: "2026-10-28T12:00:00Z" });
   });
 });
 

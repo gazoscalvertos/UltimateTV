@@ -676,7 +676,15 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   /** The TV app reports the box's software here, when it starts and whenever it's asked. */
   app.post("/api/box/state", async (req: Req<Record<string, string>, Record<string, string>, Partial<BoxState>>) => {
-    boxState = { software: req.body?.software ?? null, stats: Boolean(req.body?.stats), reportedAt: new Date().toISOString() };
+    const software = req.body?.software ?? null;
+    // Most reports don't check GitHub (the TV starting, stats toggled): keep the last check's answer
+    // rather than flip the phone to "Couldn't check". Older box apps don't remember it themselves.
+    const before = boxState?.software;
+    if (software && !software.latest && before?.latest && before.branch === software.branch) {
+      software.latest = before.latest;
+      if (before.checkedAt) software.checkedAt = before.checkedAt;
+    }
+    boxState = { software, stats: Boolean(req.body?.stats), reportedAt: new Date().toISOString() };
     return { ok: true };
   });
   const boxCommand = (command: "update" | "reload" | "report" | "stats", on?: boolean) => {
