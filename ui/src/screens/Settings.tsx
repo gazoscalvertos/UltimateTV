@@ -562,6 +562,7 @@ export function Settings(props: { section?: string }) {
                       <Row label="During live TV too" hint="Off means only films, episodes and recordings get scares" value={s().duringLive ? "On" : "Off"} onSelect={() => void saveScares({ duringLive: !s().duringLive })} />
                       <Row label="Only while something is playing" hint="Off lets a scare land on the menus as well" value={s().whilePlayingOnly ? "On" : "Off"} onSelect={() => void saveScares({ whilePlayingOnly: !s().whilePlayingOnly })} />
                       <Row label="Clips" value={sc().clips.length ? `${sc().clips.length} · ${formatBytes(sc().clips.reduce((a, c) => a + c.sizeBytes, 0))}` : "None yet"} hint={sc().clips.map((c) => c.name).join(" · ") || "Upload them from the phone remote's Scares tab"} />
+                      <Row label="Your scares" value={(sc().mixes ?? []).length ? String(sc().mixes.length) : "None yet"} hint={(sc().mixes ?? []).map((m) => m.name).join(" · ") || "Build them on the phone remote's Scares tab: a picture or GIF and a sound, placed where you like"} />
                       <Row label="Try one now" icon="play" hint="Shows a scare on this TV straight away" onSelect={() => void hub.scareNow().catch(errorToast)} />
                     </>
                   );

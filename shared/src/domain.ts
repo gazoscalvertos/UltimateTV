@@ -859,11 +859,11 @@ export interface MixOverview {
 // ---------------------------------------------------------------------------
 // Jump scares
 
-/** A clip the Hub keeps for jump scares, uploaded from the phone. */
+/** A clip the Hub keeps for jump scares, uploaded from the phone: a video, a picture (a GIF, transparent or not) or a sound. */
 export interface ScareClip {
   id: string;
   name: string;
-  kind: "video" | "image";
+  kind: "video" | "image" | "audio";
   /** Where the TV loads it from (/api/scares/clips/…). */
   url: string;
   sizeBytes: number;
@@ -896,10 +896,46 @@ export const DEFAULT_SCARE_SETTINGS: ScareSettings = {
   whilePlayingOnly: true,
 };
 
-/** One scare on its way to the TV. Without a clip the TV draws (and screams) its own. */
+/** Where a scare's picture sits: one of nine spots on the screen, or over all of it. */
+export type ScareSpot = "top-left" | "top" | "top-right" | "left" | "center" | "right" | "bottom-left" | "bottom" | "bottom-right" | "full";
+export const SCARE_SPOTS: readonly ScareSpot[] = ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right", "full"];
+/** How much of the screen a placed picture takes (its height): a third, a half, or nearly all of it. */
+export type ScareSize = "small" | "medium" | "large";
+export const SCARE_SIZES: readonly ScareSize[] = ["small", "medium", "large"];
+
+/**
+ * A scare built on the phone from the uploaded clips: a picture or a video, a sound, or both,
+ * placed somewhere on the screen. A transparent GIF in a corner over the film, with a scream.
+ */
+export interface ScareMix {
+  id: string;
+  name: string;
+  /** A picture or video clip. */
+  visualId?: string;
+  /** A sound clip, played with it. */
+  audioId?: string;
+  spot: ScareSpot;
+  size: ScareSize;
+  /** Play the video without its own sound (the sound clip, if any, plays instead). */
+  muteVideo: boolean;
+  /** Seconds it stays on; 0 uses the general setting. */
+  seconds: number;
+  createdAt: number;
+}
+
+/** One scare on its way to the TV. Without a clip or a sound the TV draws (and screams) its own. */
 export interface Scare {
   id: string;
   clip?: Pick<ScareClip, "id" | "name" | "kind" | "url">;
+  /** A sound to play with it. */
+  audio?: Pick<ScareClip, "id" | "name" | "url">;
+  /** Where the picture goes; "full" (the default) covers the screen on black. */
+  spot?: ScareSpot;
+  size?: ScareSize;
+  /** The video's own sound is off. */
+  muted?: boolean;
+  /** The built scare it came from. */
+  mixId?: string;
   seconds: number;
   volume: number;
   /** Sent by hand from the phone rather than by the random timer. */
@@ -909,6 +945,46 @@ export interface Scare {
 export interface ScareState {
   settings: ScareSettings;
   clips: ScareClip[];
+  mixes: ScareMix[];
+}
+
+/**
+ * Puts a scare together from what the Hub keeps: a built scare, a clip, or (with neither asked
+ * for) one of the built scares and picture or video clips at random. Sounds on their own aren't
+ * picked at random, only as part of a built scare or when asked for. Undefined when the one asked
+ * for has gone. Used by the Hub (the phone's buttons) and the TV (the random timer) alike.
+ */
+export function scareFrom(state: ScareState, want: { clipId?: string; mixId?: string }, byHand: boolean, rand: () => number = Math.random): Scare | undefined {
+  const { settings, clips, mixes } = state;
+  const id = `${Date.now().toString(36)}${Math.floor(rand() * 1e6).toString(36)}`;
+  const base = { id, seconds: settings.seconds, volume: settings.volume, byHand };
+  const asClip = (c: ScareClip) => ({ id: c.id, name: c.name, kind: c.kind, url: c.url });
+  const fromMix = (m: ScareMix): Scare => {
+    const visual = clips.find((c) => c.id === m.visualId && c.kind !== "audio");
+    const audio = clips.find((c) => c.id === m.audioId && c.kind === "audio");
+    return {
+      ...base,
+      ...(visual ? { clip: asClip(visual) } : {}),
+      ...(audio ? { audio: { id: audio.id, name: audio.name, url: audio.url } } : {}),
+      spot: m.spot,
+      size: m.size,
+      muted: m.muteVideo,
+      mixId: m.id,
+      seconds: m.seconds > 0 ? m.seconds : settings.seconds,
+    };
+  };
+  const fromClip = (c: ScareClip): Scare =>
+    c.kind === "audio" ? { ...base, audio: { id: c.id, name: c.name, url: c.url } } : { ...base, clip: asClip(c) };
+  if (want.mixId) {
+    const m = mixes.find((x) => x.id === want.mixId);
+    return m ? fromMix(m) : undefined;
+  }
+  if (want.clipId) {
+    const c = clips.find((x) => x.id === want.clipId);
+    return c ? fromClip(c) : undefined;
+  }
+  const pool: (() => Scare)[] = [...mixes.map((m) => () => fromMix(m)), ...clips.filter((c) => c.kind !== "audio").map((c) => () => fromClip(c))];
+  return pool.length ? pool[Math.floor(rand() * pool.length)]!() : base;
 }
 
 /** Keeps the scare settings sane whoever sent them (the phone, the TV, a script). */

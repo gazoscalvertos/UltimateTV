@@ -92,11 +92,33 @@ With no clips uploaded, the TV draws its own face and screeches, so it works out
 
 ### Clips
 
-Uploaded from the phone's Scares tab (**Add a clip**): a short MP4, WebM or MOV video, or a JPEG,
-PNG, GIF or WebP picture, up to 200 MB. The Hub keeps up to 40 of them in its own data directory,
-not on the NAS, and serves them to the TV.
+Uploaded from the phone's Scares tab (**Add a clip**): a short MP4, WebM or MOV video, a JPEG,
+PNG, GIF or WebP picture (transparent ones work), or an MP3, OGG, WAV or M4A sound, up to 200 MB.
+The Hub keeps up to 40 of them in its own data directory, not on the NAS, and serves them to the TV.
 
-A two-to-four second clip works best: a face, a slam, a scream.
+A two-to-four second clip works best: a face, a slam, a scream. Random scares pick from your built
+scares and your pictures and videos; a sound on its own only plays as part of a built scare or
+when you press its **Play** button.
+
+### Building your own
+
+**Build a scare** on the Scares tab puts clips together:
+
+- **a picture or video**, a **sound**, or both: a transparent GIF of a ghost with a scream, a
+  silent video with a creak of your own, or just a whisper in the dark,
+- **where on the screen**: one of nine spots, or full screen,
+- **size** (a third, about half, or nearly all of the screen's height) for a placed picture,
+- **play the video without its own sound**, so only your sound is heard,
+- **how long** it stays on, or the general setting.
+
+A placed scare has nothing behind it, so a transparent GIF floats over the film rather than
+blacking it out. A video playing with a sound of its own loops until the time is up.
+
+![A built scare placed over a film](screenshots/61-jump-scare-placed.png)
+![Building a scare on the phone](screenshots/62-phone-build-scare.png)
+
+Saved scares are listed under **Your scares**, each with Show and Delete; deleting a clip takes it
+out of the scares that use it.
 
 ### From a script or Home Assistant
 
@@ -118,11 +140,13 @@ curl -X POST "http://hub:8095/api/scares/clips?name=Doorway" -H "X-Api-Key: $KEY
 
 | Endpoint | What it does |
 | --- | --- |
-| `GET /api/scares` | The settings and the clips. |
+| `GET /api/scares` | The settings, the clips and the built scares. |
 | `PUT /api/scares` | Changes any of the settings above. |
-| `POST /api/scares/now` | Scares the TV now; `{"clipId":"…"}` picks a clip, otherwise one at random. |
+| `POST /api/scares/now` | Scares the TV now; `{"mixId":"…"}` picks a built scare and `{"clipId":"…"}` a clip, otherwise one at random. |
 | `POST /api/scares/clips?name=…` | Uploads a clip (the body is the file). |
 | `DELETE /api/scares/clips/:id` | Deletes one. |
+| `POST /api/scares/mixes` | Builds a scare: `{"name","visualId","audioId","spot","size","muteVideo","seconds"}`. `spot` is `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right` or `full`; `size` is `small`, `medium` or `large`. |
+| `DELETE /api/scares/mixes/:id` | Deletes a built scare. |
 
 ## Turning the lot off
 
