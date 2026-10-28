@@ -2,14 +2,15 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { Certification, MixChannelInfo, PairedDevice, PendingScreen, Profile, PublicSettings } from "@ultimatetv/shared";
-import { CERTIFICATIONS, formatBytes } from "@ultimatetv/shared";
+import type { Certification, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScreensaverSettings, ScreensaverThemeId } from "@ultimatetv/shared";
+import { CERTIFICATIONS, formatBytes, SCREENSAVER_THEMES } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
+import { previewScreensaver } from "../idle";
 import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, setShowStats, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
@@ -258,6 +259,64 @@ export function Settings(props: { section?: string }) {
     }
   };
   const playback = () => settings()!.playback;
+
+  // Dimming and the screensaver.
+  const saver = () => settings()!.screensaver;
+  const [saverInfo, { refetch: refetchSaverInfo }] = createResource(
+    () => section() === "screensaver",
+    (open) => (open ? hub.screensaver().catch(() => null) : Promise.resolve(null)),
+  );
+  const saveSaver = async (patch: Partial<ScreensaverSettings>) => {
+    try {
+      mutate(await hub.saveSettings({ screensaver: patch }));
+      if (patch.photosPath !== undefined) await refetchSaverInfo();
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  const minutes = (n: number) => (n ? (n >= 60 ? `After ${n / 60} hour${n === 60 ? "" : "s"}` : `After ${n} min`) : "Never");
+  const themeName = (id: ScreensaverThemeId) => SCREENSAVER_THEMES.find((t) => t.id === id)?.name ?? id;
+  const pickTheme = async () => {
+    const id = await choose<ScreensaverThemeId>({
+      title: "Screensaver",
+      options: SCREENSAVER_THEMES.map((t) => ({ label: t.name, value: t.id, detail: t.months ? `${t.detail} · in Shuffle in ${t.months.map((m) => new Date(2000, m - 1).toLocaleString("en-GB", { month: "long" })).join(", ")}` : t.detail, ...(t.id === saver().theme ? { icon: "check" } : {}) })),
+    });
+    if (!id) return;
+    await saveSaver({ theme: id });
+    if (id === "photos" && !saver().photosPath) await pickFolder();
+  };
+  const pickFolder = async () => {
+    let dir: string | undefined = saver().photosPath || undefined;
+    for (;;) {
+      let l: NasListing;
+      try {
+        l = await hub.browsePhotos(dir);
+      } catch (err) {
+        // The saved folder has gone: start from the shares.
+        if (dir) {
+          dir = undefined;
+          continue;
+        }
+        errorToast(err);
+        return;
+      }
+      const pick = await choose<string>({
+        title: l.dir || "Where are your photos?",
+        message: l.dir ? `${l.files.length} photo${l.files.length === 1 ? "" : "s"} and video${l.files.length === 1 ? "" : "s"} here, and the folders inside count too.` : "Pick the NAS share your photos are on, then the folder.",
+        options: [
+          ...(l.dir ? [{ label: "Use this folder", value: "use", icon: "check" }, { label: "Up a folder", value: "up", icon: "prev" }] : []),
+          ...l.folders.slice(0, 80).map((f) => ({ label: f.name, value: `dir:${f.path}`, icon: "list" })),
+        ],
+      });
+      if (pick === undefined) return;
+      if (pick === "use") {
+        await saveSaver({ photosPath: l.dir, ...(saver().theme === "off" ? { theme: "photos" as const } : {}) });
+        toast("Photos folder set", "good");
+        return;
+      }
+      dir = pick === "up" ? l.parent : pick.slice(4);
+    }
+  };
   const recording = () => settings()!.recording;
 
   const pinFor = async (p: Profile) => {
@@ -331,6 +390,7 @@ export function Settings(props: { section?: string }) {
   const SECTIONS = [
     { id: "profiles", label: "Profiles and PIN" },
     { id: "playback", label: "Picture and sound" },
+    { id: "screensaver", label: "Screensaver" },
     { id: "recording", label: "Recording" },
     { id: "music", label: "Music channels" },
     { id: "sources", label: "Sources" },
@@ -387,6 +447,29 @@ export function Settings(props: { section?: string }) {
               <Row label="When the TV turns on" value={playback().startOn === "live" ? "Live TV" : "Home"} onSelect={() => void save({ playback: { ...playback(), startOn: playback().startOn === "live" ? "home" : "live" } })} />
               <Row label="Playback stats" hint="Show the stream, picture and sound details over the video. The blue button turns them on and off while watching" value={showStats() ? "On" : "Off"} onSelect={() => setShowStats(!showStats())} />
               <Row label="Largest file to stream" hint="Bigger versions are moved down the list" value={`${playback().maxSizeGb} GB`} onSelect={() => void save({ playback: { ...playback(), maxSizeGb: cycle([20, 40, 60, 100], playback().maxSizeGb) } })} />
+            </Show>
+
+            <Show when={section() === "screensaver"}>
+              <h2>Screensaver</h2>
+              <p class="hint">When the TV's left with nothing playing, the screen dims and later a screensaver starts. Any button brings it back without doing anything else. Paused video counts as nothing playing.</p>
+              <Row label="Dim the screen" value={minutes(saver().dimAfterMin)} onSelect={() => void saveSaver({ dimAfterMin: cycle([0, 2, 5, 10, 15, 30, 60], saver().dimAfterMin) })} />
+              <Row label="How dark" value={`${saver().dimPercent}%`} onSelect={() => void saveSaver({ dimPercent: cycle([50, 70, 85], saver().dimPercent) })} />
+              <Row label="Screensaver" value={themeName(saver().theme)} hint={SCREENSAVER_THEMES.find((t) => t.id === saver().theme)?.detail} onSelect={() => void pickTheme()} />
+              <Show when={saver().theme !== "off"}>
+                <Row label="Start the screensaver" value={minutes(saver().startAfterMin)} onSelect={() => void saveSaver({ startAfterMin: cycle([0, 5, 10, 15, 20, 30, 60, 120], saver().startAfterMin) })} />
+              </Show>
+              <Row
+                label="Your photos"
+                icon="list"
+                hint={saver().photosPath ? (saverInfo()?.photoError ?? (saverInfo()?.photoCount !== undefined ? `${saverInfo()!.photoCount} photos and videos` : "")) : "Choose a folder on the NAS for the Your photos screensaver"}
+                value={saver().photosPath || "Not set"}
+                onSelect={() => void pickFolder()}
+              />
+              <Row label="Each picture for" value={`${saver().photoSeconds} s`} hint="Photos, landscapes and art" onSelect={() => void saveSaver({ photoSeconds: cycle([10, 20, 30, 60], saver().photoSeconds) })} />
+              <Row label="Show the clock" value={saver().clock ? "On" : "Off"} onSelect={() => void saveSaver({ clock: !saver().clock })} />
+              <Show when={saver().theme !== "off"}>
+                <Row label="Try it now" icon="play" hint="Press any button to come back" onSelect={() => previewScreensaver()} />
+              </Show>
             </Show>
 
             <Show when={section() === "recording"}>

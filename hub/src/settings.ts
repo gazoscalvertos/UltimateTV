@@ -1,4 +1,4 @@
-import { DEFAULT_APP_NAME, type IptvSource, type IptvSourceStatus, type PublicSettings, type Settings } from "@ultimatetv/shared";
+import { DEFAULT_APP_NAME, DEFAULT_SCREENSAVER, type IptvSource, type IptvSourceStatus, type PublicSettings, type Settings } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 
 export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
@@ -31,6 +31,7 @@ export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
     },
     numbering: "uk",
     channelFilter: "^(UK|GB|United Kingdom)\\b|\\b(UK|GB)\\b",
+    screensaver: { ...DEFAULT_SCREENSAVER },
   };
 }
 
@@ -135,6 +136,7 @@ function mergeSettings(base: Settings, patch: Partial<Settings>): Settings {
     library: { ...base.library, ...patch.library },
     recording: { ...base.recording, ...patch.recording },
     playback: { ...base.playback, ...patch.playback },
+    screensaver: { ...base.screensaver, ...patch.screensaver },
   };
 }
 
@@ -156,6 +158,7 @@ export function publicSettings(s: Settings, setupUrl: string, statusOf?: (source
     numbering: s.numbering,
     channelFilter: s.channelFilter,
     library: s.library,
+    screensaver: s.screensaver,
     setupUrl,
   };
   if (s.jellyfin) {

@@ -9,7 +9,7 @@ import QRCode from "qrcode";
 import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
 import { registerNotices } from "./notify.js";
 import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
-import { cleanAppName, renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
+import { cleanAppName, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
@@ -127,6 +127,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/remote/qr.svg", "tv"],
     ["GET /api/setup/qr.svg", "tv"],
     ["GET /api/music/login/qr.svg", "tv"],
+    ["GET /api/screensaver", "paired"],
+    ["GET /api/screensaver/photos", "paired"],
+    ["GET /api/screensaver/photos/:id", "paired"],
   ]);
   const NOT_PAIRED = "Pair this phone with the TV first: on the TV, open Settings › Phones and remotes and scan the code";
 
@@ -178,6 +181,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "POST /api/mix-channels/:id/files",
     "GET /api/mix/nas",
     "DELETE /api/mix-channels/:id/videos/:videoId",
+    "GET /api/screensaver/nas",
   ]);
   app.addHook("preHandler", async (req) => {
     const route = `${req.method} ${req.routeOptions.url}`;
@@ -352,6 +356,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (body.playback) patch.playback = { ...s.playback, ...body.playback };
     if (body.numbering) patch.numbering = body.numbering;
     if (body.appName !== undefined) patch.appName = cleanAppName(body.appName);
+    if (body.screensaver) {
+      const ss = cleanScreensaver(body.screensaver, s.screensaver);
+      if (ss.photosPath && ss.photosPath !== s.screensaver.photosPath) ss.photosPath = await ctx.photos.check(ss.photosPath);
+      patch.screensaver = ss;
+    }
     if (body.channelFilter !== undefined) {
       try {
         if (body.channelFilter) new RegExp(body.channelFilter);
@@ -946,6 +955,38 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const b = req.body ?? {};
     const paths = Array.isArray(b.paths) ? b.paths.map(String) : b.path ? [String(b.path)] : [];
     return ctx.mix.addFiles(req.params.id, paths);
+  });
+
+  // -------------------------------------------------------------------------
+  // Screensaver
+
+  /** The themes, and how many photos the chosen folder has. */
+  app.get("/api/screensaver", async () => {
+    const dir = ctx.settings.get().screensaver.photosPath;
+    const info: ScreensaverInfo = { themes: SCREENSAVER_THEMES };
+    if (dir) {
+      try {
+        info.photoCount = (await ctx.photos.list(dir)).length;
+      } catch (err) {
+        info.photoError = err instanceof Error ? err.message : String(err);
+      }
+    }
+    return info;
+  });
+
+  /** Folders on the NAS and the pictures in them, for choosing the photos folder. */
+  app.get("/api/screensaver/nas", async (req: Req<Record<string, string>, { dir?: string }>) => ctx.photos.browse(req.query.dir || undefined));
+
+  app.get("/api/screensaver/photos", async () => {
+    const dir = ctx.settings.get().screensaver.photosPath;
+    return { photos: dir ? await ctx.photos.list(dir) : [] };
+  });
+
+  app.get("/api/screensaver/photos/:id", async (req: Req<{ id: string }>, reply) => {
+    const file = await ctx.photos.file(ctx.settings.get().screensaver.photosPath, req.params.id);
+    if (!file) return reply.code(404).send({ error: "That photo has gone" });
+    reply.header("Cache-Control", "private, max-age=3600");
+    return sendFile(req, reply, file);
   });
 
   /** The NAS shares, or a folder in them, for picking video files for a music channel. */

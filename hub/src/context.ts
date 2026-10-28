@@ -2,6 +2,7 @@
 // (Jellyfin, TMDB, TorBox, addons) are rebuilt when settings change.
 
 import path from "node:path";
+import { PhotoFolder } from "./screensaver.js";
 import type { Settings } from "@ultimatetv/shared";
 import { ChannelStore } from "./channels.js";
 import { ConnectionGuard } from "./connections.js";
@@ -69,6 +70,7 @@ export class HubContext {
   readonly proxy: StreamProxy;
   readonly downloads: DownloadManager;
   readonly mix: MixManager;
+  readonly photos: PhotoFolder;
   readonly log: Logger;
   readonly fetchImpl: Fetch;
 
@@ -149,6 +151,7 @@ export class HubContext {
       ...(opts.mixProbe ? { probe: opts.mixProbe } : {}),
       mediaRoot: opts.mediaRoot ?? "/mnt/nas",
     });
+    this.photos = new PhotoFolder(opts.mediaRoot ?? "/mnt/nas");
     this.settings.onChange((s) => this.rebuildClients(s));
     this.rebuildClients(this.settings.get());
   }

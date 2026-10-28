@@ -308,6 +308,42 @@ try {
   await fetch(`${base}/api/notify`, { method: "DELETE", headers: asTv });
   await key("Escape");
 
+  // Dimming and the screensaver: the settings, then each theme through "Try it now", put
+  // together on one contact sheet (and a few full size).
+  await tab("Settings");
+  await key("ArrowDown");
+  await page.locator(".settings-nav-item", { hasText: "Screensaver" }).first().focus();
+  await wait(1200);
+  await shot("49-settings-screensaver");
+  const themes = ["aurora", "fireplace", "aquarium", "space", "snow", "rain", "ocean", "lava", "fireworks", "halloween", "christmas", "bounce", "landscapes", "art"];
+  const frames = [];
+  for (const theme of themes) {
+    const res = await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ screensaver: { theme, clock: theme !== "bounce" } }) });
+    if (!res.ok) throw new Error(`Couldn't choose the ${theme} screensaver: ${await res.text()}`);
+    await wait(900);
+    await page.locator(".setting-row", { hasText: "Try it now" }).first().focus();
+    await key("Enter");
+    await wait(theme === "fireworks" ? 5000 : 3500);
+    if (!(await page.locator(".screensaver").count())) errors.push(`The ${theme} screensaver didn't start`);
+    const png = await page.screenshot();
+    frames.push({ theme, png });
+    if (["aurora", "fireplace", "halloween", "landscapes"].includes(theme)) {
+      await (await import("node:fs/promises")).writeFile(path.join(out, `50-screensaver-${theme}.png`), png);
+      console.log(`  50-screensaver-${theme}.png`);
+    }
+    await key("Escape");
+    if (await page.locator(".screensaver").count()) errors.push(`A key didn't close the ${theme} screensaver`);
+  }
+  const sheet = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  await sheet.setContent(`<body style="margin:0;background:#070b14;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px;box-sizing:border-box;height:1080px;font:600 18px system-ui;color:#fff">${frames
+    .map((f) => `<figure style="margin:0;position:relative"><img style="width:100%;display:block;border-radius:6px" src="data:image/png;base64,${f.png.toString("base64")}"><figcaption style="position:absolute;left:10px;bottom:8px;text-shadow:0 1px 4px #000">${f.theme}</figcaption></figure>`)
+    .join("")}</body>`);
+  await sheet.waitForTimeout(500);
+  await sheet.screenshot({ path: path.join(out, "51-screensavers.png") });
+  console.log("  51-screensavers.png");
+  await sheet.close();
+  await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ screensaver: { theme: "shuffle", clock: true } }) });
+
   // Kids profile.
   await page.locator(".avatar-small").first().focus();
   await key("Enter");

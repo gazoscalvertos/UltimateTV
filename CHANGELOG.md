@@ -15,6 +15,13 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Screen dimming and screensavers** ([docs/screensaver.md](docs/screensaver.md)): with nothing
+  playing and no button pressed, the screen dims (after 10 minutes unless changed) and later a
+  screensaver starts (after 20). Twelve moving themes drawn live (Northern lights, Fireplace,
+  Aquarium, Deep space, Snowy night, Rainy window, Sunset sea, Lava lamp, Fireworks, Halloween,
+  Christmas, Bouncing logo), endless generated Landscapes and Modern art, your own photos and
+  short videos from a NAS folder, a black screen, or Shuffle. The first button press only wakes the
+  screen. Set it up in the TV's Settings › Screensaver or the phone's settings page.
 - Music channels can play video files already on the NAS: browse to a file or a whole folder on
   the TV (a channel › Add videos from the NAS) or the phone (a channel's Videos). They play from
   where they are and are never deleted.
