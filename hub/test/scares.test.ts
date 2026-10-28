@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanScareSettings, DEFAULT_SCARE_SETTINGS, isHalloweenWeek, resolveTheme, type HubEvent, type ScareState } from "@ultimatetv/shared";
+import { cleanScareSettings, DEFAULT_SCARE_SETTINGS, isHalloweenWeek, resolveTheme, scareFrom, type HubEvent, type ScareState } from "@ultimatetv/shared";
 import { buildServer } from "../src/server.js";
 import { pairAsTv } from "./helpers.js";
 
@@ -29,6 +29,7 @@ describe("jump scares", () => {
     const state = (await app.inject({ url: "/api/scares" })).json() as ScareState;
     expect(state.settings).toEqual(DEFAULT_SCARE_SETTINGS);
     expect(state.clips).toEqual([]);
+    expect(state.mixes).toEqual([]);
   });
 
   it("keeps the settings the phone sends, within reason", async () => {
@@ -84,6 +85,59 @@ describe("jump scares", () => {
   it("only takes videos and pictures", async () => {
     const res = await app.inject({ method: "POST", url: "/api/scares/clips", headers: { "content-type": "application/octet-stream" }, payload: Buffer.from("not a video") });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("built scares", () => {
+  /** A GIF's first bytes and an MP3's ID3 tag: enough for the Hub to tell what they are. */
+  const GIF = Buffer.concat([Buffer.from("GIF89a"), Buffer.alloc(20)]);
+  const MP3 = Buffer.concat([Buffer.from("ID3"), Buffer.alloc(20)]);
+  const upload = async (body: Buffer, type: string, name: string) =>
+    ((await app.inject({ method: "POST", url: `/api/scares/clips?name=${name}`, headers: { "content-type": type }, payload: body })).json() as { clip: { id: string; kind: string } }).clip;
+
+  it("takes sounds as clips", async () => {
+    const sound = await upload(MP3, "application/octet-stream", "Scream");
+    expect(sound.kind).toBe("audio");
+  });
+
+  it("puts a picture and a sound together in a spot, and sends both to the TV", async () => {
+    const gif = await upload(GIF, "image/gif", "Ghost");
+    const sound = await upload(MP3, "audio/mpeg", "Scream");
+    const res = await app.inject({ method: "POST", url: "/api/scares/mixes", payload: { visualId: gif.id, audioId: sound.id, spot: "bottom-right", size: "small", seconds: 3 } });
+    expect(res.statusCode).toBe(200);
+    const mix = (res.json() as { mix: { id: string; name: string; spot: string } }).mix;
+    expect(mix).toMatchObject({ name: "Ghost + Scream", spot: "bottom-right" });
+
+    const events: HubEvent[] = [];
+    app.hub.events.on((e) => events.push(e));
+    await app.inject({ method: "POST", url: "/api/scares/now", payload: { mixId: mix.id } });
+    const scare = events.find((e) => e.type === "scare");
+    expect(scare?.type === "scare" && scare.scare).toMatchObject({ clip: { id: gif.id, kind: "image" }, audio: { id: sound.id }, spot: "bottom-right", size: "small", seconds: 3, mixId: mix.id });
+
+    // Deleting the picture leaves the sound; deleting that too takes the scare with it.
+    await app.inject({ method: "DELETE", url: `/api/scares/clips/${gif.id}` });
+    expect(((await app.inject({ url: "/api/scares" })).json() as ScareState).mixes).toHaveLength(1);
+    await app.inject({ method: "DELETE", url: `/api/scares/clips/${sound.id}` });
+    expect(((await app.inject({ url: "/api/scares" })).json() as ScareState).mixes).toHaveLength(0);
+  });
+
+  it("won't build a scare from nothing, or from the wrong kind of clip", async () => {
+    const gif = await upload(GIF, "image/gif", "Ghost");
+    expect((await app.inject({ method: "POST", url: "/api/scares/mixes", payload: {} })).statusCode).toBe(400);
+    expect((await app.inject({ method: "POST", url: "/api/scares/mixes", payload: { audioId: gif.id } })).statusCode).toBe(400);
+    expect((await app.inject({ method: "POST", url: "/api/scares/now", payload: { mixId: "gone" } })).statusCode).toBe(404);
+  });
+});
+
+describe("picking a scare", () => {
+  const settings = DEFAULT_SCARE_SETTINGS;
+  const clip = (id: string, kind: "video" | "image" | "audio") => ({ id, name: id, kind, url: `/api/scares/clips/${id}`, sizeBytes: 1, addedAt: 0 });
+
+  it("never picks a bare sound at random, but does pick built scares", () => {
+    const state = { settings, clips: [clip("s", "audio")], mixes: [{ id: "m", name: "m", audioId: "s", spot: "full" as const, size: "medium" as const, muteVideo: false, seconds: 0, createdAt: 0 }] };
+    for (const r of [0, 0.5, 0.99]) expect(scareFrom(state, {}, false, () => r)?.mixId).toBe("m");
+    expect(scareFrom({ ...state, mixes: [] }, {}, false)?.clip).toBeUndefined();
+    expect(scareFrom({ ...state, mixes: [] }, {}, false)?.audio).toBeUndefined();
   });
 });
 

@@ -34,9 +34,14 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 45, 46 | Pop-ups from /api/notify: a doorbell camera picture in the middle, and two in the corners |
 | 47 | Sending a pop-up from the phone |
 | 48 | Pairing the phone remote with the code from the TV |
+| 49 | A jump scare cut into a film (no clips uploaded, so the TV draws its own) |
+| 50, 51 | The Halloween theme on Home, and Spooky TV's atmosphere clips |
+| 52, 53 | Jump scare settings on the TV, and the phone remote's Scares tab |
 | 54 | A film added to the queue with Green |
 | 55, 56 | Your queue on Home, and what selecting something in it offers |
 | 57 | The queue on the phone: play now, play next or remove |
 | 58 | Settings › Screensaver: dimming, the theme, your photos folder and Try it now |
 | 59 | Screensavers full size: Northern lights, Fireplace, Halloween, Landscapes |
 | 60 | Every built-in screensaver on one sheet |
+| 61 | A built scare: a transparent ghost placed bottom right over the film |
+| 62 | Building a scare on the phone: a picture or video, a sound, where it goes and how big |

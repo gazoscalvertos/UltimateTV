@@ -119,6 +119,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/scares/now", "script"],
     ["POST /api/scares/clips", "script"],
     ["DELETE /api/scares/clips/:id", "script"],
+    ["POST /api/scares/mixes", "script"],
+    ["DELETE /api/scares/mixes/:id", "script"],
     ["POST /api/tv/call/:method", "paired"],
     ["POST /api/queue", "paired"],
     ["POST /api/queue/:id/move", "paired"],
