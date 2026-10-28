@@ -35,6 +35,8 @@ import { Settings } from "./screens/Settings";
 import { closeTopDialog, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
+import { startDownloads } from "./downloads";
+import { DownloadsScreen } from "./screens/Downloads";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
 import { startIdle, wake } from "./idle";
@@ -163,6 +165,7 @@ export function App() {
     startPhoneBridge();
     startIdle();
     startQueue();
+    startDownloads();
     void startMusic();
     void restoreSession();
     const loadLook = () =>
@@ -255,6 +258,9 @@ export function App() {
           </Match>
           <Match when={(() => { const r = nav.current(); return r.name === "mix-channel" ? r : null; })()}>
             {(r) => <MixChannelScreen id={r().id} />}
+          </Match>
+          <Match when={nav.current().name === "downloads"}>
+            <DownloadsScreen />
           </Match>
           <Match when={nav.current().name === "music"}>
             <Music />

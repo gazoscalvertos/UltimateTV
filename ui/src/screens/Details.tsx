@@ -1,17 +1,19 @@
 // A film or series: artwork, the best version ready to play, every other version (library,
-// IPTV, TorBox via AIOStreams), seasons and episodes, Add to queue, and Save to NAS.
+// IPTV, TorBox via AIOStreams), seasons and episodes, Add to queue, Save to NAS, and Download to
+// box (onto the box's own disk, to watch away from home).
 
 import { createEffect, createResource, createSignal, For, Show } from "solid-js";
 import type { Episode, TitleDetails, TitleRef } from "@ultimatetv/shared";
 import { durationLabel, episodeLabel, formatBytes } from "@ultimatetv/shared";
 import { hub, type StreamRow } from "../api";
-import { DialogFrame } from "../components/Dialog";
+import { choose, DialogFrame } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { Progress } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { useKeys } from "../keys";
 import { play } from "../player";
 import { addToQueue } from "../queue";
+import { allEpisodes, canDownload, downloadLabel, downloadOf, downloadToBox, episodeRequest, episodesOf, filmRequest } from "../downloads";
 import { errorToast, isKids, openDialog, toast } from "../store";
 
 const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
@@ -129,6 +131,40 @@ export function Details(props: { id: string }) {
     void addToQueue({ req: { kind: "title", id: t.id }, title: refOf(t), name: t.name, ...(t.year ? { subtitle: String(t.year) } : {}), ...(art ? { image: art } : {}) });
   };
 
+  // Download to the box: the film, or an episode, a series' worth or the lot.
+  const downloadIt = async () => {
+    const t = d()!;
+    try {
+      if (t.kind === "movie") {
+        await downloadToBox([filmRequest(t)], t.name);
+        return;
+      }
+      const e = focusedEpisode() ?? nextEpisode();
+      const n = season();
+      const seasonEps = n !== null ? await episodesOf(t, n) : [];
+      const seasonName = t.seasons?.find((s) => s.season === n)?.name ?? `Series ${n}`;
+      const pick = await choose({
+        title: `Download ${t.name} to the box`,
+        message: "It plays from the box, even away from home. Episodes download one after another.",
+        options: [
+          ...(e ? [{ label: `${episodeLabel(e.season, e.episode)} · ${e.name}`, value: "episode" as const, icon: "download" }] : []),
+          ...(seasonEps.length ? [{ label: `All of ${seasonName}`, value: "season" as const, icon: "download", detail: `${seasonEps.length} episodes` }] : []),
+          ...((t.seasons?.filter((s) => s.season > 0).length ?? 0) > 1 ? [{ label: "Every series", value: "all" as const, icon: "download" }] : []),
+        ],
+      });
+      if (pick === "episode" && e) await downloadToBox([episodeRequest(t, e)], `${t.name} ${episodeLabel(e.season, e.episode)}`);
+      if (pick === "season") await downloadToBox(seasonEps.map((x) => episodeRequest(t, x)), `${seasonName} of ${t.name}`);
+      if (pick === "all") {
+        const eps = await allEpisodes(t);
+        await downloadToBox(eps.map((x) => episodeRequest(t, x)), `${eps.length} episodes of ${t.name}`);
+      }
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  const filmDownload = () => (d()?.kind === "movie" ? downloadOf({ kind: "title", id: d()!.id }) : undefined);
+  const episodeDownload = (e: Episode) => downloadOf({ kind: "title", id: d()!.id, episodeId: `s${e.season}e${e.episode}` });
+
   const save = async () => {
     try {
       await hub.download(d()!.id);
@@ -194,6 +230,13 @@ export function Details(props: { id: string }) {
                   <Show when={t().inLibrary}>
                     <span class="badge badge-library">In your library</span>
                   </Show>
+                  <Show when={downloadLabel(filmDownload())}>
+                    {(label) => (
+                      <span class="badge badge-library">
+                        <Icon name="download" /> {label()}
+                      </span>
+                    )}
+                  </Show>
                 </p>
                 <Show when={t().overview}>
                   <p class="details-overview">{t().overview}</p>
@@ -234,6 +277,11 @@ export function Details(props: { id: string }) {
                       </button>
                     )}
                   </Show>
+                  <Show when={canDownload() && !isKids() && !(t().kind === "movie" && filmDownload())}>
+                    <button class="btn btn-large" data-focus onClick={() => void downloadIt()}>
+                      <Icon name="download" /> Download to box
+                    </button>
+                  </Show>
                   <Show when={t().kind === "movie" && !isKids() && !t().inLibrary && streams()?.streams.some((s) => s.downloadable)}>
                     <button class="btn btn-large" data-focus onClick={() => void save()}>
                       <Icon name="download" /> Save to NAS
@@ -271,6 +319,13 @@ export function Details(props: { id: string }) {
                                 <span class="card-badge">
                                   <Icon name="check" /> Watched
                                 </span>
+                              </Show>
+                              <Show when={downloadLabel(episodeDownload(e))}>
+                                {(label) => (
+                                  <span class="card-badge card-badge-download">
+                                    <Icon name="download" /> {label()}
+                                  </span>
+                                )}
                               </Show>
                               <Show when={e.progress}>
                                 <Progress value={e.progress!} class="card-progress" />

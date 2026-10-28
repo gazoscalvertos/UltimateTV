@@ -10,6 +10,7 @@ import { Icon } from "../components/Icon";
 import { Progress } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
+import { canDownload, downloadLabel, downloadOf, downloadToBox, recordingRequest } from "../downloads";
 import { useKeys } from "../keys";
 import { play } from "../player";
 import { errorToast, isKids, type PlannerTab, toast } from "../store";
@@ -71,11 +72,13 @@ export function Planner(props: { tab?: PlannerTab }) {
       options: [
         { label: r.positionMs > 0 && !r.watched ? "Resume" : "Play", value: "play", icon: "play" },
         { label: r.watched ? "Mark as not watched" : "Mark as watched", value: "watched", icon: "check" },
+        ...(canDownload() && !isKids() ? [{ label: downloadLabel(downloadOf({ kind: "recording", id: r.id })) ?? "Download to box", value: "download", icon: "download" }] : []),
         ...(isKids() ? [] : [{ label: "Delete", value: "delete", icon: "trash", tone: "danger" as const }]),
       ],
     });
     if (pick === "play") void play({ kind: "recording", id: r.id });
     if (pick === "watched") await act(() => hub.markWatched(r.id, !r.watched));
+    if (pick === "download") await downloadToBox([recordingRequest(r)], r.programme.title).catch(errorToast);
     if (pick === "delete" && (await confirm("Delete this recording?", `${r.programme.title} will be deleted from the NAS.`, "Delete", true))) await act(() => hub.deleteRecording(r.id), "Recording deleted");
   };
 
