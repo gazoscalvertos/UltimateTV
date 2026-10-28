@@ -21,6 +21,8 @@ STATE=/etc/ultimatetv/travel.env
 WORK=/var/lib/ultimatetv/travel
 LOCAL_PORT="${LOCAL_PORT:-8095}"
 LOCAL_HUB="http://127.0.0.1:$LOCAL_PORT"
+# Set from $STATE while the Hub is away.
+HOME_HUB="" MOVE_KEY="" TOKEN="" AWAY_SINCE=""
 
 say() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mwarning:\033[0m %s\n' "$*" >&2; }
