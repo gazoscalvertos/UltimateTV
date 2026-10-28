@@ -21,10 +21,17 @@ export function onAnyKey(fn: () => void): () => void {
   };
 }
 
-/** Sees keys before any screen or dialog: a pop-up from /api/notify that OK or Back closes. */
-let overlayHandler: KeyHandler | null = null;
-export function setOverlayKeys(handler: KeyHandler | null): void {
-  overlayHandler = handler;
+/**
+ * Sees keys before any screen or dialog: a pop-up from /api/notify that OK or Back closes, or a
+ * jump scare. The newest overlay gets first refusal, as with screens.
+ */
+const overlays: KeyHandler[] = [];
+export function addOverlayKeys(handler: KeyHandler): () => void {
+  overlays.push(handler);
+  return () => {
+    const i = overlays.lastIndexOf(handler);
+    if (i >= 0) overlays.splice(i, 1);
+  };
 }
 
 export function onBack(fn: () => void): void {
@@ -43,7 +50,7 @@ export function useKeys(handler: KeyHandler): void {
 /** Feeds a key into the app as if pressed (used by the box for CEC power events and by tests). */
 export function dispatch(action: Action, e: KeyboardEvent = new KeyboardEvent("keydown")): void {
   for (const fn of pressListeners) fn();
-  if (overlayHandler?.(action, e) === true) return;
+  for (let i = overlays.length - 1; i >= 0; i--) if (overlays[i]!(action, e) === true) return;
   for (let i = handlers.length - 1; i >= 0; i--) if (handlers[i]!(action, e) === true) return;
   switch (action) {
     case "up":

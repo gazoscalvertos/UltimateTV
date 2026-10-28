@@ -2,8 +2,8 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { Certification, MixChannelInfo, PairedDevice, PendingScreen, Profile, PublicSettings } from "@ultimatetv/shared";
-import { CERTIFICATIONS, formatBytes } from "@ultimatetv/shared";
+import type { Certification, MixChannelInfo, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ThemeChoice } from "@ultimatetv/shared";
+import { CERTIFICATIONS, formatBytes, resolveTheme, THEME_CHOICES } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -11,7 +11,7 @@ import { Icon } from "../components/Icon";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
 import { pairStamp } from "../pairing";
-import { appName, errorToast, setAppName, nav, setShowStats, showStats, toast } from "../store";
+import { appName, errorToast, setAppName, nav, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 
 function Row(props: { label: string; value?: JSX.Element; hint?: string; onSelect?: () => void; icon?: string }) {
@@ -53,6 +53,7 @@ const ago = (t: number) => {
 };
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const cycle = <T,>(list: readonly T[], value: T): T => list[(list.indexOf(value) + 1) % list.length]!;
+const THEME_LABELS: Record<ThemeChoice, string> = { auto: "Auto (Halloween week)", default: "Plain", halloween: "Halloween" };
 
 export function Settings(props: { section?: string }) {
   const [settings, { mutate }] = createResource(() => hub.settings());
@@ -250,7 +251,32 @@ export function Settings(props: { section?: string }) {
     }
   };
 
-  const save = async (patch: Partial<Pick<PublicSettings, "recording" | "playback">>) => {
+  const [scares, { mutate: mutateScares, refetch: refetchScares }] = createResource(
+    () => section() === "scares",
+    (open) => (open ? hub.scares().catch(() => null) : Promise.resolve(null)),
+  );
+  onCleanup(
+    onHubEvent((e) => {
+      if (e.type === "scares.changed" && section() === "scares") void refetchScares();
+    }),
+  );
+  const saveScares = async (patch: Partial<ScareSettings>) => {
+    try {
+      mutateScares(await hub.saveScares(patch));
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+
+  /** The theme is kept on the Hub, so the phone remote wears it too; the TV puts it on at once. */
+  const changeTheme = async () => {
+    const next = cycle(THEME_CHOICES, settings()!.theme ?? "auto");
+    await save({ theme: next });
+    setTheme(resolveTheme(next));
+    toast(`Theme: ${THEME_LABELS[next]}`, "good");
+  };
+
+  const save = async (patch: Partial<Pick<PublicSettings, "recording" | "playback" | "theme">>) => {
     try {
       mutate(await hub.saveSettings(patch));
     } catch (err) {
@@ -333,6 +359,7 @@ export function Settings(props: { section?: string }) {
     { id: "playback", label: "Picture and sound" },
     { id: "recording", label: "Recording" },
     { id: "music", label: "Music channels" },
+    { id: "scares", label: "Jump scares" },
     { id: "sources", label: "Sources" },
     { id: "remote", label: "Phones and remotes" },
     { id: "about", label: "About" },
@@ -433,6 +460,32 @@ export function Settings(props: { section?: string }) {
               </Show>
             </Show>
 
+            <Show when={section() === "scares"}>
+              <h2>Jump scares</h2>
+              <p class="hint">
+                Cuts a short clip in over whatever is on, now and then, and leaves it there for a few seconds. Clips are uploaded from the phone remote's
+                Scares tab, which can also set one off on the spot. Never on a Kids profile.
+              </p>
+              <Show when={scares()} fallback={<div class="spinner" />}>
+                {(sc) => {
+                  const s = () => sc().settings;
+                  return (
+                    <>
+                      <Row label="Random scares" value={s().enabled ? "On" : "Off"} hint={sc().clips.length ? undefined : "With no clips uploaded, the TV draws (and screams) its own"} onSelect={() => void saveScares({ enabled: !s().enabled })} />
+                      <Row label="At most one every" value={`${s().minGapMinutes} min`} onSelect={() => void saveScares({ minGapMinutes: cycle([10, 20, 30, 45, 60, 120], s().minGapMinutes) })} />
+                      <Row label="How likely" hint="The chance of a scare in each minute once that gap has passed" value={`${s().chancePercent}%`} onSelect={() => void saveScares({ chancePercent: cycle([5, 10, 25, 50, 100], s().chancePercent) })} />
+                      <Row label="On screen for" value={`${s().seconds} sec`} onSelect={() => void saveScares({ seconds: cycle([2, 3, 4, 6, 10], s().seconds) })} />
+                      <Row label="How loud" value={`${Math.round(s().volume * 100)}%`} onSelect={() => void saveScares({ volume: cycle([0, 0.3, 0.5, 0.7, 1], s().volume) })} />
+                      <Row label="During live TV too" hint="Off means only films, episodes and recordings get scares" value={s().duringLive ? "On" : "Off"} onSelect={() => void saveScares({ duringLive: !s().duringLive })} />
+                      <Row label="Only while something is playing" hint="Off lets a scare land on the menus as well" value={s().whilePlayingOnly ? "On" : "Off"} onSelect={() => void saveScares({ whilePlayingOnly: !s().whilePlayingOnly })} />
+                      <Row label="Clips" value={sc().clips.length ? `${sc().clips.length} · ${formatBytes(sc().clips.reduce((a, c) => a + c.sizeBytes, 0))}` : "None yet"} hint={sc().clips.map((c) => c.name).join(" · ") || "Upload them from the phone remote's Scares tab"} />
+                      <Row label="Try one now" icon="play" hint="Shows a scare on this TV straight away" onSelect={() => void hub.scareNow().catch(errorToast)} />
+                    </>
+                  );
+                }}
+              </Show>
+            </Show>
+
             <Show when={section() === "sources"}>
               <h2>Sources</h2>
               <div class="sources">
@@ -502,6 +555,13 @@ export function Settings(props: { section?: string }) {
             <Show when={section() === "about"}>
               <h2>About</h2>
               <Row label="App name" value={appName()} hint="Rename the app on the TV, the phone remote and Spotify" icon="edit" onSelect={() => void rename()} />
+              <Row
+                label="Theme"
+                value={THEME_LABELS[settings()!.theme ?? "auto"]}
+                hint={settings()!.theme === "auto" ? "Wears the Halloween theme over Halloween week, and is plain the rest of the year" : "The look of the TV and the phone remote"}
+                icon="list"
+                onSelect={() => void changeTheme()}
+              />
               <Row label="Hub" value={`${appName()} ${status()?.version ?? ""}${status()?.commit ? ` · ${status()!.commit}` : ""}${status()?.builtAt ? ` · ${shortDate(status()!.builtAt!)}` : ""}${status()?.demo ? " · demo mode" : ""}`} />
               <Row label="Update the Hub" value={hubState()} hint={hubChanges() || "Checks GitHub for the latest code"} icon="download" onSelect={() => void updateHub()} />
               <Row label="Box" value={box() ? `${box()!.hostname ?? box()!.kind} · ${box()!.version}` : ""} />
