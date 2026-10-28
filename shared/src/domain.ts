@@ -3,6 +3,7 @@
 
 import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState } from "./agent.js";
 import type { SpotifyState, WebAppState } from "./music.js";
+import type { ScreensaverSettings } from "./screensaver.js";
 
 export type Id = string;
 
@@ -521,6 +522,8 @@ export interface Settings {
   numbering: "uk" | "provider";
   /** Regular expression on the provider's group/category names; channels outside it are hidden. Empty = show all. */
   channelFilter: string;
+  /** Dimming the screen and the screensaver when the TV is left with nothing playing. */
+  screensaver: ScreensaverSettings;
 }
 
 /** Settings as the UI sees them: secrets replaced by a flag saying they're set. */
@@ -538,6 +541,7 @@ export interface PublicSettings {
   numbering: Settings["numbering"];
   channelFilter: string;
   library: Settings["library"];
+  screensaver: ScreensaverSettings;
   setupUrl: string;
 }
 

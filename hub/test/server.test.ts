@@ -122,6 +122,35 @@ describe("hub API", () => {
     expect(range.body).toBe("cde");
   });
 
+  it("keeps screensaver settings in range and serves the photos folder", async () => {
+    const media = path.join(tmp, "media");
+    const photos = path.join(media, "Photos");
+    await mkdir(path.join(photos, "Holiday"), { recursive: true });
+    await writeFile(path.join(photos, "beach.jpg"), "jpeg");
+    await writeFile(path.join(photos, "Holiday", "boat.PNG"), "png");
+    await writeFile(path.join(photos, "Holiday", "waves.mp4"), "mp4");
+    await writeFile(path.join(photos, "notes.txt"), "not a photo");
+    await start({ mediaRoot: media });
+
+    expect((await app.inject("/api/settings")).json().screensaver).toMatchObject({ dimAfterMin: 10, theme: "shuffle", photosPath: "" });
+    const saved = await app.inject({ method: "PUT", url: "/api/settings", payload: { screensaver: { theme: "nonsense", dimAfterMin: -5, photoSeconds: 9999, clock: false } } });
+    expect(saved.json().screensaver).toMatchObject({ theme: "shuffle", dimAfterMin: 0, photoSeconds: 600, clock: false });
+    expect((await app.inject({ method: "PUT", url: "/api/settings", payload: { screensaver: { photosPath: "/etc" } } })).statusCode).toBe(400);
+    const ok = await app.inject({ method: "PUT", url: "/api/settings", payload: { screensaver: { photosPath: photos, theme: "photos" } } });
+    expect(ok.json().screensaver).toMatchObject({ theme: "photos", clock: false });
+
+    expect((await app.inject("/api/screensaver")).json()).toMatchObject({ photoCount: 3 });
+    const browse = (await app.inject(`/api/screensaver/nas?dir=${encodeURIComponent(photos)}`)).json();
+    expect(browse.files.map((f: { name: string }) => f.name)).toEqual(["beach.jpg"]);
+    expect(browse.folders.map((f: { name: string }) => f.name)).toEqual(["Holiday"]);
+    const { photos: list } = (await app.inject("/api/screensaver/photos")).json<{ photos: { id: string; kind: string }[] }>();
+    expect(list.map((p) => p.kind).sort()).toEqual(["image", "image", "video"]);
+    const file = await app.inject(`/api/screensaver/photos/${list.find((p) => p.kind === "video")!.id}`);
+    expect(file.statusCode).toBe(200);
+    expect(file.body).toBe("mp4");
+    expect((await app.inject("/api/screensaver/photos/0123456789abcdef0123")).statusCode).toBe(404);
+  });
+
   it("returns no clips when the folder is missing", async () => {
     await start();
     expect((await app.inject("/api/clips")).json()).toEqual({ clips: [] });

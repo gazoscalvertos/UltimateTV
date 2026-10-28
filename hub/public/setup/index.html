@@ -90,7 +90,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -142,6 +142,23 @@
     <label class="opt"><span>Largest file to stream<small>Bigger versions are moved down the list</small></span><select data-pb="maxSizeGb" data-number><option value="20">20 GB</option><option value="40">40 GB</option><option value="60">60 GB</option><option value="100">100 GB</option></select></label>
     <label class="opt"><span>Avoid Dolby Vision profile 5<small>Those files show the wrong colours, as the box plays Dolby Vision as HDR10</small></span><input type="checkbox" data-pb="avoidDvProfile5"></label>
     <label class="opt"><span>Playback stats on the TV<small>The stream, picture and sound details over the video</small></span><input type="checkbox" id="stats"></label>
+  </section>
+
+  <section id="screensaver">
+    <h2>Screensaver <span class="pill" id="ss-pill"></span></h2>
+    <p class="hint">When the TV's left with nothing playing, the screen dims and later a screensaver starts. Any button on the remote brings it back without doing anything else. Paused video counts as nothing playing.</p>
+    <label class="opt"><span>Dim the screen</span><select data-ss="dimAfterMin" data-number><option value="0">Never</option><option value="2">After 2 min</option><option value="5">After 5 min</option><option value="10">After 10 min</option><option value="15">After 15 min</option><option value="30">After 30 min</option><option value="60">After 1 hour</option></select></label>
+    <label class="opt"><span>How dark</span><select data-ss="dimPercent" data-number><option value="50">50%</option><option value="70">70%</option><option value="85">85%</option></select></label>
+    <label class="opt"><span>Screensaver<small id="ss-detail"></small></span><select data-ss="theme"></select></label>
+    <label class="opt"><span>Start the screensaver</span><select data-ss="startAfterMin" data-number><option value="0">Never</option><option value="5">After 5 min</option><option value="10">After 10 min</option><option value="15">After 15 min</option><option value="20">After 20 min</option><option value="30">After 30 min</option><option value="60">After 1 hour</option><option value="120">After 2 hours</option></select></label>
+    <label class="opt"><span>Each picture for<small>Photos, landscapes and art</small></span><select data-ss="photoSeconds" data-number><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">60 s</option></select></label>
+    <label class="opt"><span>Show the clock</span><input type="checkbox" data-ss="clock"></label>
+    <form id="ss-folder">
+      <label>Your photos<small id="ss-count"> a folder on the NAS; photos and short videos (mp4, mov, webm) in it and its folders</small></label>
+      <div class="row"><input name="path" placeholder="/mnt/nas/Photos" autocomplete="off"><button class="small" style="margin:0">Use</button></div>
+      <button type="button" class="small secondary" style="margin:6px 0 0" id="ss-browse">Browse the NAS</button>
+      <div class="nas-browse" id="ss-nas"></div>
+    </form>
   </section>
 
   <section id="recording">
@@ -570,12 +587,59 @@ function setValue(el, v) {
   }
 }
 const valueOf = (el) => (el.type === "checkbox" ? el.checked : "number" in el.dataset ? Number(el.value) : el.value);
-for (const el of document.querySelectorAll("[data-pb], [data-rec]")) {
+for (const el of document.querySelectorAll("[data-pb], [data-rec], [data-ss]")) {
   el.addEventListener("change", async () => {
-    const body = el.dataset.pb ? { playback: { [el.dataset.pb]: valueOf(el) } } : { recording: { [el.dataset.rec]: valueOf(el) } };
-    try { await api("/api/settings", { method: "PUT", body }); toast("Saved"); } catch (err) { toast(err.message, true); load().catch(() => {}); }
+    const body = el.dataset.pb ? { playback: { [el.dataset.pb]: valueOf(el) } } : el.dataset.ss ? { screensaver: { [el.dataset.ss]: valueOf(el) } } : { recording: { [el.dataset.rec]: valueOf(el) } };
+    try {
+      const saved = await api("/api/settings", { method: "PUT", body });
+      toast("Saved");
+      if (el.dataset.ss) loadScreensaver(saved).catch(() => {});
+    } catch (err) { toast(err.message, true); load().catch(() => {}); }
   });
 }
+
+// The screensaver: its themes come from the Hub, and the photos folder is picked from the NAS.
+let ssThemes = [];
+async function loadScreensaver(s) {
+  const info = await api("/api/screensaver");
+  ssThemes = info.themes;
+  const sel = $('[data-ss="theme"]');
+  if (sel.options.length !== info.themes.length) {
+    sel.innerHTML = "";
+    for (const t of info.themes) sel.add(new Option(t.name, t.id));
+  }
+  for (const el of document.querySelectorAll("[data-ss]")) setValue(el, s.screensaver[el.dataset.ss]);
+  $("#ss-detail").textContent = info.themes.find((t) => t.id === s.screensaver.theme)?.detail ?? "";
+  $("#ss-folder").path.value = s.screensaver.photosPath;
+  $("#ss-count").textContent = s.screensaver.photosPath ? ` ${info.photoError ?? `${info.photoCount ?? 0} photos and videos found`}` : " a folder on the NAS; photos and short videos (mp4, mov, webm) in it and its folders";
+  pill("#ss-pill", s.screensaver.theme === "off" ? (s.screensaver.dimAfterMin ? "Dims only" : "Off") : info.themes.find((t) => t.id === s.screensaver.theme)?.name ?? "", s.screensaver.theme === "off" ? "" : "ok");
+}
+$('[data-ss="theme"]').addEventListener("change", (e) => { $("#ss-detail").textContent = ssThemes.find((t) => t.id === e.target.value)?.detail ?? ""; });
+const useFolder = (path) => api("/api/settings", { method: "PUT", body: { screensaver: { photosPath: path } } })
+  .then((s) => { toast("Photos folder set"); $("#ss-nas").innerHTML = ""; return loadScreensaver(s); })
+  .catch((e) => toast(e.message, true));
+$("#ss-folder").onsubmit = (e) => { e.preventDefault(); useFolder(e.target.path.value.trim()); };
+async function browsePhotos(dir) {
+  let l;
+  try { l = await api(`/api/screensaver/nas${dir ? `?dir=${encodeURIComponent(dir)}` : ""}`); } catch (e) { return toast(e.message, true); }
+  const box = $("#ss-nas");
+  box.innerHTML = `<p class="hint" style="margin:8px 0 4px"></p><ul class="list"></ul>`;
+  box.querySelector("p").textContent = l.dir ? `${l.dir} · ${l.files.length} here` : "Shares on the Hub";
+  const items = box.querySelector("ul");
+  const item = (label, action, btn) => {
+    const li = document.createElement("li");
+    const t = document.createElement("span");
+    t.textContent = label;
+    li.append(t);
+    if (btn) li.append(btn); else { t.style.cursor = "pointer"; t.onclick = action; }
+    items.append(li);
+  };
+  if (l.dir) item("This folder", null, button("Use it", "", () => useFolder(l.dir)));
+  if (l.dir) item("⬆ Up a folder", () => browsePhotos(l.parent || ""));
+  for (const d of l.folders) item(`📁 ${d.name}`, () => browsePhotos(d.path));
+  if (!l.folders.length && !l.dir) item("No shares mounted", () => {});
+}
+$("#ss-browse").onclick = () => browsePhotos($("#ss-folder").path.value.trim());
 
 // Updates and the TV.
 const shortSha = (c) => (c ? c.slice(0, 7) : "unknown");
@@ -695,6 +759,7 @@ async function load() {
   $("#jf-disconnect").hidden = !s.jellyfin;
   for (const el of document.querySelectorAll("[data-pb]")) setValue(el, s.playback[el.dataset.pb]);
   for (const el of document.querySelectorAll("[data-rec]")) setValue(el, s.recording[el.dataset.rec]);
+  if (s.screensaver) loadScreensaver(s).catch(() => {});
   for (const [id, on] of [["#tmdb-pill", s.tmdb], ["#torbox-pill", s.torbox]]) { $(id).textContent = on ? "Set" : "Not set"; $(id).className = "pill" + (on ? " ok" : ""); }
   $("#addon-list").innerHTML = s.addons.map((a) => `<li><span>${a.name}<small>${a.url}</small></span></li>`).join("");
   const lib = $("#lib-form");

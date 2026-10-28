@@ -98,8 +98,8 @@ export async function insideRoots(p: string, roots: string[]): Promise<string | 
   return roots.some((r) => real === r || real.startsWith(r.endsWith("/") ? r : `${r}/`)) ? real : undefined;
 }
 
-/** One folder's subfolders and video files; the roots themselves when `dir` is empty. */
-export async function listNas(dir: string | undefined, roots: string[]): Promise<NasListing> {
+/** One folder's subfolders and video files (or whatever `wanted` picks); the roots themselves when `dir` is empty. */
+export async function listNas(dir: string | undefined, roots: string[], wanted: (file: string) => boolean = isVideoFile): Promise<NasListing> {
   if (!dir) return { dir: "", folders: roots.map((r) => ({ name: r, path: r })), files: [] };
   const real = await insideRoots(dir, roots);
   if (!real) throw Object.assign(new Error("That folder isn't on the NAS"), { statusCode: 400 });
@@ -110,7 +110,7 @@ export async function listNas(dir: string | undefined, roots: string[]): Promise
     if (e.name.startsWith(".") || e.name.startsWith("@")) continue;
     const p = path.join(real, e.name);
     if (e.isDirectory()) folders.push({ name: e.name, path: p });
-    else if (e.isFile() && isVideoFile(e.name)) files.push({ name: e.name, path: p, sizeBytes: (await stat(p).catch(() => null))?.size ?? 0 });
+    else if (e.isFile() && wanted(e.name)) files.push({ name: e.name, path: p, sizeBytes: (await stat(p).catch(() => null))?.size ?? 0 });
   }
   const out: NasListing = { dir: real, folders, files };
   if (!roots.includes(real)) out.parent = path.dirname(real);
@@ -118,7 +118,10 @@ export async function listNas(dir: string | undefined, roots: string[]): Promise
 }
 
 /** Every video file in a folder and its subfolders (up to `limit`), in name order. */
-export async function videosIn(dir: string, limit = 500): Promise<string[]> {
+export const videosIn = (dir: string, limit = 500) => filesIn(dir, isVideoFile, limit);
+
+/** Every file `wanted` picks in a folder and its subfolders (up to `limit`), in name order. */
+export async function filesIn(dir: string, wanted: (file: string) => boolean, limit = 500): Promise<string[]> {
   const out: string[] = [];
   const walk = async (d: string, depth: number) => {
     if (out.length >= limit || depth > 6) return;
@@ -128,7 +131,7 @@ export async function videosIn(dir: string, limit = 500): Promise<string[]> {
       if (e.name.startsWith(".") || e.name.startsWith("@")) continue;
       const p = path.join(d, e.name);
       if (e.isDirectory()) await walk(p, depth + 1);
-      else if (e.isFile() && isVideoFile(e.name)) out.push(p);
+      else if (e.isFile() && wanted(e.name)) out.push(p);
     }
   };
   await walk(dir, 0);

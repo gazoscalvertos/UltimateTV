@@ -11,6 +11,7 @@ import { EasterEggs } from "./components/EasterEggs";
 import { Halloween } from "./components/Halloween";
 import { JumpScare } from "./components/JumpScare";
 import { NewsFlash } from "./components/NewsFlash";
+import { ScreensaverLayer } from "./components/Screensaver";
 import { Notices } from "./components/Notices";
 import { StartingCard } from "./components/Starting";
 import { startEvents, onHubEvent } from "./events";
@@ -36,6 +37,7 @@ import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
+import { startIdle, wake } from "./idle";
 
 function ScreenError(props: { error: unknown; reset: () => void }) {
   const message = props.error instanceof ApiError && props.error.status === 403 ? "That isn't available on this profile." : props.error instanceof Error ? props.error.message : "Something went wrong.";
@@ -159,6 +161,7 @@ export function App() {
     void pairScreen().then(startEvents);
     startRemoteBridge();
     startPhoneBridge();
+    startIdle();
     startQueue();
     void startMusic();
     void restoreSession();
@@ -209,6 +212,7 @@ export function App() {
           await pauseAllMusic();
           return;
         }
+        wake();
         const { locked } = await hub.profiles().catch(() => ({ locked: false }));
         nav.reset({ name: locked ? "profiles" : "home" });
       }),
@@ -281,6 +285,7 @@ export function App() {
       <div class="toasts">
         <For each={toasts()}>{(t) => <div class={`toast toast-${t.tone}`}>{t.message}</div>}</For>
       </div>
+      <ScreensaverLayer />
     </>
   );
 }

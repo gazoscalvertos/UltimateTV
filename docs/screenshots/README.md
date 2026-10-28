@@ -37,3 +37,6 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 54 | A film added to the queue with Green |
 | 55, 56 | Your queue on Home, and what selecting something in it offers |
 | 57 | The queue on the phone: play now, play next or remove |
+| 58 | Settings › Screensaver: dimming, the theme, your photos folder and Try it now |
+| 59 | Screensavers full size: Northern lights, Fireplace, Halloween, Landscapes |
+| 60 | Every built-in screensaver on one sheet |

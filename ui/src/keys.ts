@@ -34,6 +34,12 @@ export function addOverlayKeys(handler: KeyHandler): () => void {
   };
 }
 
+/** Sees every key first: while the screen is dimmed or the screensaver is up, a key only wakes it. */
+let wakeHandler: (() => boolean) | null = null;
+export function setWakeHandler(handler: (() => boolean) | null): void {
+  wakeHandler = handler;
+}
+
 export function onBack(fn: () => void): void {
   fallbackBack = fn;
 }
@@ -49,6 +55,7 @@ export function useKeys(handler: KeyHandler): void {
 
 /** Feeds a key into the app as if pressed (used by the box for CEC power events and by tests). */
 export function dispatch(action: Action, e: KeyboardEvent = new KeyboardEvent("keydown")): void {
+  if (wakeHandler?.()) return;
   for (const fn of pressListeners) fn();
   for (let i = overlays.length - 1; i >= 0; i--) if (overlays[i]!(action, e) === true) return;
   for (let i = handlers.length - 1; i >= 0; i--) if (handlers[i]!(action, e) === true) return;
@@ -69,6 +76,10 @@ export function dispatch(action: Action, e: KeyboardEvent = new KeyboardEvent("k
 }
 
 window.addEventListener("keydown", (e) => {
+  if (wakeHandler?.()) {
+    e.preventDefault();
+    return;
+  }
   const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
   // A real keyboard typing into a box: letters are letters, not colour keys.
   if (typing && (e.key.length === 1 || e.key === "Backspace")) return;

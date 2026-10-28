@@ -5,3 +5,4 @@ export * from "./keys.js";
 export * from "./text.js";
 export * from "./agent.js";
 export * from "./music.js";
+export * from "./screensaver.js";
