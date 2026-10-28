@@ -308,6 +308,41 @@ try {
   await fetch(`${base}/api/notify`, { method: "DELETE", headers: asTv });
   await key("Escape");
 
+  // A jump scare cut into the film (no clips uploaded, so the TV draws its own).
+  await fetch(`${base}/api/scares/now`, { method: "POST", headers: { ...asTv, "Content-Type": "application/json" }, body: "{}" });
+  await wait(900);
+  await shot("49-jump-scare");
+  await key("Enter");
+  if (await page.locator(".jump-scare").count()) errors.push("OK didn't close the jump scare");
+  await key("Escape");
+  await key("Escape");
+
+  // The Halloween theme, Spooky TV and the jump scare settings.
+  await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ theme: "halloween" }) });
+  // The profile is already picked by now, so a reload lands straight on Home.
+  await page.goto(`${base}/app/`);
+  await wait(1800);
+  await shot("50-halloween-home");
+  await tab("Settings");
+  await wait(1000);
+  // A key press first, or the screen puts focus back on its first section as it loads.
+  await key("ArrowDown");
+  await page.locator(".settings-nav-item", { hasText: "Music channels" }).first().focus();
+  await wait(1500);
+  await page.locator(".setting-row", { hasText: "Spooky TV" }).first().focus();
+  await key("Enter");
+  await wait(1500);
+  await shot("51-spooky-tv");
+  await key("Escape");
+  await wait(800);
+  await page.locator(".settings-nav-item", { hasText: "Jump scares" }).first().focus();
+  await wait(1200);
+  await shot("52-settings-jump-scares");
+  // Back to the plain theme for the screenshots that follow.
+  await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ theme: "default" }) });
+  await page.goto(`${base}/app/`);
+  await wait(1800);
+
   // Kids profile.
   await page.locator(".avatar-small").first().focus();
   await key("Enter");
@@ -384,6 +419,13 @@ try {
   await phone.waitForTimeout(300);
   await phone.screenshot({ path: path.join(out, "47-phone-popup.png") });
   console.log("  47-phone-popup.png");
+  // Jump scares from the phone.
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
+  await phone.click("#scare-btn");
+  await phone.waitForTimeout(800);
+  await phone.screenshot({ path: path.join(out, "53-phone-scares.png") });
+  console.log("  53-phone-scares.png");
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.click("#settings");

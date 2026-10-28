@@ -1,0 +1,131 @@
+# Halloween: the theme, Spooky TV and jump scares
+
+Three separate things, each of which can be left on all year or turned off entirely:
+
+- a **Halloween theme** for the TV app, with decorations and a few hidden easter eggs,
+- **Spooky TV**, a channel of haunted houses and ghost sounds the Hub fills itself,
+- **jump scares**, a short clip cut in over whatever is on, worked from the phone remote.
+
+![The Halloween theme on Home](screenshots/50-halloween-home.png)
+
+## The theme
+
+TV › **Settings › About › Theme**:
+
+| Setting | What it does |
+| --- | --- |
+| Auto (Halloween week) | Halloween from 25 October to 1 November, plain the rest of the year. The default. |
+| Plain | The usual dark blue. |
+| Halloween | Orange and purple, all year. |
+
+The theme is kept on the Hub (`PUT /api/settings` with `{"theme":"halloween"}`), so the TV and the
+phone remote both wear it, and the TV checks again every hour so "auto" doesn't stay a day behind on
+a TV that is never reloaded.
+
+When it's on, the menus are orange on deep purple, cobwebs hang in the top corners, fog drifts
+along the bottom, and a bat flaps across every minute or so. None of it appears while something is
+playing, and none of it on a Kids profile.
+
+### Easter eggs
+
+These work whatever the theme is (but not on a Kids profile). Press on the remote, or the phone's
+pad:
+
+| Keys | What happens |
+| --- | --- |
+| Up, Up, Down, Down, Left, Right, Left, Right | Three ghosts drift up the screen with a wail, and the Halloween theme comes on until you change it back. |
+| Red, Red, Red | The lights flicker. |
+| 1, 3, 1, 3 | Pumpkins rain down the screen. |
+
+Each run has to be done in one go: a gap of more than about two seconds starts it again.
+
+## Spooky TV (channel 393)
+
+A made-up channel like the music ones (see [music-channels.md](music-channels.md)), but of a
+different sort: an **atmosphere** channel. The Hub searches YouTube for long, good-looking
+clips — haunted houses, foggy graveyards, drifting apparitions, creaking doors — downloads them to
+`<media>/Music Videos` and plays them in a never-repeating shuffle, so it can be left on in the
+background at a party or while the trick-or-treaters come to the door.
+
+![Spooky TV](screenshots/51-spooky-tv.png)
+
+An atmosphere channel is judged differently from a music one:
+
+- length is welcome (up to 90 minutes, rather than 10), and a clip as short as 45 seconds is fine,
+- nothing has to look like a single, so "official video" counts for nothing and words such as
+  "1 hour" don't rule a clip out,
+- two different haunted houses aren't a duplicate, so only near-identical titles are skipped.
+
+Any channel can be either sort: on the channel's screen, **Channel options › Plays**. Adding to an
+atmosphere channel takes scenes to look for ("foggy graveyard", "candlelit library"), not
+`Artist - Title`.
+
+Spooky TV arrives when the Hub updates — the Hub records which starter channels it has made by
+name, so new ones appear and ones the household deleted stay deleted.
+
+## Jump scares
+
+A clip cut in **full screen over whatever is on**, for a few seconds, then gone. OK or Back takes
+it away early. Never on a Kids profile, and never while the app is in the background.
+
+![A jump scare cut into a film](screenshots/49-jump-scare.png)
+
+Set up on the phone remote's **Scares** tab, or on the TV in **Settings › Jump scares**:
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| Random scares | Off | Nothing happens by itself until this is on. |
+| At most one every | 20 min | Nothing ever comes closer together than this. |
+| How likely | Often (25%) | The chance of a scare in each minute, once the gap has passed. |
+| On screen for | 4 sec | A clip shorter than this ends the scare when it finishes. |
+| How loud | 70% | A scare with no clip (or a picture) screams instead. |
+| Live TV too | On | Off means only films, episodes and recordings. |
+| Only while watching | On | Off lets one land on the menus as well. |
+
+![The TV's jump scare settings](screenshots/52-settings-jump-scares.png)
+![The phone's Scares tab](screenshots/53-phone-scares.png)
+
+**Scare them now** on the phone sets one off at once, whether or not the random ones are on, and
+each clip in the list has its own **Show** button.
+
+With no clips uploaded, the TV draws its own face and screeches, so it works out of the box.
+
+### Clips
+
+Uploaded from the phone's Scares tab (**Add a clip**): a short MP4, WebM or MOV video, or a JPEG,
+PNG, GIF or WebP picture, up to 200 MB. The Hub keeps up to 40 of them in its own data directory,
+not on the NAS, and serves them to the TV.
+
+A two-to-four second clip works best: a face, a slam, a scream.
+
+### From a script or Home Assistant
+
+The jump scare endpoints take the same API key as pop-ups (see
+[notifications.md](notifications.md)), so a script can do it too:
+
+```bash
+# Scare whoever is watching, now.
+curl -X POST http://hub:8095/api/scares/now -H "X-Api-Key: $KEY"
+
+# Turn the random ones on until the morning, one every ten minutes at most.
+curl -X PUT http://hub:8095/api/scares -H "X-Api-Key: $KEY" -H 'Content-Type: application/json' \
+  -d '{"enabled":true,"minGapMinutes":10,"chancePercent":50}'
+
+# Upload a clip.
+curl -X POST "http://hub:8095/api/scares/clips?name=Doorway" -H "X-Api-Key: $KEY" \
+  -H 'Content-Type: video/mp4' --data-binary @doorway.mp4
+```
+
+| Endpoint | What it does |
+| --- | --- |
+| `GET /api/scares` | The settings and the clips. |
+| `PUT /api/scares` | Changes any of the settings above. |
+| `POST /api/scares/now` | Scares the TV now; `{"clipId":"…"}` picks a clip, otherwise one at random. |
+| `POST /api/scares/clips?name=…` | Uploads a clip (the body is the file). |
+| `DELETE /api/scares/clips/:id` | Deletes one. |
+
+## Turning the lot off
+
+- Theme: Settings › About › Theme › Plain.
+- Spooky TV: its channel screen › Channel options › Turn off (or Delete channel).
+- Jump scares: Settings › Jump scares › Random scares › Off.

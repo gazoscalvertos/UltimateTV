@@ -8,8 +8,9 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import QRCode from "qrcode";
 import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
 import { registerNotices } from "./notify.js";
+import { registerScares } from "./scares.js";
 import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
-import { cleanAppName, renderMatrix, validateReport, type ProbeReport } from "@ultimatetv/shared";
+import { cleanAppName, renderMatrix, THEME_CHOICES, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
@@ -107,6 +108,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/notify/media", "script"],
     ["DELETE /api/notify/:id", "script"],
     ["DELETE /api/notify", "script"],
+    ["PUT /api/scares", "script"],
+    ["POST /api/scares/now", "script"],
+    ["POST /api/scares/clips", "script"],
+    ["DELETE /api/scares/clips/:id", "script"],
     ["POST /api/tv/call/:method", "paired"],
     ["POST /api/music/login", "paired"],
     ["POST /api/box/check", "paired"],
@@ -352,6 +357,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (body.playback) patch.playback = { ...s.playback, ...body.playback };
     if (body.numbering) patch.numbering = body.numbering;
     if (body.appName !== undefined) patch.appName = cleanAppName(body.appName);
+    if (body.theme !== undefined && THEME_CHOICES.includes(body.theme)) patch.theme = body.theme;
     if (body.channelFilter !== undefined) {
       try {
         if (body.channelFilter) new RegExp(body.channelFilter);
@@ -462,6 +468,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   // Pop-ups on the TV from the phone or anything on the home network (a doorbell, an alarm).
   await registerNotices(app, ctx, config.dataDir);
+  // Jump scares: clips the Hub keeps and cuts in over whatever is on (see scares.ts).
+  await registerScares(app, ctx, config.dataDir);
   /** A QR code for a web address the TV shows, such as Spotify's sign-in page. */
   app.get("/api/qr.svg", async (req: Req<Record<string, string>, { text?: string }>, reply) => {
     const text = String(req.query.text ?? "");

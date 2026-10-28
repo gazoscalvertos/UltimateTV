@@ -8,7 +8,7 @@ import type { NoticeKind, NoticePosition, NoticeSound, TvNotice } from "@ultimat
 import { agent } from "../agent";
 import { api } from "../api";
 import { onHubEvent } from "../events";
-import { setOverlayKeys } from "../keys";
+import { addOverlayKeys } from "../keys";
 import { playerState } from "../player";
 
 const ICONS: Record<NoticeKind, () => JSX.Element> = {
@@ -131,7 +131,7 @@ export function Notices() {
     if (e.type === "notice.clear") drop(e.id);
     if (e.type === "hello") load();
   });
-  setOverlayKeys((action) => {
+  const offKeys = addOverlayKeys((action) => {
     const top = [...list()].reverse().find(blocking);
     if (!top || (action !== "ok" && action !== "back")) return false;
     dismiss(top.id);
@@ -139,7 +139,7 @@ export function Notices() {
   });
   onCleanup(() => {
     off();
-    setOverlayKeys(null);
+    offKeys();
     for (const t of timers.values()) window.clearTimeout(t);
     window.clearInterval(alarmTimer);
   });

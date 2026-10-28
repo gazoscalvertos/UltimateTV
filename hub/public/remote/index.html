@@ -10,6 +10,8 @@
 <link rel="icon" href="icon-192.png">
 <style>
   :root { --bg: #070b14; --panel: #121b2e; --panel-2: #1a2640; --fg: #f3f6fb; --muted: #8d99b0; --accent: #3d8bff; --accent-2: #00c2d1; color-scheme: dark; }
+  /* The Halloween theme, as chosen on the TV (Settings > About > Theme). */
+  html[data-theme="halloween"] { --bg: #0b0613; --panel: #1c0f2b; --panel-2: #261438; --fg: #f7efe6; --muted: #b39bc4; --accent: #f07b16; --accent-2: #8a4dff; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 16px/1.3 Inter, "Noto Sans", Roboto, system-ui, sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
   body { display: flex; flex-direction: column; padding: env(safe-area-inset-top) 18px calc(env(safe-area-inset-bottom) + 14px); }
@@ -165,6 +167,12 @@
   .ptoast { position: fixed; left: 18px; right: 18px; bottom: calc(env(safe-area-inset-bottom) + 84px); max-width: 420px; margin: 0 auto; padding: 12px 14px; border-radius: 12px; background: #1d2a44; border: 1px solid rgba(255,255,255,.1); font-size: 14px; text-align: center; transform: translateY(200%); opacity: 0; transition: transform .2s, opacity .2s; z-index: 20; pointer-events: none; }
   .ptoast.show { transform: none; opacity: 1; }
   .ptoast.bad { border-color: #ff5468; }
+  .sheet-body input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; margin: 2px 0 10px; }
+  .clip { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-bottom: 6px; border-radius: 12px; background: var(--panel); font-size: 14px; }
+  .clip span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .clip small { color: var(--muted); font-size: 12px; }
+  .clip button { height: 34px; padding: 0 12px; border-radius: 9px; font-size: 13px; background: var(--panel-2); }
+  .scare-now { background: #8a1f2d !important; font-weight: 700; }
 </style>
 <script src="/remote/pair.js"></script>
 </head>
@@ -259,6 +267,7 @@
   <button data-tab="browse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Watch</button>
   <button id="news-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM16 8.5a5 5 0 0 1 0 7M19 5.5a9 9 0 0 1 0 13"/></svg>News</button>
   <button id="notify-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><rect x="12" y="10" width="6" height="4" rx="1" fill="currentColor"/></svg>Pop-up</button>
+  <button id="scare-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11a7 7 0 0 1 14 0v9l-2.5-2-2.3 2.2-2.2-2.2-2.2 2.2L5.5 18z"/><path d="M9.5 10.5h.01M14.5 10.5h.01"/></svg>Scares</button>
   <a href="/setup/stats.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Stats</a>
 </nav>
 <div class="sheet" id="sheet" hidden><div class="sheet-body" id="sheet-body"></div></div>
@@ -390,7 +399,18 @@ function showAppName(name) {
   try { localStorage.setItem("utv-app-name", name); } catch {}
 }
 try { showAppName(localStorage.getItem("utv-app-name")); } catch {}
-fetch("/api/settings").then((r) => r.json()).then((s) => showAppName(s.appName)).catch(() => {});
+
+// The theme, as chosen on the TV. "auto" is Halloween week (25 October to 1 November).
+function showTheme(choice) {
+  const now = new Date();
+  const week = (now.getMonth() === 9 && now.getDate() >= 25) || (now.getMonth() === 10 && now.getDate() <= 1);
+  const theme = choice === "halloween" || (choice !== "default" && week) ? "halloween" : "default";
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]').content = theme === "halloween" ? "#0b0613" : "#070b14";
+  try { localStorage.setItem("utv-theme-choice", choice || "auto"); } catch {}
+}
+try { showTheme(localStorage.getItem("utv-theme-choice")); } catch {}
+fetch("/api/settings").then((r) => r.json()).then((s) => { showAppName(s.appName); showTheme(s.theme); }).catch(() => {});
 
 // Check the Hub is there.
 fetch("/api/health").then((r) => (r.ok ? setConn("ok", "Connected") : setConn("bad", "Hub error"))).catch(() => setConn("bad", "Can't reach the Hub"));

@@ -2,7 +2,7 @@
 // has, where OK on one offers to take it out (the Hub won't pick it again).
 
 import { createResource, For, onCleanup, Show } from "solid-js";
-import type { MixEntry, MixVideo } from "@ultimatetv/shared";
+import type { MixChannel, MixEntry, MixVideo } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { askText, choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
@@ -26,12 +26,16 @@ function statusOf(v: MixVideo): string {
   return `Couldn't download${v.error ? `: ${v.error}` : ""}`;
 }
 
-/** Splits typed text into tracks ("Artist - Title") and broader searches. */
-export function splitAdditions(text: string): { picks: string[]; queries: string[] } {
+/**
+ * Splits typed text into tracks ("Artist - Title") and broader searches. On an atmosphere channel
+ * everything typed is a scene to look for ("foggy graveyard"), not a song.
+ */
+export function splitAdditions(text: string, style: MixChannel["style"] = "music"): { picks: string[]; queries: string[] } {
   const parts = text
     .split(/[,;\n]+/)
     .map((t) => t.trim())
     .filter((t) => t.length > 1);
+  if (style === "ambience") return { picks: parts, queries: [] };
   return {
     picks: parts.filter((t) => / - /.test(t)),
     queries: parts.filter((t) => !/ - /.test(t)).map((t) => `${t} official music video`),
@@ -73,9 +77,9 @@ export function MixChannelScreen(props: { id: string }) {
   const addMore = async () => {
     const ch = c();
     if (!ch) return;
-    const text = await askText("Add artists, genres or songs (Artist - Title), with commas between");
+    const text = await askText(ch.style === "ambience" ? "Add scenes to look for, with commas between" : "Add artists, genres or songs (Artist - Title), with commas between");
     if (!text) return;
-    const add = splitAdditions(text);
+    const add = splitAdditions(text, ch.style);
     await act(() => hub.updateMix(ch.id, { picks: [...add.picks, ...ch.picks], queries: [...add.queries, ...ch.queries], target: ch.target + add.picks.length }), "Added. The Hub is looking for them now.");
   };
   /** Folder by folder through the NAS: OK on a file adds it, or add a whole folder at once. */
@@ -129,6 +133,7 @@ export function MixChannelScreen(props: { id: string }) {
         { label: "Rename", value: "rename", icon: "edit" },
         { label: "Describe it", value: "brief", icon: "list", detail: "What it's for, in a few words. An AI curator will work from this" },
         { label: `Number of videos: ${ch.target}`, value: "target" },
+        { label: `Plays: ${ch.style === "ambience" ? "atmosphere" : "music videos"}`, value: "style", detail: ch.style === "ambience" ? "Long atmospheric clips, as Spooky TV does" : "Music videos, one song each" },
         { label: `Picture: ${size(ch.minHeight)} to ${size(ch.maxHeight)}`, value: "size" },
         { label: ch.enabled ? "Turn off" : "Turn on", value: "enabled", detail: ch.enabled ? "Takes it out of the guide; its videos stay" : undefined },
         { label: "Delete channel", value: "delete", icon: "trash", tone: "danger" as const },
@@ -145,6 +150,17 @@ export function MixChannelScreen(props: { id: string }) {
     if (pick === "target") {
       const target = await choose<number>({ title: "How many videos?", options: [20, 30, 50, 80, 120].map((n) => ({ label: `${n} videos`, value: n })) });
       if (target) await act(() => hub.updateMix(ch.id, { target }));
+    }
+    if (pick === "style") {
+      const style = await choose<"music" | "ambience">({
+        title: "What does it play?",
+        message: "Atmosphere channels take long clips (haunted houses, fireplaces, aquariums) and judge them on how good they look, not on being the right song.",
+        options: [
+          { label: "Music videos", value: "music", detail: "One song each, up to 10 minutes" },
+          { label: "Atmosphere", value: "ambience", detail: "Long clips left on in the background" },
+        ],
+      });
+      if (style && style !== ch.style) await act(() => hub.updateMix(ch.id, { style, maxMinutes: style === "ambience" ? 90 : 10 }), "Changed. Videos it already has stay.");
     }
     if (pick === "size") {
       const s = await choose<[number, number]>({
@@ -194,7 +210,7 @@ export function MixChannelScreen(props: { id: string }) {
             <Icon name="play" /> Watch
           </button>
           <button class="settings-nav-item mix-action" data-focus onClick={() => void addMore()}>
-            <Icon name="plus" /> Add artists or songs
+            <Icon name="plus" /> {c()?.style === "ambience" ? "Add scenes to look for" : "Add artists or songs"}
           </button>
           <button class="settings-nav-item mix-action" data-focus onClick={() => void fromNas()}>
             <Icon name="download" /> Add videos from the NAS

@@ -15,6 +15,16 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Halloween: a theme, Spooky TV and jump scares** ([docs/halloween.md](docs/halloween.md)):
+  Settings › About › Theme wears a Halloween look (orange on deep purple, cobwebs, drifting fog and
+  the odd bat) and starts on "auto", which puts it on from 25 October to 1 November and takes it off
+  after. Three easter eggs are hidden on the remote, starting with Up Up Down Down Left Right Left
+  Right. **Spooky TV** (channel 393) is a new made-up channel of haunted houses, foggy graveyards
+  and ghost sounds: a channel can now be an "atmosphere" one, where long clips are welcome and
+  nothing has to look like a single (Channel options › Plays). **Jump scares** cut one of your own
+  clips in full screen over whatever is on, now and then: set up and set off from the phone
+  remote's new Scares tab, or the TV's Settings › Jump scares, and never on a Kids profile. Update
+  the Hub and the box to get all of it.
 - Music channels can play video files already on the NAS: browse to a file or a whole folder on
   the TV (a channel › Add videos from the NAS) or the phone (a channel's Videos). They play from
   where they are and are never deleted.
