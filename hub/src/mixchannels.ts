@@ -15,6 +15,7 @@ import type { Channel, MixCandidate, MixChannel, MixChannelInfo, MixEntry, MixOv
 import { normaliseChannelName } from "@ultimatetv/shared";
 import type { ChannelStore } from "./channels.js";
 import { type CropDetect, ffmpegCropDetect } from "./cropdetect.js";
+import { ffprobeVideo, grabStill, insideRoots, isVideoFile, listNas, nasRoots, nasVideoId, titleFromFile, videosIn, type VideoProbe } from "./nasvideos.js";
 import { slug } from "./channels.js";
 import type { Db } from "./db.js";
 import type { GuideStore } from "./epg.js";
@@ -271,6 +272,10 @@ export interface MixOptions {
   demo?: boolean;
   /** Finds baked-in black bars (default ffmpeg's cropdetect). */
   cropDetect?: CropDetect;
+  /** Where the NAS shares are mounted (default /mnt/nas): linked files must be inside them. */
+  mediaRoot?: string;
+  /** Reads a linked file's length and picture size (default ffprobe). */
+  probe?: VideoProbe;
 }
 
 type Job = { kind: "curate"; channelId: string } | { kind: "download"; videoId: string };
@@ -459,6 +464,71 @@ export class MixManager {
     return { video: this.store.video(video.id)!, origin: input.origin ?? "added by hand", addedAt: Date.now() };
   }
 
+  /** The NAS shares, or one folder in them, for picking files to link. */
+  async browseNas(dir?: string) {
+    return listNas(dir, await nasRoots(this.o.mediaRoot ?? "/mnt/nas"));
+  }
+
+  /**
+   * Puts video files that are already on the NAS on a channel: each path is a file, or a folder
+   * whose videos (and its subfolders') are all added. They're played from where they are, never
+   * copied, moved or deleted.
+   */
+  async addFiles(channelId: string, paths: string[], origin = "from the NAS"): Promise<{ added: number; skipped: string[] }> {
+    const c = this.store.channel(channelId);
+    if (!c) throw notFound("That channel has been deleted");
+    const roots = await nasRoots(this.o.mediaRoot ?? "/mnt/nas");
+    const files: string[] = [];
+    const skipped: string[] = [];
+    for (const raw of paths.map((p) => p.trim()).filter(Boolean).slice(0, 50)) {
+      const real = await insideRoots(raw, roots);
+      if (!real) {
+        skipped.push(`${raw}: not found on the NAS (${roots.join(", ") || "no shares mounted"})`);
+        continue;
+      }
+      const st = await stat(real);
+      if (st.isDirectory()) {
+        const found = await videosIn(real);
+        if (!found.length) skipped.push(`${raw}: no videos in that folder`);
+        files.push(...found);
+      } else if (isVideoFile(real)) files.push(real);
+      else skipped.push(`${raw}: not a video file`);
+    }
+    if (!files.length && !skipped.length) throw badRequest("Give a file or folder on the NAS");
+    let added = 0;
+    const probe = this.o.probe ?? ffprobeVideo;
+    for (const file of [...new Set(files)].slice(0, 500)) {
+      const id = nasVideoId(file);
+      let v = this.store.video(id);
+      if (!v) {
+        try {
+          const got = await probe(file);
+          const named = titleFromFile(file);
+          v = { id, url: `file://${file}`, ...named, durationS: got.durationS, height: got.height, status: "ready", path: file, sizeBytes: (await stat(file)).size, addedAt: Date.now(), source: "nas" };
+          if (got.fps) v.fps = got.fps;
+          if (!got.durationS) throw new Error("couldn't tell how long it is");
+          this.store.saveVideo(v);
+        } catch (err) {
+          skipped.push(`${path.basename(file)}: ${(err as Error).message}`);
+          continue;
+        }
+      }
+      if (this.store.addEntry(c.id, id, origin)) added++;
+    }
+    if (added) {
+      // A file taken off the channel before can come back when it's asked for by hand.
+      const blocked = new Set(this.o.db.getKv<string[]>(`mix-blocked:${channelId}`) ?? []);
+      for (const f of files) blocked.delete(nasVideoId(f));
+      this.o.db.setKv(`mix-blocked:${channelId}`, [...blocked]);
+      this.reshuffle(c.id);
+      this.syncRow(c.id);
+      this.changed(c.id);
+      this.o.events.emit({ type: "guide.updated" });
+      void this.findBars();
+    }
+    return { added, skipped };
+  }
+
   async removeVideo(channelId: string, videoId: string): Promise<void> {
     this.store.removeEntry(channelId, videoId);
     // Not found again by the next curation.
@@ -511,7 +581,8 @@ export class MixManager {
     const v = this.store.video(videoId);
     this.store.removeVideo(videoId);
     if (this.o.demo) return;
-    for (const f of [v?.path, v?.thumbPath]) if (f && f.startsWith(this.dir)) await rm(f, { force: true }).catch(() => undefined);
+    // A file linked from the NAS is the household's own: only its still goes.
+    for (const f of [v?.source === "nas" ? undefined : v?.path, v?.thumbPath]) if (f && f.startsWith(this.dir)) await rm(f, { force: true }).catch(() => undefined);
   }
 
   filePath(videoId: string): string | undefined {
@@ -624,13 +695,37 @@ export class MixManager {
   }
 
   /** Checks videos downloaded before bar detection existed, one at a time. */
+  private findingBars = false;
+
+  /** Also gives files linked from the NAS a still for the guide. */
   private async findBars(): Promise<void> {
-    for (const v of this.store.videosWithStatus("ready")) {
-      if (this.stopped) return;
-      if (v.crop !== undefined || !v.path || !existsSync(v.path)) continue;
-      const crop = await this.barsOf(v.path);
-      const now = this.store.video(v.id);
-      if (now?.status === "ready") this.store.saveVideo({ ...now, crop });
+    if (this.findingBars) return;
+    this.findingBars = true;
+    try {
+      for (let again = true; again && !this.stopped; ) {
+        again = false;
+        for (const v of this.store.videosWithStatus("ready")) {
+          if (this.stopped) return;
+          if (!v.path || this.o.demo || !existsSync(v.path)) continue;
+          const patch: Partial<StoredVideo> = {};
+          if (v.crop === undefined) patch.crop = await this.barsOf(v.path);
+          if (v.source === "nas" && !v.thumbPath) {
+            const still = path.join(this.dir, `${v.id}.jpg`);
+            await mkdir(this.dir, { recursive: true }).catch(() => undefined);
+            if (await grabStill(v.path, v.durationS / 3, still)) patch.thumbPath = still;
+            else patch.thumbPath = "";
+          }
+          if (!Object.keys(patch).length) continue;
+          again = true;
+          const now = this.store.video(v.id);
+          if (now?.status === "ready") this.store.saveVideo({ ...now, ...patch });
+        }
+      }
+    } catch (err) {
+      // The Hub is shutting down.
+      this.o.log.debug({ err: String(err) }, "Music video checks stopped");
+    } finally {
+      this.findingBars = false;
     }
   }
 

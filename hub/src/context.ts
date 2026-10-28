@@ -6,6 +6,7 @@ import type { Settings } from "@ultimatetv/shared";
 import { ChannelStore } from "./channels.js";
 import { ConnectionGuard } from "./connections.js";
 import type { CropDetect } from "./cropdetect.js";
+import type { VideoProbe } from "./nasvideos.js";
 import { Db } from "./db.js";
 import { GuideStore } from "./epg.js";
 import { EventBus } from "./events.js";
@@ -46,6 +47,8 @@ export interface ContextOptions {
   mixMinFreeBytes?: number;
   /** Finds black bars in downloaded music videos (tests pass a fake). */
   mixCropDetect?: CropDetect;
+  /** Reads music video files linked from the NAS (tests pass a fake). */
+  mixProbe?: VideoProbe;
   demo?: boolean;
 }
 
@@ -146,6 +149,8 @@ export class HubContext {
       ...(opts.mixPauseMs !== undefined ? { pauseMs: opts.mixPauseMs } : {}),
       ...(opts.mixMinFreeBytes !== undefined ? { minFreeBytes: opts.mixMinFreeBytes } : {}),
       ...(opts.mixCropDetect ? { cropDetect: opts.mixCropDetect } : {}),
+      ...(opts.mixProbe ? { probe: opts.mixProbe } : {}),
+      mediaRoot: opts.mediaRoot ?? "/mnt/nas",
     });
     this.settings.onChange((s) => this.rebuildClients(s));
     this.rebuildClients(this.settings.get());
