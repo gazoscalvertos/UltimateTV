@@ -25,6 +25,9 @@ the commit they were built from in Settings › About, so you can tell exactly w
   clips in full screen over whatever is on, now and then: set up and set off from the phone
   remote's new Scares tab, or the TV's Settings › Jump scares, and never on a Kids profile. Update
   the Hub and the box to get all of it.
+- Music channels can play video files already on the NAS: browse to a file or a whole folder on
+  the TV (a channel › Add videos from the NAS) or the phone (a channel's Videos). They play from
+  where they are and are never deleted.
 - **Pairing phones with the TV** ([docs/pairing.md](docs/pairing.md)): only phones that have
   scanned the code in the TV's new Settings › Phones and remotes can press keys, play things, send
   pop-ups and news flashes, change settings or start updates. The same screen lists every paired

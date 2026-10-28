@@ -51,6 +51,14 @@ doing. OK on a channel opens it:
   or 4K, HD only), turn off, delete.
 - OK on a video takes it off the channel. The Hub won't pick it again and finds another.
 
+**Add videos from the NAS** (on a channel) walks the NAS folder by folder: OK on a video puts it
+on the channel, or add a whole folder (and the folders inside it) at once. The phone's settings
+page does the same under a channel's Videos, where you can also type a path as the Hub sees it
+(`/mnt/nas/…`). These files play from where they are. They're never copied, moved or deleted,
+even when the channel is deleted; the Hub only reads their length and picture size (ffprobe) and
+takes a still for the guide. API: `GET /api/mix/nas?dir=…` and
+`POST /api/mix-channels/:id/files {"paths": [...]}`.
+
 **Create a channel** asks for a name and what it should play ("Oasis, Blur, Pulp, 90s Britpop").
 Each part between commas becomes a search for official videos.
 Each pass reads a search 25 results at a time, up to three pages, and the next pass carries on

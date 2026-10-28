@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -7,6 +7,7 @@ import type { MixOverview, PlaybackInfo } from "@ultimatetv/shared";
 import type { HubConfig } from "../src/config.js";
 import { HubContext } from "../src/context.js";
 import { cropFromLog } from "../src/cropdetect.js";
+import { titleFromFile } from "../src/nasvideos.js";
 import { nextLoop, planSlots } from "../src/mixchannels.js";
 import { buildServer } from "../src/server.js";
 import { cleanVideoTitle, displayTitle, judge, songKey, YtDlp, type Run, type YtInfo } from "../src/ytdlp.js";
@@ -242,6 +243,56 @@ describe("telling uploads of the same song apart", () => {
     expect(songKey({ title: "“Takedown” Song – K-POP DEMON HUNTERS Clip (2025)" })).toBe("takedown");
     expect(songKey({ title: "anything", track: "Your Idol" })).toBe(songKey({ title: "Saja Boys - Your Idol (MV)" }));
     expect(songKey({ title: "Wham! - Last Christmas (Official 4K Video)" })).not.toBe(songKey({ title: "Mariah Carey - All I Want For Christmas Is You" }));
+  });
+});
+
+describe("video files already on the NAS", () => {
+  it("names a video from its file name", () => {
+    expect(titleFromFile("/m/Cascada - Everytime We Touch (Official Video).mkv")).toEqual({ title: "Cascada - Everytime We Touch", artist: "Cascada", track: "Everytime We Touch" });
+    expect(titleFromFile("/m/Spooky_Ghosts.Ambience [1080p].mp4")).toEqual({ title: "Spooky Ghosts Ambience" });
+  });
+
+  it("links a folder's videos onto a channel, plays them from where they are and never deletes them", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-nas-"));
+    const media = path.join(tmp, "nas");
+    const folder = path.join(media, "Halloween");
+    await mkdir(path.join(folder, "More"), { recursive: true });
+    for (const f of ["Ghosts - Boo.mkv", "Witches - Cackle.mp4", "More/Bats - Flap.webm", "notes.txt"]) await writeFile(path.join(folder, f), "video");
+    await writeFile(path.join(tmp, "outside.mkv"), "video");
+    const ctx = new HubContext({ dataDir: path.join(tmp, "data"), mediaRoot: media, log: silent, ytdlp: null, mixPauseMs: 0, mixMinFreeBytes: 0, mixCropDetect: async () => "", mixProbe: async () => ({ durationS: 240, height: 1080, fps: 25 }) });
+    try {
+      const c = ctx.mix.create({ name: "Spooky TV", brief: "x", picks: ["x - y"], target: 3 });
+      const root = await ctx.mix.browseNas();
+      expect(root.folders.map((f) => f.name)).toEqual([await import("node:fs/promises").then((m) => m.realpath(media))]);
+      const listing = await ctx.mix.browseNas(folder);
+      expect(listing.folders.map((f) => f.name)).toEqual(["More"]);
+      expect(listing.files.map((f) => f.name)).toEqual(["Ghosts - Boo.mkv", "Witches - Cackle.mp4"]);
+      await expect(ctx.mix.browseNas(tmp)).rejects.toThrow(/isn't on the NAS/);
+
+      const res = await ctx.mix.addFiles(c.id, [folder, path.join(tmp, "outside.mkv")]);
+      expect(res.added).toBe(3);
+      expect(res.skipped).toHaveLength(1);
+      const entries = ctx.mix.store.entries(c.id);
+      expect(entries.map((e) => [e.video.status, e.video.source, e.video.artist])).toEqual(
+        expect.arrayContaining([
+          ["ready", "nas", "Ghosts"],
+          ["ready", "nas", "Witches"],
+          ["ready", "nas", "Bats"],
+        ]),
+      );
+      // Adding the same folder again changes nothing.
+      expect((await ctx.mix.addFiles(c.id, [folder])).added).toBe(0);
+      const tuned = ctx.mix.tuneIn(c.id);
+      expect(tuned).not.toBeNull();
+      expect(ctx.mix.filePath(tuned!.first.videoId)).toMatch(/Halloween/);
+      // Taking one off (and so out of the store) leaves the file alone.
+      const boo = entries.find((e) => e.video.artist === "Ghosts")!.video;
+      await ctx.mix.removeVideo(c.id, boo.id);
+      expect(existsSync(path.join(folder, "Ghosts - Boo.mkv"))).toBe(true);
+    } finally {
+      ctx.close();
+      await rm(tmp, { recursive: true, force: true });
+    }
   });
 });
 

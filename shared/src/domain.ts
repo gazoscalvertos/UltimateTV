@@ -776,6 +776,17 @@ export interface MixVideo {
   sizeBytes?: number;
   error?: string;
   addedAt: number;
+  /** "nas" for a file that was already on the NAS (linked, never downloaded or deleted). */
+  source?: "nas";
+}
+
+/** A folder on the NAS, for choosing video files to put on a music channel. */
+export interface NasListing {
+  /** "" for the list of shares. */
+  dir: string;
+  parent?: string;
+  folders: { name: string; path: string }[];
+  files: { name: string; path: string; sizeBytes: number }[];
 }
 
 /** A video in a channel, and how it got there. */

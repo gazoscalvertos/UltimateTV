@@ -1,44 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type {
-  BoxState,
-  HubSoftware,
-  Channel,
-  Conflict,
-  Download,
-  CustomGuide,
-  DeviceList,
-  GuideChoices,
-  GuideWindow,
-  HomeScreen,
-  HubEvent,
-  HubStatus,
-  MixChannel,
-  MixChannelInfo,
-  MixEntry,
-  MixOverview,
-  NowNext,
-  PairedDevice,
-  PairingCode,
-  PlaybackInfo,
-  PlaybackRequest,
-  Profile,
-  Programme,
-  PublicSettings,
-  Rail,
-  Recording,
-  Reminder,
-  Scare,
-  ScareSettings,
-  ScareState,
-  SearchResult,
-  Season,
-  SeriesLink,
-  Settings,
-  StreamCandidate,
-  TitleDetails,
-  TitleRef,
-} from "@ultimatetv/shared";
+import type { BoxState, Channel, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef } from "@ultimatetv/shared";
 
 const store = {
   get(key: string): string | null {
@@ -171,6 +133,8 @@ export const hub = {
   deleteMix: (id: string) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}`, { method: "DELETE" }),
   curateMix: (id: string) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}/curate`, { method: "POST" }),
   shuffleMix: (id: string) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}/shuffle`, { method: "POST" }),
+  browseNas: (dir?: string) => api<NasListing>(`/api/mix/nas${q({ dir })}`),
+  addMixFiles: (id: string, paths: string[]) => api<{ added: number; skipped: string[] }>(`/api/mix-channels/${enc(id)}/files`, { method: "POST", body: { paths } }),
   removeMixVideo: (id: string, videoId: string) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}/videos/${enc(videoId)}`, { method: "DELETE" }),
 
   settings: () => api<PublicSettings>("/api/settings"),

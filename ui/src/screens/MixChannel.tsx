@@ -20,7 +20,7 @@ function videoName(v: MixVideo): string {
 }
 
 function statusOf(v: MixVideo): string {
-  if (v.status === "ready") return `${size(v.height)} · ${minutes(v.durationS)}`;
+  if (v.status === "ready") return `${v.source === "nas" ? "On the NAS · " : ""}${size(v.height)} · ${minutes(v.durationS)}`;
   if (v.status === "downloading") return `Downloading${v.progress ? ` ${Math.round(v.progress * 100)}%` : ""}`;
   if (v.status === "queued") return "Waiting to download";
   return `Couldn't download${v.error ? `: ${v.error}` : ""}`;
@@ -82,6 +82,47 @@ export function MixChannelScreen(props: { id: string }) {
     const add = splitAdditions(text, ch.style);
     await act(() => hub.updateMix(ch.id, { picks: [...add.picks, ...ch.picks], queries: [...add.queries, ...ch.queries], target: ch.target + add.picks.length }), "Added. The Hub is looking for them now.");
   };
+  /** Folder by folder through the NAS: OK on a file adds it, or add a whole folder at once. */
+  const fromNas = async () => {
+    const ch = c();
+    if (!ch) return;
+    let dir: string | undefined;
+    for (;;) {
+      let here;
+      try {
+        here = await hub.browseNas(dir);
+      } catch (err) {
+        errorToast(err);
+        return;
+      }
+      const count = here.files.length;
+      type Pick = { kind: "all" | "up" | "dir" | "file"; path: string };
+      const pick = await choose<Pick>({
+        title: here.dir ? here.dir : "Videos on the NAS",
+        message: here.dir ? `${here.folders.length} folders, ${count} videos. OK on a video puts it on ${ch.name}.` : "Pick the share the videos are on.",
+        options: [
+          ...(count ? [{ label: `Add all ${count} videos here`, value: { kind: "all" as const, path: here.dir }, icon: "plus" as const, detail: "And any in the folders inside" }] : []),
+          ...(here.dir ? [{ label: "Up a folder", value: { kind: "up" as const, path: here.parent ?? "" }, icon: "prev" as const }] : []),
+          ...here.folders.map((f) => ({ label: f.name, value: { kind: "dir" as const, path: f.path }, icon: "list" as const })),
+          ...here.files.map((f) => ({ label: f.name, value: { kind: "file" as const, path: f.path }, icon: "play" as const, detail: `${Math.round(f.sizeBytes / 1024 ** 2)} MB` })),
+        ],
+      });
+      if (!pick) return;
+      if (pick.kind === "dir" || pick.kind === "up") {
+        dir = pick.path || undefined;
+        continue;
+      }
+      try {
+        const r = await hub.addMixFiles(ch.id, [pick.path]);
+        toast(r.added ? `${r.added} video${r.added === 1 ? "" : "s"} added to ${ch.name}${r.skipped.length ? `. ${r.skipped.length} couldn't be read` : ""}` : (r.skipped[0] ?? "Already on the channel"), r.added ? "good" : "bad");
+        await refetch();
+      } catch (err) {
+        errorToast(err);
+      }
+      if (pick.kind === "all") return;
+      dir = here.dir;
+    }
+  };
   const options = async () => {
     const ch = c();
     if (!ch) return;
@@ -134,7 +175,7 @@ export function MixChannelScreen(props: { id: string }) {
       if (s) await act(() => hub.updateMix(ch.id, { minHeight: s[0], maxHeight: s[1] }));
     }
     if (pick === "enabled") await act(() => hub.updateMix(ch.id, { enabled: !ch.enabled }));
-    if (pick === "delete" && (await confirm(`Delete ${ch.name}?`, "Its videos are deleted from the NAS too, unless another channel has them.", "Delete", true))) {
+    if (pick === "delete" && (await confirm(`Delete ${ch.name}?`, "The videos it downloaded are deleted from the NAS too, unless another channel has them. Files you added from the NAS stay where they are.", "Delete", true))) {
       try {
         await hub.deleteMix(ch.id);
         toast(`${ch.name} deleted`);
@@ -170,6 +211,9 @@ export function MixChannelScreen(props: { id: string }) {
           </button>
           <button class="settings-nav-item mix-action" data-focus onClick={() => void addMore()}>
             <Icon name="plus" /> {c()?.style === "ambience" ? "Add scenes to look for" : "Add artists or songs"}
+          </button>
+          <button class="settings-nav-item mix-action" data-focus onClick={() => void fromNas()}>
+            <Icon name="download" /> Add videos from the NAS
           </button>
           <button class="settings-nav-item mix-action" data-focus onClick={() => c() && void act(() => hub.curateMix(c()!.id), "Looking for more videos now")}>
             <Icon name="search" /> Find more videos now
