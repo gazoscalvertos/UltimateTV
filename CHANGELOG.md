@@ -15,6 +15,9 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Get the Android apps again**: TV Settings › Android apps and the phone's ⚙ Settings › Android
+  apps show a QR code and the link for each app (the watching app and the remote). Scan with a
+  phone's camera, or tap Download on the phone, to install. Home Wi-Fi only, as before.
 - **Steady update status**: the phone's Updates card no longer flips between "Couldn't check" and
   "Update available". The Hub keeps GitHub's last answer (a quick reload used to drop it), shares
   one check between everyone asking, waits a minute after a failure and falls back to git's own

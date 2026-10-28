@@ -613,6 +613,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       .send(apk.stream);
   });
 
+  // QR codes for the two Android apps' download links, for the TV's and the phone's settings.
+  // Anyone may ask: they carry no pairing code, and the apps pair themselves once installed.
+  app.get("/api/apps/:app/qr.svg", async (req: Req<{ app: string }>, reply) => {
+    if (req.params.app !== "client" && req.params.app !== "remote") return reply.code(404).send({ error: "No such app" });
+    const svg = await QRCode.toString(`${phoneBase(req)}/api/${req.params.app}/app.apk`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    return reply.type("image/svg+xml").header("Cache-Control", "no-store").send(svg);
+  });
+
   /** Voice control: what the phone heard, turned into keys, a channel or a search. */
   app.post("/api/remote/voice", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
     const said = String(req.body?.text ?? "").slice(0, 200);

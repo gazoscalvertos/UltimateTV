@@ -78,6 +78,15 @@
   .sw:first-of-type { border-top: 0; }
   .sw small { display: block; color: var(--muted); font-size: 13px; }
   .pill.warn { background: rgba(242, 179, 61, .15); color: var(--warn); }
+  .apps { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .app { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; background: #0d1526; }
+  .app img { width: 100%; aspect-ratio: 1; padding: 6px; border-radius: 8px; background: #fff; }
+  .app b { font-size: 15px; }
+  .app b small { color: var(--muted); font-weight: 400; }
+  .app > small { color: var(--muted); font-size: 13px; flex: 1; }
+  .app .dl { display: block; padding: 10px; border-radius: 10px; background: var(--accent); color: #fff; text-align: center; text-decoration: none; font-weight: 600; }
+  .app .link { font-size: 11px; }
+  @media (max-width: 380px) { .apps { grid-template-columns: 1fr; } }
   code { font-size: 13px; background: #0d1526; padding: 2px 5px; border-radius: 6px; word-break: break-all; }
 </style>
 <script src="/remote/pair.js"></script>
@@ -90,7 +99,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -206,6 +215,27 @@
       <button class="secondary small danger" type="button" id="unpair-me">Unpair this phone</button>
     </div>
     <p class="hint" id="key-box" hidden style="margin:12px 0 0"><code id="key-text"></code></p>
+  </section>
+
+  <section id="apps">
+    <h2>Android apps</h2>
+    <p class="hint">Tap to download on this phone, or let another phone scan the code. Open the download to install it (allow installs from Chrome if Android asks). Works on the home Wi-Fi only; the app pairs itself with the TV when it's first opened.</p>
+    <div class="apps">
+      <div class="app">
+        <img src="/api/apps/client/qr.svg" alt="">
+        <b><span class="brand">UltimateTV</span> for Android <small id="client-app-version"></small></b>
+        <small>Watch everything the TV has on a phone or tablet, and download it for trips.</small>
+        <a class="dl" href="/api/client/app.apk" download>Download</a>
+        <code class="link" id="client-app-link"></code>
+      </div>
+      <div class="app">
+        <img src="/api/apps/remote/qr.svg" alt="">
+        <b><span class="brand">UltimateTV</span> Remote <small id="remote-app-version"></small></b>
+        <small>This remote as an app, with voice control and the volume keys for channels.</small>
+        <a class="dl" href="/api/remote/app.apk" download>Download</a>
+        <code class="link" id="remote-app-link"></code>
+      </div>
+    </div>
   </section>
 
   <section id="iptv">
@@ -803,6 +833,7 @@ function showAppName(name) {
   if (!name) return;
   $("#brand-mark").textContent = name.slice(0, 1).toUpperCase();
   $("#brand-name").textContent = name;
+  document.querySelectorAll(".brand").forEach((el) => { el.textContent = name; });
   document.title = `${name} settings`;
 }
 $("#name-form").onsubmit = async (e) => {
@@ -850,6 +881,13 @@ $("#jf-qc").onclick = async () => {
     }
   } catch (err) { toast(err.message.includes("401") ? "Quick Connect is turned off on this Jellyfin server. Use name and password." : err.message, true); }
 };
+
+// The Android apps: their links as other phones would type them, and the versions the Hub hands out.
+$("#client-app-link").textContent = new URL("/api/client/app.apk", location.href).href;
+$("#remote-app-link").textContent = new URL("/api/remote/app.apk", location.href).href;
+for (const [file, id] of [["/setup/client-app.json", "#client-app-version"], ["/remote/app-version.json", "#remote-app-version"]]) {
+  fetch(file, { cache: "no-store" }).then((r) => r.json()).then((v) => { $(id).textContent = v.versionName; }).catch(() => {});
+}
 
 load().catch((err) => toast(err.message, true));
 loadDevices().catch(() => {});
