@@ -139,7 +139,7 @@ try {
   // Green queues the film.
   await key("F2");
   await wait(300);
-  await shot("49-film-queued");
+  await shot("54-film-queued");
   await key("Escape");
 
   await tab("TV Shows");
@@ -159,10 +159,10 @@ try {
   await wait(1200);
   await key("ArrowDown");
   await wait(600);
-  await shot("50-home-queue");
+  await shot("55-home-queue");
   await key("Enter");
   await wait(600);
-  await shot("51-queue-actions");
+  await shot("56-queue-actions");
   await key("Escape");
 
   await page.locator(".tab-icon").first().focus();
@@ -408,8 +408,8 @@ try {
   await phone.locator('[data-tab="browse"]').click();
   await phone.locator('[data-browse="queue"]').click();
   await phone.waitForTimeout(800);
-  await phone.screenshot({ path: path.join(out, "52-phone-queue.png") });
-  console.log("  52-phone-queue.png");
+  await phone.screenshot({ path: path.join(out, "57-phone-queue.png") });
+  console.log("  57-phone-queue.png");
   await phone.goto(`${base}/music-login/`);
   await phone.waitForTimeout(600);
   await phone.screenshot({ path: path.join(out, "36-phone-deezer-login.png") });
