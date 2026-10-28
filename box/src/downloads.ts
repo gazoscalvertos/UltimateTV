@@ -92,6 +92,7 @@ export class Downloads {
     private readonly log: (line: string) => void,
     readonly dir = process.env.DOWNLOADS_DIR || path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share"), "ultimatetv", "downloads"),
     private readonly fetchImpl: typeof fetch = fetch,
+    private readonly reserveBytes = RESERVE_BYTES,
   ) {}
 
   private get indexFile(): string {
@@ -133,7 +134,7 @@ export class Downloads {
       const artwork = art ? await this.artwork(i.id, art) : undefined;
       items.push({ ...shown, ...(artwork ? { artwork } : {}) });
     }
-    return { items, settings: { ...this.settings }, usedBytes: used, freeBytes: fs ? fs.bavail * fs.bsize : 0, reserveBytes: RESERVE_BYTES };
+    return { items, settings: { ...this.settings }, usedBytes: used, freeBytes: fs ? fs.bavail * fs.bsize : 0, reserveBytes: this.reserveBytes };
   }
 
   private async artwork(id: string, art: { file: string; type: string }): Promise<string | undefined> {
@@ -393,9 +394,9 @@ export class Downloads {
       item.bytesDone = start;
       if (length) item.bytesTotal = start + length;
       const free = await this.free();
-      if (length && length > free - RESERVE_BYTES) {
+      if (length && length > free - this.reserveBytes) {
         await res.body?.cancel().catch(() => undefined);
-        throw new Full(`Not enough room on the box: it needs ${gb(length)} and ${gb(Math.max(0, free - RESERVE_BYTES))} is free`);
+        throw new Full(`Not enough room on the box: it needs ${gb(length)} and ${gb(Math.max(0, free - this.reserveBytes))} is free`);
       }
       await this.save();
       let lastAt = Date.now();
@@ -415,7 +416,7 @@ export class Downloads {
           // Size unknown up front (or the disk filling from elsewhere): stop before it's full.
           checkAt = item.bytesDone + 512 * 1024 ** 2;
           void this.free().then(
-            (free) => cb(free < RESERVE_BYTES ? new Full(`The box's disk is nearly full: ${gb(free)} left`) : null, chunk),
+            (free) => cb(free < this.reserveBytes ? new Full(`The box's disk is nearly full: ${gb(free)} left`) : null, chunk),
             () => cb(null, chunk),
           );
         },

@@ -82,7 +82,7 @@ describe("downloads on the box", () => {
   it("downloads a film with its poster and subtitles, then plays it from the disk", async () => {
     const dir = await tmp();
     const net = fakeNet();
-    const dl = new Downloads(HUB, () => undefined, dir, net.impl);
+    const dl = new Downloads(HUB, () => undefined, dir, net.impl, 0);
     await dl.start();
     await dl.add([{ req: { kind: "title", id: "jellyfin:1" }, name: "Film", image: "http://img.test/poster.jpg", title: { id: "jellyfin:1", kind: "movie", name: "Film", certification: "12" } }]);
     const d = await until(dl, (x) => x.items[0]?.status === "done");
@@ -109,7 +109,7 @@ describe("downloads on the box", () => {
     // A first try that got 1000 bytes in before the box restarted.
     await writeFile(path.join(dir, "downloads.json"), JSON.stringify({ items: [{ id: "d1", req: { kind: "recording", id: "r1" }, name: "News", status: "downloading", bytesDone: 1000, addedAt: 1 }] }));
     await writeFile(path.join(dir, "d1.part"), FILM.subarray(0, 1000));
-    const dl = new Downloads(HUB, () => undefined, dir, net.impl);
+    const dl = new Downloads(HUB, () => undefined, dir, net.impl, 0);
     await dl.start();
     await until(dl, (x) => x.items[0]?.status === "done");
     expect(net.calls.find((c) => c.url.endsWith("/file"))?.range).toBe("bytes=1000-");
@@ -120,7 +120,7 @@ describe("downloads on the box", () => {
   it("waits for the IPTV connection rather than failing", async () => {
     const dir = await tmp();
     const net = fakeNet({ offline: () => Response.json({ error: "Your IPTV connection is busy", code: "busy" }, { status: 409 }) });
-    const dl = new Downloads(HUB, () => undefined, dir, net.impl);
+    const dl = new Downloads(HUB, () => undefined, dir, net.impl, 0);
     await dl.start();
     await dl.add([{ req: { kind: "title", id: "xtream:vod:1" }, name: "IPTV film" }]);
     const d = await until(dl, (x) => Boolean(x.items[0]?.error));
@@ -128,9 +128,18 @@ describe("downloads on the box", () => {
     dl.stop();
   });
 
+  it("stops, without trying again, when the box has no room", async () => {
+    const dl = new Downloads(HUB, () => undefined, await tmp(), fakeNet().impl, Number.MAX_SAFE_INTEGER);
+    await dl.start();
+    await dl.add([{ req: { kind: "recording", id: "r1" }, name: "Big" }]);
+    const d = await until(dl, (x) => x.items[0]?.status === "failed");
+    expect(d.items[0]!.error).toMatch(/Not enough room/);
+    dl.stop();
+  });
+
   it("deletes downloads when asked, and when their time is up", async () => {
     const dir = await tmp();
-    const dl = new Downloads(HUB, () => undefined, dir, fakeNet().impl);
+    const dl = new Downloads(HUB, () => undefined, dir, fakeNet().impl, 0);
     await dl.start();
     await dl.add([{ req: { kind: "recording", id: "r1" }, name: "One" }]);
     const first = (await until(dl, (x) => x.items[0]?.status === "done")).items[0]!;
