@@ -15,6 +15,14 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Themes** ([docs/themes.md](docs/themes.md)): Settings › Theme on the TV and ⚙ › Theme on the
+  phone choose from Dark, Light, Slick, Cyberpunk, Ocean, Forest, Sunset, Halloween, Christmas,
+  Easter and Valentine's. On the TV, moving over a theme tries it on the whole app, and OK keeps
+  it. The phone remote and the web pages wear the theme too. **Seasonal themes** (on by default)
+  bring out Halloween, Christmas, Easter and Valentine's on their days and put your theme back
+  after. Christmas has snow and fairy lights, Easter blossom, Valentine's hearts and Cyberpunk a
+  neon grid. Update the Hub and the box.
+
 - **Steady update status**: the phone's Updates card no longer flips between "Couldn't check" and
   "Update available". The Hub keeps GitHub's last answer (a quick reload used to drop it), shares
   one check between everyone asking, waits a minute after a failure and falls back to git's own

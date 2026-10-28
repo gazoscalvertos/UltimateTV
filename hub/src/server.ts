@@ -12,7 +12,7 @@ import { registerQueue } from "./queue.js";
 import { registerScares } from "./scares.js";
 import { movedAway, registerMove } from "./move.js";
 import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
-import { cleanAppName, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
+import { cleanAppName, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
@@ -380,7 +380,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       if (ss.photosPath && ss.photosPath !== s.screensaver.photosPath) ss.photosPath = await ctx.photos.check(ss.photosPath);
       patch.screensaver = ss;
     }
-    if (body.theme !== undefined && THEME_CHOICES.includes(body.theme)) patch.theme = body.theme;
+    // An older TV or phone sends "auto" for dark with the seasons on.
+    if (body.theme !== undefined && THEME_CHOICES.includes(body.theme)) Object.assign(patch, body.theme === "auto" ? { theme: "default", seasonal: true } : { theme: body.theme, seasonal: cleanLook(s).seasonal });
+    if (typeof body.seasonal === "boolean") patch.seasonal = body.seasonal;
     if (body.channelFilter !== undefined) {
       try {
         if (body.channelFilter) new RegExp(body.channelFilter);
@@ -1202,6 +1204,30 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       reply.type("image/svg+xml").header("Cache-Control", "public, max-age=86400").send(demoArt(req.params.kind, req.params.file.replace(/\.svg$/, ""))),
     );
   }
+
+  // The colours of every theme, and today's one put on straight away, for the phone remote and the
+  // web pages: each loads this in its <head>, so it never flashes the wrong colours first.
+  // `utvTheme.apply(name)` puts on another, which is how the settings page previews one.
+  app.get("/theme.js", async (_req, reply) => {
+    const palettes = Object.fromEntries(THEMES.map((t) => [t.id, { ...t.palette, "color-scheme": t.light ? "light" : "dark" }]));
+    const themes = THEMES.map(({ id, name, detail, season }) => ({ id, name, detail, season }));
+    const now = resolveTheme(ctx.settings.get());
+    const js = `(function () {
+  var P = ${JSON.stringify(palettes)};
+  function apply(name) {
+    var p = P[name] || P["default"], root = document.documentElement;
+    for (var k in p) if (k.charAt(0) === "-") root.style.setProperty(k, p[k]);
+    root.style.colorScheme = p["color-scheme"];
+    root.dataset.theme = P[name] ? name : "default";
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = p["--bg"];
+  }
+  window.utvTheme = { themes: ${JSON.stringify(themes)}, palettes: P, now: ${JSON.stringify(now)}, apply: apply };
+  apply(${JSON.stringify(now)});
+})();
+`;
+    return reply.type("text/javascript").header("Cache-Control", "no-cache").send(js);
+  });
 
   app.get("/", async (_request, reply) => reply.redirect(existsSync(config.uiDir) ? "/app/" : "/probe/"));
 

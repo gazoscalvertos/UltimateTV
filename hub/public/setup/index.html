@@ -4,48 +4,59 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
+<script src="/theme.js"></script>
 <title>UltimateTV settings</title>
 <style>
   :root {
-    --bg: #0b1220; --card: #131c2e; --line: #24324d; --fg: #eef3fb; --muted: #9aa8c2;
-    --accent: #4f8cff; --ok: #35c27a; --warn: #f2b33d; --bad: #ff6b6b; --radius: 14px;
+    /* The theme's colours come from /theme.js (chosen in Settings); these are the dark theme's, until it answers. */
+    --bg: #070b14; --panel: #121b2e; --panel-2: #18233a; --line: rgba(255, 255, 255, 0.1); --fg: #f3f6fb; --muted: #9aa6bd;
+    --accent: #3d8bff; --accent-2: #00c2d1; --on-accent: #fff; --good: #35c27a; --amber: #f2b33d; --bad: #ff5468; --radius: 14px;
+    --card: var(--panel); --field: var(--bg); --ok: var(--good); --warn: var(--amber);
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
   main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; }
   header { display: flex; align-items: center; gap: 12px; margin: 8px 0 20px; }
-  .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #4f8cff, #8a5cff); display: grid; place-items: center; font-weight: 800; }
+  .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: grid; place-items: center; font-weight: 800; }
   h1 { font-size: 22px; margin: 0; }
   h1 small { display: block; font-size: 14px; color: var(--muted); font-weight: 400; }
   section { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
   h2 { font-size: 17px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
   .hint { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
   label { display: block; font-size: 14px; color: var(--muted); margin: 12px 0 4px; }
-  input, select, textarea { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: #0d1526; color: var(--fg); font: inherit; }
+  input, select, textarea { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--field); color: var(--fg); font: inherit; }
   textarea { min-height: 80px; resize: vertical; }
   input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  button { margin-top: 14px; width: 100%; padding: 13px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font: 600 16px/1 inherit; cursor: pointer; }
+  button { margin-top: 14px; width: 100%; padding: 13px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: 600 16px/1 inherit; cursor: pointer; }
   button.secondary { background: transparent; border: 1px solid var(--line); color: var(--fg); }
   button.small { width: auto; margin: 0; padding: 8px 12px; font-size: 14px; }
-  .pill { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: #22304d; color: var(--muted); font-weight: 600; }
-  .pill.ok { background: rgba(53, 194, 122, .15); color: var(--ok); }
-  .pill.bad { background: rgba(255, 107, 107, .15); color: var(--bad); }
+  .pill { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: var(--panel-2); color: var(--muted); font-weight: 600; }
+  .pill.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .pill.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
   .list { list-style: none; padding: 0; margin: 8px 0 0; }
   .list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
   .list li span small { display: block; color: var(--muted); font-size: 13px; }
   .tabs { display: flex; gap: 8px; margin: 6px 0 4px; }
   .tabs button { margin: 0; }
-  .code { font: 700 38px/1 ui-monospace, Menlo, monospace; letter-spacing: 6px; text-align: center; padding: 18px; border-radius: 12px; background: #0d1526; margin-top: 12px; }
-  #toast { position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); max-width: 608px; margin: 0 auto; padding: 14px 16px; border-radius: 12px; background: #1d2a44; border: 1px solid var(--line); transform: translateY(150%); transition: transform .25s ease; }
+  .code { font: 700 38px/1 ui-monospace, Menlo, monospace; letter-spacing: 6px; text-align: center; padding: 18px; border-radius: 12px; background: var(--field); margin-top: 12px; }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); max-width: 608px; margin: 0 auto; padding: 14px 16px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); transform: translateY(150%); transition: transform .25s ease; }
   #toast.show { transform: none; }
   #toast.bad { border-color: var(--bad); }
   .status { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .stat { background: #0d1526; border-radius: 10px; padding: 10px; text-align: center; }
+  .stat { background: var(--field); border-radius: 10px; padding: 10px; text-align: center; }
   .stat b { display: block; font-size: 20px; }
   .stat span { font-size: 12px; color: var(--muted); }
   [hidden] { display: none !important; }
+  .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; margin-top: 4px; }
+  .themes button.theme { margin: 0; padding: 0; overflow: hidden; text-align: left; background: var(--t-bg); color: var(--t-fg); border: 2px solid var(--line); border-radius: 12px; font: inherit; }
+  .themes button.theme.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .theme .sw { display: flex; gap: 6px; align-items: center; padding: 12px 10px 8px; }
+  .theme .sw i { flex: 1; height: 26px; border-radius: 7px; background: var(--t-panel); }
+  .theme .sw b { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, var(--t-accent), var(--t-accent-2)); }
+  .theme span { display: block; padding: 0 10px 10px; font-weight: 600; font-size: 14px; }
+  .theme span small { display: block; font-weight: 400; font-size: 12px; color: var(--t-muted); }
   .back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 15px; padding: 6px 0; }
   .jump { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 16px; padding: 0 16px 4px; scrollbar-width: none; }
   .jump a { flex: none; padding: 8px 12px; border-radius: 99px; background: var(--card); border: 1px solid var(--line); color: var(--fg); text-decoration: none; font-size: 14px; }
@@ -53,7 +64,7 @@
   .opt:first-of-type { border-top: 0; }
   .opt > span small { display: block; color: var(--muted); font-size: 13px; }
   .opt select { width: auto; min-width: 110px; padding: 9px 10px; }
-  .opt input[type=checkbox] { appearance: none; -webkit-appearance: none; flex: none; width: 50px; height: 30px; padding: 0; border-radius: 99px; background: #22304d; border: 0; position: relative; cursor: pointer; transition: background .15s; }
+  .opt input[type=checkbox] { appearance: none; -webkit-appearance: none; flex: none; width: 50px; height: 30px; padding: 0; border-radius: 99px; background: var(--panel-2); border: 0; position: relative; cursor: pointer; transition: background .15s; }
   .opt input[type=checkbox]::after { content: ""; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: left .15s; }
   .opt input[type=checkbox]:checked { background: var(--accent); }
   .opt input[type=checkbox]:checked::after { left: 24px; }
@@ -61,10 +72,10 @@
   .profile:first-child { border-top: 0; }
   .profile .name { display: flex; align-items: center; gap: 10px; font-weight: 600; }
   .profile .name small { color: var(--muted); font-weight: 400; }
-  .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--c, #4f8cff); }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--c, var(--accent)); }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .actions select { width: auto; padding: 8px 10px; font-size: 14px; }
-  button.danger { border-color: rgba(255, 107, 107, .5); color: var(--bad); }
+  button.danger { border-color: color-mix(in srgb, var(--bad) 50%, transparent); color: var(--bad); }
   button:disabled { opacity: .45; cursor: default; }
   .mix-edit, .mix-videos { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
   .mix-videos li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); list-style: none; font-size: 14px; }
@@ -77,8 +88,8 @@
   .sw { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
   .sw:first-of-type { border-top: 0; }
   .sw small { display: block; color: var(--muted); font-size: 13px; }
-  .pill.warn { background: rgba(242, 179, 61, .15); color: var(--warn); }
-  code { font-size: 13px; background: #0d1526; padding: 2px 5px; border-radius: 6px; word-break: break-all; }
+  .pill.warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+  code { font-size: 13px; background: var(--field); padding: 2px 5px; border-radius: 6px; word-break: break-all; }
 </style>
 <script src="/remote/pair.js"></script>
 </head>
@@ -90,7 +101,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -120,6 +131,13 @@
       <button class="secondary small" type="button" id="refresh">Refresh channels and guide</button>
       <button class="secondary small" type="button" id="sw-check">Check again</button>
     </div>
+  </section>
+
+  <section id="theme">
+    <h2>Theme <span class="pill" id="theme-pill"></span></h2>
+    <p class="hint">The look of the TV, this remote and these pages. Tap one to try it: the TV changes straight away too.</p>
+    <div class="themes" id="themes"></div>
+    <label class="opt"><span>Seasonal themes<small>Halloween, Christmas, Easter and Valentine's take over on their days, then your theme comes back</small></span><input type="checkbox" id="seasonal"></label>
   </section>
 
   <section id="name">
@@ -735,6 +753,7 @@ async function load() {
   loadMix().catch(() => {});
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);
   showAppName(s.appName);
+  showLook(s);
   $("#name-form").appName.value = s.appName;
   $("#st-channels").textContent = st.channels;
   $("#st-programmes").textContent = st.programmes > 9999 ? Math.round(st.programmes / 1000) + "k" : st.programmes;
@@ -805,6 +824,46 @@ function showAppName(name) {
   $("#brand-name").textContent = name;
   document.title = `${name} settings`;
 }
+// The theme. Every tile is drawn in its own colours; tapping one wears it here at once and on the
+// TV, which hears the settings change.
+function showLook(s) {
+  const T = window.utvTheme;
+  if (!T || !s.theme) return;
+  const box = $("#themes");
+  if (!box.children.length) {
+    for (const t of T.themes) {
+      const p = T.palettes[t.id];
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "theme";
+      b.dataset.id = t.id;
+      for (const k of ["bg", "fg", "panel", "muted", "accent", "accent-2"]) b.style.setProperty(`--t-${k}`, p[`--${k}`]);
+      b.innerHTML = `<div class="sw"><i></i><b></b></div><span></span>`;
+      b.querySelector("span").textContent = t.name;
+      const small = document.createElement("small");
+      small.textContent = t.season ? `Seasonal: ${t.season}` : t.detail;
+      b.querySelector("span").append(small);
+      b.onclick = () => saveLook({ theme: t.id });
+      box.append(b);
+    }
+  }
+  for (const b of box.children) b.classList.toggle("on", b.dataset.id === s.theme);
+  $("#seasonal").checked = s.seasonal;
+  const now = T.themes.find((t) => t.id === s.themeNow);
+  pill("#theme-pill", `${now?.name ?? s.themeNow} today`, "ok");
+  $("#theme-pill").hidden = s.themeNow === s.theme;
+  T.apply(s.themeNow);
+}
+async function saveLook(patch) {
+  try {
+    const s = await api("/api/settings", { method: "PUT", body: patch });
+    showLook(s);
+    const name = window.utvTheme.themes.find((t) => t.id === s.themeNow)?.name ?? s.themeNow;
+    toast(s.themeNow !== s.theme ? `Saved. ${name} is on today, as it's the season.` : `${name} theme on`);
+  } catch (err) { toast(err.message, true); }
+}
+$("#seasonal").onchange = (e) => saveLook({ seasonal: e.target.checked });
+
 $("#name-form").onsubmit = async (e) => {
   e.preventDefault(); const f = e.target;
   try { const s = await api("/api/settings", { method: "PUT", body: { appName: f.appName.value } }); showAppName(s.appName); f.appName.value = s.appName; toast(`Renamed to ${s.appName}. The TV shows it straight away.`); }
