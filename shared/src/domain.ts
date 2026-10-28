@@ -356,6 +356,22 @@ export interface PlaybackInfo {
 }
 
 // ---------------------------------------------------------------------------
+// Play queue
+
+/** Something lined up to play after what's on now: a film, an episode or a recording. */
+export interface QueueItem {
+  id: Id;
+  req: PlaybackRequest;
+  title?: TitleRef;
+  /** "The Matrix", or the show's name for an episode. */
+  name: string;
+  /** "S1 E3 · The One With…" for an episode. */
+  subtitle?: string;
+  image?: string;
+  addedAt: number;
+}
+
+// ---------------------------------------------------------------------------
 // Downloads
 
 export type DownloadStatus = "queued" | "waiting-debrid" | "downloading" | "moving" | "completed" | "failed" | "cancelled";
@@ -581,7 +597,9 @@ export type HubEvent =
   /** A music service login typed on the phone: the TV fetches it once from /api/music/login/:id. */
   | { type: "music.login"; app: "deezer"; id: string }
   /** A phone or screen paired or was removed, a screen is waiting to be let in, or the pairing code was used. */
-  | { type: "devices.changed" };
+  | { type: "devices.changed" }
+  /** The play queue changed (added to on the TV or the phone, reordered, or an item started): fetch /api/queue again. */
+  | { type: "queue.changed" };
 
 /** The Hub's own software, for the phone's settings page. */
 export interface HubSoftware {
