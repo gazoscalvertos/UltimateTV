@@ -10,6 +10,7 @@ import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
 import { registerNotices } from "./notify.js";
 import { registerQueue } from "./queue.js";
 import { registerScares } from "./scares.js";
+import { movedAway, registerMove } from "./move.js";
 import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { cleanAppName, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
@@ -19,6 +20,7 @@ import { ConnectionBusyError } from "./connections.js";
 import { HubContext } from "./context.js";
 import { demoArt, seedDemo } from "./demo.js";
 import { BoxReportStore, cleanBoxReport, renderDiagnostics, RollingFile, type LogRing } from "./diagnostics.js";
+import { phoneReachable } from "./lan.js";
 import { Library, NotAllowedError } from "./library.js";
 import { Pairing, PairingError } from "./pairing.js";
 import type { Logger } from "./log.js";
@@ -43,6 +45,8 @@ export interface ServerDeps {
   logRing?: LogRing;
   context?: HubContext;
   env?: NodeJS.ProcessEnv;
+  /** Restarts the Hub after a move (Docker starts it again). Tests pass a fake. */
+  restart?: () => void;
 }
 
 export const HUB_VERSION = "0.2.0";
@@ -68,7 +72,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   let tvSockets = 0;
   const deviceSockets = new Map<string, Set<{ close(code?: number, reason?: string): void }>>();
   const hubBase = (req: FastifyRequest) => config.publicUrl ?? `${req.protocol}://${req.headers.host ?? `${req.hostname}:${config.port}`}`;
-  const setupUrl = (req: FastifyRequest) => `${hubBase(req)}/setup/`;
+  /** The Hub's address for a phone: the TV may reach a Hub on the box itself at 127.0.0.1. */
+  const phoneBase = (req: FastifyRequest) => phoneReachable(hubBase(req));
+  const setupUrl = (req: FastifyRequest) => `${phoneBase(req)}/setup/`;
 
   // Pairing: only phones and screens that have paired (see pairing.ts) may control the TV.
   const pairing = new Pairing(ctx.db, config.pairing !== false, () => ctx.events.emit({ type: "devices.changed" }));
@@ -134,6 +140,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/box/state", "tv"],
     ["GET /api/music/login/:id", "tv"],
     ["GET /api/pair/code", "tv"],
+    ["GET /api/hub/move-out", "paired"],
     ["GET /api/remote/qr.svg", "tv"],
     ["GET /api/setup/qr.svg", "tv"],
     ["GET /api/music/login/qr.svg", "tv"],
@@ -220,7 +227,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // -------------------------------------------------------------------------
   // Health, status, probes
 
-  app.get("/api/health", async () => ({ ok: true, version: HUB_VERSION, ...HUB_BUILD }));
+  app.get("/api/health", async () => ({ ok: true, version: HUB_VERSION, ...HUB_BUILD, ...(movedAway(ctx.db) ? { movedAway: true } : {}) }));
   app.get("/api/system", async () => getSystem());
   app.get("/api/clips", async () => ({ clips: await listClips(config.clipsDir) }));
 
@@ -429,7 +436,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The TV's QR codes carry the pairing code, so scanning one also pairs the phone.
-  const withPairCode = (req: FastifyRequest, url: string) => (pairing.enforced ? `${url}?pair=${pairing.currentCode(hubBase(req)).code}` : url);
+  const withPairCode = (req: FastifyRequest, url: string) => (pairing.enforced ? `${url}?pair=${pairing.currentCode(phoneBase(req)).code}` : url);
   app.get("/api/setup/qr.svg", async (req, reply) => {
     const svg = await QRCode.toString(withPairCode(req, setupUrl(req)), { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
     return reply.type("image/svg+xml").header("Cache-Control", "no-store").send(svg);
@@ -484,6 +491,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   await registerNotices(app, ctx, config.dataDir);
   // Jump scares: clips the Hub keeps and cuts in over whatever is on (see scares.ts).
   await registerScares(app, ctx, config.dataDir);
+  await registerMove(app, {
+    db: ctx.db,
+    dataDir: config.dataDir,
+    log,
+    deviceAsking,
+    pairingEnforced: pairing.enforced,
+    restart: deps.restart ?? (() => setTimeout(() => process.exit(0), 500)),
+  });
   /** A QR code for a web address the TV shows, such as Spotify's sign-in page. */
   app.get("/api/qr.svg", async (req: Req<Record<string, string>, { text?: string }>, reply) => {
     const text = String(req.query.text ?? "");
@@ -495,7 +510,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   const musicLogins = new MusicLogins();
   app.get("/music-login/", async (_req, reply) => reply.type("text/html").header("Cache-Control", "no-store").send(MUSIC_LOGIN_PAGE));
   app.get("/api/music/login/qr.svg", async (req, reply) => {
-    const svg = await QRCode.toString(withPairCode(req, `${hubBase(req)}/music-login/`), { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    const svg = await QRCode.toString(withPairCode(req, `${phoneBase(req)}/music-login/`), { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
     return reply.type("image/svg+xml").header("Cache-Control", "no-store").send(svg);
   });
   app.post("/api/music/login", async (req: Req<Record<string, string>, Record<string, string>, { app?: string; email?: string; password?: string }>, reply) => {
@@ -511,7 +526,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return login ? reply.header("Cache-Control", "no-store").send(login) : reply.code(404).send({ error: "That login has gone; send it again" });
   });
   app.get("/api/remote/qr.svg", async (req, reply) => {
-    const svg = await QRCode.toString(withPairCode(req, `${hubBase(req)}/remote/`), { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    const svg = await QRCode.toString(withPairCode(req, `${phoneBase(req)}/remote/`), { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
     return reply.type("image/svg+xml").header("Cache-Control", "no-store").send(svg);
   });
 
@@ -545,7 +560,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return keepToken(reply, r.token).send(r);
   });
   /** The code the TV shows under its QR code. */
-  app.get("/api/pair/code", async (req) => pairing.currentCode(hubBase(req)));
+  app.get("/api/pair/code", async (req) => pairing.currentCode(phoneBase(req)));
   /** Unpairs the asking device. */
   app.post("/api/pair/forget", async (req, reply) => {
     const device = deviceAsking(req);

@@ -1,0 +1,14 @@
+# The Hub on the TV box itself (tools/box/install.sh with HUB=local adds this through COMPOSE_FILE
+# in .env). It uses the box's own network, so the TV app reaches it at 127.0.0.1 and phones at the
+# box's address wherever the box is plugged in, and the Hub can tell phones which address that is.
+services:
+  hub:
+    network_mode: host
+    ports: !reset []
+    environment:
+      PORT: ${HUB_PORT:-8095}
+    volumes:
+      # The NAS shares, mounted on the box on demand (see docs/hub-on-box.md). rslave lets a share
+      # that mounts after the Hub starts (or comes back after a trip) show up inside it.
+      - /mnt/nas:/mnt/nas:rslave
+      - /mnt/nas2:/mnt/nas2:rslave

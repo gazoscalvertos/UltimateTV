@@ -49,6 +49,24 @@ app.setName("ultimatetv");
 let win: BrowserWindow | null = null;
 let blocker: number | null = null;
 
+/**
+ * When the Hub moves (to this box, say, at 127.0.0.1), the TV's pairing cookie is still filed under
+ * the old address. The Hub's data moves with it, so the same token still works: copy it across
+ * rather than make the TV ask to be let in again.
+ */
+async function carryPairing(): Promise<void> {
+  try {
+    const cookies = session.defaultSession.cookies;
+    if ((await cookies.get({ url: HUB_URL, name: "utv_device" })).length) return;
+    const old = (await cookies.get({ name: "utv_device" })).sort((a, b) => (b.expirationDate ?? 0) - (a.expirationDate ?? 0))[0];
+    if (!old) return;
+    await cookies.set({ url: `${HUB_URL}/`, name: old.name, value: old.value, path: "/", httpOnly: true, sameSite: "strict", expirationDate: Math.floor(Date.now() / 1000) + 10 * 365 * 86_400 });
+    log(`Hub moved to ${HUB_URL}: kept the TV's pairing from ${old.domain}`);
+  } catch (e) {
+    log(`Couldn't carry the TV's pairing over: ${(e as Error).message}`);
+  }
+}
+
 // The app's name as the Hub last gave it (the TV UI's page title), for when the Hub can't be reached.
 const NAME_FILE = path.join(app.getPath("userData"), "app-name");
 let appName = (() => {
@@ -265,6 +283,7 @@ async function main(): Promise<void> {
   });
   // The cursor never shows on the TV.
   win.webContents.on("dom-ready", () => void win?.webContents.insertCSS("*{cursor:none!important}"));
+  await carryPairing();
   await win.loadURL(`${HUB_URL}/app/`).catch(() => undefined);
 
   app.on("window-all-closed", () => app.quit());

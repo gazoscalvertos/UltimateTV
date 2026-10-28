@@ -296,6 +296,10 @@ if [ -x /usr/bin/pacman ]; then pacman -Syu --noconfirm; else apt-get update && 
 git -C $APP_DIR fetch --depth 1 origin $BRANCH
 git -C $APP_DIR reset --hard origin/$BRANCH
 SKIP_PACKAGES=1 HUB_URL="\$(sed -n 's/^HUB_URL=//p' /etc/ultimatetv/box.env)" TV_USER=$TV_USER APP_DIR=$APP_DIR BRANCH=$BRANCH bash $APP_DIR/tools/box/install.sh
+# On a trip the Hub runs on the box too (tools/hub/travel.sh): update it with the app.
+if [ -f /etc/ultimatetv/travel.env ]; then
+  (cd $APP_DIR && GIT_COMMIT="\$(git rev-parse --short HEAD)" BUILD_DATE="\$(git log -1 --format=%cI)" docker compose up -d --build hub) || echo "The box's Hub didn't update" >&2
+fi
 systemctl restart sddm
 EOF
 chmod 755 /usr/local/bin/ultimatetv-update

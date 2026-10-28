@@ -15,6 +15,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Take the Hub on a trip** ([docs/travel.md](docs/travel.md)): `sudo bash tools/hub/travel.sh
+  away` on the box builds a Hub there, takes the home Hub's data (profiles, settings, channels,
+  pairing, scare clips) and points the TV app at it; `travel.sh home` sends what changed back. The
+  home Hub stands by meanwhile, so the two never share the IPTV connection. QR codes from a Hub on
+  the box point phones at the box's address. Update the Hub and the box before the first trip.
 - **Play queue**: line up films, episodes and recordings to play one after another. On the TV,
   Add to queue (or Green) on a film, "Queue S1 E3" on a series, or Green on any episode; on the
   phone, Add to queue and the + beside each episode, and the new Watch › Queue tab to reorder,
