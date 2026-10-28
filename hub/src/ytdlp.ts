@@ -66,7 +66,7 @@ export interface YtInfo {
   age_limit?: number;
 }
 
-export type Rules = Pick<MixChannel, "minHeight" | "maxMinutes" | "exclude">;
+export type Rules = Pick<MixChannel, "minHeight" | "maxMinutes" | "exclude"> & Partial<Pick<MixChannel, "style">>;
 
 /** Titles with these are not music videos, or not ones you'd want on a channel. */
 export const DEFAULT_EXCLUDE = [
@@ -74,6 +74,12 @@ export const DEFAULT_EXCLUDE = [
   "1 hour", "10 hours", "full album", "teaser", "trailer", "slowed", "reverb", "nightcore", "8d", "tutorial", "behind the scenes",
   "making of", "interview", "instrumental", "remix contest", "fan made", "fanmade", "cover by",
 ];
+
+/**
+ * Titles with these are no good on an ambience channel (Spooky TV): a reaction, a lesson, someone
+ * playing a game. Length is welcome here, so the music channels' "1 hour" and "full album" aren't.
+ */
+export const AMBIENCE_EXCLUDE = ["reaction", "tutorial", "how to", "gameplay", "let's play", "walkthrough", "podcast", "interview", "unboxing", "asmr mouth", "prank"];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -125,6 +131,7 @@ export function songKey(v: { title: string; track?: string }): string {
 
 /** Scores a search result against a channel's rules; `pick` is the track it should be. */
 export function judge(info: YtInfo, rules: Rules, pick?: string): { score: number; rejected: string[] } {
+  const ambience = rules.style === "ambience";
   const rejected: string[] = [];
   const title = info.title ?? "";
   const height = info.height ?? 0;
@@ -132,10 +139,11 @@ export function judge(info: YtInfo, rules: Rules, pick?: string): { score: numbe
   if (info.is_live || info.live_status === "is_live" || info.live_status === "is_upcoming") rejected.push("a live stream");
   if (height < rules.minHeight) rejected.push(height ? `only ${height}p` : "no picture size");
   if (duration > rules.maxMinutes * 60) rejected.push(`too long (${Math.round(duration / 60)} min)`);
-  if (duration && duration < 90) rejected.push("too short");
+  // A music video that short is a trailer; a minute of haunted corridor is fine.
+  if (duration && duration < (ambience ? 45 : 90)) rejected.push("too short");
   if ((info.age_limit ?? 0) >= 18) rejected.push("age-restricted");
   const lower = ` ${title.toLowerCase()} `;
-  for (const w of [...DEFAULT_EXCLUDE, ...rules.exclude]) {
+  for (const w of [...(ambience ? AMBIENCE_EXCLUDE : DEFAULT_EXCLUDE), ...rules.exclude]) {
     const word = w.trim().toLowerCase();
     if (!word) continue;
     const re = /^[a-z0-9]/.test(word) ? new RegExp(`\\b${escape(word)}\\b`) : new RegExp(escape(word));
@@ -144,10 +152,23 @@ export function judge(info: YtInfo, rules: Rules, pick?: string): { score: numbe
       break;
     }
   }
+  // An ambience pick is a description ("haunted house ambience"), not an exact track, so a loose
+  // match is enough; a music video has to be the song that was asked for.
   const match = pick ? overlap(pick, info) : 1;
-  if (pick && match < 0.6) rejected.push(`doesn't look like ${pick}`);
+  if (pick && match < (ambience ? 0.4 : 0.6)) rejected.push(`doesn't look like ${pick}`);
 
   let score = match * 4;
+  if (ambience) {
+    if (/\b(ambience|ambiance|atmosphere|soundscape|background|loop|screensaver)\b/i.test(title)) score += 4;
+    if (/\b(ghost|haunted|spooky|eerie|creepy|halloween|graveyard|cemetery|fog|mist|candle)\b/i.test(title)) score += 2;
+    // Long is the point: it keeps the channel going without repeating itself.
+    if (duration >= 10 * 60) score += 2;
+    if (duration >= 30 * 60) score += 1;
+    if (height >= 1080) score += 1;
+    if (height >= 2160) score += 1;
+    if (info.view_count) score += Math.log10(info.view_count) / 2;
+    return { score: Math.round(score * 100) / 100, rejected };
+  }
   if (/official\s+(music\s+)?video|clip officiel|official hd video/i.test(title)) score += 5;
   if (/vevo$/i.test(info.uploader ?? info.channel ?? "")) score += 3;
   if (info.channel_is_verified) score += 1;

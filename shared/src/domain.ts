@@ -448,9 +448,32 @@ export function cleanAppName(name: string | undefined): string {
   return clean || DEFAULT_APP_NAME;
 }
 
+/** The look of the app. "auto" wears the Halloween theme over Halloween week and is plain the rest of the year. */
+export type ThemeChoice = "auto" | "default" | "halloween";
+export const THEME_CHOICES: readonly ThemeChoice[] = ["auto", "default", "halloween"];
+/** The theme actually worn, once "auto" has looked at the date. */
+export type ThemeName = "default" | "halloween";
+
+/** Halloween week: the theme comes out on 25 October and goes away after the 1st of November. */
+export function isHalloweenWeek(at: number | Date = Date.now()): boolean {
+  const d = at instanceof Date ? at : new Date(at);
+  const month = d.getMonth();
+  const day = d.getDate();
+  return (month === 9 && day >= 25) || (month === 10 && day <= 1);
+}
+
+/** Which theme to wear: what was chosen, or, on "auto", the date decides. */
+export function resolveTheme(choice: ThemeChoice | undefined, at: number | Date = Date.now()): ThemeName {
+  if (choice === "halloween") return "halloween";
+  if (choice === "default") return "default";
+  return isHalloweenWeek(at) ? "halloween" : "default";
+}
+
 export interface Settings {
   /** The app's name everywhere it's shown (the TV, the phone remote, the setup pages, Spotify). */
   appName: string;
+  /** The look of the app on the TV and the phone remote. */
+  theme: ThemeChoice;
   iptv: IptvSource[];
   xmltvUrls: string[];
   jellyfin?: { url: string; userId: string; token: string; serverName?: string };
@@ -490,6 +513,7 @@ export interface Settings {
 /** Settings as the UI sees them: secrets replaced by a flag saying they're set. */
 export interface PublicSettings {
   appName: string;
+  theme: ThemeChoice;
   iptv: { id: Id; kind: "xtream" | "m3u"; name: string; connections: number; host: string; status?: IptvSourceStatus }[];
   xmltvCount: number;
   jellyfin?: { url: string; serverName?: string };
@@ -549,6 +573,10 @@ export type HubEvent =
   | { type: "notice"; notice: TvNotice }
   /** Takes a pop-up down, or all of them without an id. */
   | { type: "notice.clear"; id?: string }
+  /** A jump scare: cut this clip in over whatever is on, now. */
+  | { type: "scare"; scare: Scare }
+  /** The jump scare settings or clips changed (the phone's Scares sheet, or the TV's settings). */
+  | { type: "scares.changed" }
   /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
   | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean }
   /** The phone asks the TV app something (what's playing, play this, seek); it answers at /api/tv/reply/:id. */
@@ -714,6 +742,12 @@ export interface MixChannel {
   maxHeight: number;
   /** Longer videos (megamixes, full sets) are left out. */
   maxMinutes: number;
+  /**
+   * What the channel is made of. "music" is music videos, judged as such (an official video wins
+   * over a lyric video). "ambience" is long atmospheric footage, such as Spooky TV's haunted
+   * houses and ghost sounds: length is welcome and nothing has to look like a single.
+   */
+  style: MixStyle;
   enabled: boolean;
   /** Who fills it: "search" (picks and queries), or an LLM later. */
   curator: "search" | "llm";
@@ -723,6 +757,9 @@ export interface MixChannel {
   /** Why the last curation stopped short. */
   error?: string;
 }
+
+export type MixStyle = "music" | "ambience";
+export const MIX_STYLES: readonly MixStyle[] = ["music", "ambience"];
 
 export type MixVideoStatus = "queued" | "downloading" | "ready" | "failed";
 
@@ -799,6 +836,78 @@ export interface MixOverview {
   diskFreeBytes?: number;
   /** Downloaded videos across every channel (a video on two channels counts once), and their size. */
   totals: { ready: number; bytes: number };
+}
+
+// ---------------------------------------------------------------------------
+// Jump scares
+
+/** A clip the Hub keeps for jump scares, uploaded from the phone. */
+export interface ScareClip {
+  id: string;
+  name: string;
+  kind: "video" | "image";
+  /** Where the TV loads it from (/api/scares/clips/…). */
+  url: string;
+  sizeBytes: number;
+  addedAt: number;
+}
+
+export interface ScareSettings {
+  enabled: boolean;
+  /** Never two scares closer together than this. */
+  minGapMinutes: number;
+  /** The chance, each time the gap has passed, that the next minute holds a scare. */
+  chancePercent: number;
+  /** How long a scare is on screen (a video shorter than this ends it early). */
+  seconds: number;
+  /** How loud the scare is, 0 to 1. */
+  volume: number;
+  /** Scare during live TV as well as films, episodes and recordings. */
+  duringLive: boolean;
+  /** Only while something is playing; off means the scare can come on the menus too. */
+  whilePlayingOnly: boolean;
+}
+
+export const DEFAULT_SCARE_SETTINGS: ScareSettings = {
+  enabled: false,
+  minGapMinutes: 20,
+  chancePercent: 25,
+  seconds: 4,
+  volume: 0.7,
+  duringLive: true,
+  whilePlayingOnly: true,
+};
+
+/** One scare on its way to the TV. Without a clip the TV draws (and screams) its own. */
+export interface Scare {
+  id: string;
+  clip?: Pick<ScareClip, "id" | "name" | "kind" | "url">;
+  seconds: number;
+  volume: number;
+  /** Sent by hand from the phone rather than by the random timer. */
+  byHand: boolean;
+}
+
+export interface ScareState {
+  settings: ScareSettings;
+  clips: ScareClip[];
+}
+
+/** Keeps the scare settings sane whoever sent them (the phone, the TV, a script). */
+export function cleanScareSettings(patch: Partial<ScareSettings>, base: ScareSettings = DEFAULT_SCARE_SETTINGS): ScareSettings {
+  const num = (value: unknown, min: number, max: number, fallback: number): number => {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+  };
+  return {
+    enabled: patch.enabled === undefined ? base.enabled : Boolean(patch.enabled),
+    minGapMinutes: patch.minGapMinutes === undefined ? base.minGapMinutes : num(patch.minGapMinutes, 1, 24 * 60, base.minGapMinutes),
+    chancePercent: patch.chancePercent === undefined ? base.chancePercent : num(patch.chancePercent, 1, 100, base.chancePercent),
+    seconds: patch.seconds === undefined ? base.seconds : num(patch.seconds, 1, 30, base.seconds),
+    volume: patch.volume === undefined ? base.volume : num(patch.volume, 0, 1, base.volume),
+    duringLive: patch.duringLive === undefined ? base.duringLive : Boolean(patch.duringLive),
+    whilePlayingOnly: patch.whilePlayingOnly === undefined ? base.whilePlayingOnly : Boolean(patch.whilePlayingOnly),
+  };
 }
 
 /** A phone, tablet or screen that has paired with the Hub and may control the TV. */

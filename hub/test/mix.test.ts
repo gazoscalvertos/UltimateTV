@@ -88,6 +88,21 @@ describe("judging search results", () => {
     expect(official).toBeGreaterThan(fan);
   });
 
+  it("judges an atmosphere channel on looks and length, not on being a single", () => {
+    const spooky = { minHeight: 720, maxMinutes: 90, exclude: [], style: "ambience" as const };
+    const long: YtInfo = { id: "a", title: "Haunted House Ambience 1 Hour | Ghosts and Whispers 4K", duration: 3600, height: 2160, uploader: "Night Atmospheres", view_count: 2e6 };
+    // A music channel would throw this out twice over: "1 hour" in the title, and too long.
+    expect(judge(long, { ...spooky, style: "music", maxMinutes: 10 }).rejected.length).toBeGreaterThan(0);
+    expect(judge(long, spooky).rejected).toEqual([]);
+    expect(judge(long, spooky, "haunted house ambience ghosts whispers").rejected).toEqual([]);
+    // Still no reactions, nothing above the channel's own limit, and nothing tiny.
+    expect(judge({ ...long, title: "Haunted house ambience REACTION" }, spooky).rejected[0]).toContain("reaction");
+    expect(judge({ ...long, duration: 7200 }, spooky).rejected[0]).toContain("too long");
+    expect(judge({ ...long, duration: 20 }, spooky).rejected).toContain("too short");
+    // A proper long atmosphere clip beats a 50-second one.
+    expect(judge(long, spooky).score).toBeGreaterThan(judge({ ...long, duration: 50 }, spooky).score);
+  });
+
   it("names videos for the guide", () => {
     expect(cleanVideoTitle("Darude - Sandstorm (Official Music Video) [4K]")).toBe("Darude - Sandstorm");
     expect(displayTitle({ title: "whatever", artist: "Darude, Someone", track: "Sandstorm" })).toBe("Darude – Sandstorm");
@@ -134,7 +149,7 @@ describe("music video channels in the Hub", () => {
     await rm(tmp, { recursive: true, force: true });
   });
 
-  it("seeds the three starter channels into the channel list, and an IPTV refresh keeps them", () => {
+  it("seeds the starter channels into the channel list, and an IPTV refresh keeps them", () => {
     ctx.mix.seed();
     ctx.mix.seed();
     const mixes = ctx.channels.list().filter((c) => c.mix);
@@ -142,15 +157,18 @@ describe("music video channels in the Hub", () => {
       [390, "Clubland TV"],
       [391, "House TV"],
       [392, "Halloween TV"],
+      [393, "Spooky TV"],
     ]);
+    // Spooky TV is the one atmosphere channel: long clips rather than music videos.
+    expect(ctx.mix.store.channels().filter((c) => c.style === "ambience").map((c) => c.name)).toEqual(["Spooky TV"]);
     expect(mixes.every((c) => c.category === "music")).toBe(true);
     ctx.channels.replace([channel("bbc-one", { number: 101 })], []);
-    expect(ctx.channels.list().map((c) => c.id)).toEqual(["bbc-one", "mix:clubland-tv", "mix:house-tv", "mix:halloween-tv"]);
+    expect(ctx.channels.list().map((c) => c.id)).toEqual(["bbc-one", "mix:clubland-tv", "mix:house-tv", "mix:halloween-tv", "mix:spooky-tv"]);
   });
 
   it("finds videos for a channel's picks, downloads them and schedules them", async () => {
     const c = ctx.mix.create({ name: "Test TV", brief: "x", picks: ["Alpha - One", "Beta - Two", "Gamma - Three"], target: 3 });
-    expect(c.number).toBe(393);
+    expect(c.number).toBe(394);
     const added = await ctx.mix.curate(c.id);
     expect(added).toBe(3);
     const entries = ctx.mix.store.entries(c.id);
@@ -353,7 +371,7 @@ describe("music video channels over the API", () => {
 
   it("lists the demo channels and plays one as a queue of videos", async () => {
     const list = (await app.inject({ url: "/api/mix-channels", headers: family })).json<MixOverview>();
-    expect(list.channels.map((c) => c.name)).toEqual(["Clubland TV", "House TV", "Halloween TV"]);
+    expect(list.channels.map((c) => c.name)).toEqual(["Clubland TV", "House TV", "Halloween TV", "Spooky TV"]);
     expect(list.channels[0]!.counts.ready).toBeGreaterThan(20);
     // Storage per channel and in total; a video on two channels counts once.
     expect(list.channels[0]!.readyBytes).toBeGreaterThan(0);

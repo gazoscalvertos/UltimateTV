@@ -4,7 +4,15 @@
 
 import type { MixChannel } from "@ultimatetv/shared";
 
-export type MixSeed = Pick<MixChannel, "name" | "brief" | "picks" | "queries" | "colour"> & Partial<Pick<MixChannel, "exclude" | "number">>;
+export type MixSeed = Pick<MixChannel, "name" | "brief" | "picks" | "queries" | "colour"> &
+  Partial<Pick<MixChannel, "exclude" | "number" | "style" | "target" | "maxMinutes" | "minHeight">>;
+
+/**
+ * The seeds the first Hubs made, before each seed was recorded by name. On one of those Hubs these
+ * three count as already made, so a channel the household deleted doesn't come back on the next
+ * start; anything added to MIX_SEEDS after them is made once, when the Hub next starts.
+ */
+export const FIRST_SEED_NAMES = ["Clubland TV", "House TV", "Halloween TV"];
 
 export const MIX_SEEDS: MixSeed[] = [
   {
@@ -63,5 +71,36 @@ export const MIX_SEEDS: MixSeed[] = [
       "Busta Rhymes - Gimme Some More", "Lorde - Everybody Wants to Rule the World", "Alice Cooper - Poison",
     ],
     queries: ["halloween song official music video", "spooky official music video"],
+  },
+  {
+    // An ambience channel rather than a music one: long atmospheric footage, left on in the
+    // background at a party or while the trick-or-treaters come to the door.
+    name: "Spooky TV",
+    number: 393,
+    colour: "#6a2fb5",
+    style: "ambience",
+    target: 12,
+    maxMinutes: 90,
+    brief: "Haunted houses, drifting ghosts, foggy graveyards and creaking doors, with the wind, whispers and distant screams to match: spooky atmosphere to leave on in the background",
+    picks: [
+      "haunted house ambience ghosts whispers",
+      "halloween ambience spooky sounds fog graveyard",
+      "abandoned asylum ambience creepy atmosphere",
+      "foggy graveyard ambience night wind howling",
+      "haunted mansion ambience candlelight thunder",
+      "ghost apparitions spooky visuals halloween background",
+      "creepy forest ambience at night owls wind",
+      "victorian haunted library ambience fireplace storm",
+      "halloween party background visuals spooky loop",
+      "witch cottage ambience bubbling cauldron rain",
+      "derelict hospital corridor ambience footsteps",
+      "spooky attic ambience music box creaking",
+      "halloween jack o lantern ambience candles 4k",
+      "haunted ship ambience creaking waves ghost",
+      "catacombs ambience dripping water whispers",
+      "stormy night ambience thunder window spooky",
+    ],
+    queries: ["halloween ambience 4k spooky", "haunted house ambience ghost sounds", "spooky halloween background visuals 4k", "creepy ambience atmosphere night"],
+    exclude: ["sleep", "10 hours relaxing"],
   },
 ];

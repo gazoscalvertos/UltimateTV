@@ -34,6 +34,6 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 45, 46 | Pop-ups from /api/notify: a doorbell camera picture in the middle, and two in the corners |
 | 47 | Sending a pop-up from the phone |
 | 48 | Pairing a phone: typing the TV's code |
-| 49 | Settings › Screensaver: dimming, the theme, your photos folder and Try it now |
-| 50 | Screensavers full size: Northern lights, Fireplace, Halloween, Landscapes |
-| 51 | Every built-in screensaver on one sheet |
+| 53 | Settings › Screensaver: dimming, the theme, your photos folder and Try it now |
+| 54 | Screensavers full size: Northern lights, Fireplace, Halloween, Landscapes |
+| 55 | Every built-in screensaver on one sheet |
