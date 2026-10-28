@@ -34,6 +34,12 @@ const DOORBELL_SNAPSHOT = `<body style="margin:0"><svg xmlns="http://www.w3.org/
   <text x="34" y="56" font-family="monospace" font-size="30" fill="#fff">FRONT DOOR</text><text x="1246" y="56" text-anchor="end" font-family="monospace" font-size="30" fill="#fff">25/10/2026 18:42:07</text>
 </svg></body>`;
 
+/** A ghost on a transparent background, for the built jump scare's screenshot. */
+const GHOST_PICTURE = `<body style="margin:0;background:transparent"><svg xmlns="http://www.w3.org/2000/svg" width="400" height="520" viewBox="0 0 100 130">
+  <path d="M50 6c22 0 36 17 36 40v72c0 5-6 7-9 3l-7-9-8 10c-3 4-8 4-11 0l-7-9-8 9c-3 4-9 2-9-3V46C27 23 28 6 50 6z" fill="#f4f7ff" opacity="0.92"/>
+  <ellipse cx="38" cy="46" rx="6" ry="8" fill="#1b1030"/><ellipse cx="62" cy="46" rx="6" ry="8" fill="#1b1030"/><ellipse cx="50" cy="70" rx="9" ry="12" fill="#1b1030"/>
+</svg></body>`;
+
 async function startHub() {
   const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-shots-"));
   const hub = spawn(process.execPath, [path.join(root, "hub/dist/index.js")], {
@@ -332,6 +338,17 @@ try {
   await shot("49-jump-scare");
   await key("Enter");
   if (await page.locator(".jump-scare").count()) errors.push("OK didn't close the jump scare");
+  // A built scare: a transparent ghost placed bottom right over the film.
+  const ghostPage = await browser.newPage({ viewport: { width: 400, height: 520 } });
+  await ghostPage.setContent(GHOST_PICTURE);
+  const ghost = await ghostPage.screenshot({ type: "png", omitBackground: true });
+  await ghostPage.close();
+  const { clip: ghostClip } = await (await fetch(`${base}/api/scares/clips?name=Ghost`, { method: "POST", headers: { ...asTv, "Content-Type": "image/png" }, body: ghost })).json();
+  const { mix } = await (await fetch(`${base}/api/scares/mixes`, { method: "POST", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ name: "Ghost in the corner", visualId: ghostClip.id, spot: "bottom-right", size: "medium" }) })).json();
+  await fetch(`${base}/api/scares/now`, { method: "POST", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ mixId: mix.id }) });
+  await wait(900);
+  await shot("61-jump-scare-placed");
+  await key("Enter");
   await key("Escape");
   await key("Escape");
 
@@ -498,6 +515,12 @@ try {
   await phone.waitForTimeout(800);
   await phone.screenshot({ path: path.join(out, "53-phone-scares.png") });
   console.log("  53-phone-scares.png");
+  await phone.click("#sc-build");
+  await phone.waitForTimeout(600);
+  await phone.click('#bd-where [data-v="bottom-right"]');
+  await phone.waitForTimeout(300);
+  await phone.screenshot({ path: path.join(out, "62-phone-build-scare.png") });
+  console.log("  62-phone-build-scare.png");
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.click("#settings");

@@ -452,7 +452,7 @@
     const sc = state.settings;
     const seg = (id, items, value) => `<div class="seg" id="${id}">${items.map(([v, l]) => `<button type="button" data-v="${v}" class="${v === value ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
     openSheet(`<h2>Jump scares</h2>
-      <p class="meta">Cuts one of your clips in over whatever is on, full screen, then takes it away. Never on a Kids profile.</p>
+      <p class="meta">Cuts one of your clips or built scares in over whatever is on, then takes it away. Never on a Kids profile.</p>
       <div class="actions"><button class="primary scare-now" id="sc-now">Scare them now</button></div>
       <h3>Random scares</h3>
       ${seg("sc-on", [[1, "On"], [0, "Off"]], sc.enabled ? 1 : 0)}
@@ -467,11 +467,15 @@
       <h3>When</h3>
       ${seg("sc-live", [[1, "Live TV too"], [0, "Films and episodes only"]], sc.duringLive ? 1 : 0)}
       ${seg("sc-playing", [[1, "Only while watching"], [0, "Menus as well"]], sc.whilePlayingOnly ? 1 : 0)}
+      <h3>Your scares</h3>
+      <p class="meta" id="sc-mixes-none"${(state.mixes || []).length ? " hidden" : ""}>Build one from your clips: a picture or GIF, a video, a sound, or a picture with a sound, placed where you like on the screen.</p>
+      <div id="sc-mixes"></div>
+      <div class="actions"><button id="sc-build">Build a scare</button></div>
       <h3>Clips</h3>
-      <p class="meta" id="sc-none"${state.clips.length ? " hidden" : ""}>No clips yet, so the TV draws (and screams) its own. Add a short video or picture from your phone.</p>
+      <p class="meta" id="sc-none"${state.clips.length ? " hidden" : ""}>No clips yet, so the TV draws (and screams) its own. Add a short video, a picture (a transparent GIF works best) or a sound from your phone.</p>
       <div id="sc-clips">${state.clips.map(clipHtml).join("")}</div>
       <div class="actions"><button id="sc-add">Add a clip</button></div>
-      <input type="file" id="sc-file" accept="video/*,image/*" hidden>
+      <input type="file" id="sc-file" accept="video/*,image/*,audio/*" hidden>
       <button class="link" data-close>Close</button>`);
 
     const put = async (patch) => {
@@ -508,7 +512,28 @@
         toast(e.message, true);
       }
     };
+    const showMixes = (mixes) => {
+      state.mixes = mixes;
+      $("sc-mixes").innerHTML = mixes.map((m) => mixHtml(m, state.clips)).join("");
+      $("sc-mixes-none").hidden = mixes.length > 0;
+      for (const b of $("sc-mixes").querySelectorAll("[data-play]")) b.onclick = () => void post("/api/scares/now", { mixId: b.dataset.play }).then(() => toast("Boo!"), (e) => toast(e.message, true));
+      for (const b of $("sc-mixes").querySelectorAll("[data-drop]")) {
+        b.onclick = async () => {
+          const r = await fetch(`/api/scares/mixes/${encodeURIComponent(b.dataset.drop)}`, { method: "DELETE" }).catch(() => null);
+          const d = r && (await r.json().catch(() => ({})));
+          if (!r?.ok) return toast((d && d.error) || "Can't reach the Hub", true);
+          showMixes(d.mixes || []);
+          toast("Scare deleted");
+        };
+      }
+    };
+    showMixes(state.mixes || []);
+    $("sc-build").onclick = () => {
+      if (!state.clips.length) return toast("Add a clip first: a picture, a video or a sound", true);
+      buildSheet(state.clips, () => void scareSheet());
+    };
     const showClips = (clips) => {
+      state.clips = clips;
       $("sc-clips").innerHTML = clips.map(clipHtml).join("");
       $("sc-none").hidden = clips.length > 0;
       for (const b of $("sc-clips").querySelectorAll("[data-play]")) b.onclick = () => void post("/api/scares/now", { clipId: b.dataset.play }).then(() => toast("Boo!"), (e) => toast(e.message, true));
@@ -518,6 +543,7 @@
           const d = r && (await r.json().catch(() => ({})));
           if (!r?.ok) return toast((d && d.error) || "Can't reach the Hub", true);
           showClips(d.clips || []);
+          if (d.mixes) showMixes(d.mixes);
           toast("Clip deleted");
         };
       }
@@ -548,8 +574,89 @@
       add.textContent = "Add a clip";
     };
   }
+  const KIND_NAMES = { video: "Video", image: "Picture", audio: "Sound" };
+  const SPOT_NAMES = { "top-left": "top left", top: "top", "top-right": "top right", left: "left", center: "middle", right: "right", "bottom-left": "bottom left", bottom: "bottom", "bottom-right": "bottom right", full: "full screen" };
   function clipHtml(c) {
-    return `<div class="clip"><span>${esc(c.name)}<br><small>${c.kind === "video" ? "Video" : "Picture"} · ${kb(c.sizeBytes)}</small></span><button type="button" data-play="${esc(c.id)}">Show</button><button type="button" data-drop="${esc(c.id)}">Delete</button></div>`;
+    return `<div class="clip"><span>${esc(c.name)}<br><small>${KIND_NAMES[c.kind] || "Clip"} · ${kb(c.sizeBytes)}</small></span><button type="button" data-play="${esc(c.id)}">${c.kind === "audio" ? "Play" : "Show"}</button><button type="button" data-drop="${esc(c.id)}">Delete</button></div>`;
+  }
+  function mixHtml(m, clips) {
+    const name = (id) => clips.find((c) => c.id === id)?.name;
+    const parts = [name(m.visualId), name(m.audioId) && `🔊 ${name(m.audioId)}`].filter(Boolean).join(" + ");
+    const where = m.visualId ? ` · ${SPOT_NAMES[m.spot] || m.spot}${m.spot === "full" ? "" : `, ${m.size}`}` : "";
+    return `<div class="clip"><span>${esc(m.name)}<br><small>${esc(parts)}${esc(where)}</small></span><button type="button" data-play="${esc(m.id)}">Show</button><button type="button" data-drop="${esc(m.id)}">Delete</button></div>`;
+  }
+
+  // Building a scare: a picture or video and a sound from the clips, placed on the screen.
+  const BUILD_SPOTS = [["top-left", "↖"], ["top", "Top"], ["top-right", "↗"], ["left", "Left"], ["center", "Middle"], ["right", "Right"], ["bottom-left", "↙"], ["bottom", "Bottom"], ["bottom-right", "↘"]];
+  const BUILD_SIZES = [["small", "Small"], ["medium", "Medium"], ["large", "Large"]];
+  const BUILD_SECONDS = [[0, "As set"], [2, "2 sec"], [4, "4 sec"], [6, "6 sec"], [10, "10 sec"]];
+  function buildSheet(clips, back) {
+    const visuals = clips.filter((c) => c.kind !== "audio");
+    const sounds = clips.filter((c) => c.kind === "audio");
+    const b = { visualId: visuals[0]?.id || "", audioId: "", spot: "full", size: "medium", muteVideo: false, seconds: 0 };
+    const pick = (id, items, value) => `<div class="list" id="${id}">${items.map(([v, l]) => `<button type="button" class="row-btn${v === value ? " on" : ""}" data-v="${esc(v)}">${esc(l)}</button>`).join("")}</div>`;
+    const seg = (id, items, value) => `<div class="seg" id="${id}">${items.map(([v, l]) => `<button type="button" data-v="${v}" class="${v === value ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
+    openSheet(`<h2>Build a scare</h2>
+      <p class="meta">A transparent GIF in a corner with a scream, a video with a sound of your own, or just a sound in the dark.</p>
+      <h3>Picture or video</h3>
+      ${pick("bd-visual", [["", "None (just the sound)"], ...visuals.map((c) => [c.id, `${c.name} · ${KIND_NAMES[c.kind]}`])], b.visualId)}
+      <h3>Sound</h3>
+      ${pick("bd-audio", [["", sounds.length ? "None" : "None (add a sound clip to use one)"], ...sounds.map((c) => [c.id, c.name])], b.audioId)}
+      <label class="check" id="bd-mute-row"><input type="checkbox" id="bd-mute"> Play the video without its own sound</label>
+      <div id="bd-place">
+        <h3>Where on the screen</h3>
+        <div class="where" id="bd-where">${BUILD_SPOTS.map(([v, l]) => `<button type="button" data-v="${v}">${esc(l)}</button>`).join("")}</div>
+        <button type="button" class="where-full" id="bd-full">Full screen</button>
+        <div id="bd-size-row"><h3>Size</h3>${seg("bd-size", BUILD_SIZES, b.size)}</div>
+      </div>
+      <h3>On screen for</h3>
+      ${seg("bd-secs", BUILD_SECONDS, b.seconds)}
+      <input class="field" id="bd-name" maxlength="60" placeholder="Name it (optional)" autocomplete="off">
+      <div class="actions"><button class="primary" id="bd-save">Save and try it</button><button id="bd-only">Save</button></div>
+      <button class="link" id="bd-back">Back</button>`);
+    const mark = (box, value) => {
+      for (const x of $(box).querySelectorAll("button")) x.classList.toggle("on", x.dataset.v === String(value));
+    };
+    const refresh = () => {
+      const visual = visuals.find((c) => c.id === b.visualId);
+      mark("bd-visual", b.visualId);
+      mark("bd-audio", b.audioId);
+      mark("bd-where", b.spot);
+      $("bd-full").classList.toggle("on", b.spot === "full");
+      mark("bd-size", b.size);
+      mark("bd-secs", b.seconds);
+      $("bd-place").hidden = !visual;
+      $("bd-size-row").hidden = b.spot === "full";
+      $("bd-mute-row").hidden = visual?.kind !== "video";
+    };
+    const on = (box, apply) => {
+      for (const x of $(box).querySelectorAll("button")) x.onclick = () => (apply(x.dataset.v), refresh());
+    };
+    on("bd-visual", (v) => (b.visualId = v));
+    on("bd-audio", (v) => (b.audioId = v));
+    on("bd-where", (v) => (b.spot = v));
+    on("bd-size", (v) => (b.size = v));
+    on("bd-secs", (v) => (b.seconds = Number(v)));
+    $("bd-full").onclick = () => ((b.spot = "full"), refresh());
+    $("bd-mute").onchange = (e) => (b.muteVideo = e.target.checked);
+    $("bd-back").onclick = back;
+    const save = async (andShow) => {
+      if (!b.visualId && !b.audioId) return toast("Pick a picture, a video or a sound", true);
+      try {
+        const body = { ...b, name: $("bd-name").value.trim() };
+        if (!body.visualId) delete body.visualId;
+        if (!body.audioId) delete body.audioId;
+        const { mix } = await post("/api/scares/mixes", body);
+        if (andShow) await post("/api/scares/now", { mixId: mix.id });
+        toast(andShow ? "Saved. Boo!" : "Saved");
+        back();
+      } catch (e) {
+        toast(e.message, true);
+      }
+    };
+    $("bd-save").onclick = () => void save(true);
+    $("bd-only").onclick = () => void save(false);
+    refresh();
   }
   $("scare-btn").addEventListener("click", () => void scareSheet());
 

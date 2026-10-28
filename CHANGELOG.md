@@ -15,6 +15,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Build your own jump scares** ([docs/halloween.md](docs/halloween.md#building-your-own)): the
+  phone remote's Scares tab now takes sounds as well as pictures and videos, and **Build a scare**
+  puts a picture or video and a sound together, placed in one of nine spots (or full screen) at the
+  size you pick, with the video's own sound off if you like. A transparent GIF floats over the film
+  rather than blacking it out. Update the Hub and the box.
 - **Play queue**: line up films, episodes and recordings to play one after another. On the TV,
   Add to queue (or Green) on a film, "Queue S1 E3" on a series, or Green on any episode; on the
   phone, Add to queue and the + beside each episode, and the new Watch › Queue tab to reorder,

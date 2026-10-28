@@ -3269,6 +3269,35 @@ kbd.key-blue {
 @media (prefers-reduced-motion: reduce) {
   .hw-bat, .hw-bat-wings, .hw-fog, .egg-ghost, .egg-pumpkin, .egg-layer.flicker, .scare-face { animation: none; }
   .egg-layer.flicker { background: none; }
+}
+
+/* A built scare placed in one spot: no black behind it, so a transparent GIF
+   floats over whatever is on. */
+.jump-scare.placed {
+  background: transparent;
+  padding: 3rem 4rem;
+  place-items: center;
+}
+.jump-scare.placed .scare-media {
+  width: auto;
+  max-width: 90vw;
+  object-fit: contain;
+  animation: scare-pop 0.25s var(--ease) both;
+}
+.scare-size-small.placed .scare-media { height: 33vh; }
+.scare-size-medium.placed .scare-media { height: 55vh; }
+.scare-size-large.placed .scare-media { height: 85vh; }
+.jump-scare.scare-spot-top-left { place-items: start start; }
+.jump-scare.scare-spot-top { place-items: start center; }
+.jump-scare.scare-spot-top-right { place-items: start end; }
+.jump-scare.scare-spot-left { place-items: center start; }
+.jump-scare.scare-spot-right { place-items: center end; }
+.jump-scare.scare-spot-bottom-left { place-items: end start; }
+.jump-scare.scare-spot-bottom { place-items: end center; }
+.jump-scare.scare-spot-bottom-right { place-items: end end; }
+@keyframes scare-pop {
+  from { transform: scale(0.4); opacity: 0; }
+}
 
 /* ------------------------------------------------------------------------- */
 /* Dimming and the screensaver: over everything, never in the way of the remote. */
