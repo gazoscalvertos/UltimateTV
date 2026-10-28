@@ -125,8 +125,10 @@ export interface BoxSoftware {
   /** When that commit was made (ISO). */
   date?: string;
   branch?: string;
-  /** The newest commit on the branch, when the box could check. */
+  /** The newest commit on the branch, from the last check that worked (kept when a later one fails). */
   latest?: string;
+  /** When that check worked (ISO). */
+  checkedAt?: string;
   /** An update is running now; the TV app restarts when it finishes. */
   updating: boolean;
   lastUpdate?: { at: string; ok: boolean };
