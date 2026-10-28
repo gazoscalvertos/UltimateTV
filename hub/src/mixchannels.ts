@@ -20,7 +20,7 @@ import type { Db } from "./db.js";
 import type { GuideStore } from "./epg.js";
 import type { EventBus } from "./events.js";
 import type { Logger } from "./log.js";
-import { MIX_SEEDS, type MixSeed } from "./mixseeds.js";
+import { FIRST_SEED_NAMES, MIX_SEEDS, type MixSeed } from "./mixseeds.js";
 import type { SettingsStore } from "./settings.js";
 import { displayTitle, overlap, songKey, toCandidate, type YtDlp, type YtInfo } from "./ytdlp.js";
 
@@ -159,18 +159,19 @@ export interface Curator {
 }
 
 /** Turns a brief ("90s rock anthems, Oasis, Blur") into searches, one per comma. */
-export function briefQueries(brief: string): string[] {
+export function briefQueries(brief: string, style: MixChannel["style"] = "music"): string[] {
+  const tail = style === "ambience" ? "ambience 4k" : "official music video";
   return brief
     .split(/[,;\n]+/)
     .map((t) => t.trim())
     .filter((t) => t.length > 1)
     .slice(0, 12)
-    .map((t) => `${t} official music video`);
+    .map((t) => `${t} ${tail}`);
 }
 
 export const searchCurator: Curator = {
   async plan(c) {
-    return { picks: c.picks, queries: c.queries.length ? c.queries : briefQueries(c.brief) };
+    return { picks: c.picks, queries: c.queries.length ? c.queries : briefQueries(c.brief, c.style) };
   },
 };
 
@@ -185,15 +186,21 @@ interface StoredVideo extends MixVideo {
   stalls?: number;
 }
 
+/** Channels saved before ambience channels existed are music channels. */
+function withStyle(c: MixChannel): MixChannel {
+  return c.style === "ambience" || c.style === "music" ? c : { ...c, style: "music" };
+}
+
 export class MixStore {
   constructor(private db: Db) {}
 
   channels(): MixChannel[] {
-    return this.db.json<MixChannel>("SELECT data FROM mix_channels").sort((a, b) => a.number - b.number);
+    return this.db.json<MixChannel>("SELECT data FROM mix_channels").map(withStyle).sort((a, b) => a.number - b.number);
   }
 
   channel(id: string): MixChannel | undefined {
-    return this.db.jsonOne<MixChannel>("SELECT data FROM mix_channels WHERE id = ?", id);
+    const c = this.db.jsonOne<MixChannel>("SELECT data FROM mix_channels WHERE id = ?", id);
+    return c ? withStyle(c) : undefined;
   }
 
   saveChannel(c: MixChannel): void {
@@ -307,10 +314,20 @@ export class MixManager {
   // -------------------------------------------------------------------------
   // Channels
 
-  /** Creates the starter channels once, on a new Hub. */
+  /**
+   * Creates each starter channel once. Which ones have been made is kept by name, so a channel
+   * added to the seeds later (Spooky TV) arrives when the Hub updates, and one the household has
+   * deleted stays deleted.
+   */
   seed(seeds: MixSeed[] = MIX_SEEDS, now = Date.now()): void {
-    if (this.o.db.getKv<boolean>("mix-seeded")) return;
-    for (const s of seeds) if (!this.store.channel(`mix:${slug(normaliseChannelName(s.name))}`)) this.create(s, now);
+    const saved = this.o.db.getKv<string[]>("mix-seeded-names");
+    const made = new Set(saved ?? (this.o.db.getKv<boolean>("mix-seeded") ? FIRST_SEED_NAMES : []));
+    for (const s of seeds) {
+      if (made.has(s.name)) continue;
+      if (!this.store.channel(`mix:${slug(normaliseChannelName(s.name))}`)) this.create(s, now);
+      made.add(s.name);
+    }
+    this.o.db.setKv("mix-seeded-names", [...made]);
     this.o.db.setKv("mix-seeded", true);
   }
 
@@ -319,6 +336,7 @@ export class MixManager {
     if (!name) throw badRequest("Give the channel a name");
     const id = `mix:${slug(normaliseChannelName(name))}`;
     if (this.store.channel(id)) throw Object.assign(new Error(`There's already a channel called ${name}`), { statusCode: 409 });
+    const style: MixChannel["style"] = input.style === "ambience" ? "ambience" : "music";
     const wanted = Number(input.number);
     const number = Number.isInteger(wanted) && wanted > 0 && !this.o.channels.byNumber(wanted) ? wanted : this.o.channels.freeNumber(390);
     const c: MixChannel = {
@@ -332,7 +350,9 @@ export class MixManager {
       target: clamp(input.target, 5, 200, 30),
       minHeight: clamp(input.minHeight, 360, 2160, 720),
       maxHeight: clamp(input.maxHeight, 720, 4320, 2160),
-      maxMinutes: clamp(input.maxMinutes, 3, 30, 10),
+      // Ambience clips are long on purpose, so they get a far higher ceiling than a music video.
+      maxMinutes: clamp(input.maxMinutes, 3, style === "ambience" ? 240 : 30, style === "ambience" ? 90 : 10),
+      style,
       enabled: input.enabled ?? true,
       curator: input.curator === "llm" ? "llm" : "search",
       colour: /^#[0-9a-f]{6}$/i.test(input.colour ?? "") ? input.colour! : PALETTE[this.store.channels().length % PALETTE.length]!,
@@ -357,7 +377,8 @@ export class MixManager {
     if (patch.target !== undefined) c.target = clamp(patch.target, 5, 200, c.target);
     if (patch.minHeight !== undefined) c.minHeight = clamp(patch.minHeight, 360, 2160, c.minHeight);
     if (patch.maxHeight !== undefined) c.maxHeight = clamp(patch.maxHeight, 720, 4320, c.maxHeight);
-    if (patch.maxMinutes !== undefined) c.maxMinutes = clamp(patch.maxMinutes, 3, 30, c.maxMinutes);
+    if (patch.style !== undefined) c.style = patch.style === "ambience" ? "ambience" : "music";
+    if (patch.maxMinutes !== undefined) c.maxMinutes = clamp(patch.maxMinutes, 3, c.style === "ambience" ? 240 : 30, c.maxMinutes);
     if (patch.enabled !== undefined) c.enabled = Boolean(patch.enabled);
     if (patch.curator !== undefined) c.curator = patch.curator === "llm" ? "llm" : "search";
     if (patch.colour !== undefined && /^#[0-9a-f]{6}$/i.test(patch.colour)) c.colour = patch.colour;
@@ -480,7 +501,7 @@ export class MixManager {
     const q = query.trim();
     if (!q) throw badRequest("Search for something");
     const c = channelId ? this.store.channel(channelId) : undefined;
-    const rules = c ?? { minHeight: 720, maxMinutes: 10, exclude: [] };
+    const rules = c ?? { minHeight: 720, maxMinutes: 10, exclude: [], style: "music" as const };
     return (await this.o.ytdlp.search(q, limit)).map((i) => toCandidate(i, rules)).sort((a, b) => b.score - a.score);
   }
 
@@ -740,7 +761,9 @@ export class MixManager {
     const tried = new Set(this.o.db.getKv<string[]>(`mix-tried:${channelId}`) ?? []);
     const blocked = new Set(this.o.db.getKv<string[]>(`mix-blocked:${channelId}`) ?? []);
     const titles = entries.map((e) => displayTitle(e.video));
-    const songs = new Set(entries.filter((e) => e.video.status !== "failed").map((e) => songKey(e.video)).filter(Boolean));
+    // Two uploads of the same song are a duplicate; two haunted houses are not, so an ambience
+    // channel is only deduped by title.
+    const songs = new Set(c.style === "ambience" ? [] : entries.filter((e) => e.video.status !== "failed").map((e) => songKey(e.video)).filter(Boolean));
     let added = 0;
     const usable = (cand: MixCandidate) => {
       if (cand.rejected.length || blocked.has(cand.id)) return false;
@@ -779,7 +802,7 @@ export class MixManager {
       if (tried.has(`pick:${pick}`)) continue;
       if (failures >= 3) break;
       this.busy.curate = `Looking for ${pick}`;
-      const best = (await searchFor(`${pick} official video`, 5))
+      const best = (await searchFor(c.style === "ambience" ? pick : `${pick} official video`, 5))
         .map((i) => toCandidate(i, c, pick))
         .filter(usable)
         .sort((a, b) => b.score - a.score)[0];

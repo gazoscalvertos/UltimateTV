@@ -28,6 +28,9 @@ import type {
   Rail,
   Recording,
   Reminder,
+  Scare,
+  ScareSettings,
+  ScareState,
   SearchResult,
   Season,
   SeriesLink,
@@ -171,7 +174,12 @@ export const hub = {
   removeMixVideo: (id: string, videoId: string) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}/videos/${enc(videoId)}`, { method: "DELETE" }),
 
   settings: () => api<PublicSettings>("/api/settings"),
-  saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback" | "appName">>) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
+  saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback" | "appName" | "theme">>) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
+
+  /** Jump scares: the settings and clips the Hub keeps, and setting one off now. */
+  scares: () => api<ScareState>("/api/scares"),
+  saveScares: (patch: Partial<ScareSettings>) => api<ScareState>("/api/scares", { method: "PUT", body: patch }),
+  scareNow: (clipId?: string) => api<{ scare: Scare }>("/api/scares/now", { method: "POST", body: clipId ? { clipId } : {} }),
   refresh: () => api<{ ok: true }>("/api/refresh", { method: "POST" }),
   reportBox: (state: Omit<BoxState, "reportedAt">) => api<{ ok: true }>("/api/box/state", { method: "POST", body: state }),
   /** The Hub's own version, checked against GitHub's main. */

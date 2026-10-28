@@ -1,7 +1,7 @@
 // App-wide state: where we are, who's watching, toasts and dialogs.
 
 import { createSignal, type JSX } from "solid-js";
-import { DEFAULT_APP_NAME, type MusicItem, type Profile } from "@ultimatetv/shared";
+import { DEFAULT_APP_NAME, type MusicItem, type Profile, type ThemeName } from "@ultimatetv/shared";
 
 export type Route =
   | { name: "profiles" }
@@ -66,6 +66,30 @@ export function setAppName(name: string): void {
     localStorage.setItem("utv-app-name", name);
   } catch {
     // Private storage off: the name still shows once the Hub answers.
+  }
+}
+
+// The look of the app, chosen in Settings and kept on the Hub. Remembered here too, so the TV
+// wears the right one before the Hub answers (and on the offline screen).
+function readTheme(): ThemeName {
+  try {
+    const saved = localStorage.getItem("utv-theme");
+    if (saved === "halloween" || saved === "default") return saved;
+  } catch {
+    // Private storage off: the plain theme until the Hub answers.
+  }
+  return "default";
+}
+const [theme, setThemeSignal] = createSignal<ThemeName>(readTheme());
+export { theme };
+document.documentElement.dataset.theme = theme();
+export function setTheme(name: ThemeName): void {
+  setThemeSignal(name);
+  document.documentElement.dataset.theme = name;
+  try {
+    localStorage.setItem("utv-theme", name);
+  } catch {
+    // Nothing to remember it with: the Hub says again next time.
   }
 }
 

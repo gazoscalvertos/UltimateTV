@@ -3097,3 +3097,166 @@ kbd.key-blue {
 @media (prefers-reduced-motion: reduce) {
   .notice, .notice-alarm { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   The Halloween theme, chosen in Settings › About › Theme ("auto" wears it over
+   Halloween week). It's the same layout in different colours, plus the moving
+   decorations in components/Halloween.tsx, so nothing shifts about. */
+
+:root[data-theme="halloween"] {
+  --bg: #0b0613;
+  --bg-2: #150a20;
+  --panel: #1c0f2b;
+  --panel-2: #261438;
+  --line: rgba(255, 180, 90, 0.16);
+  --fg: #f7efe6;
+  --muted: #b39bc4;
+  --dim: #7b648c;
+  --accent: #f07b16;
+  --accent-2: #8a4dff;
+  --good: #7ac74f;
+  --amber: #ffc34d;
+}
+:root[data-theme="halloween"] .brand-mark {
+  background: radial-gradient(circle at 35% 30%, #ffb23f, var(--accent) 60%, #7a2f06);
+  box-shadow: 0 0 1.2rem rgba(240, 123, 22, 0.45);
+}
+:root[data-theme="halloween"] .brand-name {
+  letter-spacing: 0.02em;
+}
+:root[data-theme="halloween"] .topbar {
+  background: linear-gradient(180deg, rgba(30, 10, 45, 0.92), transparent);
+}
+
+/* The decorations. They sit over the app but under the dialogs, pop-ups and the
+   player's own overlays, and go while something is playing. */
+.hw-layer,
+.egg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  overflow: hidden;
+}
+.cobweb {
+  position: absolute;
+  top: 0;
+  width: 13rem;
+  height: 13rem;
+  color: rgba(255, 236, 214, 0.17);
+}
+.cobweb-left { left: 0; }
+.cobweb-right { right: 0; transform: scaleX(-1); }
+.hw-fog {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: -2rem;
+  height: 14rem;
+  background: radial-gradient(60% 100% at 30% 100%, rgba(170, 130, 210, 0.2), transparent 70%),
+    radial-gradient(50% 100% at 75% 100%, rgba(240, 123, 22, 0.14), transparent 70%);
+  animation: hw-drift 26s var(--ease) infinite alternate;
+}
+.hw-bat {
+  position: absolute;
+  top: var(--top);
+  left: -10rem;
+  width: 6rem;
+  height: 3rem;
+  color: #130a1f;
+  filter: drop-shadow(0 0.3rem 0.6rem rgba(0, 0, 0, 0.5));
+  transform: scale(var(--scale));
+  animation: hw-fly var(--time) linear forwards;
+}
+.hw-bat.back {
+  left: auto;
+  right: -10rem;
+  animation-name: hw-fly-back;
+}
+.hw-bat-wings {
+  transform-origin: 60px 30px;
+  animation: hw-flap 0.45s ease-in-out infinite;
+}
+@keyframes hw-fly {
+  to { transform: translateX(calc(100vw + 20rem)) translateY(-4rem) scale(var(--scale)); }
+}
+@keyframes hw-fly-back {
+  to { transform: translateX(calc(-100vw - 20rem)) translateY(-3rem) scale(var(--scale)); }
+}
+@keyframes hw-flap {
+  50% { transform: scaleY(0.55); }
+}
+@keyframes hw-drift {
+  to { transform: translateX(6rem); }
+}
+
+/* The easter eggs' rewards (components/EasterEggs.tsx). */
+.egg-layer.flicker {
+  background: #000;
+  animation: egg-flicker 2.6s steps(1, end);
+}
+.egg-ghost {
+  position: absolute;
+  left: var(--from);
+  bottom: -14rem;
+  width: 9rem;
+  height: 12rem;
+  filter: drop-shadow(0 0 1.5rem rgba(190, 210, 255, 0.5));
+  animation: egg-rise 5s var(--ease) forwards;
+}
+.egg-pumpkin {
+  position: absolute;
+  left: var(--left);
+  top: -5rem;
+  width: 4rem;
+  height: 4rem;
+  animation: egg-fall 4.2s linear var(--delay) forwards;
+}
+@keyframes egg-rise {
+  from { opacity: 0; transform: translateY(0) scale(0.9); }
+  20% { opacity: 1; }
+  to { opacity: 0; transform: translateY(-75vh) scale(1.1); }
+}
+@keyframes egg-fall {
+  from { opacity: 0; transform: translateY(0) rotate(0deg); }
+  10% { opacity: 1; }
+  to { opacity: 0.9; transform: translateY(105vh) rotate(calc(var(--spin) * 540deg)); }
+}
+@keyframes egg-flicker {
+  0%, 12%, 26%, 44%, 62%, 100% { opacity: 0; }
+  6%, 20%, 34%, 52% { opacity: 0.85; }
+}
+
+/* ---------------------------------------------------------------------------
+   Jump scares (components/JumpScare.tsx): full screen over everything, for a
+   few seconds. Above the pop-ups, because the point is that it's sudden. */
+
+.jump-scare {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: #000;
+  display: grid;
+  place-items: center;
+  animation: scare-in 0.12s steps(2, end);
+}
+.scare-media,
+.scare-face {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.scare-face {
+  animation: scare-lunge 0.9s var(--ease) both;
+}
+@keyframes scare-in {
+  from { opacity: 0; }
+}
+@keyframes scare-lunge {
+  from { transform: scale(0.55); }
+  to { transform: scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-bat, .hw-bat-wings, .hw-fog, .egg-ghost, .egg-pumpkin, .egg-layer.flicker, .scare-face { animation: none; }
+  .egg-layer.flicker { background: none; }
+}

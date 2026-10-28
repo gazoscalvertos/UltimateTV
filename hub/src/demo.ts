@@ -357,26 +357,28 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   seedDemoMix(ctx, clip("h264-1080p25-aac.mp4"), now);
 }
 
-/** The three starter music video channels, filled with their picks as if downloaded (playing a test clip). */
+/** The starter made-up channels (music videos and Spooky TV's atmosphere), filled with their picks as if downloaded (playing a test clip). */
 function seedDemoMix(ctx: HubContext, clipUrl: string, now: number): void {
   const mix = ctx.mix;
   mix.seed(MIX_SEEDS, now - 3 * 86_400_000);
   const file = clipUrl.startsWith("/clips/") ? clipUrl : "/clips/h264-1080p25-aac.mp4";
   for (const c of mix.store.channels()) {
     const r = rand(c.id);
-    c.picks.slice(0, c.id === "mix:halloween-tv" ? 24 : 30).forEach((pick, i) => {
-      const [artist, track] = pick.split(" - ");
+    const ambience = c.style === "ambience";
+    c.picks.slice(0, ambience ? c.target : c.id === "mix:halloween-tv" ? 24 : 30).forEach((pick, i) => {
+      const [artist, track] = ambience ? [] : pick.split(" - ");
       const id = `demo${hash(pick)}`;
       const status = c.id === "mix:halloween-tv" && i >= 20 ? (i === 23 ? "downloading" : "queued") : "ready";
       if (!mix.store.video(id)) {
-        const durationS = 180 + Math.floor(r() * 120);
+        // Atmosphere clips run long: that's what keeps the channel going.
+        const durationS = ambience ? 900 + Math.floor(r() * 1800) : 180 + Math.floor(r() * 120);
         const height = r() > 0.4 ? 2160 : 1080;
         mix.store.saveVideo({
           id,
           url: `https://www.youtube.com/watch?v=${id}`,
-          title: `${pick} (Official Video)`,
+          title: ambience ? `${pick.replace(/\b\w/, (ch) => ch.toUpperCase())} (4K)` : `${pick} (Official Video)`,
           ...(artist && track ? { artist, track } : {}),
-          uploader: `${artist ?? "Artist"}VEVO`,
+          uploader: ambience ? "Night Atmospheres" : `${artist ?? "Artist"}VEVO`,
           durationS,
           height,
           status,

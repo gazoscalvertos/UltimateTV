@@ -419,6 +419,122 @@
   $("notify-btn").addEventListener("click", () => void notifySheet());
 
   // ---------------------------------------------------------------------------
+  // Jump scares: a clip cut in over whatever is on. The settings and the clips live on the Hub
+  // (/api/scares), so the TV and every phone agree; the TV picks the moment for a random one.
+
+  const SC_GAPS = [[10, "10 min"], [20, "20 min"], [30, "30 min"], [60, "1 hour"], [120, "2 hours"]];
+  const SC_CHANCE = [[5, "Rare"], [10, "Now and then"], [25, "Often"], [50, "Very often"], [100, "Every time"]];
+  const SC_SECONDS = [[2, "2 sec"], [3, "3 sec"], [4, "4 sec"], [6, "6 sec"], [10, "10 sec"]];
+  const kb = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+  async function scareSheet() {
+    const state = await get("/api/scares").catch(() => null);
+    if (!state) return toast("Can't reach the Hub", true);
+    const sc = state.settings;
+    const seg = (id, items, value) => `<div class="seg" id="${id}">${items.map(([v, l]) => `<button type="button" data-v="${v}" class="${v === value ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
+    openSheet(`<h2>Jump scares</h2>
+      <p class="meta">Cuts one of your clips in over whatever is on, full screen, then takes it away. Never on a Kids profile.</p>
+      <div class="actions"><button class="primary scare-now" id="sc-now">Scare them now</button></div>
+      <h3>Random scares</h3>
+      ${seg("sc-on", [[1, "On"], [0, "Off"]], sc.enabled ? 1 : 0)}
+      <h3>At most one every</h3>
+      ${seg("sc-gap", SC_GAPS, sc.minGapMinutes)}
+      <h3>How likely, once that gap has passed</h3>
+      ${seg("sc-chance", SC_CHANCE, sc.chancePercent)}
+      <h3>On screen for</h3>
+      ${seg("sc-secs", SC_SECONDS, sc.seconds)}
+      <h3>How loud</h3>
+      <input type="range" id="sc-vol" min="0" max="100" step="5" value="${Math.round(sc.volume * 100)}" aria-label="How loud">
+      <h3>When</h3>
+      ${seg("sc-live", [[1, "Live TV too"], [0, "Films and episodes only"]], sc.duringLive ? 1 : 0)}
+      ${seg("sc-playing", [[1, "Only while watching"], [0, "Menus as well"]], sc.whilePlayingOnly ? 1 : 0)}
+      <h3>Clips</h3>
+      <p class="meta" id="sc-none"${state.clips.length ? " hidden" : ""}>No clips yet, so the TV draws (and screams) its own. Add a short video or picture from your phone.</p>
+      <div id="sc-clips">${state.clips.map(clipHtml).join("")}</div>
+      <div class="actions"><button id="sc-add">Add a clip</button></div>
+      <input type="file" id="sc-file" accept="video/*,image/*" hidden>
+      <button class="link" data-close>Close</button>`);
+
+    const put = async (patch) => {
+      try {
+        await fetch("/api/scares", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).then((r) => {
+          if (!r.ok) throw new Error(r.statusText);
+        });
+      } catch {
+        toast("Can't reach the Hub", true);
+      }
+    };
+    const onSeg = (id, apply) => {
+      for (const b of $(id).querySelectorAll("button")) {
+        b.onclick = () => {
+          for (const x of $(id).querySelectorAll("button")) x.classList.toggle("on", x === b);
+          void apply(b.dataset.v);
+        };
+      }
+    };
+    onSeg("sc-on", (v) => put({ enabled: v === "1" }));
+    onSeg("sc-gap", (v) => put({ minGapMinutes: Number(v) }));
+    onSeg("sc-chance", (v) => put({ chancePercent: Number(v) }));
+    onSeg("sc-secs", (v) => put({ seconds: Number(v) }));
+    onSeg("sc-live", (v) => put({ duringLive: v === "1" }));
+    onSeg("sc-playing", (v) => put({ whilePlayingOnly: v === "1" }));
+    // Only saved when the finger comes off the slider, not on every pixel.
+    $("sc-vol").onchange = (e) => void put({ volume: Number(e.target.value) / 100 });
+
+    $("sc-now").onclick = async () => {
+      try {
+        await post("/api/scares/now", {});
+        toast("Boo!");
+      } catch (e) {
+        toast(e.message, true);
+      }
+    };
+    const showClips = (clips) => {
+      $("sc-clips").innerHTML = clips.map(clipHtml).join("");
+      $("sc-none").hidden = clips.length > 0;
+      for (const b of $("sc-clips").querySelectorAll("[data-play]")) b.onclick = () => void post("/api/scares/now", { clipId: b.dataset.play }).then(() => toast("Boo!"), (e) => toast(e.message, true));
+      for (const b of $("sc-clips").querySelectorAll("[data-drop]")) {
+        b.onclick = async () => {
+          const r = await fetch(`/api/scares/clips/${encodeURIComponent(b.dataset.drop)}`, { method: "DELETE" }).catch(() => null);
+          const d = r && (await r.json().catch(() => ({})));
+          if (!r?.ok) return toast((d && d.error) || "Can't reach the Hub", true);
+          showClips(d.clips || []);
+          toast("Clip deleted");
+        };
+      }
+    };
+    showClips(state.clips);
+    $("sc-add").onclick = () => $("sc-file").click();
+    $("sc-file").onchange = async (e) => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      const add = $("sc-add");
+      add.disabled = true;
+      add.textContent = "Sending…";
+      try {
+        const r = await fetch(`/api/scares/clips?name=${encodeURIComponent(file.name.replace(/\.[^.]+$/, ""))}`, {
+          method: "POST",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || r.statusText);
+        showClips(d.clips || []);
+        toast("Clip added");
+      } catch (err) {
+        toast(err.message, true);
+      }
+      add.disabled = false;
+      add.textContent = "Add a clip";
+    };
+  }
+  function clipHtml(c) {
+    return `<div class="clip"><span>${esc(c.name)}<br><small>${c.kind === "video" ? "Video" : "Picture"} · ${kb(c.sizeBytes)}</small></span><button type="button" data-play="${esc(c.id)}">Show</button><button type="button" data-drop="${esc(c.id)}">Delete</button></div>`;
+  }
+  $("scare-btn").addEventListener("click", () => void scareSheet());
+
+  // ---------------------------------------------------------------------------
   // Browse
 
   let current = "guide";

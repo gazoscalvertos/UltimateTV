@@ -3,9 +3,13 @@
 // the TV going to standby).
 
 import { createEffect, ErrorBoundary, For, Match, on, onCleanup, onMount, Show, Switch } from "solid-js";
+import { resolveTheme } from "@ultimatetv/shared";
 import { agent } from "./agent";
 import { ApiError, hub, session } from "./api";
 import { choose, DialogHost } from "./components/Dialog";
+import { EasterEggs } from "./components/EasterEggs";
+import { Halloween } from "./components/Halloween";
+import { JumpScare } from "./components/JumpScare";
 import { NewsFlash } from "./components/NewsFlash";
 import { Notices } from "./components/Notices";
 import { StartingCard } from "./components/Starting";
@@ -27,7 +31,7 @@ import { Player } from "./screens/Player";
 import { Profiles } from "./screens/Profiles";
 import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
-import { closeTopDialog, nav, setAppName, setProfile, toast, toasts } from "./store";
+import { closeTopDialog, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
@@ -156,11 +160,19 @@ export function App() {
     startPhoneBridge();
     void startMusic();
     void restoreSession();
-    const loadAppName = () => hub.settings().then((s) => setAppName(s.appName), () => undefined);
-    void loadAppName();
+    const loadLook = () =>
+      hub.settings().then((s) => {
+        setAppName(s.appName);
+        setTheme(resolveTheme(s.theme));
+      }, () => undefined);
+    void loadLook();
+    // "auto" wears the Halloween theme over Halloween week: look again at midnight rather than
+    // leaving the theme a day behind on a TV that is never reloaded.
+    const lookTimer = window.setInterval(loadLook, 60 * 60_000);
+    onCleanup(() => window.clearInterval(lookTimer));
     onCleanup(
       onHubEvent(async (e) => {
-        if (e.type === "settings.changed") void loadAppName();
+        if (e.type === "settings.changed") void loadLook();
         if (e.type === "reminder") {
           const r = e.reminder;
           const pick = await choose({
@@ -258,8 +270,11 @@ export function App() {
           </div>
         )}
       </Show>
+      <Halloween />
+      <EasterEggs />
       <NewsFlash />
       <Notices />
+      <JumpScare />
       <DialogHost />
       <div class="toasts">
         <For each={toasts()}>{(t) => <div class={`toast toast-${t.tone}`}>{t.message}</div>}</For>
