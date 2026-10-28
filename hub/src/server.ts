@@ -627,7 +627,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove"]);
   const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
   let tvCallSeq = 0;
   app.post("/api/tv/call/:method", async (req: Req<{ method: string }, Record<string, string>, unknown>, reply) => {
@@ -919,6 +919,24 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const info = await playback.resolve(request, hubBase(req), filterOf(req), { download: true, smaller: Boolean(smaller), ...(holder ? { holder } : {}) });
     if (info.live) return reply.code(422).send({ error: "This is still recording. Download it once it has finished." });
     return info;
+  });
+
+  /**
+   * Which of the box's downloads a profile may see: titles by their certificate (saved with the
+   * download, so this works with Jellyfin out of reach), recordings by their channel.
+   */
+  app.post("/api/offline/allowed", async (req: Req<Record<string, string>, Record<string, string>, { items?: { id: string; title?: TitleRef; channelId?: string }[] }>) => {
+    const f = filterOf(req);
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const allowed = items.filter((i) => {
+      if (!f.kids) return true;
+      if (i.channelId) {
+        const c = ctx.channels.get(i.channelId);
+        return Boolean(c && f.channel(c));
+      }
+      return i.title ? f.ref(i.title) : false;
+    });
+    return { allowed: allowed.map((i) => i.id) };
   });
 
   app.post("/api/progress", async (req: Req<Record<string, string>, Record<string, string>, { key: string; positionMs: number; durationMs?: number; event?: "start" | "progress" | "stop"; paused?: boolean; title?: TitleRef }>) => {

@@ -3,7 +3,7 @@
 
 import { createSignal } from "solid-js";
 import type { Channel, PlaybackInfo, PlaybackRequest, PlayerState, TitleRef } from "@ultimatetv/shared";
-import { agent } from "./agent";
+import { agent, agentHas, onBox } from "./agent";
 import { ApiError, hub } from "./api";
 import { choose } from "./components/Dialog";
 import { startedPlaying } from "./queue";
@@ -17,6 +17,8 @@ export interface NowPlaying {
   since: number;
   /** Carried on from the last episode: no "starting" card, just the picture when it's ready. */
   quiet?: boolean;
+  /** Playing from a download on the box's disk. */
+  downloadId?: string;
 }
 
 export const [nowPlaying, setNowPlaying] = createSignal<NowPlaying | null>(null);
@@ -55,7 +57,18 @@ export function stepChannel(from: string | null, delta: number): Channel | undef
   return list[(i + delta + list.length) % list.length];
 }
 
+/**
+ * A finished download of a film, episode or recording plays from the box's disk: it works with the
+ * NAS out of reach, and starts at once. Picking a version by hand still streams that version.
+ */
+async function fromDisk(req: PlaybackRequest): Promise<(PlaybackInfo & { downloadId: string }) | null> {
+  if (!onBox || !agentHas("localCopy") || req.streamId || req.kind === "channel") return null;
+  return agent.localCopy(req).catch(() => null);
+}
+
 async function resolve(req: PlaybackRequest): Promise<PlaybackInfo | null> {
+  const local = await fromDisk(req);
+  if (local) return local;
   try {
     return await hub.play(req);
   } catch (err) {
@@ -134,7 +147,8 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
     ...(info.crops ? { crops: info.crops } : {}),
     ...(s ? { preferredAudioLang: s.preferredAudioLang, preferredSubtitleLang: s.preferredSubtitleLang, subtitlesByDefault: s.subtitlesByDefault } : {}),
   });
-  setNowPlaying({ req, info, since, ...(opts.title ? { title: opts.title } : {}), ...(opts.quiet ? { quiet: true } : {}) });
+  const downloadId = (info as { downloadId?: string }).downloadId;
+  setNowPlaying({ req, info, since, ...(opts.title ? { title: opts.title } : {}), ...(opts.quiet ? { quiet: true } : {}), ...(downloadId ? { downloadId } : {}) });
   if (req.kind === "channel") setLiveChannelId(req.id);
   startedPlaying(req);
   void report("start");
@@ -151,6 +165,8 @@ async function report(event: "start" | "progress" | "stop"): Promise<void> {
   const np = nowPlaying();
   if (!np || np.info.live) return;
   const st = playerState();
+  // The box keeps a download's place itself, as the Hub (or Jellyfin) may be out of reach.
+  if (np.downloadId) void agent.downloadPosition(np.downloadId, st.positionMs, st.durationMs ?? np.info.durationMs).catch(() => undefined);
   await hub
     .progress({
       key: np.info.progressKey,

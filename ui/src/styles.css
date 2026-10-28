@@ -624,6 +624,10 @@ kbd.key-blue {
 .card-badge-new {
   background: var(--accent);
 }
+.card-badge-download {
+  left: auto;
+  right: 0.7rem;
+}
 .card-progress {
   position: absolute;
   left: 0.8rem;

@@ -36,6 +36,21 @@ die() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 [ -f "$BOX_ENV" ] || die "$BOX_ENV is missing: is this the TV box?"
 
 box_hub() { sed -n 's/^HUB_URL=//p' "$BOX_ENV" | tail -1; }
+
+# Films, episodes and recordings downloaded to the box from the TV (Download to box): they play
+# with the NAS and Jellyfin out of reach, so they're what to watch with no VPN home.
+downloads_summary() {
+  local dir count size
+  dir="$(sed -n 's/^DOWNLOADS_DIR=//p' "$BOX_ENV" | tail -1)"
+  [ -n "$dir" ] || dir="$(getent passwd "${TV_USER:-tv}" | cut -d: -f6)/.local/share/ultimatetv/downloads"
+  count="$(find "$dir" -maxdepth 1 -type f -regextype posix-extended -regex '.*/d[^/]*\.(mkv|mp4|m4v|avi|ts|m2ts|webm|mov)' 2> /dev/null | wc -l)"
+  if [ "$count" -gt 0 ]; then
+    size="$(du -sb "$dir" 2> /dev/null | cut -f1)"
+    echo "Downloaded to the box: $count films, episodes and recordings ($(numfmt --to=iec "${size:-0}")). They play with no way home."
+  else
+    echo "Nothing downloaded to the box. To watch Jellyfin films and shows away without a VPN home, choose Download to box on them on the TV before you go."
+  fi
+}
 set_box_hub() {
   sed -i "s|^HUB_URL=.*|HUB_URL=$1|" "$BOX_ENV"
   say "The TV app now uses the Hub at $1; restarting it"
@@ -162,6 +177,7 @@ EOF
   local ip
   ip="$(ip -4 route get 1.1.1.1 2> /dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')"
   say "Done. The Hub now runs on this box. Phones reach it at http://${ip:-<box address>}:$LOCAL_PORT"
+  say "$(downloads_summary)"
   say "When you're home again: sudo bash $APP_DIR/tools/hub/travel.sh home"
 }
 
@@ -237,6 +253,7 @@ status() {
   else
     echo "The Hub is at home: $(box_hub)"
   fi
+  downloads_summary
 }
 
 case "${1:-}" in

@@ -1,7 +1,7 @@
 // The contract between the TV UI and whatever plays video: the Electron box shell (mpv) on the
 // mini PC, or an HTML <video> fallback when the UI runs in a normal browser for development.
 
-import type { HostStats } from "./domain.js";
+import type { HostStats, PlaybackInfo, PlaybackRequest, TitleRef } from "./domain.js";
 import type { Action } from "./keys.js";
 import type { MusicPage, MusicTracks, SpotifyCommand, SpotifyState, WebAppCommand, WebAppId, WebAppLoginResult, WebAppState } from "./music.js";
 
@@ -134,6 +134,62 @@ export interface BoxSoftware {
   lastUpdate?: { at: string; ok: boolean };
 }
 
+// ---------------------------------------------------------------------------
+// Downloads on the box: films, episodes and recordings copied onto the box's own disk, so they
+// play with the NAS and Jellyfin out of reach (a trip) and start at once at home.
+
+/** What to download: the same request Play sends, and what the Downloads list shows. */
+export interface BoxDownloadRequest {
+  req: PlaybackRequest;
+  title?: TitleRef;
+  /** "The Matrix", or the show's name for an episode. */
+  name: string;
+  /** "S1 E3 · The One With…" for an episode, the channel and date for a recording. */
+  subtitle?: string;
+  /** Poster or still, saved with the file. */
+  image?: string;
+  /** A recording's channel, so Kids profiles only see recordings from their channels. */
+  channelId?: string;
+}
+
+export type BoxDownloadStatus = "queued" | "downloading" | "done" | "failed";
+
+export interface BoxDownload extends BoxDownloadRequest {
+  id: string;
+  status: BoxDownloadStatus;
+  bytesDone: number;
+  bytesTotal?: number;
+  speedBps?: number;
+  error?: string;
+  addedAt: number;
+  doneAt?: number;
+  /** Where it got to, kept on the box so it resumes with the Hub's progress out of reach. */
+  positionMs?: number;
+  durationMs?: number;
+  watchedAt?: number;
+  /** When the box deletes it by itself (days kept, or a day after it was watched). */
+  expiresAt?: number;
+  /** The saved picture as a data: URL, so it shows with no network. */
+  artwork?: string;
+}
+
+export interface BoxDownloadSettings {
+  /** Delete downloads this many days after they finish; 0 keeps them until deleted. */
+  keepDays: number;
+  /** Delete a download a day after it's watched to the end. */
+  deleteWatched: boolean;
+}
+
+export interface BoxDownloads {
+  items: BoxDownload[];
+  settings: BoxDownloadSettings;
+  /** Space the downloads take, and what's free on the box's disk. */
+  usedBytes: number;
+  freeBytes: number;
+  /** Kept free for the box itself: downloads stop before the disk gets this full. */
+  reserveBytes: number;
+}
+
 export interface BoxAgent {
   info(): Promise<BoxInfo>;
   play(options: PlayOptions): Promise<void>;
@@ -178,6 +234,19 @@ export interface BoxAgent {
   webAppLogin(id: WebAppId, login: { email: string; password: string }): Promise<WebAppLoginResult>;
   webApp(): Promise<WebAppState>;
   onWebApp(listener: (state: WebAppState) => void): () => void;
+
+  // Downloads on the box. Older box shells lack these: check with agentHas first.
+  downloads(): Promise<BoxDownloads>;
+  /** Adds to the end of the download list; the box fetches one at a time. */
+  download(items: BoxDownloadRequest[]): Promise<BoxDownloads>;
+  removeDownload(id: string): Promise<BoxDownloads>;
+  retryDownload(id: string): Promise<BoxDownloads>;
+  downloadSettings(settings: Partial<BoxDownloadSettings>): Promise<BoxDownloads>;
+  /** How to play a finished download of `req` from the box's disk, or null when there isn't one. */
+  localCopy(req: PlaybackRequest): Promise<(PlaybackInfo & { downloadId: string }) | null>;
+  /** Where a download got to as it plays, for resuming and for deleting once watched. */
+  downloadPosition(id: string, positionMs: number, durationMs?: number): Promise<void>;
+  onDownloads(listener: (downloads: BoxDownloads) => void): () => void;
 }
 
 declare global {
