@@ -10,6 +10,7 @@
 //   HDMI_AUDIO    0 to leave the sound output alone (by default it's moved to the TV's HDMI)
 //   CUSTOM_MODES  0 to never add a custom refresh rate for films the screen has no mode for
 //   SPOTIFY_API   the Spotify receiver's local API (default http://127.0.0.1:3678)
+//   DOWNLOADS_DIR where downloads to the box go (default ~/.local/share/ultimatetv/downloads)
 
 import { execFile } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -21,6 +22,7 @@ import { Audio } from "./audio.js";
 import { Cec } from "./cec.js";
 import { Diagnostics } from "./diagnostics.js";
 import { Display } from "./display.js";
+import { Downloads } from "./downloads.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
 import { renameSpotifyDevice, Spotify } from "./spotify.js";
@@ -97,6 +99,7 @@ async function main(): Promise<void> {
   const updates = new Updates(log);
   const spotify = new Spotify((process.env.SPOTIFY_API ?? "http://127.0.0.1:3678").replace(/\/$/, ""), log);
   const webApps = new WebApps(() => win, log);
+  const downloads = new Downloads(HUB_URL, log);
 
   // Sound to the TV before mpv opens its output; again before each play, in case the TV moved.
   const audio = new Audio(log);
@@ -156,6 +159,8 @@ async function main(): Promise<void> {
   });
   spotify.start();
   void webApps.checkSignedIn();
+  downloads.onChange((d) => send("agent:downloads", d));
+  void downloads.start().catch((e: Error) => log(`Downloads didn't start: ${e.message}`));
 
   let suspendTimer: NodeJS.Timeout | undefined;
   cec.onPower((active) => {
@@ -208,6 +213,13 @@ async function main(): Promise<void> {
     webAppControl: (c: never) => webApps.control(c),
     webApp: async () => webApps.state(),
     webAppLogin: (id: never, login: never) => webApps.login(id, login),
+    downloads: () => downloads.list(),
+    download: (items: never) => downloads.add(items),
+    removeDownload: (id: never) => downloads.remove(id),
+    retryDownload: (id: never) => downloads.retry(id),
+    downloadSettings: (s: never) => downloads.setSettings(s),
+    localCopy: (req: never) => downloads.localCopy(req),
+    downloadPosition: (id: never, positionMs: never, durationMs: never) => downloads.position(id, positionMs, durationMs),
   };
   diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!() });
 
@@ -292,6 +304,7 @@ async function main(): Promise<void> {
     cec.stop();
     spotify.stop();
     webApps.stop();
+    downloads.stop();
     void display.restore();
     void mpv.stop();
   });

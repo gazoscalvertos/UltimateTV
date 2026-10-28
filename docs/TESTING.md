@@ -71,6 +71,15 @@ Update the box first (Settings › About › Update the box): the update builds 
 3. Watch for a while: no video repeats until all the channel's videos have played.
 4. Create a channel ("Oasis, Blur, Pulp"); within a few minutes it has videos. Take one off (OK on it): it disappears from the guide and another replaces it.
 
+## 8b. Downloads to the box
+
+1. Update the Hub and the box. On a film's page, **Download to box**: a toast says how much room is free, and a **Downloaded** tab appears on the top menu with the film counting up.
+2. On a series, **Download to box** › All of Series 1: the episodes download one after another, and each episode card gets a Downloaded badge as it finishes.
+3. Play the film from the **Downloaded** tab: the player shows "Downloaded" as the source. Stop half way, then play it again: it resumes.
+4. Unplug the box's network cable and play it again: it still plays.
+5. The phone remote's **On the box** tab shows the same list with percentages; ✕ deletes one.
+6. Switch to Kids: the Downloaded tab only lists what Kids may watch.
+
 ## 9. The WAF test
 
 Hand over the remote with no instructions and ask for: watch BBC One; find tonight's film and record it; set a series link; carry on the film from yesterday; find a 4K comedy.

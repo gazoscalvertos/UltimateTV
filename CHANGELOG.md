@@ -15,6 +15,13 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Download to the TV box** ([docs/downloads.md](docs/downloads.md)): films, episodes, whole
+  series and recordings can be copied onto the box's own disk from the TV (**Download to box**) or
+  the phone remote (⤓, and its **On the box** tab). They play from there with the NAS and Jellyfin
+  out of reach, so they're for trips, and start at once at home. A **Downloaded** tab on the TV
+  lists them with the space used. The box keeps 10 GB free and deletes downloads after 14 days, or a
+  day after they're watched (both can be changed). Kids see only what their profile allows. Update
+  the Hub and the box.
 - **Take the Hub on a trip** ([docs/travel.md](docs/travel.md)): `sudo bash tools/hub/travel.sh
   away` on the box builds a Hub there, takes the home Hub's data (profiles, settings, channels,
   pairing, scare clips), copies the music videos onto the box and points the TV app at it;

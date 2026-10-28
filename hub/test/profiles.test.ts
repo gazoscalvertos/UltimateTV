@@ -109,6 +109,21 @@ describe("profiles over the API", () => {
     expect(cbeebies.statusCode).toBe(200);
   });
 
+  it("shows Kids only the downloads on the box they're allowed", async () => {
+    const items = [
+      { id: "a", title: { id: "t1", kind: "movie", name: "Paper Moons", certification: "U" } },
+      { id: "b", title: { id: "t2", kind: "movie", name: "Copper Sky", certification: "15" } },
+      { id: "c", channelId: "cbeebies" },
+      { id: "d", channelId: "bbc-one" },
+      { id: "e", title: { id: "t3", kind: "movie", name: "Unrated", genres: ["Family"] } },
+      { id: "f" },
+    ];
+    const asKids = (await app.inject({ method: "POST", url: "/api/offline/allowed", payload: { items }, headers: kids })).json<{ allowed: string[] }>();
+    expect(asKids.allowed).toEqual(["a", "c", "e"]);
+    const asFamily = (await app.inject({ method: "POST", url: "/api/offline/allowed", payload: { items } })).json<{ allowed: string[] }>();
+    expect(asFamily.allowed).toEqual(["a", "b", "c", "d", "e", "f"]);
+  });
+
   it("stops Kids changing settings or deleting recordings", async () => {
     expect((await app.inject({ method: "PUT", url: "/api/settings", payload: { tmdbApiKey: "" }, headers: kids })).statusCode).toBe(403);
     expect((await app.inject({ method: "DELETE", url: "/api/recordings/whatever", headers: kids })).statusCode).toBe(403);

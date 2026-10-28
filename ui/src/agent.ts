@@ -2,7 +2,7 @@
 // own window under this transparent UI. In a normal browser (development, screenshots) a <video>
 // element stands in; streams it can't decode (MPEG-TS, HEVC) show their artwork instead.
 
-import type { BoxAgent, BoxInfo, BoxSoftware, MusicPage, MusicTracks, PlaybackStats, PlayerState, PlayOptions, SpotifyState, VideoLayout, WebAppLoginResult, WebAppState } from "@ultimatetv/shared";
+import type { BoxAgent, BoxDownloads, BoxInfo, BoxSoftware, MusicPage, MusicTracks, PlaybackStats, PlayerState, PlayOptions, SpotifyState, VideoLayout, WebAppLoginResult, WebAppState } from "@ultimatetv/shared";
 
 class BrowserAgent implements BoxAgent {
   private video: HTMLVideoElement;
@@ -213,6 +213,24 @@ class BrowserAgent implements BoxAgent {
     return { open: false };
   }
   onWebApp(): () => void {
+    return () => undefined;
+  }
+
+  // Downloads go onto the box's own disk, so a browser has none.
+  async downloads(): Promise<BoxDownloads> {
+    return { items: [], settings: { keepDays: 14, deleteWatched: true }, usedBytes: 0, freeBytes: 0, reserveBytes: 0 };
+  }
+  async download(): Promise<BoxDownloads> {
+    throw new Error("Downloads go onto the TV box");
+  }
+  removeDownload = this.downloads;
+  retryDownload = this.downloads;
+  downloadSettings = this.downloads;
+  async localCopy(): Promise<null> {
+    return null;
+  }
+  async downloadPosition(): Promise<void> {}
+  onDownloads(): () => void {
     return () => undefined;
   }
 }
