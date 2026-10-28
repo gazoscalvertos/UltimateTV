@@ -610,6 +610,11 @@ export class MixManager {
     return this.store.video(videoId)?.path;
   }
 
+  /** Every music video file the channels play, with its still: what a trip takes along. */
+  travelFiles(): string[] {
+    return this.store.videosWithStatus("ready").flatMap((v) => [v.path, v.thumbPath].filter((f): f is string => Boolean(f)));
+  }
+
   thumbPath(videoId: string): string | undefined {
     return this.store.video(videoId)?.thumbPath;
   }

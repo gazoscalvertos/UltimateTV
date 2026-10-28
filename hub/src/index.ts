@@ -1,9 +1,12 @@
 import path from "node:path";
 import { loadConfig } from "./config.js";
 import { LogRing, RollingFile } from "./diagnostics.js";
+import { applyPendingRestore, movedAway } from "./move.js";
 import { buildServer } from "./server.js";
 
 const config = loadConfig();
+// Data brought back from a trip (POST /api/hub/move-in) replaces this Hub's before it opens it.
+applyPendingRestore(config.dataDir);
 // The log's rolling file is the same data/logs/hub.log that /api/diagnostics/logs/hub reads.
 const logRing = new LogRing({ file: new RollingFile(path.join(config.dataDir, "logs", "hub.log")) });
 const app = await buildServer(config, { logger: true, logRing, env: process.env });
@@ -18,7 +21,12 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 await app.listen({ port: config.port, host: config.host });
 app.log.info({ clipsDir: config.clipsDir, dataDir: config.dataDir, demo: config.demo }, "UltimateTV Hub ready");
 
-if (!config.demo) {
+const moved = movedAway(ctx.db);
+if (moved) {
+  // The Hub's data went with the TV box (tools/hub/travel.sh): stand by, so this Hub doesn't record
+  // or use the IPTV connection while the box's own Hub does.
+  app.log.info({ at: moved.at, to: moved.to }, "This Hub has moved out; standing by until it comes back");
+} else if (!config.demo) {
   const HOUR = 3_600_000;
   const refresh = () =>
     ctx.ingest

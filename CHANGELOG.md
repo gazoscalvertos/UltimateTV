@@ -15,6 +15,12 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Take the Hub on a trip** ([docs/travel.md](docs/travel.md)): `sudo bash tools/hub/travel.sh
+  away` on the box builds a Hub there, takes the home Hub's data (profiles, settings, channels,
+  pairing, scare clips), copies the music videos onto the box and points the TV app at it;
+  `travel.sh home` sends what changed back, with anything recorded or downloaded on the trip. The
+  home Hub stands by meanwhile, so the two never share the IPTV connection. QR codes from a Hub on
+  the box point phones at the box's address. Update the Hub and the box before the first trip.
 - **Build your own jump scares** ([docs/halloween.md](docs/halloween.md#building-your-own)): the
   phone remote's Scares tab now takes sounds as well as pictures and videos, and **Build a scare**
   puts a picture or video and a sound together, placed in one of nine spots (or full screen) at the
