@@ -1,6 +1,7 @@
 // A film or series: artwork, the best version ready to play, every other version (library,
-// IPTV, TorBox via AIOStreams), seasons and episodes, Add to queue, Save to NAS, and Download to
-// box (onto the box's own disk, to watch away from home).
+// IPTV, TorBox via AIOStreams), seasons and episodes, Add to queue, Save to NAS (kept for good and
+// added to Jellyfin; Red in Versions saves that exact version), and Download to box (onto the
+// box's own disk, to watch away from home).
 
 import { createEffect, createResource, createSignal, For, Show } from "solid-js";
 import type { Episode, TitleDetails, TitleRef } from "@ultimatetv/shared";
@@ -14,7 +15,8 @@ import { useKeys } from "../keys";
 import { play } from "../player";
 import { addToQueue } from "../queue";
 import { allEpisodes, canDownload, downloadLabel, downloadOf, downloadToBox, episodeRequest, episodesOf, filmRequest } from "../downloads";
-import { errorToast, isKids, openDialog, toast } from "../store";
+import { canSave, saveEpisodes, saveToNas } from "../save";
+import { errorToast, isKids, openDialog } from "../store";
 
 const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
 
@@ -32,10 +34,26 @@ function refOf(d: TitleDetails): TitleRef {
 export function chooseVersion(title: TitleDetails, episodeId?: string): Promise<void> {
   return openDialog<void>((close) => {
     const [streams] = createResource(() => hub.streams(title.id, episodeId));
+    // Red saves the version the remote is on to the NAS (and so into Jellyfin), without playing it.
+    const [focused, setFocused] = createSignal<StreamRow | null>(null);
+    const name = `${title.name}${episodeId ? ` ${episodeId.toUpperCase()}` : ""}`;
+    const onKey = (a: string) => {
+      const s = focused();
+      if (a !== "red" || !s?.downloadable || !canSave()) return false;
+      close();
+      void saveToNas({ titleId: title.id, ...(episodeId ? { episodeId } : {}), streamId: s.id }, name).catch(errorToast);
+      return true;
+    };
     return (
-      <DialogFrame close={() => close()} wide class="versions">
+      <DialogFrame close={() => close()} wide class="versions" onKey={onKey}>
         <h2>Choose a version</h2>
-        <p class="dialog-message">The best one is picked for you when you press Play. Ready means it starts straight away.</p>
+        <p class="dialog-message">
+          The best one is picked for you when you press Play. Ready means it starts straight away.
+          <Show when={canSave() && streams()?.streams.some((s) => s.downloadable)}>
+            {" "}
+            <kbd class="key-red" /> Save the one you're on to the NAS and Jellyfin.
+          </Show>
+        </p>
         <Show when={streams()} fallback={<div class="spinner" />}>
           <Show when={streams()!.streams.length} fallback={<p class="empty">No versions found yet.</p>}>
             <div class="version-list" data-scroll-y="8">
@@ -45,6 +63,7 @@ export function chooseVersion(title: TitleDetails, episodeId?: string): Promise<
                     class="version"
                     data-focus
                     data-autofocus={i() === 0 ? "" : undefined}
+                    onFocus={() => setFocused(s)}
                     onClick={() => {
                       close();
                       void play({ kind: "title", id: title.id, streamId: s.id, ...(episodeId ? { episodeId } : {}) }, { title: refOf(title) });
@@ -56,7 +75,10 @@ export function chooseVersion(title: TitleDetails, episodeId?: string): Promise<
                     </span>
                     <span class="version-detail">{s.detail}</span>
                     <span class="version-size">{s.quality.sizeBytes ? formatBytes(s.quality.sizeBytes) : ""}</span>
-                    <span class="version-ready" classList={{ ready: s.ready }}>{s.ready ? "Ready" : "Needs fetching"}</span>
+                    <span class="version-ready" classList={{ ready: s.ready }}>
+                      {s.ready ? "Ready" : "Needs fetching"}
+                      {s.downloadable && canSave() ? " · Red to save" : ""}
+                    </span>
                   </button>
                 )}
               </For>
@@ -165,10 +187,28 @@ export function Details(props: { id: string }) {
   const filmDownload = () => (d()?.kind === "movie" ? downloadOf({ kind: "title", id: d()!.id }) : undefined);
   const episodeDownload = (e: Episode) => downloadOf({ kind: "title", id: d()!.id, episodeId: `s${e.season}e${e.episode}` });
 
+  // Save to NAS: kept for good on the NAS and added to Jellyfin. A film, or an episode or a series' worth.
   const save = async () => {
+    const t = d()!;
     try {
-      await hub.download(d()!.id);
-      toast(`Saving ${d()!.name} to the NAS. Follow it in Recordings › Downloads.`, "good");
+      if (t.kind === "movie") {
+        await saveToNas({ titleId: t.id }, t.name);
+        return;
+      }
+      const e = focusedEpisode() ?? nextEpisode();
+      const n = season();
+      const seasonEps = n !== null ? await episodesOf(t, n) : [];
+      const seasonName = t.seasons?.find((s) => s.season === n)?.name ?? `Series ${n}`;
+      const pick = await choose({
+        title: `Save ${t.name} to the NAS`,
+        message: "It's kept on the NAS and added to Jellyfin, so it plays from your library from then on.",
+        options: [
+          ...(e ? [{ label: `${episodeLabel(e.season, e.episode)} · ${e.name}`, value: "episode" as const, icon: "download" }] : []),
+          ...(seasonEps.length ? [{ label: `All of ${seasonName}`, value: "season" as const, icon: "download", detail: `${seasonEps.length} episodes` }] : []),
+        ],
+      });
+      if (pick === "episode" && e) await saveToNas({ titleId: t.id, episodeId: `s${e.season}e${e.episode}` }, `${t.name} ${episodeLabel(e.season, e.episode)}`);
+      if (pick === "season") await saveEpisodes(t, seasonEps, `${seasonName} of ${t.name}`);
     } catch (err) {
       errorToast(err);
     }
@@ -282,7 +322,7 @@ export function Details(props: { id: string }) {
                       <Icon name="download" /> Download to box
                     </button>
                   </Show>
-                  <Show when={t().kind === "movie" && !isKids() && !t().inLibrary && streams()?.streams.some((s) => s.downloadable)}>
+                  <Show when={canSave() && (t().kind === "series" ? Boolean(nextEpisode()) : !t().inLibrary && streams()?.streams.some((s) => s.downloadable))}>
                     <button class="btn btn-large" data-focus onClick={() => void save()}>
                       <Icon name="download" /> Save to NAS
                     </button>

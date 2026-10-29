@@ -65,6 +65,16 @@
       toast(e.message, true);
     }
   }
+  // Save to NAS: kept for good on the NAS and added to Jellyfin. Asked through the TV, so its profile decides.
+  async function saveToNas(args) {
+    toast("Saving to the NAS…");
+    try {
+      await call("saveToNas", args);
+      toast("Saving to the NAS. It goes into Jellyfin when it's done.");
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
   const size = (b) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.round((b || 0) / 1024 ** 2)} MB`);
 
   async function playOnTv(req, title, fromStart) {
@@ -150,6 +160,7 @@
       $("np-play").dataset.state = st.status === "playing" ? "playing" : "paused";
       $("np-tracks").hidden = !(st.audioTracks?.length > 1 || st.subtitleTracks?.length);
       $("np-live").hidden = !p.live;
+      $("np-save").hidden = !p.savable;
       if (p.live) {
         range.hidden = true;
         const behind = st.behindLiveMs ?? 0;
@@ -173,6 +184,7 @@
       $("np-play").dataset.state = sp.status === "playing" ? "playing" : "paused";
       $("np-tracks").hidden = true;
       $("np-live").hidden = true;
+      $("np-save").hidden = true;
       range.hidden = false;
       if (!dragging) {
         range.max = String(t.durationMs);
@@ -188,6 +200,7 @@
       $("np-play").dataset.state = web.playing ? "playing" : "paused";
       $("np-tracks").hidden = true;
       $("np-live").hidden = true;
+      $("np-save").hidden = true;
       range.hidden = true;
       $("np-time").textContent = "";
       $("np-left").textContent = "";
@@ -206,6 +219,7 @@
     else key("playPause").then(() => setTimeout(poll, 400));
   };
   $("np-stop").onclick = () => (mode() === "spotify" ? call("musicControl", { cmd: "pause" }).then(poll) : key("stop").then(() => setTimeout(poll, 600)));
+  $("np-save").onclick = () => saveToNas({ playing: true });
   $("np-live").onclick = () => call("seek", { ms: 0, mode: "live" }).then(() => setTimeout(poll, 400), (e) => toast(e.message, true));
   const range = $("np-range");
   range.addEventListener("input", () => {
@@ -767,8 +781,8 @@
     openSheet(`${d.backdrop ? `<div class="hero" style="background-image:url('${esc(d.backdrop)}')"></div>` : ""}
       <h2>${esc(d.name)}</h2><p class="meta">${esc(meta)}</p>
       ${d.overview ? `<p class="overview">${esc(d.overview)}</p>` : ""}
-      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>` : ""}</div>
-      ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="actions"><button id="s-dl-season">Download this series to the TV box</button>${seasons.filter((s) => s.season > 0).length > 1 ? `<button id="s-dl-all">Download every series</button>` : ""}</div><div class="list" id="s-eps"></div>` : ""}
+      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>${!kidsProfile && !d.inLibrary ? `<button id="s-save">Save to NAS</button>` : ""}` : ""}</div>
+      ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="actions"><button id="s-dl-season">Download this series to the TV box</button>${!kidsProfile ? `<button id="s-save-season">Save this series to the NAS</button>` : ""}${seasons.filter((s) => s.season > 0).length > 1 ? `<button id="s-dl-all">Download every series</button>` : ""}</div><div class="list" id="s-eps"></div>` : ""}
       <button class="link" data-close>Close</button>`);
     if ($("s-play")) $("s-play").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef);
     if ($("s-start")) $("s-start").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef, true);
@@ -777,6 +791,8 @@
     if ($("s-dl")) $("s-dl").onclick = () => downloadToBox({ titleId: d.id });
     if ($("s-dl-season")) $("s-dl-season").onclick = () => downloadToBox({ titleId: d.id, season: seasons[Number($("s-season").value)].season });
     if ($("s-dl-all")) $("s-dl-all").onclick = () => downloadToBox({ titleId: d.id, all: true });
+    if ($("s-save")) $("s-save").onclick = () => saveToNas({ titleId: d.id });
+    if ($("s-save-season")) $("s-save-season").onclick = () => saveToNas({ titleId: d.id, season: seasons[Number($("s-season").value)].season });
     if (seasons.length) {
       const pick = async () => {
         const s = seasons[Number($("s-season").value)];
@@ -788,7 +804,7 @@
         $("s-eps").innerHTML = eps.length
           ? eps
               .map(
-                (e, i) => `<div class="ep-row"><button class="item ep" data-ep="${i}"><span class="text"><b>${e.episode}. ${esc(e.name)}</b>${e.overview ? `<small>${esc(e.overview.slice(0, 140))}${e.overview.length > 140 ? "…" : ""}</small>` : ""}${e.progress ? `<i class="bar"><i style="width:${Math.round(e.progress * 100)}%"></i></i>` : ""}</span>${e.watched ? `<span class="tick">✓</span>` : ""}</button><button class="qbtn" data-q="${i}" aria-label="Add to queue">+</button><button class="qbtn" data-dl="${i}" aria-label="Download to the TV box">⤓</button></div>`,
+                (e, i) => `<div class="ep-row"><button class="item ep" data-ep="${i}"><span class="text"><b>${e.episode}. ${esc(e.name)}</b>${e.overview ? `<small>${esc(e.overview.slice(0, 140))}${e.overview.length > 140 ? "…" : ""}</small>` : ""}${e.progress ? `<i class="bar"><i style="width:${Math.round(e.progress * 100)}%"></i></i>` : ""}</span>${e.watched ? `<span class="tick">✓</span>` : ""}</button><button class="qbtn" data-q="${i}" aria-label="Add to queue">+</button><button class="qbtn" data-dl="${i}" aria-label="Download to the TV box">⤓</button>${!kidsProfile ? `<button class="qbtn" data-save="${i}" aria-label="Save to NAS and Jellyfin">💾</button>` : ""}</div>`,
               )
               .join("")
           : `<p class="empty">No episodes listed.</p>`;
@@ -799,6 +815,10 @@
         for (const b of $("s-eps").querySelectorAll("[data-dl]")) {
           const e = eps[Number(b.dataset.dl)];
           b.onclick = () => downloadToBox({ titleId: d.id, episodeId: `s${e.season}e${e.episode}` });
+        }
+        for (const b of $("s-eps").querySelectorAll("[data-save]")) {
+          const e = eps[Number(b.dataset.save)];
+          b.onclick = () => saveToNas({ titleId: d.id, episodeId: `s${e.season}e${e.episode}` });
         }
         for (const b of $("s-eps").querySelectorAll("[data-q]")) {
           const e = eps[Number(b.dataset.q)];

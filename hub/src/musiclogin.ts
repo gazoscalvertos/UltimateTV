@@ -67,17 +67,18 @@ export const MUSIC_LOGIN_PAGE = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#070b14">
+<script src="/theme.js"></script>
 <title>Log in to Deezer on the TV</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; background: #070b14; color: #f3f6fb; font: 17px/1.4 Inter, "Noto Sans", Roboto, system-ui, sans-serif; display: grid; place-items: center; padding: 24px 18px; }
+  body { margin: 0; min-height: 100vh; background: var(--bg, #070b14); color: var(--fg, #f3f6fb); font: 17px/1.4 Inter, "Noto Sans", Roboto, system-ui, sans-serif; display: grid; place-items: center; padding: 24px 18px; }
   main { width: 100%; max-width: 420px; }
   h1 { font-size: 26px; margin: 0 0 6px; }
   .brand { display: inline-block; padding: 4px 10px; border-radius: 8px; background: linear-gradient(135deg, #a238ff, #5a1fc2); font-weight: 800; font-size: 14px; letter-spacing: .04em; margin-bottom: 14px; }
   p { color: #9aa6bd; margin: 0 0 22px; }
   label { display: block; font-size: 14px; color: #9aa6bd; margin: 0 0 6px; }
-  input { width: 100%; height: 52px; padding: 0 14px; margin: 0 0 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); background: #121b2e; color: inherit; font: inherit; }
+  input { width: 100%; height: 52px; padding: 0 14px; margin: 0 0 16px; border-radius: 12px; border: 1px solid var(--line, rgba(255,255,255,.14)); background: var(--panel, #121b2e); color: inherit; font: inherit; }
   input:focus { outline: 2px solid #3d8bff; border-color: transparent; }
   button { width: 100%; height: 54px; border: 0; border-radius: 14px; background: #a238ff; color: #fff; font: inherit; font-weight: 700; }
   button:disabled { opacity: .6; }
