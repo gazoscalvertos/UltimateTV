@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { BoxState, Channel, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef } from "@ultimatetv/shared";
 
 const store = {
   get(key: string): string | null {
@@ -147,6 +147,10 @@ export const hub = {
   scares: () => api<ScareState>("/api/scares"),
   saveScares: (patch: Partial<ScareSettings>) => api<ScareState>("/api/scares", { method: "PUT", body: patch }),
   scareNow: (clipId?: string) => api<{ scare: Scare }>("/api/scares/now", { method: "POST", body: clipId ? { clipId } : {} }),
+  startClipLoop: () => api<ScareState>("/api/scares/loop", { method: "POST", body: {} }),
+  clipLibrary: () => api<ClipLibrary>("/api/scares/library"),
+  installClipPack: (id: string, from: "starter" | "community") => api<ScareState>("/api/scares/library/install", { method: "POST", body: { id, from } }),
+  stopClipLoop: () => api<ScareState>("/api/scares/loop", { method: "POST", body: { theme: null } }),
   refresh: () => api<{ ok: true }>("/api/refresh", { method: "POST" }),
   reportBox: (state: Omit<BoxState, "reportedAt">) => api<{ ok: true }>("/api/box/state", { method: "POST", body: state }),
   /** The Hub's own version, checked against GitHub's main. */

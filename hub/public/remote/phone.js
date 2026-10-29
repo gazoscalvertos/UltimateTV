@@ -450,53 +450,75 @@
   $("notify-btn").addEventListener("click", () => void notifySheet());
 
   // ---------------------------------------------------------------------------
-  // Jump scares: a clip cut in over whatever is on. The settings and the clips live on the Hub
-  // (/api/scares), so the TV and every phone agree; the TV picks the moment for a random one.
+  // Jump scares and projected clips: a clip cut in over whatever is on. The settings, clips, packs
+  // and built clips live on the Hub (/api/scares), so the TV and every phone agree; the TV picks
+  // the moment for a random one. Only the occasion's clips come up: Halloween's in October, a
+  // snowman in December.
 
   const SC_GAPS = [[10, "10 min"], [20, "20 min"], [30, "30 min"], [60, "1 hour"], [120, "2 hours"]];
   const SC_CHANCE = [[5, "Rare"], [10, "Now and then"], [25, "Often"], [50, "Very often"], [100, "Every time"]];
   const SC_SECONDS = [[2, "2 sec"], [3, "3 sec"], [4, "4 sec"], [6, "6 sec"], [10, "10 sec"]];
+  const THEMES = { halloween: ["Halloween", "🎃"], christmas: ["Christmas", "🎄"], newyear: ["New Year", "🥂"], valentines: ["Valentine's", "💘"], easter: ["Easter", "🐰"], bonfire: ["Bonfire Night", "🎆"], birthday: ["Birthday", "🎂"], everyday: ["Any time", "✨"] };
+  const themeName = (t) => (THEMES[t] || THEMES.halloween)[0];
+  const themeIcon = (t) => (THEMES[t] || THEMES.halloween)[1];
+  const mixThemeOf = (m) => m.theme || "halloween";
   const kb = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+  const segHtml = (id, items, value, cls = "") => `<div class="seg ${cls}" id="${id}">${items.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${String(v) === String(value) ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
+  /** Sends a request whose answer is JSON, saying what went wrong if it didn't work. */
+  async function send(path, init) {
+    const r = await fetch(path, init).catch(() => null);
+    if (!r) throw new Error("Can't reach the Hub");
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  }
 
   async function scareSheet() {
     const state = await get("/api/scares").catch(() => null);
     if (!state) return toast("Can't reach the Hub", true);
     const sc = state.settings;
-    const seg = (id, items, value) => `<div class="seg" id="${id}">${items.map(([v, l]) => `<button type="button" data-v="${v}" class="${v === value ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
-    openSheet(`<h2>Jump scares</h2>
-      <p class="meta">Cuts one of your clips or built scares in over whatever is on, then takes it away. Never on a Kids profile.</p>
-      <div class="actions"><button class="primary scare-now" id="sc-now">Scare them now</button></div>
-      <h3>Random scares</h3>
-      ${seg("sc-on", [[1, "On"], [0, "Off"]], sc.enabled ? 1 : 0)}
+    const season = state.season || "halloween";
+    const scary = season === "halloween";
+    openSheet(`<h2>${scary ? "Jump scares and clips" : "Projected clips"}</h2>
+      <p class="meta">Cuts a clip in over whatever is on: a jump scare at Halloween, a snowman walking by at Christmas, a bunny hopping across at Easter. Only the occasion's clips come up. Never on a Kids profile.</p>
+      <h3>Occasion</h3>
+      ${segHtml("sc-season", [["auto", `Auto: ${themeIcon(clipSeasonForDate())} ${themeName(clipSeasonForDate())}`], ...Object.entries(THEMES).map(([v, [l, i]]) => [v, `${i} ${l}`])], sc.season || "auto", "wrap")}
+      <div class="actions"><button class="primary${scary ? " scare-now" : ""}" id="sc-now">${scary ? "Scare them now" : `Show one now ${themeIcon(season)}`}</button><button id="sc-loop">${state.looping ? "Stop the loop" : "Play on a loop"}</button></div>
+      <p class="meta">A loop plays the occasion's clips one after another until you stop it: a window projector for the party.</p>
+      <h3>Random clips</h3>
+      ${segHtml("sc-on", [[1, "On"], [0, "Off"]], sc.enabled ? 1 : 0)}
       <h3>At most one every</h3>
-      ${seg("sc-gap", SC_GAPS, sc.minGapMinutes)}
+      ${segHtml("sc-gap", SC_GAPS, sc.minGapMinutes)}
       <h3>How likely, once that gap has passed</h3>
-      ${seg("sc-chance", SC_CHANCE, sc.chancePercent)}
-      <h3>On screen for</h3>
-      ${seg("sc-secs", SC_SECONDS, sc.seconds)}
+      ${segHtml("sc-chance", SC_CHANCE, sc.chancePercent)}
+      <h3>On screen for (when a clip doesn't say)</h3>
+      ${segHtml("sc-secs", SC_SECONDS, sc.seconds)}
       <h3>How loud</h3>
       <input type="range" id="sc-vol" min="0" max="100" step="5" value="${Math.round(sc.volume * 100)}" aria-label="How loud">
       <h3>When</h3>
-      ${seg("sc-live", [[1, "Live TV too"], [0, "Films and episodes only"]], sc.duringLive ? 1 : 0)}
-      ${seg("sc-playing", [[1, "Only while watching"], [0, "Menus as well"]], sc.whilePlayingOnly ? 1 : 0)}
-      <h3>Your scares</h3>
-      <p class="meta" id="sc-mixes-none"${(state.mixes || []).length ? " hidden" : ""}>Build one from your clips: a picture or GIF, a video, a sound, or a picture with a sound, placed where you like on the screen.</p>
+      ${segHtml("sc-live", [[1, "Live TV too"], [0, "Films and episodes only"]], sc.duringLive ? 1 : 0)}
+      ${segHtml("sc-playing", [[1, "Only while watching"], [0, "Menus as well"]], sc.whilePlayingOnly ? 1 : 0)}
+      <h3>Built clips</h3>
+      <p class="meta" id="sc-mixes-none"${(state.mixes || []).length ? " hidden" : ""}>Build one from your clips, or add a pack below: a picture or GIF, a video, a sound, or a picture with a sound, placed where you like and perhaps walking across.</p>
       <div id="sc-mixes"></div>
-      <div class="actions"><button id="sc-build">Build a scare</button></div>
-      <h3>Clips</h3>
-      <p class="meta" id="sc-none"${state.clips.length ? " hidden" : ""}>No clips yet, so the TV draws (and screams) its own. Add a short video, a picture (a transparent GIF works best) or a sound from your phone.</p>
-      <div id="sc-clips">${state.clips.map(clipHtml).join("")}</div>
+      <div class="actions"><button id="sc-build">Build one</button><button id="sc-share">Share as a pack</button></div>
+      <h3>Packs</h3>
+      <div id="sc-packs"></div>
+      <div class="actions"><button class="primary" id="sc-browse">Browse packs</button><button id="sc-pack-file">Add a pack file</button></div>
+      <input type="file" id="sc-pack-input" accept=".utvpack,application/json,application/octet-stream" hidden>
+      <div class="link-row"><input class="field" id="sc-pack-url" placeholder="Or paste a pack's link" autocomplete="off" inputmode="url"><button id="sc-pack-link">Add</button></div>
+      <h3>Your uploads</h3>
+      <p class="meta" id="sc-none">No uploads yet${scary ? ", so with no packs either the TV draws (and screams) its own scare" : ""}. Add a short video, a picture (a transparent GIF, PNG or SVG works best) or a sound from your phone.</p>
+      <div id="sc-clips"></div>
       <div class="actions"><button id="sc-add">Add a clip</button></div>
       <input type="file" id="sc-file" accept="video/*,image/*,audio/*" hidden>
       <button class="link" data-close>Close</button>`);
 
     const put = async (patch) => {
       try {
-        await fetch("/api/scares", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).then((r) => {
-          if (!r.ok) throw new Error(r.statusText);
-        });
-      } catch {
-        toast("Can't reach the Hub", true);
+        await send("/api/scares", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+      } catch (e) {
+        toast(e.message, true);
       }
     };
     const onSeg = (id, apply) => {
@@ -507,6 +529,10 @@
         };
       }
     };
+    onSeg("sc-season", async (v) => {
+      await put({ season: v });
+      void scareSheet();
+    });
     onSeg("sc-on", (v) => put({ enabled: v === "1" }));
     onSeg("sc-gap", (v) => put({ minGapMinutes: Number(v) }));
     onSeg("sc-chance", (v) => put({ chancePercent: Number(v) }));
@@ -519,44 +545,113 @@
     $("sc-now").onclick = async () => {
       try {
         await post("/api/scares/now", {});
-        toast("Boo!");
+        toast(scary ? "Boo!" : "On the TV now");
       } catch (e) {
         toast(e.message, true);
       }
     };
+    $("sc-loop").onclick = async () => {
+      try {
+        const s = await post("/api/scares/loop", state.looping ? { theme: null } : { theme: season });
+        state.looping = s.looping;
+        $("sc-loop").textContent = s.looping ? "Stop the loop" : "Play on a loop";
+        toast(s.looping ? `${themeName(s.looping)} clips on a loop. Back on the TV remote stops it too.` : "Loop stopped");
+      } catch (e) {
+        toast(e.message, true);
+      }
+    };
+
     const showMixes = (mixes) => {
       state.mixes = mixes;
-      $("sc-mixes").innerHTML = mixes.map((m) => mixHtml(m, state.clips)).join("");
+      // The occasion's first, then the rest.
+      const sorted = mixes.slice().sort((a, b) => Number(mixThemeOf(b) === season) - Number(mixThemeOf(a) === season));
+      $("sc-mixes").innerHTML = sorted.map((m) => mixHtml(m, state.clips)).join("");
       $("sc-mixes-none").hidden = mixes.length > 0;
-      for (const b of $("sc-mixes").querySelectorAll("[data-play]")) b.onclick = () => void post("/api/scares/now", { mixId: b.dataset.play }).then(() => toast("Boo!"), (e) => toast(e.message, true));
+      for (const b of $("sc-mixes").querySelectorAll("[data-play]")) b.onclick = () => void post("/api/scares/now", { mixId: b.dataset.play }).then(() => toast("On the TV now"), (e) => toast(e.message, true));
       for (const b of $("sc-mixes").querySelectorAll("[data-drop]")) {
         b.onclick = async () => {
-          const r = await fetch(`/api/scares/mixes/${encodeURIComponent(b.dataset.drop)}`, { method: "DELETE" }).catch(() => null);
-          const d = r && (await r.json().catch(() => ({})));
-          if (!r?.ok) return toast((d && d.error) || "Can't reach the Hub", true);
-          showMixes(d.mixes || []);
-          toast("Scare deleted");
+          try {
+            const d = await send(`/api/scares/mixes/${encodeURIComponent(b.dataset.drop)}`, { method: "DELETE" });
+            showMixes(d.mixes || []);
+            toast("Deleted");
+          } catch (e) {
+            toast(e.message, true);
+          }
         };
       }
     };
     showMixes(state.mixes || []);
     $("sc-build").onclick = () => {
-      if (!state.clips.length) return toast("Add a clip first: a picture, a video or a sound", true);
-      buildSheet(state.clips, () => void scareSheet());
+      if (!state.clips.length) return toast("Add a clip or a pack first", true);
+      buildSheet(state.clips, season, () => void scareSheet());
     };
+    $("sc-share").onclick = () => {
+      if (!(state.mixes || []).length) return toast("Build one or add a pack first", true);
+      shareSheet(state, season, () => void scareSheet());
+    };
+
+    const showPacks = (packs) => {
+      $("sc-packs").innerHTML = packs.length
+        ? packs.map((p) => `<div class="clip"><span>${themeIcon(p.theme)} ${esc(p.name)}<br><small>${p.mixIds.length} clip${p.mixIds.length === 1 ? "" : "s"} · ${kb(p.sizeBytes)}${p.source === "community" ? " · community" : ""}</small></span><button type="button" data-unpack="${esc(p.id)}">Remove</button></div>`).join("")
+        : `<p class="meta">No packs yet. Christmas, Easter, Valentine's, birthday, Halloween and fireworks starter packs come with the app: Browse packs.</p>`;
+      for (const b of $("sc-packs").querySelectorAll("[data-unpack]")) {
+        b.onclick = async () => {
+          try {
+            await send(`/api/scares/packs/${encodeURIComponent(b.dataset.unpack)}`, { method: "DELETE" });
+            toast("Pack removed");
+            void scareSheet();
+          } catch (e) {
+            toast(e.message, true);
+          }
+        };
+      }
+    };
+    showPacks(state.packs || []);
+    $("sc-browse").onclick = () => void browseSheet(() => void scareSheet());
+    $("sc-pack-file").onclick = () => $("sc-pack-input").click();
+    $("sc-pack-input").onchange = async (e) => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      try {
+        toast("Adding the pack…");
+        const d = await send("/api/scares/packs", { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file });
+        toast(`Added ${d.pack.name}`);
+        void scareSheet();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    };
+    $("sc-pack-link").onclick = async () => {
+      const url = $("sc-pack-url").value.trim();
+      if (!url) return toast("Paste the pack's link first", true);
+      try {
+        toast("Downloading the pack…");
+        const d = await post("/api/scares/packs/link", { url });
+        toast(`Added ${d.pack.name}`);
+        void scareSheet();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    };
+
     const showClips = (clips) => {
       state.clips = clips;
-      $("sc-clips").innerHTML = clips.map(clipHtml).join("");
-      $("sc-none").hidden = clips.length > 0;
-      for (const b of $("sc-clips").querySelectorAll("[data-play]")) b.onclick = () => void post("/api/scares/now", { clipId: b.dataset.play }).then(() => toast("Boo!"), (e) => toast(e.message, true));
+      // A pack's own files are managed with the pack, so only uploads are listed here.
+      const own = clips.filter((c) => !c.packId);
+      $("sc-clips").innerHTML = own.map(clipHtml).join("");
+      $("sc-none").hidden = own.length > 0;
+      for (const b of $("sc-clips").querySelectorAll("[data-play]")) b.onclick = () => void post("/api/scares/now", { clipId: b.dataset.play }).then(() => toast("On the TV now"), (e) => toast(e.message, true));
       for (const b of $("sc-clips").querySelectorAll("[data-drop]")) {
         b.onclick = async () => {
-          const r = await fetch(`/api/scares/clips/${encodeURIComponent(b.dataset.drop)}`, { method: "DELETE" }).catch(() => null);
-          const d = r && (await r.json().catch(() => ({})));
-          if (!r?.ok) return toast((d && d.error) || "Can't reach the Hub", true);
-          showClips(d.clips || []);
-          if (d.mixes) showMixes(d.mixes);
-          toast("Clip deleted");
+          try {
+            const d = await send(`/api/scares/clips/${encodeURIComponent(b.dataset.drop)}`, { method: "DELETE" });
+            showClips(d.clips || []);
+            if (d.mixes) showMixes(d.mixes);
+            toast("Clip deleted");
+          } catch (e) {
+            toast(e.message, true);
+          }
         };
       }
     };
@@ -570,13 +665,11 @@
       add.disabled = true;
       add.textContent = "Sending…";
       try {
-        const r = await fetch(`/api/scares/clips?name=${encodeURIComponent(file.name.replace(/\.[^.]+$/, ""))}`, {
+        const d = await send(`/api/scares/clips?name=${encodeURIComponent(file.name.replace(/\.[^.]+$/, ""))}`, {
           method: "POST",
           headers: { "Content-Type": file.type || "application/octet-stream" },
           body: file,
         });
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(d.error || r.statusText);
         showClips(d.clips || []);
         toast("Clip added");
       } catch (err) {
@@ -586,30 +679,50 @@
       add.textContent = "Add a clip";
     };
   }
+  /** The occasion the date picks, the same way the Hub does (for the Auto button's label). */
+  function clipSeasonForDate(d = new Date()) {
+    const m = d.getMonth();
+    const day = d.getDate();
+    if ((m === 9 && day >= 25) || (m === 10 && day <= 1)) return "halloween";
+    if (m === 10 && day >= 4 && day <= 6) return "bonfire";
+    if (m === 11 && day <= 26) return "christmas";
+    if ((m === 11 && day === 31) || (m === 0 && day === 1)) return "newyear";
+    if (m === 1 && day >= 10 && day <= 14) return "valentines";
+    const y = d.getFullYear();
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, dd = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - dd - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, mm = Math.floor((a + 11 * h + 22 * l) / 451);
+    const easter = new Date(y, Math.floor((h + l - 7 * mm + 114) / 31) - 1, ((h + l - 7 * mm + 114) % 31) + 1).getTime();
+    const today = new Date(y, m, day).getTime();
+    return today >= easter - 7 * 864e5 && today <= easter + 1.5 * 864e5 ? "easter" : "everyday";
+  }
   const KIND_NAMES = { video: "Video", image: "Picture", audio: "Sound" };
-  const SPOT_NAMES = { "top-left": "top left", top: "top", "top-right": "top right", left: "left", center: "middle", right: "right", "bottom-left": "bottom left", bottom: "bottom", "bottom-right": "bottom right", full: "full screen" };
+  const SPOT_NAMES = { "top-left": "top left", top: "top", "top-right": "top right", left: "left", center: "middle", right: "right", "bottom-left": "bottom left", bottom: "bottom", "bottom-right": "bottom right", full: "full screen", overlay: "over everything" };
+  const MOTION_NAMES = { still: "", "walk-left": "walks left", "walk-right": "walks right", "hop-left": "hops left", "hop-right": "hops right", "fly-left": "flies left", "fly-right": "flies right", rise: "floats up", drop: "drops in", peek: "peeks up" };
   function clipHtml(c) {
     return `<div class="clip"><span>${esc(c.name)}<br><small>${KIND_NAMES[c.kind] || "Clip"} · ${kb(c.sizeBytes)}</small></span><button type="button" data-play="${esc(c.id)}">${c.kind === "audio" ? "Play" : "Show"}</button><button type="button" data-drop="${esc(c.id)}">Delete</button></div>`;
   }
   function mixHtml(m, clips) {
     const name = (id) => clips.find((c) => c.id === id)?.name;
     const parts = [name(m.visualId), name(m.audioId) && `🔊 ${name(m.audioId)}`].filter(Boolean).join(" + ");
-    const where = m.visualId ? ` · ${SPOT_NAMES[m.spot] || m.spot}${m.spot === "full" ? "" : `, ${m.size}`}` : "";
-    return `<div class="clip"><span>${esc(m.name)}<br><small>${esc(parts)}${esc(where)}</small></span><button type="button" data-play="${esc(m.id)}">Show</button><button type="button" data-drop="${esc(m.id)}">Delete</button></div>`;
+    const where = m.visualId ? ` · ${SPOT_NAMES[m.spot] || m.spot}${m.spot === "full" || m.spot === "overlay" ? "" : `, ${m.size}`}${m.motion && m.motion !== "still" ? `, ${MOTION_NAMES[m.motion]}` : ""}` : "";
+    const drop = m.packId ? "" : `<button type="button" data-drop="${esc(m.id)}">Delete</button>`;
+    return `<div class="clip"><span>${themeIcon(mixThemeOf(m))} ${esc(m.name)}<br><small>${esc(parts)}${esc(where)}</small></span><button type="button" data-play="${esc(m.id)}">Show</button>${drop}</div>`;
   }
 
-  // Building a scare: a picture or video and a sound from the clips, placed on the screen.
+  // Building a clip: a picture or video and a sound from the clips, placed on the screen, perhaps moving.
   const BUILD_SPOTS = [["top-left", "↖"], ["top", "Top"], ["top-right", "↗"], ["left", "Left"], ["center", "Middle"], ["right", "Right"], ["bottom-left", "↙"], ["bottom", "Bottom"], ["bottom-right", "↘"]];
   const BUILD_SIZES = [["small", "Small"], ["medium", "Medium"], ["large", "Large"]];
-  const BUILD_SECONDS = [[0, "As set"], [2, "2 sec"], [4, "4 sec"], [6, "6 sec"], [10, "10 sec"]];
-  function buildSheet(clips, back) {
+  const BUILD_SECONDS = [[0, "As set"], [4, "4 sec"], [8, "8 sec"], [12, "12 sec"], [20, "20 sec"]];
+  const BUILD_MOTIONS = [["still", "Stays put"], ["walk-left", "Walks ←"], ["walk-right", "Walks →"], ["hop-left", "Hops ←"], ["hop-right", "Hops →"], ["fly-left", "Flies ←"], ["fly-right", "Flies →"], ["rise", "Floats up"], ["drop", "Drops in"], ["peek", "Peeks up"]];
+  function buildSheet(clips, season, back) {
     const visuals = clips.filter((c) => c.kind !== "audio");
     const sounds = clips.filter((c) => c.kind === "audio");
-    const b = { visualId: visuals[0]?.id || "", audioId: "", spot: "full", size: "medium", muteVideo: false, seconds: 0 };
+    const b = { visualId: visuals[0]?.id || "", audioId: "", spot: "full", size: "medium", motion: "still", muteVideo: false, seconds: 0, theme: season };
     const pick = (id, items, value) => `<div class="list" id="${id}">${items.map(([v, l]) => `<button type="button" class="row-btn${v === value ? " on" : ""}" data-v="${esc(v)}">${esc(l)}</button>`).join("")}</div>`;
-    const seg = (id, items, value) => `<div class="seg" id="${id}">${items.map(([v, l]) => `<button type="button" data-v="${v}" class="${v === value ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
-    openSheet(`<h2>Build a scare</h2>
-      <p class="meta">A transparent GIF in a corner with a scream, a video with a sound of your own, or just a sound in the dark.</p>
+    openSheet(`<h2>Build a clip</h2>
+      <p class="meta">A transparent GIF in a corner with a scream, a snowman walking along the bottom with sleigh bells, or just a sound in the dark.</p>
+      <h3>For</h3>
+      ${segHtml("bd-theme", Object.entries(THEMES).map(([v, [l, i]]) => [v, `${i} ${l}`]), b.theme, "wrap")}
       <h3>Picture or video</h3>
       ${pick("bd-visual", [["", "None (just the sound)"], ...visuals.map((c) => [c.id, `${c.name} · ${KIND_NAMES[c.kind]}`])], b.visualId)}
       <h3>Sound</h3>
@@ -618,11 +731,13 @@
       <div id="bd-place">
         <h3>Where on the screen</h3>
         <div class="where" id="bd-where">${BUILD_SPOTS.map(([v, l]) => `<button type="button" data-v="${v}">${esc(l)}</button>`).join("")}</div>
-        <button type="button" class="where-full" id="bd-full">Full screen</button>
-        <div id="bd-size-row"><h3>Size</h3>${seg("bd-size", BUILD_SIZES, b.size)}</div>
+        <button type="button" class="where-full" id="bd-full">Full screen, on black</button>
+        <button type="button" class="where-full" id="bd-overlay">Over everything, see-through</button>
+        <div id="bd-size-row"><h3>Size</h3>${segHtml("bd-size", BUILD_SIZES, b.size)}</div>
+        <div id="bd-motion-row"><h3>Moving</h3>${segHtml("bd-motion", BUILD_MOTIONS, b.motion, "wrap")}<p class="meta">Walking, hopping and flying go across the row you picked; floating up, dropping in and peeking stay in its column.</p></div>
       </div>
       <h3>On screen for</h3>
-      ${seg("bd-secs", BUILD_SECONDS, b.seconds)}
+      ${segHtml("bd-secs", BUILD_SECONDS, b.seconds)}
       <input class="field" id="bd-name" maxlength="60" placeholder="Name it (optional)" autocomplete="off">
       <div class="actions"><button class="primary" id="bd-save">Save and try it</button><button id="bd-only">Save</button></div>
       <button class="link" id="bd-back">Back</button>`);
@@ -631,25 +746,38 @@
     };
     const refresh = () => {
       const visual = visuals.find((c) => c.id === b.visualId);
+      const whole = b.spot === "full" || b.spot === "overlay";
+      if (whole) b.motion = "still";
+      mark("bd-theme", b.theme);
       mark("bd-visual", b.visualId);
       mark("bd-audio", b.audioId);
       mark("bd-where", b.spot);
       $("bd-full").classList.toggle("on", b.spot === "full");
+      $("bd-overlay").classList.toggle("on", b.spot === "overlay");
       mark("bd-size", b.size);
+      mark("bd-motion", b.motion);
       mark("bd-secs", b.seconds);
       $("bd-place").hidden = !visual;
-      $("bd-size-row").hidden = b.spot === "full";
+      $("bd-size-row").hidden = whole;
+      $("bd-motion-row").hidden = whole;
       $("bd-mute-row").hidden = visual?.kind !== "video";
     };
     const on = (box, apply) => {
       for (const x of $(box).querySelectorAll("button")) x.onclick = () => (apply(x.dataset.v), refresh());
     };
+    on("bd-theme", (v) => (b.theme = v));
     on("bd-visual", (v) => (b.visualId = v));
     on("bd-audio", (v) => (b.audioId = v));
     on("bd-where", (v) => (b.spot = v));
     on("bd-size", (v) => (b.size = v));
+    on("bd-motion", (v) => {
+      b.motion = v;
+      // Something walking across needs longer than a jump scare's few seconds.
+      if (v !== "still" && b.seconds < 8) b.seconds = 12;
+    });
     on("bd-secs", (v) => (b.seconds = Number(v)));
     $("bd-full").onclick = () => ((b.spot = "full"), refresh());
+    $("bd-overlay").onclick = () => ((b.spot = "overlay"), refresh());
     $("bd-mute").onchange = (e) => (b.muteVideo = e.target.checked);
     $("bd-back").onclick = back;
     const save = async (andShow) => {
@@ -660,7 +788,7 @@
         if (!body.audioId) delete body.audioId;
         const { mix } = await post("/api/scares/mixes", body);
         if (andShow) await post("/api/scares/now", { mixId: mix.id });
-        toast(andShow ? "Saved. Boo!" : "Saved");
+        toast(andShow ? "Saved, and on the TV now" : "Saved");
         back();
       } catch (e) {
         toast(e.message, true);
@@ -669,6 +797,96 @@
     $("bd-save").onclick = () => void save(true);
     $("bd-only").onclick = () => void save(false);
     refresh();
+  }
+
+  // Packs: the starter packs that come with the app, and the community list.
+  async function browseSheet(back) {
+    openSheet(`<h2>Browse packs</h2><div class="spinner"></div><button class="link" id="br-back">Back</button>`);
+    $("br-back").onclick = back;
+    let lib;
+    try {
+      lib = await get("/api/scares/library");
+    } catch (e) {
+      toast(e.message, true);
+      return back();
+    }
+    const row = (p, from) =>
+      `<div class="clip pack"><span>${themeIcon(p.theme)} ${esc(p.name)}${p.scary ? ` <small class="tag">scary</small>` : ""}<br><small>${esc(p.description || "")}</small><br><small>${p.count ? `${p.count} clip${p.count === 1 ? "" : "s"} · ` : ""}${kb(p.sizeBytes)}${p.author ? ` · by ${esc(p.author)}` : ""}</small></span><button type="button" data-install="${esc(p.id)}" data-from="${from}">${p.installed ? "Update" : "Add"}</button></div>`;
+    const community = lib.community.packs || [];
+    openSheet(`<h2>Browse packs</h2>
+      <p class="meta">Pictures, sounds and ready-built clips for an occasion. Adding one never shows anything on a Kids profile; remove a pack and its clips go with it.</p>
+      <h3>Comes with the app</h3>
+      ${lib.starter.map((p) => row(p, "starter")).join("") || `<p class="meta">None here.</p>`}
+      <h3>From the community</h3>
+      ${lib.community.error ? `<p class="meta">${esc(lib.community.error)}</p>` : community.length ? community.map((p) => row(p, "community")).join("") : `<p class="meta">Nothing on the community list yet. Made a good one? Share it as a pack and send it in (see the project's community/clips folder).</p>`}
+      <button class="link" id="br-back">Back</button>`);
+    $("br-back").onclick = back;
+    for (const b of document.querySelectorAll("[data-install]")) {
+      b.onclick = async () => {
+        b.disabled = true;
+        b.textContent = "Adding…";
+        try {
+          const d = await post("/api/scares/library/install", { id: b.dataset.install, from: b.dataset.from });
+          b.textContent = "Added";
+          toast(`Added ${d.pack.name}`);
+        } catch (e) {
+          b.disabled = false;
+          b.textContent = "Add";
+          toast(e.message, true);
+        }
+      };
+    }
+  }
+
+  // Sharing built clips as a pack: a file to send, or a link and QR code on the Hub.
+  function shareSheet(state, season, back) {
+    const mixes = state.mixes || [];
+    const picked = new Set(mixes.filter((m) => mixThemeOf(m) === season).map((m) => m.id));
+    if (!picked.size) for (const m of mixes) picked.add(m.id);
+    openSheet(`<h2>Share as a pack</h2>
+      <p class="meta">Puts the clips you pick, and the pictures and sounds they use, in one file for another UltimateTV: send it to a friend, keep it as a backup, or send it in for the community list.</p>
+      <div id="sh-list">${mixes.map((m) => `<label class="check"><input type="checkbox" data-id="${esc(m.id)}"${picked.has(m.id) ? " checked" : ""}> ${themeIcon(mixThemeOf(m))} ${esc(m.name)}</label>`).join("")}</div>
+      <input class="field" id="sh-name" maxlength="60" placeholder="Name the pack" value="${esc(`${themeName(season)} clips`)}" autocomplete="off">
+      <div class="actions"><button class="primary" id="sh-link">Make a link and QR code</button><button id="sh-file">Send the file</button></div>
+      <div id="sh-out"></div>
+      <button class="link" id="sh-back">Back</button>`);
+    $("sh-back").onclick = back;
+    const chosen = () => [...$("sh-list").querySelectorAll("input:checked")].map((x) => x.dataset.id);
+    const body = () => ({ name: $("sh-name").value.trim(), theme: mixThemeOf(mixes.find((m) => chosen().includes(m.id)) || {}), mixIds: chosen() });
+    $("sh-link").onclick = async () => {
+      if (!chosen().length) return toast("Pick at least one", true);
+      try {
+        const { share } = await post("/api/scares/shares", body());
+        $("sh-out").innerHTML = `<div class="share-out"><img src="${esc(share.qr)}" alt="QR code for the share page"><p class="meta">Anyone on your home Wi-Fi can scan this or open the link to see the clips and download the pack.</p><input class="field" readonly value="${esc(share.url)}" id="sh-url"><div class="actions"><button id="sh-copy">Copy the link</button><a class="btn-like" href="${esc(share.packUrl)}" download>Download</a></div></div>`;
+        $("sh-copy").onclick = () => {
+          $("sh-url").select();
+          void navigator.clipboard?.writeText(share.url).then(() => toast("Copied"), () => toast("Press and hold the link to copy it"));
+        };
+      } catch (e) {
+        toast(e.message, true);
+      }
+    };
+    $("sh-file").onclick = async () => {
+      if (!chosen().length) return toast("Pick at least one", true);
+      try {
+        const r = await fetch("/api/scares/packs/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body()) });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+        const blob = await r.blob();
+        const name = (/filename="([^"]+)"/.exec(r.headers.get("Content-Disposition") || "") || [])[1] || "clips.utvpack";
+        const file = new File([blob], name, { type: "application/octet-stream" });
+        // The phone's own share sheet (WhatsApp, email…) where there is one; a download where not.
+        if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: body().name || "Clips" });
+        else {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+        }
+      } catch (e) {
+        if (e.name !== "AbortError") toast(e.message, true);
+      }
+    };
   }
   $("scare-btn").addEventListener("click", () => void scareSheet());
 

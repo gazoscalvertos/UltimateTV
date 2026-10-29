@@ -2,8 +2,8 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { Certification, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeChoice } from "@ultimatetv/shared";
-import { CERTIFICATIONS, formatBytes, resolveTheme, SCREENSAVER_THEMES, THEME_CHOICES } from "@ultimatetv/shared";
+import type { Certification, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeChoice } from "@ultimatetv/shared";
+import { CERTIFICATIONS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, THEME_CHOICES } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -261,6 +261,17 @@ export function Settings(props: { section?: string }) {
       if (e.type === "scares.changed" && section() === "scares") void refetchScares();
     }),
   );
+  /** Installs every starter pack that isn't here yet. */
+  const addStarters = async () => {
+    try {
+      const lib = await hub.clipLibrary();
+      const missing = lib.starter.filter((p) => !p.installed);
+      for (const p of missing) mutateScares(await hub.installClipPack(p.id, "starter"));
+      toast(missing.length ? `Added ${missing.length} pack${missing.length === 1 ? "" : "s"}` : "They're all here already");
+    } catch (e) {
+      errorToast(e);
+    }
+  };
   const saveScares = async (patch: Partial<ScareSettings>) => {
     try {
       mutateScares(await hub.saveScares(patch));
@@ -419,7 +430,7 @@ export function Settings(props: { section?: string }) {
     { id: "screensaver", label: "Screensaver" },
     { id: "recording", label: "Recording" },
     { id: "music", label: "Music channels" },
-    { id: "scares", label: "Jump scares" },
+    { id: "scares", label: "Projected clips" },
     { id: "sources", label: "Sources" },
     { id: "remote", label: "Phones and remotes" },
     { id: "about", label: "About" },
@@ -544,26 +555,38 @@ export function Settings(props: { section?: string }) {
             </Show>
 
             <Show when={section() === "scares"}>
-              <h2>Jump scares</h2>
+              <h2>Projected clips</h2>
               <p class="hint">
-                Cuts a short clip in over whatever is on, now and then, and leaves it there for a few seconds. Clips are uploaded from the phone remote's
-                Scares tab, which can also set one off on the spot. Never on a Kids profile.
+                Cuts a short clip in over whatever is on, now and then: a jump scare at Halloween, a snowman walking along the bottom at Christmas, a bunny
+                hopping across at Easter. Only the occasion's clips come up. Add packs, build your own and share them from the phone remote's Clips tab.
+                Never on a Kids profile.
               </p>
               <Show when={scares()} fallback={<div class="spinner" />}>
                 {(sc) => {
                   const s = () => sc().settings;
+                  const season = () => sc().season ?? clipSeasonFor(s().season);
+                  const forSeason = () => (sc().mixes ?? []).filter((m) => mixTheme(m) === season());
                   return (
                     <>
-                      <Row label="Random scares" value={s().enabled ? "On" : "Off"} hint={sc().clips.length ? undefined : "With no clips uploaded, the TV draws (and screams) its own"} onSelect={() => void saveScares({ enabled: !s().enabled })} />
+                      <Row
+                        label="Occasion"
+                        value={s().season === "auto" ? `Auto (${CLIP_THEME_NAMES[season()]})` : CLIP_THEME_NAMES[s().season as ClipTheme]}
+                        hint="Auto goes by the date: Halloween week, Bonfire Night, Christmas, New Year, Valentine's and Easter. Pick Birthday on the day."
+                        onSelect={() => void saveScares({ season: cycle(["auto", ...CLIP_THEMES] as ClipSeason[], s().season) })}
+                      />
+                      <Row label="Random clips" value={s().enabled ? "On" : "Off"} hint={forSeason().length ? `${forSeason().length} for ${CLIP_THEME_NAMES[season()]}` : season() === "halloween" ? "With no clips uploaded, the TV draws (and screams) its own" : `Nothing for ${CLIP_THEME_NAMES[season()]} yet: add the starter packs below`} onSelect={() => void saveScares({ enabled: !s().enabled })} />
                       <Row label="At most one every" value={`${s().minGapMinutes} min`} onSelect={() => void saveScares({ minGapMinutes: cycle([10, 20, 30, 45, 60, 120], s().minGapMinutes) })} />
-                      <Row label="How likely" hint="The chance of a scare in each minute once that gap has passed" value={`${s().chancePercent}%`} onSelect={() => void saveScares({ chancePercent: cycle([5, 10, 25, 50, 100], s().chancePercent) })} />
-                      <Row label="On screen for" value={`${s().seconds} sec`} onSelect={() => void saveScares({ seconds: cycle([2, 3, 4, 6, 10], s().seconds) })} />
+                      <Row label="How likely" hint="The chance of a clip in each minute once that gap has passed" value={`${s().chancePercent}%`} onSelect={() => void saveScares({ chancePercent: cycle([5, 10, 25, 50, 100], s().chancePercent) })} />
+                      <Row label="On screen for" hint="For clips that don't say; walking and flying ones take as long as they need" value={`${s().seconds} sec`} onSelect={() => void saveScares({ seconds: cycle([2, 3, 4, 6, 10], s().seconds) })} />
                       <Row label="How loud" value={`${Math.round(s().volume * 100)}%`} onSelect={() => void saveScares({ volume: cycle([0, 0.3, 0.5, 0.7, 1], s().volume) })} />
-                      <Row label="During live TV too" hint="Off means only films, episodes and recordings get scares" value={s().duringLive ? "On" : "Off"} onSelect={() => void saveScares({ duringLive: !s().duringLive })} />
-                      <Row label="Only while something is playing" hint="Off lets a scare land on the menus as well" value={s().whilePlayingOnly ? "On" : "Off"} onSelect={() => void saveScares({ whilePlayingOnly: !s().whilePlayingOnly })} />
-                      <Row label="Clips" value={sc().clips.length ? `${sc().clips.length} · ${formatBytes(sc().clips.reduce((a, c) => a + c.sizeBytes, 0))}` : "None yet"} hint={sc().clips.map((c) => c.name).join(" · ") || "Upload them from the phone remote's Scares tab"} />
-                      <Row label="Your scares" value={(sc().mixes ?? []).length ? String(sc().mixes.length) : "None yet"} hint={(sc().mixes ?? []).map((m) => m.name).join(" · ") || "Build them on the phone remote's Scares tab: a picture or GIF and a sound, placed where you like"} />
-                      <Row label="Try one now" icon="play" hint="Shows a scare on this TV straight away" onSelect={() => void hub.scareNow().catch(errorToast)} />
+                      <Row label="During live TV too" hint="Off means only films, episodes and recordings get clips" value={s().duringLive ? "On" : "Off"} onSelect={() => void saveScares({ duringLive: !s().duringLive })} />
+                      <Row label="Only while something is playing" hint="Off lets a clip land on the menus as well" value={s().whilePlayingOnly ? "On" : "Off"} onSelect={() => void saveScares({ whilePlayingOnly: !s().whilePlayingOnly })} />
+                      <Row label="Packs" value={(sc().packs ?? []).length ? String(sc().packs!.length) : "None yet"} hint={(sc().packs ?? []).map((p) => p.name).join(" · ") || "Christmas, Easter, Valentine's, birthday, Halloween and fireworks come with the app"} />
+                      <Row label="Add the starter packs" icon="plus" hint="Every occasion's starter pack that isn't here yet" onSelect={() => void addStarters()} />
+                      <Row label="Clips" value={sc().clips.length ? `${sc().clips.length} · ${formatBytes(sc().clips.reduce((a, c) => a + c.sizeBytes, 0))}` : "None yet"} hint="Upload your own from the phone remote's Clips tab" />
+                      <Row label="Built clips" value={(sc().mixes ?? []).length ? String(sc().mixes.length) : "None yet"} hint={forSeason().map((m) => m.name).join(" · ") || "Build them on the phone remote's Clips tab: a picture or GIF and a sound, placed where you like, perhaps walking across"} />
+                      <Row label="Show one now" icon="play" hint={`One of ${CLIP_THEME_NAMES[season()]}'s, on this TV straight away`} onSelect={() => void hub.scareNow().catch(errorToast)} />
+                      <Row label="Play them one after another" icon="play" hint="Like a window projector: the occasion's clips on a loop until you press Back" onSelect={() => void hub.startClipLoop().catch(errorToast)} />
                     </>
                   );
                 }}

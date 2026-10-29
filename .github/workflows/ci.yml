@@ -22,6 +22,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Clip packs pass the Hub's checks and the community list is up to date
+        run: node tools/packs/index-packs.mjs --check
       - name: Check the probe bundle parses as ES2017
         run: npx esbuild tools/probe/dist/probe.js --target=es2017 --log-level=error > /dev/null
 

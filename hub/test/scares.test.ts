@@ -17,6 +17,8 @@ beforeEach(async () => {
   tmp = await mkdtemp(path.join(os.tmpdir(), "utv-scares-"));
   app = await buildServer({ port: 0, host: "127.0.0.1", dataDir: path.join(tmp, "data"), clipsDir: path.join(tmp, "clips"), probeDir: path.join(tmp, "probe"), uiDir: path.join(tmp, "ui"), setupDir: path.join(tmp, "setup"), mediaRoot: tmp, demo: false }, { systemReport: async () => ({}) as never });
   await pairAsTv(app);
+  // Uploaded clips are Halloween's, so these tests don't depend on the day they run.
+  await app.inject({ method: "PUT", url: "/api/scares", payload: { season: "halloween" } });
 });
 
 afterEach(async () => {
@@ -27,7 +29,7 @@ afterEach(async () => {
 describe("jump scares", () => {
   it("starts off, with nothing uploaded", async () => {
     const state = (await app.inject({ url: "/api/scares" })).json() as ScareState;
-    expect(state.settings).toEqual(DEFAULT_SCARE_SETTINGS);
+    expect(state.settings).toEqual({ ...DEFAULT_SCARE_SETTINGS, season: "halloween" });
     expect(state.clips).toEqual([]);
     expect(state.mixes).toEqual([]);
   });
@@ -135,7 +137,7 @@ describe("picking a scare", () => {
 
   it("never picks a bare sound at random, but does pick built scares", () => {
     const state = { settings, clips: [clip("s", "audio")], mixes: [{ id: "m", name: "m", audioId: "s", spot: "full" as const, size: "medium" as const, muteVideo: false, seconds: 0, createdAt: 0 }] };
-    for (const r of [0, 0.5, 0.99]) expect(scareFrom(state, {}, false, () => r)?.mixId).toBe("m");
+    for (const r of [0, 0.5, 0.99]) expect(scareFrom(state, {}, false, () => r, new Date("2026-10-31T20:00:00"))?.mixId).toBe("m");
     expect(scareFrom({ ...state, mixes: [] }, {}, false)?.clip).toBeUndefined();
     expect(scareFrom({ ...state, mixes: [] }, {}, false)?.audio).toBeUndefined();
   });

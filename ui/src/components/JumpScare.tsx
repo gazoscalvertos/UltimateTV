@@ -1,11 +1,14 @@
-// Jump scares: a short clip cut in full screen over whatever is on, then gone. The Hub keeps the
-// settings and the clips (see hub/src/scares.ts); the TV decides when a random one lands, because
-// only it knows what's playing. The phone's Scares sheet can also set one off at once.
+// Jump scares and projected clips: a short clip cut in over whatever is on, then gone. A jump scare
+// fills the screen; a placed clip sits in one spot or walks, hops or flies across it; an overlay
+// (falling snow, rising hearts) covers it all with the programme showing through. The Hub keeps
+// the settings and the clips (see hub/src/scares.ts); the TV decides when a random one lands,
+// because only it knows what's playing. The phone's Clips sheet can also set one off at once, or
+// have the TV play the occasion's clips one after another (the loop), like a window projector.
 //
 // Never on a Kids profile, and never while the app is in the background.
 
-import { createSignal, onCleanup, onMount, Show } from "solid-js";
-import { DEFAULT_SCARE_SETTINGS, scareFrom, type Scare, type ScareState } from "@ultimatetv/shared";
+import { createSignal, onCleanup, onMount, Show, type JSX } from "solid-js";
+import { DEFAULT_SCARE_SETTINGS, scareFrom, type Scare, type ScareSpot, type ScareState } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { onHubEvent } from "../events";
 import { addOverlayKeys } from "../keys";
@@ -14,6 +17,12 @@ import { isKids } from "../store";
 
 /** How often the TV asks itself whether it's time for a scare. */
 const TICK_MS = 60_000;
+/** The pause between clips while looping. */
+const LOOP_GAP_MS = [1500, 4500];
+
+/** A moving clip's row (for walking, hopping and flying) and column (for rising, dropping and peeking). */
+const rowOf = (spot: ScareSpot | undefined) => (spot?.startsWith("top") ? "top" : spot?.startsWith("bottom") ? "bottom" : "middle");
+const colOf = (spot: ScareSpot | undefined) => (spot?.endsWith("left") ? "left" : spot?.endsWith("right") ? "right" : "middle");
 
 // A screech for a scare with no clip, or one that's only a picture: a scream of noise and a
 // falling tone, made rather than shipped.
@@ -63,10 +72,23 @@ export function JumpScare() {
   const [showing, setShowing] = createSignal<Scare | null>(null);
   let lastAt = 0;
   let hideTimer: number | undefined;
+  let loopTimer: number | undefined;
 
   const load = () =>
     void hub.scares().then(
-      (s) => setState({ ...s, mixes: s.mixes ?? [] }),
+      (s) => {
+        const was = state().looping;
+        setState({ ...s, mixes: s.mixes ?? [] });
+        // The phone started the loop: the first clip comes straight away. Stopped: the one on goes.
+        if (s.looping && !was && !isKids()) {
+          const scare = scareFrom(state(), { theme: s.looping }, true);
+          if (scare) show(scare);
+        }
+        if (!s.looping && was) {
+          window.clearTimeout(loopTimer);
+          setShowing(null);
+        }
+      },
       () => undefined,
     );
 
@@ -74,14 +96,27 @@ export function JumpScare() {
     window.clearTimeout(hideTimer);
     hideTimer = undefined;
     setShowing(null);
+    if (state().looping) nextInLoop();
+  };
+
+  /** While looping, the next clip comes after a short pause. */
+  const nextInLoop = () => {
+    window.clearTimeout(loopTimer);
+    const [min, max] = LOOP_GAP_MS;
+    loopTimer = window.setTimeout(() => {
+      const theme = state().looping;
+      if (!theme || showing()) return;
+      const scare = scareFrom(state(), { theme }, true);
+      if (scare) show(scare);
+    }, min! + Math.random() * (max! - min!));
   };
 
   const show = (scare: Scare) => {
     if (isKids() || document.hidden) return;
     lastAt = Date.now();
     setShowing(scare);
-    // A sound of its own plays from the page; otherwise a picture (or nothing at all) screeches.
-    if (!scare.audio && (!scare.clip || scare.clip.kind === "image")) screech(scare.volume);
+    // A sound of its own plays from the page; otherwise a Halloween picture (or nothing at all) screeches.
+    if (!scare.audio && (!scare.clip || scare.clip.kind === "image") && (scare.theme ?? "halloween") === "halloween") screech(scare.volume);
     window.clearTimeout(hideTimer);
     hideTimer = window.setTimeout(hide, Math.max(1, scare.seconds) * 1000);
   };
@@ -89,7 +124,7 @@ export function JumpScare() {
   /** True when a random scare would be welcome right now. */
   const dueNow = (): boolean => {
     const s = settings();
-    if (!s.enabled || isKids() || showing() || document.hidden) return false;
+    if (!s.enabled || isKids() || showing() || document.hidden || state().looping) return false;
     if (Date.now() - lastAt < s.minGapMinutes * 60_000) return false;
     const playing = playerState().status === "playing";
     if (s.whilePlayingOnly && !playing) return false;
@@ -114,9 +149,17 @@ export function JumpScare() {
     if (scare) show(scare);
   }, TICK_MS);
 
-  // OK or Back makes it go, like a pop-up; it goes by itself anyway.
+  // OK or Back makes it go, like a pop-up; it goes by itself anyway. While looping, it stops the loop.
   const offKeys = addOverlayKeys((action) => {
-    if (!showing() || (action !== "ok" && action !== "back")) return false;
+    if (action !== "ok" && action !== "back") return false;
+    if (state().looping) {
+      setState({ ...state(), looping: null });
+      window.clearTimeout(loopTimer);
+      setShowing(null);
+      void hub.stopClipLoop().catch(() => undefined);
+      return true;
+    }
+    if (!showing()) return false;
     hide();
     return true;
   });
@@ -125,13 +168,19 @@ export function JumpScare() {
     off();
     window.clearInterval(tick);
     window.clearTimeout(hideTimer);
+    window.clearTimeout(loopTimer);
     offKeys();
   });
 
   return (
     <Show when={showing()}>
       {(scare) => (
-        <div class={`jump-scare scare-spot-${scare().spot ?? "full"} scare-size-${scare().size ?? "medium"}`} classList={{ placed: (scare().spot ?? "full") !== "full" }} role="presentation">
+        <div
+          class={`jump-scare scare-spot-${scare().spot ?? "full"} scare-size-${scare().size ?? "medium"} ${scare().motion ? `moving motion-${scare().motion} row-${rowOf(scare().spot)} col-${colOf(scare().spot)}` : ""}`}
+          classList={{ placed: (scare().spot ?? "full") !== "full", overlay: scare().spot === "overlay" }}
+          style={{ "--clip-secs": `${Math.max(1, scare().seconds)}s` }}
+          role="presentation"
+        >
           <Show when={scare().audio}>
             {(a) => (
               <audio
@@ -177,6 +226,7 @@ export function JumpScare() {
             }
           >
             {(clip) => (
+              <Moving on={Boolean(scare().motion)}>
               <Show when={clip().kind === "video"} fallback={<img class="scare-media" src={clip().url} alt="" />}>
                 <video
                   class="scare-media"
@@ -194,10 +244,24 @@ export function JumpScare() {
                   }}
                 />
               </Show>
+              </Moving>
             )}
           </Show>
         </div>
       )}
+    </Show>
+  );
+}
+
+/** A moving clip goes in three boxes: one travels, one centres it in its column, one bobs or hops. */
+function Moving(props: { on: boolean; children: JSX.Element }) {
+  return (
+    <Show when={props.on} fallback={props.children}>
+      <div class="clip-mover">
+        <div class="clip-place">
+          <div class="clip-bob">{props.children}</div>
+        </div>
+      </div>
     </Show>
   );
 }
