@@ -3,10 +3,10 @@ import { cleanCastUrl, easterSunday, parseCommunityIndex, parseEdl, projectionFr
 
 describe("seasons", () => {
   it("knows when Easter is", () => {
-    expect(easterSunday(2024)).toEqual([3, 31]);
-    expect(easterSunday(2025)).toEqual([4, 20]);
-    expect(easterSunday(2026)).toEqual([4, 5]);
-    expect(easterSunday(2027)).toEqual([3, 28]);
+    expect(easterSunday(2024).toDateString()).toBe(new Date(2024, 2, 31).toDateString());
+    expect(easterSunday(2025).toDateString()).toBe(new Date(2025, 3, 20).toDateString());
+    expect(easterSunday(2026).toDateString()).toBe(new Date(2026, 3, 5).toDateString());
+    expect(easterSunday(2027).toDateString()).toBe(new Date(2027, 2, 28).toDateString());
   });
 
   it("finds the season for a date", () => {

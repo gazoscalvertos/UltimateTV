@@ -39,6 +39,7 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 1. Films: a Jellyfin film plays straight away, and Resume works after stopping halfway.
 2. A title in both Jellyfin and IPTV: **Versions** lists both, library first.
 3. Something from AIOStreams/TorBox plays. **Save to NAS** downloads it, it appears in Recordings › Downloads, then in Jellyfin.
+   Also try Red in Versions, Options › Keep a copy while it plays, an episode's Save to NAS and the phone's Save button. The TV should say "saved and in Jellyfin" (see [save-to-nas.md](save-to-nas.md)).
 4. A series: seasons and episodes, Up Next at the end of an episode.
 
 ## 6. Profiles
@@ -49,14 +50,16 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 
 ## 6b. Music
 
-Update the box first (Settings › About › Update the box): the update builds the Spotify receiver.
+Update the box first (Settings › About › Update the box): the update builds the Spotify receiver. See [music.md](music.md).
 
-1. Music tab: it shows a code. On your phone go to spotify.com/pair (or scan the QR code) and enter it. Your playlists, albums and artists appear.
-2. Play a playlist, then Shuffle; skip with Next and the remote's fast forward; change the volume. Sound comes from the TV.
-3. In the Spotify app on your phone, pick **UltimateTV** from the devices list: it carries on playing on the TV, and the Music tab follows.
+1. Music tab: Spotify shows "Sign in to Spotify from your phone". In the Spotify app on your phone, play a song, tap the devices button and pick **UltimateTV**. The music moves to the TV, and your playlists, albums and artists appear in the Music tab.
+2. Restart the box: Spotify is still signed in and the playlists come back.
+3. Play a playlist, then Shuffle; skip with Next and the remote's fast forward; change the volume. Sound comes from the TV.
 4. Start a film: the music pauses. Press Play/Pause on Home with no film playing: the music plays and pauses.
-5. Deezer: scan the "Log in to Deezer" QR code in Music services, type your email and password on the phone and press Log in on the TV. Deezer opens on the TV and logs in (tick any "I'm not a robot" box with the remote). Google or Facebook login won't open. Arrows move a blue highlight, OK presses, Play/Pause plays. Back returns to the app and the music keeps going, with Deezer's song in Now Playing. Note anything you can't reach with the arrows.
-6. If Spotify says it isn't set up: `systemctl --user -M tv@ status ultimatetv-spotify` and `journalctl --user -M tv@ -u ultimatetv-spotify` on the box.
+5. Sign in with a code instead: (to test it) press **Not listed? Sign in with a code**. A code shows within a few seconds; enter it at spotify.com/pair. Once signed in, the TV is in the phone's devices list again.
+6. Phone remote, Watch › Music: before signing in it shows the same steps; after, the playlists.
+7. Deezer: scan the "Log in to Deezer" QR code in Music services, type your Deezer email and password on the phone (a Google-only account needs a Deezer password first, see music.md). Deezer opens on the TV and logs in, and the phone says "Logged in", or what Deezer said. Try a wrong password once: the phone shows Deezer's message. Arrows move a blue highlight, OK presses, Play/Pause plays. Back returns to the app and the music keeps going, with Deezer's song in Now Playing.
+8. If Spotify says it isn't starting: the TV shows the receiver's own message. Also `systemctl --user -M tv@ status ultimatetv-spotify` and `journalctl --user -M tv@ -u ultimatetv-spotify` on the box.
 
 ## 7. TV remote (when the Pulse-Eight adapter arrives)
 

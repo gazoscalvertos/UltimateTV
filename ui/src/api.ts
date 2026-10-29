@@ -1,7 +1,7 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
 import type { AdSkipSettings, AlertSettings, AlertState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
-import type { BoxState, Channel, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import type { BoxState, Channel, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
 const store = {
   get(key: string): string | null {
@@ -84,6 +84,7 @@ export type StreamRow = StreamCandidate & { badges: string[] };
 export const hub = {
   status: () => api<HubStatus>("/api/status"),
   musicLogin: (id: string) => api<{ email: string; password: string }>(`/api/music/login/${enc(id)}`),
+  musicLoginResult: (id: string, report: WebAppLoginReport) => api<{ ok: true }>(`/api/music/login/${enc(id)}/result`, { method: "POST", body: report }),
   profiles: () => api<{ profiles: Profile[]; locked: boolean; current: string | null; admin: boolean }>("/api/profiles"),
   unlock: (id: string, pin?: string) => api<{ token: string; profile: Profile }>(`/api/profiles/${enc(id)}/unlock`, { method: "POST", body: { pin } }),
   createProfile: (name: string, kind: Profile["kind"]) => api<Profile>("/api/profiles", { method: "POST", body: { name, kind } }),
@@ -142,7 +143,7 @@ export const hub = {
   screensaver: () => api<ScreensaverInfo>("/api/screensaver"),
   screensaverPhotos: () => api<{ photos: ScreensaverPhoto[] }>("/api/screensaver/photos"),
   browsePhotos: (dir?: string) => api<NasListing>(`/api/screensaver/nas${q({ dir })}`),
-  saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback" | "appName" | "theme">> & { screensaver?: Partial<ScreensaverSettings> }) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
+  saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback" | "appName" | "theme" | "seasonal">> & { screensaver?: Partial<ScreensaverSettings> }) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
 
   /** Jump scares: the settings and clips the Hub keeps, and setting one off now. */
   scares: () => api<ScareState>("/api/scares"),

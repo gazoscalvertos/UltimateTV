@@ -17,6 +17,16 @@
   --rec: #ff3b4e;
   --amber: #f2b33d;
   --focus: #ffffff;
+  /* The rest of each theme's palette (shared/src/themes.ts sets them all; these are the dark one's). */
+  --fg-2: #d5dbe7;
+  --on-accent: #ffffff;
+  --sel: #f3f6fb;
+  --on-sel: #0a0f1a;
+  --on-sel-muted: #48526a;
+  --hi: 255 255 255;
+  --bg-rgb: 7 11 20;
+  --panel-rgb: 18 27 46;
+  --glow: #14264a;
   --radius: 0.75rem;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --gg-channel-w: 19rem;
@@ -81,7 +91,7 @@ kbd {
   height: 1.6rem;
   padding: 0 0.45rem;
   border-radius: 0.4rem;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgb(var(--hi) / 0.14);
   font-size: 0.8rem;
   font-weight: 600;
   line-height: 1;
@@ -161,7 +171,7 @@ kbd.key-blue {
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(120rem 60rem at 80% -20%, #14264a 0%, transparent 60%), linear-gradient(180deg, var(--bg-2), var(--bg));
+  background: radial-gradient(120rem 60rem at 80% -20%, var(--glow) 0%, transparent 60%), linear-gradient(180deg, var(--bg-2), var(--bg));
   animation: screen-in 0.25s var(--ease);
 }
 @keyframes screen-in {
@@ -205,7 +215,7 @@ kbd.key-blue {
   height: 3rem;
   margin: 6rem auto;
   border-radius: 50%;
-  border: 0.3rem solid rgba(255, 255, 255, 0.15);
+  border: 0.3rem solid rgb(var(--hi) / 0.15);
   border-top-color: var(--fg);
   animation: spin 0.9s linear infinite;
 }
@@ -275,8 +285,8 @@ kbd.key-blue {
   border-radius: 1.5rem 1.5rem 0.4rem 0.4rem;
 }
 .tab:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
   box-shadow: none;
   border-radius: 1.5rem;
   transform: scale(1.06);
@@ -347,7 +357,7 @@ kbd.key-blue {
   height: 3.4rem;
   padding: 0 1.6rem;
   border-radius: 0.8rem;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgb(var(--hi) / 0.12);
   font-size: 1.25rem;
   font-weight: 600;
   white-space: nowrap;
@@ -364,16 +374,16 @@ kbd.key-blue {
   font-size: 1.4rem;
 }
 .btn-primary {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgb(var(--hi) / 0.22);
 }
 .btn:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
   transform: scale(1.05);
   box-shadow: 0 0.8rem 2rem rgba(0, 0, 0, 0.45);
 }
 .btn:focus small {
-  color: #48526a;
+  color: var(--on-sel-muted);
 }
 .btn-danger:focus {
   background: var(--bad);
@@ -387,7 +397,7 @@ kbd.key-blue {
   height: 2.8rem;
   padding: 0 1.3rem;
   border-radius: 1.4rem;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(var(--hi) / 0.08);
   color: var(--muted);
   font-size: 1.15rem;
   font-weight: 600;
@@ -399,8 +409,8 @@ kbd.key-blue {
   color: var(--fg);
 }
 .chip:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
   transform: scale(1.06);
 }
 .chip-count {
@@ -420,7 +430,7 @@ kbd.key-blue {
   align-items: center;
   height: 1.8rem;
   padding: 0 0.6rem;
-  border: 0.1rem solid rgba(255, 255, 255, 0.35);
+  border: 0.1rem solid rgb(var(--hi) / 0.35);
   border-radius: 0.35rem;
   font-size: 0.95rem;
   font-weight: 700;
@@ -467,7 +477,7 @@ kbd.key-blue {
   padding: 0 0.6rem;
   margin-left: 0.6rem;
   border-radius: 0.4rem;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgb(var(--hi) / 0.1);
   font-size: 0.95rem;
   font-weight: 600;
   vertical-align: middle;
@@ -498,7 +508,7 @@ kbd.key-blue {
 .progress {
   height: 0.35rem;
   border-radius: 0.2rem;
-  background: rgba(255, 255, 255, 0.22);
+  background: rgb(var(--hi) / 0.22);
   overflow: hidden;
 }
 .progress > div {
@@ -602,7 +612,7 @@ kbd.key-blue {
   -webkit-box-orient: vertical;
 }
 .card:focus .card-title {
-  color: #fff;
+  color: var(--fg);
 }
 .card-badge {
   position: absolute;
@@ -614,6 +624,7 @@ kbd.key-blue {
   padding: 0.25rem 0.55rem;
   border-radius: 0.4rem;
   background: rgba(0, 0, 0, 0.65);
+  color: #fff;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -742,7 +753,7 @@ kbd.key-blue {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, var(--bg) 0%, rgba(7, 11, 20, 0.85) 30%, rgba(7, 11, 20, 0.15) 65%, transparent 100%), linear-gradient(0deg, var(--bg) 0%, rgba(7, 11, 20, 0.6) 30%, transparent 55%);
+  background: linear-gradient(90deg, var(--bg) 0%, rgb(var(--bg-rgb) / 0.85) 30%, rgb(var(--bg-rgb) / 0.15) 65%, transparent 100%), linear-gradient(0deg, var(--bg) 0%, rgb(var(--bg-rgb) / 0.6) 30%, transparent 55%);
 }
 .home .page,
 .details .page,
@@ -766,7 +777,7 @@ kbd.key-blue {
   font-weight: 800;
   letter-spacing: -0.03em;
   margin: 0 0 1rem;
-  text-shadow: 0 0.2rem 1.5rem rgba(0, 0, 0, 0.5);
+  text-shadow: 0 0.2rem 1.5rem rgb(0 0 0 / var(--title-shadow, 0.5));
 }
 .hero-logo,
 .details-logo {
@@ -785,7 +796,7 @@ kbd.key-blue {
   font-size: 1.35rem;
   line-height: 1.45;
   margin: 0 0 1.8rem;
-  color: #d5dbe7;
+  color: var(--fg-2);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -812,7 +823,7 @@ kbd.key-blue {
   align-items: center;
   gap: 0.4rem 1.2rem;
   font-size: 1.3rem;
-  color: #d5dbe7;
+  color: var(--fg-2);
   margin: 0 0 1rem;
 }
 .details-meta .rating {
@@ -837,7 +848,7 @@ kbd.key-blue {
   font-size: 1.4rem;
   line-height: 1.5;
   margin: 0 0 1rem;
-  color: #dfe5ef;
+  color: var(--fg-2);
 }
 .details-cast {
   font-size: 1.15rem;
@@ -923,7 +934,7 @@ kbd.key-blue {
 .gi-description {
   font-size: 1.25rem;
   line-height: 1.45;
-  color: #cdd4e2;
+  color: var(--fg-2);
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 4;
@@ -1039,7 +1050,7 @@ kbd.key-blue {
 .gg-row {
   display: flex;
   height: 4.6rem;
-  border-bottom: 0.1rem solid rgba(255, 255, 255, 0.05);
+  border-bottom: 0.1rem solid rgb(var(--hi) / 0.05);
 }
 .gg-channel {
   width: var(--gg-channel-w);
@@ -1087,7 +1098,7 @@ kbd.key-blue {
 }
 .gg-quality {
   padding: 0 0.35rem;
-  border: 0.1rem solid rgba(255, 255, 255, 0.35);
+  border: 0.1rem solid rgb(var(--hi) / 0.35);
   border-radius: 0.3rem;
   font-size: 0.7rem;
   font-weight: 700;
@@ -1134,14 +1145,14 @@ kbd.key-blue {
   text-overflow: ellipsis;
 }
 .gg-cell.selected {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
   font-weight: 650;
   box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.5);
   z-index: 1;
 }
 .guide-grid:not(:focus) .gg-cell.selected {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgb(var(--hi) / 0.3);
   color: var(--fg);
 }
 .gg-empty {
@@ -1193,7 +1204,7 @@ kbd.key-blue {
   z-index: 20;
   padding: 0.6rem 1.6rem;
   border-radius: 0.8rem;
-  background: rgba(10, 15, 26, 0.9);
+  background: rgb(var(--bg-rgb) / 0.9);
   font-size: 3rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -1229,7 +1240,7 @@ kbd.key-blue {
   max-width: 90vw;
   padding: 2.2rem 2.6rem;
   border-radius: 1.4rem;
-  background: rgba(18, 27, 46, 0.94);
+  background: rgb(var(--panel-rgb) / 0.94);
   box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.6);
   text-align: center;
 }
@@ -1247,7 +1258,7 @@ kbd.key-blue {
   height: 0.45rem;
   border-radius: 1rem;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgb(var(--hi) / 0.12);
 }
 .starting-bar span {
   position: absolute;
@@ -1292,7 +1303,7 @@ kbd.key-blue {
   gap: 0 2.4rem;
   padding: 2rem 2.4rem 1.4rem;
   border-radius: 1.2rem;
-  background: rgba(8, 12, 22, 0.88);
+  background: rgb(var(--bg-rgb) / 0.88);
   backdrop-filter: blur(1.5rem);
   box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.55);
   animation: rise 0.25s var(--ease);
@@ -1365,7 +1376,7 @@ kbd.key-blue {
   margin: 0.8rem 0 0 5.2rem;
   font-size: 1.15rem;
   line-height: 1.45;
-  color: #c7cfde;
+  color: var(--fg-2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1460,7 +1471,7 @@ kbd.key-blue {
   width: 30rem;
   border-radius: 1rem;
   overflow: hidden;
-  background: rgba(8, 12, 22, 0.92);
+  background: rgb(var(--bg-rgb) / 0.92);
   box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.55);
   animation: rise 0.3s var(--ease);
 }
@@ -1555,7 +1566,7 @@ kbd.key-blue {
 .dialog-message {
   font-size: 1.25rem;
   line-height: 1.5;
-  color: #cdd4e2;
+  color: var(--fg-2);
   margin: 0 0 1.8rem;
 }
 .dialog-image {
@@ -1611,7 +1622,7 @@ kbd.key-blue {
 .pc-description {
   font-size: 1.2rem;
   line-height: 1.5;
-  color: #cdd4e2;
+  color: var(--fg-2);
   margin: 0 0 1.6rem;
 }
 .pc-actions {
@@ -1635,7 +1646,7 @@ kbd.key-blue {
 .option {
   padding: 0.8rem 1.2rem;
   border-radius: 0.6rem;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(var(--hi) / 0.08);
   font-size: 1.15rem;
   transition: transform 0.15s var(--ease);
 }
@@ -1643,8 +1654,8 @@ kbd.key-blue {
   box-shadow: inset 0 0 0 0.15rem var(--accent);
 }
 .option:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
   transform: scale(1.04);
 }
 
@@ -1663,12 +1674,12 @@ kbd.key-blue {
   gap: 1rem;
   padding: 0.9rem 1.2rem;
   border-radius: 0.6rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgb(var(--hi) / 0.05);
   font-size: 1.1rem;
 }
 .version:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
 }
 .version:focus .badge {
   border-color: rgba(0, 0, 0, 0.4);
@@ -1688,7 +1699,7 @@ kbd.key-blue {
   font-size: 0.95rem;
 }
 .version:focus .version-detail {
-  color: #48526a;
+  color: var(--on-sel-muted);
 }
 .version-ready {
   text-align: right;
@@ -1751,15 +1762,15 @@ kbd.key-blue {
 .pin-key {
   height: 4.2rem;
   border-radius: 0.8rem;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(var(--hi) / 0.08);
   font-size: 1.7rem;
   font-weight: 600;
   text-align: center;
   transition: transform 0.12s var(--ease);
 }
 .pin-key:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
   transform: scale(1.06);
 }
 
@@ -1778,7 +1789,7 @@ kbd.key-blue {
 .toast {
   padding: 1rem 1.6rem;
   border-radius: 0.9rem;
-  background: rgba(18, 27, 46, 0.96);
+  background: rgb(var(--panel-rgb) / 0.96);
   box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.5);
   font-size: 1.2rem;
   font-weight: 600;
@@ -1860,7 +1871,7 @@ kbd.key-blue {
 .key {
   height: 3.6rem;
   border-radius: 0.6rem;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgb(var(--hi) / 0.07);
   font-size: 1.35rem;
   font-weight: 600;
   text-align: center;
@@ -1871,8 +1882,8 @@ kbd.key-blue {
   font-size: 1.1rem;
 }
 .key:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
   transform: scale(1.08);
 }
 .key-done {
@@ -2005,7 +2016,7 @@ kbd.key-blue {
   min-height: 5.2rem;
   padding: 0.7rem 1.2rem;
   border-radius: 0.8rem;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgb(var(--hi) / 0.04);
   transition: background 0.12s, transform 0.12s var(--ease);
 }
 .list-row-actions {
@@ -2023,14 +2034,14 @@ kbd.key-blue {
   color: var(--muted);
 }
 .list-row:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
   transform: scale(1.01);
 }
 .list-row:focus .list-sub,
 .list-row:focus .list-side,
 .list-row:focus .list-when span {
-  color: #48526a;
+  color: var(--on-sel-muted);
 }
 .list-art {
   width: 8.5rem;
@@ -2122,11 +2133,11 @@ kbd.key-blue {
 }
 .settings-nav-item.active {
   color: var(--fg);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(var(--hi) / 0.06);
 }
 .settings-nav-item:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
 }
 .settings-panel {
   flex: 1;
@@ -2153,17 +2164,17 @@ kbd.key-blue {
   padding: 0.6rem 1.4rem;
   margin-bottom: 0.4rem;
   border-radius: 0.7rem;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgb(var(--hi) / 0.04);
   transition: background 0.12s;
 }
 .setting-row:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
 }
 .setting-row:focus small,
 .setting-row:focus .setting-value,
 .setting-row:focus .status {
-  color: #48526a;
+  color: var(--on-sel-muted);
 }
 .setting-icon {
   width: 1.6rem;
@@ -2237,6 +2248,14 @@ kbd.key-blue {
   font-weight: 400;
   font-size: 0.9rem;
 }
+.app-qrs {
+  display: flex;
+  flex: none;
+  gap: 1.5rem;
+}
+.app-qrs .qr-card {
+  width: 15rem;
+}
 .qr-card .pair-code {
   display: block;
   margin: 0.3rem 0 0.2rem;
@@ -2290,7 +2309,7 @@ kbd.key-blue {
   overflow: hidden;
   padding: 1.25rem 1.5rem;
   border-radius: var(--radius);
-  background: rgba(7, 11, 20, 0.82);
+  background: rgb(var(--bg-rgb) / 0.82);
   border: 1px solid var(--line);
   font-size: 0.95rem;
   font-variant-numeric: tabular-nums;
@@ -2382,12 +2401,12 @@ kbd.key-blue {
   flex: 1;
   min-height: 0;
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgb(var(--hi) / 0.03);
   outline: none;
   box-shadow: inset 0 0 0 0.1rem var(--line);
 }
 .ge-list:focus {
-  box-shadow: inset 0 0 0 0.15rem rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 0 0 0.15rem rgb(var(--hi) / 0.35);
 }
 .ge-rows {
   height: 100%;
@@ -2404,12 +2423,12 @@ kbd.key-blue {
   color: var(--muted);
 }
 .ge-row.selected {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgb(var(--hi) / 0.12);
   color: var(--fg);
 }
 .ge-list:focus .ge-row.selected {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
 }
 .ge-list:focus .ge-row.ge-moving {
   background: var(--accent);
@@ -2496,7 +2515,7 @@ kbd.key-blue {
   object-fit: cover;
   border-radius: 0.4rem;
   flex: none;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(var(--hi) / 0.06);
 }
 .mix-video.failed .setting-label {
   color: var(--muted);
@@ -2522,7 +2541,7 @@ kbd.key-blue {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(7, 11, 20, 0.35) 0%, rgba(7, 11, 20, 0.8) 55%, var(--bg) 100%);
+  background: linear-gradient(180deg, rgb(var(--bg-rgb) / 0.35) 0%, rgb(var(--bg-rgb) / 0.8) 55%, var(--bg) 100%);
 }
 .music .page,
 .music .topbar {
@@ -2642,7 +2661,7 @@ kbd.key-blue {
 .btn-round-large {
   width: 5rem;
   height: 5rem;
-  background: rgba(255, 255, 255, 0.24);
+  background: rgb(var(--hi) / 0.24);
 }
 .btn-round-large .icon {
   width: 2.2rem;
@@ -2652,7 +2671,7 @@ kbd.key-blue {
   color: #1ed760;
 }
 .btn-round.on:focus {
-  color: #0a0f1a;
+  color: var(--on-sel);
 }
 .np-volume {
   display: inline-flex;
@@ -2680,7 +2699,7 @@ kbd.key-blue {
   margin: 1rem 6rem 3rem;
   padding: 2.4rem;
   border-radius: 1.2rem;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(var(--hi) / 0.06);
 }
 .music-pair .qr-card {
   width: 16rem;
@@ -2699,7 +2718,7 @@ kbd.key-blue {
   margin: 0.4rem 0 1.4rem;
   padding: 0.6rem 1.4rem;
   border-radius: 0.8rem;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgb(var(--hi) / 0.12);
   font-size: 3rem;
   font-weight: 800;
   letter-spacing: 0.2em;
@@ -2723,6 +2742,27 @@ kbd.key-blue {
 }
 .service-spotify {
   background: linear-gradient(135deg, #1ed760 0%, #128a3e 55%, #0b3a1d 100%);
+}
+.service-off {
+  filter: saturate(0.55) brightness(0.8);
+}
+.music-pair-actions {
+  margin-top: 1.2rem;
+}
+.music-steps {
+  margin: 0 0 1rem;
+  padding-left: 1.8rem;
+  font-size: 1.35rem;
+  line-height: 1.5;
+  max-width: 54rem;
+}
+.music-steps li + li {
+  margin-top: 0.4rem;
+}
+.music-problem {
+  font-family: ui-monospace, "DejaVu Sans Mono", monospace;
+  font-size: 1.1rem;
+  color: var(--muted);
 }
 .service-card:focus {
   transform: scale(1.05);
@@ -2769,8 +2809,8 @@ kbd.key-blue {
   transition: background 0.12s;
 }
 .track-row:focus {
-  background: var(--fg);
-  color: #0a0f1a;
+  background: var(--sel);
+  color: var(--on-sel);
 }
 .track-row.playing .track-title {
   color: #1ed760;
@@ -2787,7 +2827,7 @@ kbd.key-blue {
 .track-row:focus .track-n,
 .track-row:focus .track-sub,
 .track-row:focus .track-time {
-  color: #48526a;
+  color: var(--on-sel-muted);
 }
 .track-art {
   width: 3.6rem;
@@ -2833,7 +2873,7 @@ kbd.key-blue {
   height: 12rem;
   padding: 0 1.6rem 0 1rem;
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(var(--hi) / 0.06);
 }
 .service-login .qr-card {
   width: 10rem;
@@ -2898,7 +2938,7 @@ kbd.key-blue {
   justify-content: center;
   min-width: 0;
   padding: 1rem 2.4rem 1.1rem 1.8rem;
-  background: linear-gradient(90deg, rgba(6, 9, 16, 0.92), rgba(6, 9, 16, 0.78));
+  background: linear-gradient(90deg, rgb(var(--bg-rgb) / 0.92), rgb(var(--bg-rgb) / 0.78));
   border-left: 0.35rem solid var(--accent-2);
   border-radius: 0 0.6rem 0.6rem 0;
 }
@@ -2929,7 +2969,7 @@ kbd.key-blue {
   font-size: 1.7rem;
   font-weight: 500;
   line-height: 1.25;
-  color: #e3e8f2;
+  color: var(--fg-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3038,7 +3078,7 @@ kbd.key-blue {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: rgba(13, 20, 36, 0.94);
+  background: rgb(var(--bg-rgb) / 0.94);
   border: 1px solid var(--line);
   border-top: 0.35rem solid var(--notice-accent);
   border-radius: 1.1rem;
@@ -3079,7 +3119,7 @@ kbd.key-blue {
 .notice-hint { margin-left: auto; color: var(--muted); font-weight: 600; letter-spacing: 0; text-transform: none; }
 .notice-hint kbd { font: inherit; font-weight: 800; color: var(--fg); background: var(--panel-2); border: 1px solid var(--line); border-radius: 0.4rem; padding: 0.05rem 0.45rem; }
 .notice-title { margin-top: 0.55rem; font-size: 1.9rem; font-weight: 800; line-height: 1.15; }
-.notice-text { margin-top: 0.45rem; font-size: 1.35rem; line-height: 1.35; color: #d5dbe6; white-space: pre-line; }
+.notice-text { margin-top: 0.45rem; font-size: 1.35rem; line-height: 1.35; color: var(--fg-2); white-space: pre-line; }
 .notice-small .notice-title { font-size: 1.45rem; }
 .notice-small .notice-text { font-size: 1.1rem; }
 .notice-large .notice-title { font-size: 2.6rem; }
@@ -3117,20 +3157,6 @@ kbd.key-blue {
    Halloween week). It's the same layout in different colours, plus the moving
    decorations in components/Halloween.tsx, so nothing shifts about. */
 
-:root[data-theme="halloween"] {
-  --bg: #0b0613;
-  --bg-2: #150a20;
-  --panel: #1c0f2b;
-  --panel-2: #261438;
-  --line: rgba(255, 180, 90, 0.16);
-  --fg: #f7efe6;
-  --muted: #b39bc4;
-  --dim: #7b648c;
-  --accent: #f07b16;
-  --accent-2: #8a4dff;
-  --good: #7ac74f;
-  --amber: #ffc34d;
-}
 :root[data-theme="halloween"] .brand-mark {
   background: radial-gradient(circle at 35% 30%, #ffb23f, var(--accent) 60%, #7a2f06);
   box-shadow: 0 0 1.2rem rgba(240, 123, 22, 0.45);
@@ -3202,6 +3228,204 @@ kbd.key-blue {
 }
 @keyframes hw-drift {
   to { transform: translateX(6rem); }
+}
+
+/* ---------------------------------------------------------------------------
+   The other themes' decorations (components/ThemeDecor.tsx), in the same layer as
+   the bats: over the menus, under the dialogs, gone while something plays. */
+
+.decor-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  overflow: hidden;
+}
+.xm-lights {
+  position: absolute;
+  top: -0.4rem;
+  left: 0;
+  width: 100%;
+  height: 3.6rem;
+}
+.xm-bulb {
+  filter: drop-shadow(0 0 6px currentColor);
+  animation: xm-twinkle 1.8s ease-in-out infinite alternate;
+}
+@keyframes xm-twinkle {
+  from { opacity: 1; }
+  to { opacity: 0.35; }
+}
+.xm-flake {
+  position: absolute;
+  top: -1rem;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.75;
+  filter: blur(0.5px);
+  animation: xm-fall var(--time) linear infinite;
+}
+@keyframes xm-fall {
+  to { transform: translate(var(--drift), 110vh); }
+}
+.ea-eggs {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 0;
+  width: 13rem;
+}
+.ea-petal {
+  position: absolute;
+  top: -2rem;
+  width: var(--size);
+  height: calc(var(--size) * 0.7);
+  border-radius: 100% 0 100% 0;
+  background: linear-gradient(135deg, #ffd1e6, #f7a8cf);
+  opacity: 0.8;
+  animation: ea-fall var(--time) linear infinite;
+}
+@keyframes ea-fall {
+  50% { transform: translate(calc(var(--drift) * 0.5), 55vh) rotate(200deg); }
+  to { transform: translate(var(--drift), 112vh) rotate(420deg); }
+}
+.vl-heart {
+  position: absolute;
+  bottom: -3rem;
+  width: var(--size);
+  height: var(--size);
+  color: var(--accent);
+  opacity: 0;
+  animation: vl-rise var(--time) ease-in infinite;
+}
+@keyframes vl-rise {
+  10% { opacity: 0.45; }
+  50% { transform: translate(1.5rem, -55vh) rotate(8deg); }
+  90% { opacity: 0.25; }
+  to { opacity: 0; transform: translate(-1rem, -110vh) rotate(-6deg); }
+}
+.cp-scan {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0, 240, 255, 0.035) 0 2px, transparent 2px 5px);
+}
+.cp-horizon {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -2rem;
+  height: 12rem;
+  background:
+    linear-gradient(transparent 0%, rgba(255, 43, 214, 0.18) 100%),
+    repeating-linear-gradient(90deg, rgba(0, 240, 255, 0.22) 0 1px, transparent 1px 6rem);
+  transform: perspective(20rem) rotateX(55deg);
+  transform-origin: bottom;
+  animation: cp-glow 4s ease-in-out infinite alternate;
+}
+@keyframes cp-glow {
+  to { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xm-flake, .ea-petal, .vl-heart, .xm-bulb, .cp-horizon { animation: none; }
+  .xm-flake, .ea-petal, .vl-heart { display: none; }
+}
+
+/* A few touches beyond the colours. Dark shadows behind titles look smudged on a light page. */
+:root[data-theme="light"],
+:root[data-theme="easter"] {
+  --title-shadow: 0;
+}
+:root[data-theme="cyberpunk"] .brand-mark {
+  box-shadow: 0 0 1rem rgba(255, 43, 214, 0.6), 0 0 2rem rgba(0, 240, 255, 0.3);
+}
+:root[data-theme="cyberpunk"] .brand-name {
+  text-shadow: 0 0 0.8rem rgba(255, 43, 214, 0.7);
+  letter-spacing: 0.06em;
+}
+:root[data-theme="christmas"] .brand-mark {
+  background: radial-gradient(circle at 35% 30%, #ff8a8a, var(--accent) 60%, #7a0d14);
+  box-shadow: 0 0 1.2rem rgba(242, 193, 78, 0.45);
+}
+:root[data-theme="slick"] .brand-mark {
+  background: linear-gradient(145deg, #fafafa, #8e8e93);
+  color: #000;
+}
+:root[data-theme="light"] .topbar,
+:root[data-theme="easter"] .topbar {
+  background: linear-gradient(180deg, rgb(var(--bg-rgb) / 0.92), transparent);
+}
+
+/* The theme picker in Settings: each tile is drawn in its own theme's colours. */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin: 1rem 0 1.4rem;
+}
+.theme-tile {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  border: 0.15rem solid var(--line);
+  border-radius: var(--radius);
+  background: var(--t-bg);
+  color: var(--t-fg);
+  font: inherit;
+  transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.theme-tile:focus {
+  outline: none;
+  transform: scale(1.05);
+  box-shadow: 0 0 0 0.25rem var(--focus), 0 1rem 2.4rem rgba(0, 0, 0, 0.45);
+}
+.theme-tile.chosen::after {
+  content: "✓";
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.8rem;
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  background: var(--t-accent);
+  color: var(--t-on-accent);
+  font-weight: 800;
+  font-size: 1rem;
+}
+.theme-swatch {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 1rem 1rem 0.6rem;
+}
+.theme-swatch i {
+  flex: 1;
+  height: 2.6rem;
+  border-radius: 0.5rem;
+  background: var(--t-panel);
+  box-shadow: inset 0 -0.35rem 0 var(--t-accent);
+}
+.theme-swatch b {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--t-accent), var(--t-accent-2));
+}
+.theme-name {
+  display: block;
+  padding: 0 1rem 0.9rem;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+.theme-name small {
+  display: block;
+  margin-top: 0.15rem;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--t-muted);
 }
 
 /* The easter eggs' rewards (components/EasterEggs.tsx). */
@@ -4144,3 +4368,5 @@ html.mirroring #app > :not(.mirroring-layer):not(.toasts) {
 @media (prefers-reduced-motion: reduce) {
   .proj-hop, .proj-float svg, .proj-bat .wing, .proj-sleigh .legs { animation: none; }
 }
+/* The words over a full-screen picture are always light, whatever the theme. */
+.notices-full .notice-body { --fg: #f3f6fb; --fg-2: #d5dbe7; color: var(--fg); }

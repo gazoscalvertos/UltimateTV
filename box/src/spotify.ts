@@ -2,13 +2,20 @@
 // tools/box/install.sh) and plays through PipeWire to the TV. Phones see it by the app's name in
 // Spotify's device list; the Music tab drives it through its local API
 // (https://github.com/devgianlu/go-librespot/blob/master/api-spec.yml).
+//
+// Signing in: by default the receiver waits for a phone on the Wi-Fi to pick it in the Spotify
+// app (Spotify Connect's own sign-in, "zeroconf"), and keeps that account for next time. Instead
+// it can show a code to enter at spotify.com/pair ("device_auth"); then it can't be seen by phones
+// until someone has signed in (go-librespot only advertises itself after a sign-in, and doesn't
+// answer its API while it waits with both on), so the box turns phones back on straight after.
 
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { MusicItem, MusicPage, MusicTracks, SpotifyCommand, SpotifyState } from "@ultimatetv/shared";
+import type { MusicItem, MusicPage, MusicTracks, SpotifyCommand, SpotifySetup, SpotifySignIn, SpotifyState } from "@ultimatetv/shared";
 
 const run = promisify(execFile);
 
@@ -42,6 +49,43 @@ interface ApiStatus {
 
 const OFFLINE: SpotifyState = { available: false, signedIn: false, status: "stopped", positionMs: 0, at: 0, volume: 0, shuffle: false, repeat: "off" };
 
+const SERVICE = "ultimatetv-spotify.service";
+const CONFIG = path.join(os.homedir(), ".config/go-librespot/config.yml");
+
+/** How the receiver's config has it sign in. */
+export function signInOf(config: string): SpotifySignIn {
+  return /^credentials:[^\n]*\n(?:[ \t]+[^\n]*\n)*?[ \t]+type:[ \t]*["']?device_auth/m.test(config) ? "code" : "phone";
+}
+
+/** The receiver's config with its sign-in set to `mode` (see the top of this file). */
+export function withSignIn(config: string, mode: SpotifySignIn): string {
+  const block = mode === "code" ? "credentials:\n  type: device_auth\n" : "credentials:\n  type: zeroconf\n  zeroconf:\n    persist_credentials: true\n";
+  const zeroconf = `zeroconf_enabled: ${mode === "phone"}`;
+  let out = /^credentials:/m.test(config) ? config.replace(/^credentials:[^\n]*\n?(?:[ \t]+[^\n]*(?:\n|$))*/m, block) : `${config.replace(/\n?$/, "\n")}${block}`;
+  out = /^zeroconf_enabled:/m.test(out) ? out.replace(/^zeroconf_enabled:.*$/m, zeroconf) : `${zeroconf}\n${out}`;
+  return out;
+}
+
+/** The last thing the receiver logged that says what's wrong, shortened for the TV. */
+export function lastProblem(journal: string): string | undefined {
+  const lines = journal.split("\n").map((l) => l.trim()).filter(Boolean);
+  const bad = [...lines].reverse().find((l) => /level=(error|fatal)|error|failed|fatal|panic|could not/i.test(l)) ?? lines.at(-1);
+  if (!bad) return undefined;
+  const msg = /msg="((?:[^"\\]|\\.)*)"/.exec(bad)?.[1] ?? bad;
+  const err = /error="((?:[^"\\]|\\.)*)"/.exec(bad)?.[1];
+  const text = (err && !msg.includes(err) ? `${msg}: ${err}` : msg).replace(/\\"/g, '"');
+  return text.length > 200 ? `${text.slice(0, 197)}…` : text;
+}
+
+interface SpotifyOptions {
+  /** go-librespot's config file. */
+  config?: string;
+  /** The receiver's program: whether it's there says installed or not. */
+  bin?: string;
+  /** Runs systemctl and journalctl (tests replace it). */
+  exec?: (cmd: string, args: string[]) => Promise<string>;
+}
+
 export function toState(s: ApiStatus, at: number): SpotifyState {
   const state: SpotifyState = {
     available: true,
@@ -71,14 +115,37 @@ export class Spotify {
   private timer: NodeJS.Timeout | undefined;
   private refreshQueued: NodeJS.Timeout | undefined;
   private stopped = false;
+  private downSince = 0;
+  private problemCheckedAt = 0;
+  private problem: string | undefined;
+  private readonly config: string;
+  private readonly bin: string;
+  private readonly exec: (cmd: string, args: string[]) => Promise<string>;
 
   constructor(
     private readonly base: string,
     private readonly log: Log,
-  ) {}
+    options: SpotifyOptions = {},
+  ) {
+    this.config = options.config ?? CONFIG;
+    this.bin = options.bin ?? "/usr/local/bin/go-librespot";
+    this.exec = options.exec ?? (async (cmd, args) => (await run(cmd, args, { timeout: 10_000 })).stdout);
+  }
 
   start(): void {
-    void this.refresh();
+    void this.repairConfig().finally(() => void this.refresh());
+  }
+
+  /**
+   * Boxes set up before this had a code sign-in with phones on, which leaves the receiver unable
+   * to answer until someone signs in, and showing no code: back to signing in from a phone.
+   */
+  private async repairConfig(): Promise<void> {
+    const text = await readFile(this.config, "utf8").catch(() => null);
+    if (text === null || signInOf(text) !== "code" || !/^zeroconf_enabled:[ \t]*true/m.test(text)) return;
+    await writeFile(this.config, withSignIn(text, "phone"));
+    await this.exec("systemctl", ["--user", "restart", SERVICE]).catch(() => undefined);
+    this.log("Spotify now signs in from a phone (it was stuck waiting for a code)");
   }
 
   stop(): void {
@@ -96,10 +163,10 @@ export class Spotify {
     return () => this.listeners.delete(listener);
   }
 
-  private async request(method: "GET" | "POST", path: string, body?: unknown): Promise<Response> {
+  private async request(method: "GET" | "POST", path: string, body?: unknown, timeoutMs = 8000): Promise<Response> {
     return fetch(`${this.base}${path}`, {
       method,
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(timeoutMs),
       ...(body !== undefined ? { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } } : {}),
     });
   }
@@ -114,27 +181,93 @@ export class Spotify {
   /** Reads the receiver's status and keeps the event socket open; again every few seconds. */
   async refresh(): Promise<SpotifyState> {
     clearTimeout(this.timer);
+    const signIn = await this.signIn();
     let next: SpotifyState;
+    // Answering at all, even late or with "busy", means the receiver is running.
+    let running = false;
+    let status: ApiStatus | null = null;
     try {
-      const status = await this.json<ApiStatus>("/status");
-      if (status) next = toState(status, Date.now());
-      else {
-        // No session yet: the receiver waits for someone to sign in with the code it shows.
-        const code = await this.json<{ url: string; code: string; expires_at?: string }>("/auth/code").catch(() => null);
-        next = { ...OFFLINE, available: true, at: Date.now(), ...(code ? { pair: { url: code.url, code: code.code, ...(code.expires_at ? { expiresAt: code.expires_at } : {}) } } : {}) };
-      }
+      const res = await this.request("GET", "/status", undefined, 5000);
+      running = true;
+      if (res.ok && res.status !== 204) status = (await res.json()) as ApiStatus;
+    } catch (e) {
+      // A timeout is a receiver busy signing in (older configs), not a missing one.
+      if ((e as Error).name === "TimeoutError") running = true;
+    }
+    if (status) next = { ...toState(status, Date.now()), installed: true, signIn };
+    else {
+      // Not signed in. /auth/code answers straight away even while /status can't.
+      const code = await this.request("GET", "/auth/code", undefined, 3000)
+        .then(async (res) => {
+          running = true;
+          return res.status === 200 ? ((await res.json()) as { url: string; code: string; expires_at?: string }) : null;
+        })
+        .catch(() => null);
+      if (running) next = { ...OFFLINE, available: true, installed: true, signIn, at: Date.now(), ...(code ? { pair: { url: code.url, code: code.code, ...(code.expires_at ? { expiresAt: code.expires_at } : {}) } } : {}) };
+      else next = await this.offline(signIn);
+    }
+    if (running) {
+      this.downSince = 0;
+      this.problem = undefined;
       this.connect();
-    } catch {
-      next = OFFLINE;
     }
     this.emit(next);
     if (!this.stopped) this.timer = setTimeout(() => void this.refresh(), next.signedIn && this.socket ? 15_000 : 5_000);
     return next;
   }
 
+  private async signIn(): Promise<SpotifySignIn> {
+    const text = await readFile(this.config, "utf8").catch(() => "");
+    return signInOf(text);
+  }
+
+  /** Not answering: not installed, starting (it restarts itself), or broken, with its log's say. */
+  private async offline(signIn: SpotifySignIn): Promise<SpotifyState> {
+    const installed = existsSync(this.bin);
+    if (!installed) return { ...OFFLINE, installed: false };
+    const now = Date.now();
+    if (!this.downSince) this.downSince = now;
+    // Give it time to start (systemd restarts it 10 s after it stops), then look at its log.
+    if (now - this.downSince > 25_000 && now - this.problemCheckedAt > 30_000) {
+      this.problemCheckedAt = now;
+      const journal = await this.exec("journalctl", ["--user", "-u", SERVICE, "-n", "30", "--no-pager", "-o", "cat"]).catch(() => "");
+      const active = (await this.exec("systemctl", ["--user", "is-active", SERVICE]).catch((e: { stdout?: string }) => e.stdout ?? "")).trim();
+      const problem = lastProblem(journal) ?? (active && active !== "active" && active !== "activating" ? `The Spotify service is ${active}` : undefined);
+      if (problem !== this.problem && problem) this.log(`Spotify receiver: ${problem}`);
+      this.problem = problem;
+    }
+    return { ...OFFLINE, installed: true, signIn, ...(this.problem ? { problem: this.problem } : {}) };
+  }
+
+  /** Switches how Spotify signs in, or starts the receiver again; both restart it. */
+  async setup(setup: SpotifySetup): Promise<SpotifyState> {
+    if ("signIn" in setup) {
+      const text = await readFile(this.config, "utf8").catch(() => null);
+      if (text === null) throw new Error("Spotify isn't installed on this box. Update the box in Settings › About.");
+      const next = withSignIn(text, setup.signIn);
+      if (next !== text) await writeFile(this.config, next);
+      this.log(`Spotify signs in ${setup.signIn === "code" ? "with a code" : "from a phone"} now`);
+    }
+    await this.exec("systemctl", ["--user", "restart", SERVICE]).catch((e: Error) => {
+      throw new Error(`Couldn't restart Spotify: ${e.message}`);
+    });
+    this.downSince = Date.now();
+    this.problem = undefined;
+    this.problemCheckedAt = 0;
+    this.socket?.close();
+    this.socket = null;
+    // It takes a moment to come back.
+    await new Promise((r) => setTimeout(r, 1500));
+    return this.refresh();
+  }
+
   private emit(next: SpotifyState): void {
-    if (next.available !== this.state.available) this.log(next.available ? "Spotify receiver is up" : "Spotify receiver isn't answering");
-    if (next.signedIn && !this.state.signedIn) this.log("Spotify is signed in");
+    if (next.available !== this.state.available) this.log(next.available ? "Spotify receiver is up" : next.installed === false ? "Spotify receiver isn't installed" : "Spotify receiver isn't answering");
+    if (next.signedIn && !this.state.signedIn) {
+      this.log("Spotify is signed in");
+      // Signed in with a code: let phones see the TV again (the sign-in is kept).
+      if (next.signIn === "code") void this.setup({ signIn: "phone" }).catch((e: Error) => this.log(e.message));
+    }
     this.state = next;
     for (const l of this.listeners) l(next);
   }
@@ -251,14 +384,14 @@ export function libraryItem(kind: "playlists" | "albums" | "artists", i: Record<
  * Renames the box in Spotify's device list by rewriting device_name in go-librespot's config and
  * restarting it (it reads the name only at start). Does nothing when the name is already right.
  */
-export async function renameSpotifyDevice(name: string, log: Log, configFile = path.join(os.homedir(), ".config/go-librespot/config.yml")): Promise<boolean> {
+export async function renameSpotifyDevice(name: string, log: Log, configFile = CONFIG): Promise<boolean> {
   const text = await readFile(configFile, "utf8").catch(() => null);
   if (text === null) return false;
   const line = `device_name: ${JSON.stringify(name)}`;
   const current = /^device_name:.*$/m.exec(text)?.[0];
   if (current === line || current === `device_name: ${name}`) return false;
   await writeFile(configFile, current ? text.replace(/^device_name:.*$/m, line) : `${line}\n${text}`);
-  await run("systemctl", ["--user", "restart", "ultimatetv-spotify.service"]).catch((e: Error) => log(`Couldn't restart Spotify after renaming it: ${e.message}`));
+  await run("systemctl", ["--user", "restart", SERVICE]).catch((e: Error) => log(`Couldn't restart Spotify after renaming it: ${e.message}`));
   log(`Spotify now shows the box as ${name}`);
   return true;
 }

@@ -10,17 +10,9 @@ Three separate things, each of which can be left on all year or turned off entir
 
 ## The theme
 
-TV › **Settings › About › Theme**:
-
-| Setting | What it does |
-| --- | --- |
-| Auto (Halloween week) | Halloween from 25 October to 1 November, plain the rest of the year. The default. |
-| Plain | The usual dark blue. |
-| Halloween | Orange and purple, all year. |
-
-The theme is kept on the Hub (`PUT /api/settings` with `{"theme":"halloween"}`), so the TV and the
-phone remote both wear it, and the TV checks again every hour so "auto" doesn't stay a day behind on
-a TV that is never reloaded.
+TV › **Settings › Theme**, or the phone remote's ⚙ › Theme. It's one of several themes (see
+[themes.md](themes.md)); with **Seasonal themes** on, the default, it comes out by itself from
+25 October to 1 November and your own theme comes back after.
 
 When it's on, the menus are orange on deep purple, cobwebs hang in the top corners, fog drifts
 along the bottom, and a bat flaps across every minute or so. None of it appears while something is
@@ -33,7 +25,7 @@ pad:
 
 | Keys | What happens |
 | --- | --- |
-| Up, Up, Down, Down, Left, Right, Left, Right | Three ghosts drift up the screen with a wail, and the Halloween theme comes on until you change it back. |
+| Up, Up, Down, Down, Left, Right, Left, Right | Three ghosts drift up the screen with a wail, and the Halloween theme comes on until you change it back (Settings › Theme). |
 | Red, Red, Red | The lights flicker. |
 | 1, 3, 1, 3 | Pumpkins rain down the screen. |
 

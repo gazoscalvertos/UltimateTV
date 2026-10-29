@@ -1,6 +1,6 @@
 # UltimateTV
 
-A polished, Sky-style TV app for the Hisense 85U7STUK, running on a Linux mini PC plugged into the TV. Live IPTV/Xtream with a full EPG and series link, recordings to the NAS, films and TV from Jellyfin, IPTV VOD and AIOStreams/TorBox in one library, profiles with a locked-down Kids profile, music video channels the Hub curates itself, and a phone remote.
+A polished, Sky-style TV app for the Hisense 85U7STUK, running on a Linux mini PC plugged into the TV. Live IPTV/Xtream with a full EPG and series link, recordings to the NAS, films and TV from Jellyfin, IPTV VOD and AIOStreams/TorBox in one library, profiles with a locked-down Kids profile, music video channels the Hub curates itself, Spotify and Deezer, a phone remote and an Android app.
 
 ![Home](docs/screenshots/02-home.png)
 
@@ -9,7 +9,21 @@ A polished, Sky-style TV app for the Hisense 85U7STUK, running on a Linux mini P
 | ![TV Guide](docs/screenshots/04-guide.png) | ![Live TV](docs/screenshots/07-live-banner.png) | ![Film details](docs/screenshots/10-film-details.png) |
 | ![Series](docs/screenshots/12-series-details.png) | ![Recordings](docs/screenshots/14-recordings.png) | ![Kids](docs/screenshots/20-kids-home.png) |
 
-All the screenshots are in [docs/screenshots](docs/screenshots/README.md). See [docs/PLAN.md](docs/PLAN.md) for the product and technical plan, and [docs/TESTING.md](docs/TESTING.md) for the end-to-end test run.
+All the screenshots are in [docs/screenshots](docs/screenshots/README.md).
+
+## Documentation
+
+| Read this | For |
+|-----------|-----|
+| [docs/FEATURES.md](docs/FEATURES.md) | Everything it does today, and what's in open pull requests |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The Hub, the box, the phone remote and the Android app, and how data moves between them |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | What has run on real hardware, what's still to test, and what isn't built yet |
+| [docs/TESTING.md](docs/TESTING.md) | The end-to-end test run, step by step |
+| [docs/PLAN.md](docs/PLAN.md) | The original product and technical plan, and why each choice was made |
+| [docs/adr/](docs/adr/) | Decision records (VIDAA ruled out, the Linux mini PC chosen) |
+| [CHANGELOG.md](CHANGELOG.md) | Every change since 0.1.0, and how to update |
+
+Guides for each feature are linked from the steps below.
 
 ## How it fits together
 
@@ -31,11 +45,13 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md). See [
 5. **Music video channels:** Clubland TV, House TV, Halloween TV and Spooky TV fill themselves on the first start; make your own in Settings › Music channels ([docs/music-channels.md](docs/music-channels.md)).
 6. **Profiles:** set a PIN on the adult profile so the children stay in Kids ([docs/profiles.md](docs/profiles.md)).
 7. **Pop-ups:** put the doorbell camera, a meeting or an alarm on the TV from Home Assistant or the phone ([docs/notifications.md](docs/notifications.md)).
-8. **Halloween:** the theme, Spooky TV's ghosts and ghostly sounds, hidden easter eggs and jump scares cut into whatever is on ([docs/halloween.md](docs/halloween.md)).
-9. **Trips:** take the box away and the Hub goes with it for a while, then comes home with what changed ([docs/travel.md](docs/travel.md)).
-10. **Other screens and games:** AirPlay from an iPhone or Mac, a laptop's screen from its browser, links and photos from a phone, and RetroArch, Moonlight, Steam Link and GeForce NOW ([docs/casting-and-games.md](docs/casting-and-games.md)).
-11. **Everyday extras:** button hints, the sleep timer, alerts before things break, Save for later, advert skipping and seasonal clips ([docs/everyday-extras.md](docs/everyday-extras.md)).
-12. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
+8. **Screensaver:** dimming after 10 minutes and a screensaver after 20, in the TV's Settings › Screensaver ([docs/screensaver.md](docs/screensaver.md)).
+9. **Themes:** Dark, Light, Slick, Cyberpunk, Ocean, Forest and Sunset, plus Halloween, Christmas, Easter and Valentine's that come out by themselves on their days, on the TV, the phone remote and the web pages ([docs/themes.md](docs/themes.md)).
+10. **Halloween:** the theme, Spooky TV's ghosts and ghostly sounds, hidden easter eggs and jump scares cut into whatever is on ([docs/halloween.md](docs/halloween.md)).
+11. **Trips:** take the box away and the Hub goes with it for a while, then comes home with what changed ([docs/travel.md](docs/travel.md)). Download films and episodes onto the box first ([docs/downloads.md](docs/downloads.md)).
+12. **Other screens and games:** AirPlay from an iPhone or Mac, a laptop's screen from its browser, links and photos from a phone, and RetroArch, Moonlight, Steam Link and GeForce NOW ([docs/casting-and-games.md](docs/casting-and-games.md)).
+13. **Everyday extras:** button hints, the sleep timer, alerts before things break, Save for later, advert skipping and seasonal clips ([docs/everyday-extras.md](docs/everyday-extras.md)).
+14. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 
 ## Development
 

@@ -1,15 +1,16 @@
 // Answers the phone remote: what's playing (for its Now Playing card and Stats page), and requests
-// to play something, seek, pick a track, drive the music or download to the box. The Hub relays each call as a
+// to play something, seek, pick a track, drive the music, download to the box or save to the NAS. The Hub relays each call as a
 // "tv.call" event and waits for the answer posted back to /api/tv/reply/:id.
 
-import type { GameAppId, PlaybackRequest, SleepChoice, SpotifyCommand, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
-import { agent, onBox } from "./agent";
+import type { GameAppId, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
+import { agent, agentHas, onBox } from "./agent";
 import { backToTv, canCast, castSettings, castState, gamesAllowed, openGame, refreshCast, setAirplay, shareUrl } from "./cast";
 import { api, hub } from "./api";
 import { allEpisodes, canDownload, downloadToBox, episodeRequest, episodesOf, filmRequest, recordingRequest, removeFromBox, visibleDownloads } from "./downloads";
 import { onHubEvent } from "./events";
-import { music, spotify, webApp } from "./music";
+import { music, spotify, spotifySetup, webApp } from "./music";
 import { channels, liveChannelId, nowPlaying, play, playerState } from "./player";
+import { saveEpisodes, saveToNas } from "./save";
 import { sleep, setSleep } from "./sleep";
 import { isKids, nav, profile } from "./store";
 
@@ -51,6 +52,26 @@ async function downloadFromPhone(a: { titleId?: string; episodeId?: string; seas
   return downloadsForPhone();
 }
 
+/**
+ * Save to NAS asked for on the phone: what's playing (this exact copy), a film, an episode or a
+ * series. Through the TV, so its profile decides (Kids can't, adults may need the PIN).
+ */
+async function saveFromPhone(a: { playing?: boolean; titleId?: string; episodeId?: string; season?: number }) {
+  if (a.playing) {
+    const np = nowPlaying();
+    if (!np || np.req.kind !== "title" || !np.info.savable) throw new Error("What's playing can't be saved to the NAS");
+    const req = { titleId: np.req.id, ...(np.req.episodeId ? { episodeId: np.req.episodeId } : {}), ...(np.info.streamId ? { streamId: np.info.streamId } : {}) };
+    await saveToNas(req, [np.title?.name ?? np.info.title, np.info.subtitle].filter(Boolean).join(" "));
+  } else if (a.titleId) {
+    const t = await hub.title(a.titleId);
+    if (t.kind === "series" && a.season !== undefined) await saveEpisodes(t, await episodesOf(t, a.season), `${t.name} series ${a.season}`);
+    else await saveToNas({ titleId: t.id, ...(a.episodeId ? { episodeId: a.episodeId } : {}) }, a.episodeId ? `${t.name} ${a.episodeId.toUpperCase()}` : t.name);
+  } else {
+    throw new Error("Nothing to save");
+  }
+  return { ok: true };
+}
+
 async function now(): Promise<TvNow> {
   const np = nowPlaying();
   const p = profile();
@@ -65,6 +86,7 @@ async function now(): Promise<TvNow> {
     const art = np.info.artwork ?? np.title?.backdrop ?? np.title?.poster ?? np.info.logo;
     if (art) playing.artwork = art;
     if (np.info.source) playing.source = np.info.source.label;
+    if (np.info.savable && np.req.kind === "title" && !np.downloadId && !isKids()) playing.savable = true;
     const c = np.req.kind === "channel" ? channels().find((x) => x.id === (liveChannelId() ?? np.req.id)) : undefined;
     if (c) playing.channel = { id: c.id, number: c.number, name: c.name };
   }
@@ -118,8 +140,15 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
     await music().spotifyControl(a);
     return { ok: true };
   },
+  // The phone's Music page: is Spotify signed in (and how to), is Deezer.
+  musicStatus: async () => ({ spotify: spotify(), deezer: { signedIn: webApp().signedIn ?? null }, setup: music() !== agent || agentHas("spotifySetup") }),
+  musicSetup: async (a: SpotifySetup) => {
+    await spotifySetup(a);
+    return { spotify: spotify() };
+  },
   downloads: async () => downloadsForPhone(),
   download: async (a: Parameters<typeof downloadFromPhone>[0]) => downloadFromPhone(a),
+  saveToNas: async (a: Parameters<typeof saveFromPhone>[0]) => saveFromPhone(a),
   downloadRemove: async (a: { id: string }) => {
     if (isKids()) throw new Error("Ask a grown-up to delete downloads");
     await removeFromBox(a.id);

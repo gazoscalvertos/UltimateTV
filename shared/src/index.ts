@@ -9,3 +9,4 @@ export * from "./screensaver.js";
 export * from "./cast.js";
 export * from "./household.js";
 export * from "./seasons.js";
+export * from "./themes.js";

@@ -41,6 +41,35 @@ the commit they were built from in Settings › About, so you can tell exactly w
 - **Seasonal clips**: now and then a sleigh, a bunny, fireworks or a ghost drifts across the TV for
   the season, drawn by the TV or uploaded from the phone. A community library
   ([community/clips](community/clips/README.md)) shares clips and jump scares between households.
+- **Spotify and Deezer sign-in fixed**: Spotify showed nothing because the receiver was set to wait
+  for a sign-in code with phones also turned on, and in that state it can't answer the TV, so the
+  TV thought it wasn't installed. It now signs in the usual Spotify Connect way (pick the TV in the
+  Spotify app on your phone) and remembers the account, with a code as the other way. The Music tab
+  always shows a Spotify card and says what's needed: not installed, starting, not starting (with
+  the reason and a Restart button), or how to sign in. The phone remote's Music page shows the same.
+  Deezer's phone login now copes with a cookie banner and a login in two steps, and tells the phone
+  how it went: logged in, Deezer's own error, or that Deezer wants a puzzle or code on the TV. New
+  guide: docs/music.md. Needs a Hub update and a box update.
+- **Themes** ([docs/themes.md](docs/themes.md)): Settings › Theme on the TV and ⚙ › Theme on the
+  phone choose from Dark, Light, Slick, Cyberpunk, Ocean, Forest, Sunset, Halloween, Christmas,
+  Easter and Valentine's. On the TV, moving over a theme tries it on the whole app, and OK keeps
+  it. The phone remote and the web pages wear the theme too. **Seasonal themes** (on by default)
+  bring out Halloween, Christmas, Easter and Valentine's on their days and put your theme back
+  after. Christmas has snow and fairy lights, Easter blossom, Valentine's hearts and Cyberpunk a
+  neon grid. Update the Hub and the box.
+- **Save to NAS and Jellyfin, before and while watching** ([docs/save-to-nas.md](docs/save-to-nas.md)):
+  Save to NAS now works for episodes and whole series too, Red in Versions saves that exact
+  version, the player's Options has **Keep a copy** for the copy that's playing, and the phone has
+  Save buttons (title sheet, 💾 per episode, Now Playing). The Hub checks the file lands in one of
+  Jellyfin's library folders before telling Jellyfin, and the TV says when it's saved and in
+  Jellyfin (or where Jellyfin looks instead). Pressing Save twice keeps one copy.
+- **Get the Android apps again**: TV Settings › Android apps and the phone's ⚙ Settings › Android
+  apps show a QR code and the link for each app (the watching app and the remote). Scan with a
+  phone's camera, or tap Download on the phone, to install. Home Wi-Fi only, as before.
+- Phone settings › Guide lists and channels: put the TV Guide's lists (favourites, custom guides,
+  categories) in your own order, choose which list each profile's guide opens on, build and
+  reorder custom guides, and give any channel a new number (taking another's swaps them), a
+  different category (kept through channel refreshes), a favourite star or hide it.
 
 - **Steady update status**: the phone's Updates card no longer flips between "Couldn't check" and
   "Update available". The Hub keeps GitHub's last answer (a quick reload used to drop it), shares

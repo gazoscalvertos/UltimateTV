@@ -1,7 +1,7 @@
 // App-wide state: where we are, who's watching, toasts and dialogs.
 
 import { createSignal, type JSX } from "solid-js";
-import { DEFAULT_APP_NAME, type MusicItem, type Profile, type ThemeName } from "@ultimatetv/shared";
+import { DEFAULT_APP_NAME, isThemeName, themeInfo, type MusicItem, type Profile, type ThemeName } from "@ultimatetv/shared";
 
 export type Route =
   | { name: "profiles" }
@@ -76,23 +76,40 @@ export function setAppName(name: string): void {
 function readTheme(): ThemeName {
   try {
     const saved = localStorage.getItem("utv-theme");
-    if (saved === "halloween" || saved === "default") return saved;
+    if (isThemeName(saved)) return saved;
   } catch {
-    // Private storage off: the plain theme until the Hub answers.
+    // Private storage off: the dark theme until the Hub answers.
   }
   return "default";
 }
+/** Puts a theme's colours on the page: its palette as CSS custom properties, and its name for the decorations. */
+function wear(name: ThemeName): void {
+  const t = themeInfo(name);
+  const root = document.documentElement;
+  for (const [k, v] of Object.entries(t.palette)) root.style.setProperty(k, v);
+  root.style.colorScheme = t.light ? "light" : "dark";
+  root.dataset.theme = t.id;
+}
 const [theme, setThemeSignal] = createSignal<ThemeName>(readTheme());
 export { theme };
-document.documentElement.dataset.theme = theme();
+let worn = theme();
+wear(worn);
+/** The theme the household chose (or the season brought): worn, and remembered. */
 export function setTheme(name: ThemeName): void {
+  worn = name;
   setThemeSignal(name);
-  document.documentElement.dataset.theme = name;
+  wear(name);
   try {
     localStorage.setItem("utv-theme", name);
   } catch {
     // Nothing to remember it with: the Hub says again next time.
   }
+}
+/** Tries a theme on while choosing in Settings; `null` goes back to the one being worn. */
+export function previewTheme(name: ThemeName | null): void {
+  const next = name ?? worn;
+  setThemeSignal(next);
+  wear(next);
 }
 
 export const [profile, setProfile] = createSignal<Profile | null>(null);

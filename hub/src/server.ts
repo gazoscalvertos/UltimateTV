@@ -16,8 +16,8 @@ import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { movedAway, registerMove } from "./move.js";
-import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
-import { cleanAppName, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
+import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
+import { cleanAppName, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
@@ -147,6 +147,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/tv/reply/:id", "tv"],
     ["POST /api/box/state", "tv"],
     ["GET /api/music/login/:id", "tv"],
+    ["POST /api/music/login/:id/result", "tv"],
+    ["GET /api/music/login/:id/status", "paired"],
     ["GET /api/pair/code", "tv"],
     ["GET /api/hub/move-out", "paired"],
     ["GET /api/remote/qr.svg", "tv"],
@@ -207,6 +209,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "PATCH /api/profiles/:id",
     "DELETE /api/profiles/:id",
     "POST /api/guides",
+    "PUT /api/guides/order",
     "PATCH /api/guides/:id",
     "DELETE /api/guides/:id",
     "POST /api/downloads",
@@ -405,7 +408,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       if (ss.photosPath && ss.photosPath !== s.screensaver.photosPath) ss.photosPath = await ctx.photos.check(ss.photosPath);
       patch.screensaver = ss;
     }
-    if (body.theme !== undefined && THEME_CHOICES.includes(body.theme)) patch.theme = body.theme;
+    // An older TV or phone sends "auto" for dark with the seasons on.
+    if (body.theme !== undefined && THEME_CHOICES.includes(body.theme)) Object.assign(patch, body.theme === "auto" ? { theme: "default", seasonal: true } : { theme: body.theme, seasonal: cleanLook(s).seasonal });
+    if (typeof body.seasonal === "boolean") patch.seasonal = body.seasonal;
     if (body.channelFilter !== undefined) {
       try {
         if (body.channelFilter) new RegExp(body.channelFilter);
@@ -570,9 +575,18 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const password = String(req.body?.password ?? "").slice(0, 200);
     if (req.body?.app !== "deezer" || !email || !password) return reply.code(400).send({ error: "Enter your email and password" });
     if (tvSockets === 0) return reply.code(409).send({ error: "The TV app isn't connected to the Hub. Is the box on?" });
-    ctx.events.emit({ type: "music.login", app: "deezer", id: musicLogins.add({ email, password }) });
-    return { ok: true };
+    const id = musicLogins.add({ email, password });
+    ctx.events.emit({ type: "music.login", app: "deezer", id });
+    return { ok: true, id };
   });
+  // The TV says how the login went; the phone page asks (the id is the phone's own, unguessable).
+  app.post("/api/music/login/:id/result", async (req: Req<{ id: string }, Record<string, string>, { result?: string; message?: string }>, reply) => {
+    const result = String(req.body?.result ?? "") as WebAppLoginResult;
+    if (!["signed-in", "rejected", "check", "submitted", "partial", "no-form"].includes(result)) return reply.code(400).send({ error: "Unknown result" });
+    const ok = musicLogins.report(req.params.id, { result, ...(req.body?.message ? { message: String(req.body.message) } : {}) });
+    return ok ? { ok: true } : reply.code(404).send({ error: "No such login" });
+  });
+  app.get("/api/music/login/:id/status", async (req: Req<{ id: string }>, reply) => reply.header("Cache-Control", "no-store").send(musicLogins.status(req.params.id)));
   app.get("/api/music/login/:id", async (req: Req<{ id: string }>, reply) => {
     const login = musicLogins.take(req.params.id);
     return login ? reply.header("Cache-Control", "no-store").send(login) : reply.code(404).send({ error: "That login has gone; send it again" });
@@ -661,6 +675,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       .send(apk.stream);
   });
 
+  // QR codes for the two Android apps' download links, for the TV's and the phone's settings.
+  // Anyone may ask: they carry no pairing code, and the apps pair themselves once installed.
+  app.get("/api/apps/:app/qr.svg", async (req: Req<{ app: string }>, reply) => {
+    if (req.params.app !== "client" && req.params.app !== "remote") return reply.code(404).send({ error: "No such app" });
+    const svg = await QRCode.toString(`${phoneBase(req)}/api/${req.params.app}/app.apk`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    return reply.type("image/svg+xml").header("Cache-Control", "no-store").send(svg);
+  });
+
   /** Voice control: what the phone heard, turned into keys, a channel or a search. */
   app.post("/api/remote/voice", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
     const said = String(req.body?.text ?? "").slice(0, 200);
@@ -682,7 +704,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "sleep", "cast", "castApp", "castAirplay"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay"]);
   const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
   let tvCallSeq = 0;
   app.post("/api/tv/call/:method", async (req: Req<{ method: string }, Record<string, string>, unknown>, reply) => {
@@ -784,14 +806,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.get("/api/channels", async (req: Req<Record<string, string>, { all?: string }>) => ({ channels: filterOf(req).channels(ctx.channels.list(req.query.all === "1")) }));
 
-  app.patch("/api/channels/:id", async (req: Req<{ id: string }, Record<string, string>, { favourite?: boolean; hidden?: boolean; number?: number }>, reply) => {
+  app.patch("/api/channels/:id", async (req: Req<{ id: string }, Record<string, string>, { favourite?: boolean; hidden?: boolean; number?: number; swap?: boolean; category?: ChannelCategory | null }>, reply) => {
     try {
       const c = ctx.channels.update(req.params.id, req.body ?? {});
       if (!c) return reply.code(404).send({ error: "No such channel" });
       ctx.events.emit({ type: "guide.updated" });
       return c;
     } catch (err) {
-      return reply.code(409).send({ error: (err as Error).message });
+      return reply.code((err as { statusCode?: number }).statusCode ?? 409).send({ error: (err as Error).message });
     }
   });
 
@@ -823,6 +845,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const who = viewer(req);
     const channels = who.filter.channels(ctx.channels.list());
     return { choices: ctx.guides.choices(channels), custom: ctx.guides.list(), default: ctx.guides.resolveDefault(who.profile?.defaultGuide, channels) };
+  });
+
+  /** The order of the lists above the guide (after All channels), for the phone settings page. */
+  app.put("/api/guides/order", async (req: Req<Record<string, string>, Record<string, string>, { order?: string[] }>) => {
+    const order = ctx.guides.setOrder(req.body?.order ?? []);
+    ctx.events.emit({ type: "guide.updated" });
+    return { order };
   });
 
   app.post("/api/guides", async (req: Req<Record<string, string>, Record<string, string>, { name?: string; channels?: string[] }>, reply) => {
@@ -1217,13 +1246,15 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   app.get("/api/search", async (req: Req<Record<string, string>, { q?: string }>) => ({ results: await library.search(req.query.q ?? "", Date.now(), filterOf(req)) }));
 
-  // Downloads to the NAS.
+  // Downloads to the NAS (Save to NAS), then added to Jellyfin.
   app.get("/api/downloads", async () => ({ downloads: ctx.downloads.list() }));
   app.post("/api/downloads", async (req: Req<Record<string, string>, Record<string, string>, { titleId: string; episodeId?: string; streamId?: string }>, reply) => {
     const { titleId, episodeId, streamId } = req.body;
     const ep = episodeId ? episodeNumbers(episodeId) : undefined;
     const streams = await library.streams(titleId, ep);
-    const pick = streamId ? streams.find((s) => s.id === streamId) : streams.find((s) => s.downloadable && s.ready && s.kind !== "xtream") ?? streams.find((s) => s.downloadable);
+    // The version asked for (the one playing, or picked in Versions), else the best one to save.
+    const chosen = streamId ? streams.find((s) => s.id === streamId && s.downloadable) : undefined;
+    const pick = chosen ?? streams.find((s) => s.downloadable && s.ready && s.kind !== "xtream") ?? streams.find((s) => s.downloadable);
     if (!pick?.downloadable) return reply.code(422).send({ error: "There's no copy of this that can be saved to the NAS" });
     const details = await library.details(titleId);
     const request: Parameters<typeof ctx.downloads.add>[0] = { title: details.name, kind: details.kind, url: pick.url };
@@ -1276,6 +1307,30 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       reply.type("image/svg+xml").header("Cache-Control", "public, max-age=86400").send(demoArt(req.params.kind, req.params.file.replace(/\.svg$/, ""))),
     );
   }
+
+  // The colours of every theme, and today's one put on straight away, for the phone remote and the
+  // web pages: each loads this in its <head>, so it never flashes the wrong colours first.
+  // `utvTheme.apply(name)` puts on another, which is how the settings page previews one.
+  app.get("/theme.js", async (_req, reply) => {
+    const palettes = Object.fromEntries(THEMES.map((t) => [t.id, { ...t.palette, "color-scheme": t.light ? "light" : "dark" }]));
+    const themes = THEMES.map(({ id, name, detail, season }) => ({ id, name, detail, season }));
+    const now = resolveTheme(ctx.settings.get());
+    const js = `(function () {
+  var P = ${JSON.stringify(palettes)};
+  function apply(name) {
+    var p = P[name] || P["default"], root = document.documentElement;
+    for (var k in p) if (k.charAt(0) === "-") root.style.setProperty(k, p[k]);
+    root.style.colorScheme = p["color-scheme"];
+    root.dataset.theme = P[name] ? name : "default";
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = p["--bg"];
+  }
+  window.utvTheme = { themes: ${JSON.stringify(themes)}, palettes: P, now: ${JSON.stringify(now)}, apply: apply };
+  apply(${JSON.stringify(now)});
+})();
+`;
+    return reply.type("text/javascript").header("Cache-Control", "no-cache").send(js);
+  });
 
   app.get("/", async (_request, reply) => reply.redirect(existsSync(config.uiDir) ? "/app/" : "/probe/"));
 

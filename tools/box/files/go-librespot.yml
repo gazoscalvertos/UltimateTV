@@ -4,11 +4,14 @@ device_name: UltimateTV
 device_type: tv
 # Through PipeWire, to the TV's HDMI output like everything else.
 audio_backend: pulseaudio
-# Phones on the Wi-Fi see the box in Spotify's device list.
+# Phones on the Wi-Fi see the box in Spotify's device list, and picking it there signs the box in
+# (kept in state.json for next time). The Music tab can switch this to a code to enter at
+# spotify.com/pair instead (box/src/spotify.ts rewrites these lines), and switches back after.
 zeroconf_enabled: true
-# Until someone signs in, the Music tab shows a code to enter at spotify.com/pair.
 credentials:
-  type: device_auth
+  type: zeroconf
+  zeroconf:
+    persist_credentials: true
 # The Music tab's API, on the box only.
 server:
   enabled: true

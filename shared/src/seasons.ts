@@ -3,6 +3,8 @@
 // the gentle cousin of the jump scares. Clips come from the household's own uploads, from the
 // community library (an index of clips anyone can add to), or are drawn by the TV itself.
 
+import { easterSunday } from "./themes.js";
+
 export type SeasonId = "christmas" | "newyear" | "valentines" | "easter" | "halloween" | "bonfire" | "birthday";
 
 export interface Holiday {
@@ -32,25 +34,6 @@ export const DRAWN_PROJECTIONS: readonly DrawnProjection[] = ["sleigh", "snow", 
 export type ProjectionMotion = "across-top" | "across-bottom" | "fall" | "rise" | "corner";
 export const PROJECTION_MOTIONS: readonly ProjectionMotion[] = ["across-top", "across-bottom", "fall", "rise", "corner"];
 
-/** Easter Sunday in the Gregorian calendar (the anonymous algorithm), as [month 1–12, day]. */
-export function easterSunday(year: number): [number, number] {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return [month, day];
-}
-
 const dayOfYear = (y: number, m: number, d: number) => Math.round((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / 86_400_000);
 
 /**
@@ -68,7 +51,8 @@ export function seasonOn(date: Date): SeasonId | null {
   if (m === 2 && (d === 13 || d === 14)) return "valentines";
   if ((m === 10 && d >= 24) || (m === 11 && d === 1)) return "halloween";
   if (m === 11 && d >= 4 && d <= 6) return "bonfire";
-  const [em, ed] = easterSunday(y);
+  const e = easterSunday(y);
+  const [em, ed] = [e.getMonth() + 1, e.getDate()];
   const today = dayOfYear(y, m, d);
   const easter = dayOfYear(y, em, ed);
   if (today >= easter - 7 && today <= easter + 1) return "easter";

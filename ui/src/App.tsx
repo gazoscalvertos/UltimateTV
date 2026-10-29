@@ -9,6 +9,7 @@ import { ApiError, hub, session } from "./api";
 import { choose, DialogHost } from "./components/Dialog";
 import { EasterEggs } from "./components/EasterEggs";
 import { Halloween } from "./components/Halloween";
+import { ThemeDecor } from "./components/ThemeDecor";
 import { JumpScare } from "./components/JumpScare";
 import { NewsFlash } from "./components/NewsFlash";
 import { ScreensaverLayer } from "./components/Screensaver";
@@ -36,6 +37,7 @@ import { closeTopDialog, nav, setAppName, setProfile, setTheme, toast, toasts } 
 import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
 import { startDownloads } from "./downloads";
+import { startSaveNotices } from "./save";
 import { DownloadsScreen } from "./screens/Downloads";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
@@ -179,16 +181,17 @@ export function App() {
     startDownloads();
     startCast();
     startSleep();
+    startSaveNotices();
     void startMusic();
     void restoreSession();
     const loadLook = () =>
       hub.settings().then((s) => {
         setAppName(s.appName);
-        setTheme(resolveTheme(s.theme));
+        setTheme(resolveTheme(s));
       }, () => undefined);
     void loadLook();
-    // "auto" wears the Halloween theme over Halloween week: look again at midnight rather than
-    // leaving the theme a day behind on a TV that is never reloaded.
+    // The seasonal themes come and go by the date: look again every hour rather than leaving the
+    // theme a day behind on a TV that is never reloaded.
     const lookTimer = window.setInterval(loadLook, 60 * 60_000);
     onCleanup(() => window.clearInterval(lookTimer));
     onCleanup(
@@ -301,6 +304,7 @@ export function App() {
       <KeyHints />
       <ProjectionLayer />
       <Halloween />
+      <ThemeDecor />
       <EasterEggs />
       <NewsFlash />
       <Notices />

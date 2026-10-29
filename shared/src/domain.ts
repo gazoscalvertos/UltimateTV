@@ -7,6 +7,7 @@ import type { ScreensaverSettings } from "./screensaver.js";
 import type { CastLink, ShareOffer } from "./cast.js";
 import type { AdBreak, Alert, SleepChoice, SleepState } from "./household.js";
 import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
+import type { ThemeChoice, ThemeName } from "./themes.js";
 
 export type Id = string;
 
@@ -14,6 +15,7 @@ export type Id = string;
 // Live TV
 
 export type ChannelCategory = "entertainment" | "films" | "sport" | "news" | "kids" | "music" | "documentaries" | "other";
+export const CHANNEL_CATEGORIES: ChannelCategory[] = ["entertainment", "films", "sport", "news", "documentaries", "kids", "music", "other"];
 
 export interface ChannelFeed {
   /** Stable id: `${sourceId}:${upstreamId}`. */
@@ -35,6 +37,8 @@ export interface Channel {
   name: string;
   logo?: string;
   category: ChannelCategory;
+  /** A category chosen by hand (phone settings); kept over the automatic one when the channel list refreshes. */
+  userCategory?: ChannelCategory;
   /** XMLTV channel id used to join guide data. */
   epgId?: string;
   feeds: ChannelFeed[];
@@ -337,6 +341,10 @@ export interface PlaybackInfo {
   quality?: StreamQuality;
   /** Where it plays from, shown in the player ("Jellyfin", "TorBox", "IPTV"). */
   source?: { kind: SourceKind; label: string };
+  /** The version playing, so Save to NAS keeps this exact copy. */
+  streamId?: Id;
+  /** This copy can be saved to the NAS (TorBox, online and IPTV films and episodes not already there). */
+  savable?: boolean;
   externalSubtitles: SubtitleTrack[];
   /** Report progress to this key. */
   progressKey: string;
@@ -400,6 +408,8 @@ export interface Download {
   speedBps?: number;
   path?: string;
   error?: string;
+  /** What Jellyfin made of the saved file, once it's finished. */
+  jellyfin?: { added: boolean; note: string };
   createdAt: number;
 }
 
@@ -473,32 +483,13 @@ export function cleanAppName(name: string | undefined): string {
   return clean || DEFAULT_APP_NAME;
 }
 
-/** The look of the app. "auto" wears the Halloween theme over Halloween week and is plain the rest of the year. */
-export type ThemeChoice = "auto" | "default" | "halloween";
-export const THEME_CHOICES: readonly ThemeChoice[] = ["auto", "default", "halloween"];
-/** The theme actually worn, once "auto" has looked at the date. */
-export type ThemeName = "default" | "halloween";
-
-/** Halloween week: the theme comes out on 25 October and goes away after the 1st of November. */
-export function isHalloweenWeek(at: number | Date = Date.now()): boolean {
-  const d = at instanceof Date ? at : new Date(at);
-  const month = d.getMonth();
-  const day = d.getDate();
-  return (month === 9 && day >= 25) || (month === 10 && day <= 1);
-}
-
-/** Which theme to wear: what was chosen, or, on "auto", the date decides. */
-export function resolveTheme(choice: ThemeChoice | undefined, at: number | Date = Date.now()): ThemeName {
-  if (choice === "halloween") return "halloween";
-  if (choice === "default") return "default";
-  return isHalloweenWeek(at) ? "halloween" : "default";
-}
-
 export interface Settings {
   /** The app's name everywhere it's shown (the TV, the phone remote, the setup pages, Spotify). */
   appName: string;
-  /** The look of the app on the TV and the phone remote. */
+  /** The everyday look of the app on the TV, the phone remote and the web pages ("auto" from older Hubs). */
   theme: ThemeChoice;
+  /** The seasonal themes (Halloween, Christmas, Easter, Valentine's) take over on their days. */
+  seasonal?: boolean;
   iptv: IptvSource[];
   xmltvUrls: string[];
   jellyfin?: { url: string; userId: string; token: string; serverName?: string };
@@ -538,7 +529,10 @@ export interface Settings {
 /** Settings as the UI sees them: secrets replaced by a flag saying they're set. */
 export interface PublicSettings {
   appName: string;
-  theme: ThemeChoice;
+  theme: ThemeName;
+  seasonal: boolean;
+  /** The theme being worn today, once the seasons have had their say. */
+  themeNow: ThemeName;
   iptv: { id: Id; kind: "xtream" | "m3u"; name: string; connections: number; host: string; status?: IptvSourceStatus }[];
   xmltvCount: number;
   jellyfin?: { url: string; serverName?: string };
@@ -715,7 +709,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "sleep" | "cast" | "castApp" | "castAirplay";
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {
@@ -733,6 +727,8 @@ export interface TvNow {
     /** Where it plays from ("Jellyfin", "TorBox", "IPTV"). */
     source?: string;
     channel?: { id: Id; number: number; name: string };
+    /** Save to NAS can keep a copy of what's playing. */
+    savable?: boolean;
   } | null;
   player: PlayerState;
   /** The stats overlay's sections, when something plays. */

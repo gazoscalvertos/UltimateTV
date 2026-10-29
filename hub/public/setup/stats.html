@@ -4,11 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
+<script src="/theme.js"></script>
 <title>UltimateTV stats</title>
 <style>
   :root {
-    --bg: #0b1220; --card: #131c2e; --line: #24324d; --fg: #eef3fb; --muted: #9aa8c2;
-    --accent: #4f8cff; --ok: #35c27a; --warn: #f2b33d; --bad: #ff6b6b; --radius: 14px;
+    /* The theme's colours come from /theme.js (chosen in Settings); these are the dark theme's, until it answers. */
+    --bg: #070b14; --panel: #121b2e; --panel-2: #18233a; --line: rgba(255, 255, 255, 0.1); --fg: #f3f6fb; --muted: #9aa6bd;
+    --accent: #3d8bff; --accent-2: #00c2d1; --on-accent: #fff; --good: #35c27a; --amber: #f2b33d; --bad: #ff5468; --radius: 14px;
+    --card: var(--panel); --field: var(--bg); --ok: var(--good); --warn: var(--amber);
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
@@ -32,7 +35,7 @@
   .meter { margin: 8px 0; }
   .meter div { display: flex; justify-content: space-between; font-size: 13px; }
   .meter div span:first-child { color: var(--muted); }
-  .meter i { display: block; height: 6px; border-radius: 3px; background: #22304d; overflow: hidden; margin-top: 4px; }
+  .meter i { display: block; height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; margin-top: 4px; }
   .meter i b { display: block; height: 100%; background: var(--ok); }
   .meter.warn i b { background: var(--warn); }
   .meter.bad i b { background: var(--bad); }
@@ -42,13 +45,13 @@
   .warning.warn .dot { background: var(--warn); }
   .warning.bad .dot { background: var(--bad); }
   .warning small { color: var(--muted); display: block; font-size: 12px; }
-  .pill { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: #22304d; color: var(--muted); font-weight: 600; }
-  .pill.ok { background: rgba(53,194,122,.15); color: var(--ok); }
-  .pill.warn { background: rgba(242,179,61,.15); color: var(--warn); }
-  .pill.bad { background: rgba(255,107,107,.15); color: var(--bad); }
+  .pill { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: var(--panel-2); color: var(--muted); font-weight: 600; }
+  .pill.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .pill.warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+  .pill.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
   details { margin-top: 10px; }
   summary { cursor: pointer; color: var(--accent); font-size: 14px; padding: 4px 0; }
-  pre { white-space: pre-wrap; word-break: break-all; font: 11px/1.45 ui-monospace, Menlo, monospace; background: #0d1526; border-radius: 10px; padding: 10px; max-height: 420px; overflow: auto; margin: 8px 0 0; }
+  pre { white-space: pre-wrap; word-break: break-all; font: 11px/1.45 ui-monospace, Menlo, monospace; background: var(--field); border-radius: 10px; padding: 10px; max-height: 420px; overflow: auto; margin: 8px 0 0; }
   .samples { overflow-x: auto; }
   .samples table { font-size: 12px; white-space: nowrap; }
   .samples td, .samples th { padding: 4px 8px 4px 0; border-top: 1px solid var(--line); text-align: left; width: auto; color: var(--fg); }
@@ -56,7 +59,7 @@
   .muted { color: var(--muted); }
   .links { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 14px; margin-top: 10px; }
   label.auto { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .progress { height: 6px; border-radius: 3px; background: #22304d; overflow: hidden; margin: 6px 0 4px; }
+  .progress { height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; margin: 6px 0 4px; }
   .progress b { display: block; height: 100%; background: var(--accent); }
   [hidden] { display: none !important; }
 </style>

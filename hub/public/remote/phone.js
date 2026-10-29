@@ -65,6 +65,16 @@
       toast(e.message, true);
     }
   }
+  // Save to NAS: kept for good on the NAS and added to Jellyfin. Asked through the TV, so its profile decides.
+  async function saveToNas(args) {
+    toast("Saving to the NAS…");
+    try {
+      await call("saveToNas", args);
+      toast("Saving to the NAS. It goes into Jellyfin when it's done.");
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
   const size = (b) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.round((b || 0) / 1024 ** 2)} MB`);
 
   async function playOnTv(req, title, fromStart) {
@@ -151,6 +161,7 @@
       $("np-play").dataset.state = st.status === "playing" ? "playing" : "paused";
       $("np-tracks").hidden = !(st.audioTracks?.length > 1 || st.subtitleTracks?.length);
       $("np-live").hidden = !p.live;
+      $("np-save").hidden = !p.savable;
       if (p.live) {
         range.hidden = true;
         const behind = st.behindLiveMs ?? 0;
@@ -174,6 +185,7 @@
       $("np-play").dataset.state = sp.status === "playing" ? "playing" : "paused";
       $("np-tracks").hidden = true;
       $("np-live").hidden = true;
+      $("np-save").hidden = true;
       range.hidden = false;
       if (!dragging) {
         range.max = String(t.durationMs);
@@ -189,6 +201,7 @@
       $("np-play").dataset.state = web.playing ? "playing" : "paused";
       $("np-tracks").hidden = true;
       $("np-live").hidden = true;
+      $("np-save").hidden = true;
       range.hidden = true;
       $("np-time").textContent = "";
       $("np-left").textContent = "";
@@ -207,6 +220,7 @@
     else key("playPause").then(() => setTimeout(poll, 400));
   };
   $("np-stop").onclick = () => (mode() === "spotify" ? call("musicControl", { cmd: "pause" }).then(poll) : key("stop").then(() => setTimeout(poll, 600)));
+  $("np-save").onclick = () => saveToNas({ playing: true });
   $("np-live").onclick = () => call("seek", { ms: 0, mode: "live" }).then(() => setTimeout(poll, 400), (e) => toast(e.message, true));
   const range = $("np-range");
   range.addEventListener("input", () => {
@@ -924,21 +938,23 @@
     openSheet(`${d.backdrop ? `<div class="hero" style="background-image:url('${esc(d.backdrop)}')"></div>` : ""}
       <h2>${esc(d.name)}</h2><p class="meta">${esc(meta)}</p>
       ${d.overview ? `<p class="overview">${esc(d.overview)}</p>` : ""}
-      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>` : ""}<button id="s-save">Save for later</button></div>
-      ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="actions"><button id="s-dl-season">Download this series to the TV box</button>${seasons.filter((s) => s.season > 0).length > 1 ? `<button id="s-dl-all">Download every series</button>` : ""}</div><div class="list" id="s-eps"></div>` : ""}
+      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>${!kidsProfile && !d.inLibrary ? `<button id="s-save">Save to NAS</button>` : ""}` : ""}<button id="s-later">Save for later</button></div>
+      ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="actions"><button id="s-dl-season">Download this series to the TV box</button>${!kidsProfile ? `<button id="s-save-season">Save this series to the NAS</button>` : ""}${seasons.filter((s) => s.season > 0).length > 1 ? `<button id="s-dl-all">Download every series</button>` : ""}</div><div class="list" id="s-eps"></div>` : ""}
       <button class="link" data-close>Close</button>`);
     if ($("s-play")) $("s-play").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef);
     if ($("s-start")) $("s-start").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef, true);
     const art = d.backdrop ?? d.poster;
     if ($("s-queue")) $("s-queue").onclick = () => queueIt({ req: { kind: "title", id: d.id }, title: titleRef, name: d.name, ...(d.year ? { subtitle: String(d.year) } : {}), ...(art ? { image: art } : {}) });
     if ($("s-dl")) $("s-dl").onclick = () => downloadToBox({ titleId: d.id });
-    $("s-save").onclick = () =>
+    $("s-later").onclick = () =>
       void post("/api/watchlist", { title: titleRef, from: "phone" }).then(
-        () => (($("s-save").textContent = "Saved for later"), ($("s-save").disabled = true), toast("Saved: it's on the TV's Home")),
+        () => (($("s-later").textContent = "Saved for later"), ($("s-later").disabled = true), toast("Saved: it's on the TV's Home")),
         (e) => toast(e.message, true),
       );
     if ($("s-dl-season")) $("s-dl-season").onclick = () => downloadToBox({ titleId: d.id, season: seasons[Number($("s-season").value)].season });
     if ($("s-dl-all")) $("s-dl-all").onclick = () => downloadToBox({ titleId: d.id, all: true });
+    if ($("s-save")) $("s-save").onclick = () => saveToNas({ titleId: d.id });
+    if ($("s-save-season")) $("s-save-season").onclick = () => saveToNas({ titleId: d.id, season: seasons[Number($("s-season").value)].season });
     if (seasons.length) {
       const pick = async () => {
         const s = seasons[Number($("s-season").value)];
@@ -950,7 +966,7 @@
         $("s-eps").innerHTML = eps.length
           ? eps
               .map(
-                (e, i) => `<div class="ep-row"><button class="item ep" data-ep="${i}"><span class="text"><b>${e.episode}. ${esc(e.name)}</b>${e.overview ? `<small>${esc(e.overview.slice(0, 140))}${e.overview.length > 140 ? "…" : ""}</small>` : ""}${e.progress ? `<i class="bar"><i style="width:${Math.round(e.progress * 100)}%"></i></i>` : ""}</span>${e.watched ? `<span class="tick">✓</span>` : ""}</button><button class="qbtn" data-q="${i}" aria-label="Add to queue">+</button><button class="qbtn" data-dl="${i}" aria-label="Download to the TV box">⤓</button></div>`,
+                (e, i) => `<div class="ep-row"><button class="item ep" data-ep="${i}"><span class="text"><b>${e.episode}. ${esc(e.name)}</b>${e.overview ? `<small>${esc(e.overview.slice(0, 140))}${e.overview.length > 140 ? "…" : ""}</small>` : ""}${e.progress ? `<i class="bar"><i style="width:${Math.round(e.progress * 100)}%"></i></i>` : ""}</span>${e.watched ? `<span class="tick">✓</span>` : ""}</button><button class="qbtn" data-q="${i}" aria-label="Add to queue">+</button><button class="qbtn" data-dl="${i}" aria-label="Download to the TV box">⤓</button>${!kidsProfile ? `<button class="qbtn" data-save="${i}" aria-label="Save to NAS and Jellyfin">💾</button>` : ""}</div>`,
               )
               .join("")
           : `<p class="empty">No episodes listed.</p>`;
@@ -961,6 +977,10 @@
         for (const b of $("s-eps").querySelectorAll("[data-dl]")) {
           const e = eps[Number(b.dataset.dl)];
           b.onclick = () => downloadToBox({ titleId: d.id, episodeId: `s${e.season}e${e.episode}` });
+        }
+        for (const b of $("s-eps").querySelectorAll("[data-save]")) {
+          const e = eps[Number(b.dataset.save)];
+          b.onclick = () => saveToNas({ titleId: d.id, episodeId: `s${e.season}e${e.episode}` });
         }
         for (const b of $("s-eps").querySelectorAll("[data-q]")) {
           const e = eps[Number(b.dataset.q)];
@@ -1047,9 +1067,47 @@
     if (d.items.some((i) => i.status === "downloading" || i.status === "queued")) downloadsTimer = setTimeout(() => current === "downloads" && document.visibilityState === "visible" && showDownloads().catch(() => undefined), 3000);
   }
 
+  // Signing in to Spotify and Deezer on the TV, from the phone: the first thing the Music page shows
+  // until both are done (TV apps from before musicStatus show the library straight away).
+  function musicSetupHtml(st) {
+    const sp = st.spotify || {};
+    const name = esc(sp.deviceName || "the TV");
+    let spotify = "";
+    if (sp.installed === false || (!sp.available && sp.installed === undefined)) spotify = `<div class="msetup"><h3>Spotify isn't on the TV box yet</h3><p>Update the box from the TV (Settings › About), then come back here.</p></div>`;
+    else if (!sp.available)
+      spotify = `<div class="msetup"><h3>${sp.problem ? "Spotify isn't starting on the TV" : "Spotify is starting on the TV…"}</h3>${sp.problem ? `<p>${esc(sp.problem)}</p>` : ""}${st.setup ? `<button class="link" data-ms="restart">Restart Spotify</button>` : ""}</div>`;
+    else if (!sp.signedIn && sp.signIn === "code")
+      spotify = `<div class="msetup spotify"><h3>Sign in to Spotify with a code</h3>${sp.pair ? `<p>Tap below, sign in, and enter this code:</p><div class="code">${esc(sp.pair.code)}</div><a class="btn" href="${esc(sp.pair.url)}" target="_blank" rel="noopener">Open ${esc(sp.pair.url.replace(/^https?:\/\//, "").replace(/\?.*$/, ""))}</a>` : `<p>Getting a code from Spotify…</p>`}${st.setup ? `<button class="link" data-ms="phone">Sign in from the Spotify app instead</button>` : ""}</div>`;
+    else if (!sp.signedIn)
+      spotify = `<div class="msetup spotify"><h3>Sign in to Spotify on the TV</h3><ol><li>Open the Spotify app (on the home Wi-Fi).</li><li>Play any song and tap the devices button at the bottom of the player.</li><li>Pick <b>${name}</b>.</li></ol><p>The TV remembers you, and your playlists appear here and on the TV. Needs Spotify Premium.</p><a class="btn" href="https://open.spotify.com/" target="_blank" rel="noopener">Open Spotify</a>${st.setup ? `<button class="link" data-ms="code">${name} not listed? Sign in with a code</button>` : ""}</div>`;
+    const deezer = st.deezer && st.deezer.signedIn === false ? `<div class="msetup deezer"><h3>Log in to Deezer on the TV</h3><p>Type your Deezer email and password on your phone and the TV logs in. Google or Apple sign-in doesn't work on the TV: set a Deezer password first (Forgot your password on deezer.com).</p><a class="btn" href="/music-login/">Log in to Deezer</a></div>` : "";
+    return spotify + deezer;
+  }
+  function wireMusicSetup(kind) {
+    for (const b of body.querySelectorAll("[data-ms]"))
+      b.onclick = () => {
+        b.disabled = true;
+        const m = b.dataset.ms;
+        call("musicSetup", m === "restart" ? { restart: true } : { signIn: m }).then(
+          () => setTimeout(() => showMusic(kind), 1500),
+          (e) => (toast(e.message, true), (b.disabled = false)),
+        );
+      };
+  }
+
   // Music: the Spotify library on the box.
   async function showMusic(kind) {
-    body.innerHTML = `<div class="seg">${["playlists", "albums", "artists"].map((k) => `<button data-mk="${k}" class="${k === kind ? "on" : ""}">${k[0].toUpperCase() + k.slice(1)}</button>`).join("")}</div><div id="music-list"><p class="empty">Loading…</p></div>`;
+    const st = await call("musicStatus").catch(() => null);
+    const setup = st ? musicSetupHtml(st) : "";
+    if (st && !st.spotify?.signedIn) {
+      body.innerHTML = setup;
+      wireMusicSetup(kind);
+      // Check again while the page is open: signing in happens elsewhere.
+      clearTimeout(showMusic.timer);
+      showMusic.timer = setTimeout(() => current === "music" && document.visibilityState === "visible" && showMusic(kind).catch(() => undefined), 5000);
+      return;
+    }
+    body.innerHTML = `${setup}<div class="seg">${["playlists", "albums", "artists"].map((k) => `<button data-mk="${k}" class="${k === kind ? "on" : ""}">${k[0].toUpperCase() + k.slice(1)}</button>`).join("")}</div><div id="music-list"><p class="empty">Loading…</p></div>`;
     for (const b of body.querySelectorAll("[data-mk]")) b.onclick = () => showMusic(b.dataset.mk);
     let page;
     try {
@@ -1057,7 +1115,7 @@
     } catch (e) {
       return ($("music-list").innerHTML = `<p class="empty">${esc(e.message)}</p>`);
     }
-    if (!page.items.length) return ($("music-list").innerHTML = `<p class="empty">Nothing here. Sign in to Spotify in the TV's Music tab.</p>`);
+    if (!page.items.length) return ($("music-list").innerHTML = `<p class="empty">Nothing here yet.</p>`);
     $("music-list").innerHTML = `<div class="grid">${page.items.map((m, i) => `<button class="tile" data-mi="${i}">${m.image ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : `<span class="noimg">♪</span>`}<b>${esc(m.name)}</b>${m.subtitle ? `<small>${esc(m.subtitle)}</small>` : ""}</button>`).join("")}</div>`;
     for (const b of $("music-list").querySelectorAll("[data-mi]")) b.onclick = () => musicSheet(page.items[Number(b.dataset.mi)]);
   }

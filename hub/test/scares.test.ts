@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanScareSettings, DEFAULT_SCARE_SETTINGS, isHalloweenWeek, resolveTheme, scareFrom, type HubEvent, type ScareState } from "@ultimatetv/shared";
+import { cleanScareSettings, DEFAULT_SCARE_SETTINGS, scareFrom, type HubEvent, type ScareState } from "@ultimatetv/shared";
 import { buildServer } from "../src/server.js";
 import { pairAsTv } from "./helpers.js";
 
@@ -146,25 +146,5 @@ describe("scare settings on their own", () => {
     const base = { ...DEFAULT_SCARE_SETTINGS, seconds: 8 };
     expect(cleanScareSettings({ seconds: Number.NaN }, base).seconds).toBe(8);
     expect(cleanScareSettings({}, base)).toEqual(base);
-  });
-});
-
-describe("the theme", () => {
-  const on = (iso: string) => isHalloweenWeek(new Date(`${iso}T12:00:00`));
-
-  it("wears Halloween over Halloween week on auto", () => {
-    expect(on("2026-10-25")).toBe(true);
-    expect(on("2026-10-31")).toBe(true);
-    expect(on("2026-11-01")).toBe(true);
-    expect(on("2026-10-24")).toBe(false);
-    expect(on("2026-11-02")).toBe(false);
-    expect(resolveTheme("auto", new Date("2026-10-31T20:00:00"))).toBe("halloween");
-    expect(resolveTheme("auto", new Date("2026-06-01T20:00:00"))).toBe("default");
-  });
-
-  it("does as it's told the rest of the time", () => {
-    expect(resolveTheme("halloween", new Date("2026-06-01T20:00:00"))).toBe("halloween");
-    expect(resolveTheme("default", new Date("2026-10-31T20:00:00"))).toBe("default");
-    expect(resolveTheme(undefined, new Date("2026-06-01T20:00:00"))).toBe("default");
   });
 });
