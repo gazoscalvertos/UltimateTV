@@ -11,14 +11,16 @@
 //   CUSTOM_MODES  0 to never add a custom refresh rate for films the screen has no mode for
 //   SPOTIFY_API   the Spotify receiver's local API (default http://127.0.0.1:3678)
 //   DOWNLOADS_DIR where downloads to the box go (default ~/.local/share/ultimatetv/downloads)
+//   UXPLAY_ARGS   extra UxPlay (AirPlay receiver) arguments, space separated, e.g. -vd vah264dec
 
 import { execFile } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "electron";
 import os from "node:os";
 import path from "node:path";
-import type { BoxInfo, PlayerState, SpotifyState, WebAppState } from "@ultimatetv/shared";
+import type { BoxInfo, CastState, PlayerState, SpotifyState, WebAppState } from "@ultimatetv/shared";
 import { Audio } from "./audio.js";
+import { Cast } from "./cast.js";
 import { Cec } from "./cec.js";
 import { Diagnostics } from "./diagnostics.js";
 import { Display } from "./display.js";
@@ -160,6 +162,29 @@ async function main(): Promise<void> {
   spotify.start();
   void webApps.checkSignedIn();
   downloads.onChange((d) => send("agent:downloads", d));
+
+  // AirPlay and games (cast.ts). While AirPlay mirrors, the UI stays on top but draws nothing (it
+  // still hears the remote); a game gets the whole screen, keyboard and controllers to itself.
+  const cast = new Cast({
+    runtimeDir: RUNTIME,
+    configFile: path.join(app.getPath("userData"), "cast.json"),
+    name: () => appName,
+    log,
+    extraUxplayArgs: (process.env.UXPLAY_ARGS ?? "").split(/\s+/).filter(Boolean),
+    onForeground: (kind) => {
+      if (kind) {
+        if (lastStatus === "playing") void player.pause(true);
+        void pauseMusic();
+      }
+      if (kind === "app") win?.hide();
+      else if (win && !win.isVisible()) {
+        win.show();
+        win.focus();
+      }
+    },
+  });
+  cast.onChange((s: CastState) => send("agent:cast", s));
+  void cast.start().catch((e: Error) => log(`AirPlay and games didn't start: ${e.message}`));
   void downloads.start().catch((e: Error) => log(`Downloads didn't start: ${e.message}`));
 
   let suspendTimer: NodeJS.Timeout | undefined;
@@ -220,6 +245,12 @@ async function main(): Promise<void> {
     downloadSettings: (s: never) => downloads.setSettings(s),
     localCopy: (req: never) => downloads.localCopy(req),
     downloadPosition: (id: never, positionMs: never, durationMs: never) => downloads.position(id, positionMs, durationMs),
+    cast: async () => cast.state(),
+    castSettings: (s: never) => cast.settings(s),
+    launchApp: (id: never) => cast.launch(id),
+    stopApp: () => cast.stopForeground(),
+    tvStandby: () => cec.standby(),
+    setVolume: (pct: never) => player.setVolume(pct),
   };
   diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!() });
 
@@ -267,6 +298,8 @@ async function main(): Promise<void> {
       } catch (e) {
         log(`Couldn't save the app's name: ${(e as Error).message}`);
       }
+      // AirPlay announces the name it started with.
+      void cast.settings({ name });
     }
     void renameSpotifyDevice(name, log);
   });
@@ -305,6 +338,7 @@ async function main(): Promise<void> {
     spotify.stop();
     webApps.stop();
     downloads.stop();
+    cast.stop();
     void display.restore();
     void mpv.stop();
   });

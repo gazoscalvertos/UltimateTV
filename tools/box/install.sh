@@ -13,6 +13,9 @@
 #   BRANCH         which branch to follow (default main)
 #   SKIP_PACKAGES  1 to skip installing OS packages
 #   SPOTIFY        0 to leave out the Spotify Connect receiver (the Music tab's Spotify)
+#   AIRPLAY        0 to leave out the AirPlay receiver (UxPlay: mirror an iPhone, iPad or Mac)
+#   GAMES          0 to leave out RetroArch, Moonlight and Bluetooth for game controllers
+#   CLOUD_GAMES    0 to leave out the Steam Link and GeForce NOW Flatpaks (about 2 GB)
 
 set -euo pipefail
 
@@ -25,6 +28,8 @@ ELECTRON_VERSION="44.6.0"
 # go-librespot, the Spotify Connect receiver: built from this commit (it has the library API the
 # Music tab browses with, which no release has yet).
 LIBRESPOT_COMMIT="bd3fa7407eb1ab595295446e1be50cb9663e69cb"
+# UxPlay, the AirPlay receiver: in Debian, but only in the AUR on Arch, so built from this release.
+UXPLAY_VERSION="v1.73.7"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 files="$here/files"
 
@@ -275,6 +280,74 @@ if [ "${SPOTIFY:-1}" != 0 ] && install_spotify; then
   chown -h "$TV_USER:$TV_USER" "$home/.config/systemd/user/default.target.wants/ultimatetv-spotify.service"
   systemctl --user --machine="$TV_USER@.host" daemon-reload >/dev/null 2>&1 || true
   systemctl --user --machine="$TV_USER@.host" restart ultimatetv-spotify.service >/dev/null 2>&1 || true
+fi
+
+# --------------------------------------------------------------------------------------------
+# Other screens: an AirPlay receiver (UxPlay) for iPhones, iPads and Macs, and yt-dlp so links
+# sent from a phone (YouTube pages included) play in mpv. See docs/casting-and-games.md.
+
+install_uxplay() {
+  local bin=/usr/local/bin/uxplay stamp=/usr/local/share/ultimatetv/uxplay.version tmp
+  if [ "$distro" = arch ]; then
+    pacman -S --needed --noconfirm cmake openssl libplist avahi nss-mdns gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav gst-plugin-va yt-dlp \
+      || { warn "couldn't install what AirPlay needs"; return 1; }
+  else
+    apt-get install -y --no-install-recommends uxplay avahi-daemon libnss-mdns gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-vaapi gstreamer1.0-gl yt-dlp \
+      || { warn "couldn't install UxPlay"; return 1; }
+  fi
+  # AirPlay is found over Bonjour (mDNS); the screen share page's WebRTC uses it to find the laptop too.
+  systemctl enable --now avahi-daemon.service >/dev/null 2>&1 || warn "couldn't start avahi, so iPhones won't find the TV"
+  if [ "$distro" = arch ] && ! grep -q mdns_minimal /etc/nsswitch.conf; then
+    sed -i 's/^hosts: \(.*\)resolve/hosts: \1mdns_minimal [NOTFOUND=return] resolve/' /etc/nsswitch.conf || true
+  fi
+  command -v uxplay >/dev/null && [ "$distro" = debian ] && return 0
+  if [ -x "$bin" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$UXPLAY_VERSION" ]; then return 0; fi
+  say "Building the AirPlay receiver (UxPlay $UXPLAY_VERSION)"
+  tmp="$(mktemp -d)"
+  if git -C "$tmp" init -q \
+    && git -C "$tmp" fetch -q --depth 1 https://github.com/FDH2/UxPlay.git "refs/tags/$UXPLAY_VERSION" \
+    && git -C "$tmp" checkout -q FETCH_HEAD \
+    && cmake -S "$tmp" -B "$tmp/build" -DCMAKE_BUILD_TYPE=Release >/dev/null \
+    && make -C "$tmp/build" -j"$(nproc)" >/dev/null; then
+    install -Dm755 "$tmp/build/uxplay" "$bin"
+    install -d "$(dirname "$stamp")"
+    echo "$UXPLAY_VERSION" > "$stamp"
+  else
+    warn "couldn't build UxPlay, so iPhones and Macs can't mirror to the TV; everything else works"
+  fi
+  rm -rf "$tmp"
+  [ -x "$bin" ]
+}
+
+if [ "${AIRPLAY:-1}" != 0 ]; then
+  say "Setting up AirPlay"
+  install_uxplay || true
+fi
+
+# Games: RetroArch with a few classic-console cores, Moonlight (games streamed from a PC running
+# Sunshine), Bluetooth for controllers, and the Steam Link and GeForce NOW Flatpaks.
+if [ "${GAMES:-1}" != 0 ]; then
+  say "Setting up games"
+  if [ "$distro" = arch ]; then
+    pacman -S --needed --noconfirm retroarch retroarch-assets-xmb libretro-core-info moonlight-qt bluez bluez-utils || warn "couldn't install RetroArch or Moonlight"
+    for core in libretro-snes9x libretro-mgba libretro-genesis-plus-gx libretro-nestopia libretro-beetle-psx libretro-mupen64plus-next; do
+      pacman -S --needed --noconfirm "$core" >/dev/null 2>&1 || warn "couldn't install the $core RetroArch core"
+    done
+  else
+    apt-get install -y --no-install-recommends retroarch moonlight-qt bluez || warn "couldn't install RetroArch or Moonlight"
+    apt-get install -y --no-install-recommends libretro-snes9x libretro-mgba libretro-genesisplusgx libretro-nestopia >/dev/null 2>&1 || warn "couldn't install the RetroArch cores"
+  fi
+  systemctl enable --now bluetooth.service >/dev/null 2>&1 || true
+  # Controllers pair once from KDE's Bluetooth settings over SSH (bluetoothctl): see docs/casting-and-games.md.
+  if [ "${CLOUD_GAMES:-1}" != 0 ]; then
+    if [ "$distro" = arch ]; then pacman -S --needed --noconfirm flatpak || true; else apt-get install -y --no-install-recommends flatpak || true; fi
+    if command -v flatpak >/dev/null; then
+      flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || true
+      flatpak remote-add --if-not-exists GeForceNOW https://international.download.nvidia.com/GFNLinux/flatpak/geforcenow.flatpakrepo || true
+      flatpak install -y --noninteractive flathub com.valvesoftware.SteamLink >/dev/null || warn "couldn't install Steam Link"
+      flatpak install -y --noninteractive GeForceNOW com.nvidia.geforcenow >/dev/null || warn "couldn't install GeForce NOW"
+    fi
+  fi
 fi
 
 # --------------------------------------------------------------------------------------------
