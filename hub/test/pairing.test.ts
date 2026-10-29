@@ -89,6 +89,10 @@ describe("pairing phones and screens", () => {
     // The QR code is the TV's alone: it carries the code.
     expect((await app.inject("/api/remote/qr.svg")).statusCode).toBe(401);
     expect((await app.inject({ url: "/api/remote/qr.svg", headers: as(tv) })).body).toContain("<svg");
+    // The Android apps' download codes carry no pairing code, so any phone may show them.
+    expect((await app.inject("/api/apps/client/qr.svg")).body).toContain("<svg");
+    expect((await app.inject("/api/apps/remote/qr.svg")).body).toContain("<svg");
+    expect((await app.inject("/api/apps/other/qr.svg")).statusCode).toBe(404);
 
     // Typed with a dash and in lower case, as people do.
     const typed = `${code.code.slice(0, 4).toLowerCase()}-${code.code.slice(4)}`;

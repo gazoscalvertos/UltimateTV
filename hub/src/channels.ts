@@ -2,7 +2,7 @@
 // deduped (FHD/HD/SD of one channel become feeds of a single channel), categorised and numbered.
 
 import type { Channel, ChannelCategory, ChannelFeed } from "@ultimatetv/shared";
-import { heightFromName, normaliseChannelName } from "@ultimatetv/shared";
+import { CHANNEL_CATEGORIES, heightFromName, normaliseChannelName } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 
 export interface RawFeed {
@@ -96,7 +96,7 @@ export interface BuildOptions {
   numbering: "uk" | "provider";
   filter: RegExp | null;
   /** Numbers and flags the user already has, kept stable across refreshes. */
-  existing: Map<string, { number: number; favourite: boolean; hidden: boolean; userHidden?: boolean }>;
+  existing: Map<string, { number: number; favourite: boolean; hidden: boolean; userHidden?: boolean; userCategory?: ChannelCategory }>;
 }
 
 export function buildChannels(raw: RawFeed[], options: BuildOptions): { channels: Channel[]; feeds: StoredFeed[] } {
@@ -160,7 +160,7 @@ export function buildChannels(raw: RawFeed[], options: BuildOptions): { channels
       id,
       number,
       name: g.name,
-      category: g.category,
+      category: prev?.userCategory ?? g.category,
       feeds: channelFeeds.map(({ channelId: _c, upstreamId: _u, url: _url, catchupSource: _cs, ...feed }) => feed),
       favourite: prev?.favourite ?? false,
       hidden: prev?.userHidden ?? !g.visible,
@@ -243,7 +243,7 @@ export class ChannelStore {
   existingFlags(): BuildOptions["existing"] {
     const map: BuildOptions["existing"] = new Map();
     for (const c of this.db.json<Channel & { userHidden?: boolean }>("SELECT data FROM channels")) {
-      map.set(c.id, { number: c.number, favourite: c.favourite, hidden: c.hidden, ...(c.userHidden !== undefined ? { userHidden: c.userHidden } : {}) });
+      map.set(c.id, { number: c.number, favourite: c.favourite, hidden: c.hidden, ...(c.userHidden !== undefined ? { userHidden: c.userHidden } : {}), ...(c.userCategory ? { userCategory: c.userCategory } : {}) });
     }
     return map;
   }
@@ -264,18 +264,38 @@ export class ChannelStore {
     return this.db.json<StoredFeed>("SELECT data FROM feeds WHERE channel_id = ? ORDER BY priority", channelId);
   }
 
-  update(id: string, patch: { favourite?: boolean; hidden?: boolean; number?: number }): Channel | undefined {
+  /**
+   * Changes a channel by hand. A new number that another channel already has is refused, unless
+   * `swap` is set: then the two channels trade numbers (moving a channel up or down the list).
+   */
+  update(id: string, patch: { favourite?: boolean; hidden?: boolean; number?: number; swap?: boolean; category?: ChannelCategory | null }): Channel | undefined {
     const c = this.get(id) as (Channel & { userHidden?: boolean }) | undefined;
     if (!c) return undefined;
+    if (patch.category !== undefined) {
+      if (patch.category === null) {
+        // Back to the automatic category: the next channel refresh puts it back.
+        delete c.userCategory;
+      } else {
+        if (!CHANNEL_CATEGORIES.includes(patch.category)) throw Object.assign(new Error(`There's no ${patch.category} category`), { statusCode: 400 });
+        c.category = patch.category;
+        c.userCategory = patch.category;
+      }
+    }
     if (patch.favourite !== undefined) c.favourite = patch.favourite;
     if (patch.hidden !== undefined) {
       c.hidden = patch.hidden;
       c.userHidden = patch.hidden;
     }
     if (patch.number !== undefined) {
-      const clash = this.byNumber(patch.number);
-      if (clash && clash.id !== id) throw new Error(`Channel ${patch.number} is already ${clash.name}`);
-      c.number = patch.number;
+      const n = Math.round(Number(patch.number));
+      if (!Number.isFinite(n) || n < 1 || n > 99_999) throw Object.assign(new Error("A channel number is 1 to 99999"), { statusCode: 400 });
+      const clash = this.db.jsonOne<Channel>("SELECT data FROM channels WHERE number = ? AND id != ?", n, id);
+      if (clash && !(patch.swap || clash.hidden)) throw new Error(`Channel ${n} is already ${clash.name}`);
+      if (clash) {
+        clash.number = c.number;
+        this.db.run("UPDATE channels SET number = ?, data = ? WHERE id = ?", clash.number, JSON.stringify(clash), clash.id);
+      }
+      c.number = n;
     }
     this.db.run("UPDATE channels SET number = ?, hidden = ?, data = ? WHERE id = ?", c.number, c.hidden ? 1 : 0, JSON.stringify(c), id);
     return c;

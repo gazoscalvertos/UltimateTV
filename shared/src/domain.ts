@@ -11,6 +11,7 @@ export type Id = string;
 // Live TV
 
 export type ChannelCategory = "entertainment" | "films" | "sport" | "news" | "kids" | "music" | "documentaries" | "other";
+export const CHANNEL_CATEGORIES: ChannelCategory[] = ["entertainment", "films", "sport", "news", "documentaries", "kids", "music", "other"];
 
 export interface ChannelFeed {
   /** Stable id: `${sourceId}:${upstreamId}`. */
@@ -32,6 +33,8 @@ export interface Channel {
   name: string;
   logo?: string;
   category: ChannelCategory;
+  /** A category chosen by hand (phone settings); kept over the automatic one when the channel list refreshes. */
+  userCategory?: ChannelCategory;
   /** XMLTV channel id used to join guide data. */
   epgId?: string;
   feeds: ChannelFeed[];
