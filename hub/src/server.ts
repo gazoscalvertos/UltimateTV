@@ -185,6 +185,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "PATCH /api/profiles/:id",
     "DELETE /api/profiles/:id",
     "POST /api/guides",
+    "PUT /api/guides/order",
     "PATCH /api/guides/:id",
     "DELETE /api/guides/:id",
     "POST /api/downloads",
@@ -615,6 +616,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       .send(apk.stream);
   });
 
+  // QR codes for the two Android apps' download links, for the TV's and the phone's settings.
+  // Anyone may ask: they carry no pairing code, and the apps pair themselves once installed.
+  app.get("/api/apps/:app/qr.svg", async (req: Req<{ app: string }>, reply) => {
+    if (req.params.app !== "client" && req.params.app !== "remote") return reply.code(404).send({ error: "No such app" });
+    const svg = await QRCode.toString(`${phoneBase(req)}/api/${req.params.app}/app.apk`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+    return reply.type("image/svg+xml").header("Cache-Control", "no-store").send(svg);
+  });
+
   /** Voice control: what the phone heard, turned into keys, a channel or a search. */
   app.post("/api/remote/voice", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
     const said = String(req.body?.text ?? "").slice(0, 200);
@@ -629,7 +638,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "saveToNas"]);
   const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
   let tvCallSeq = 0;
   app.post("/api/tv/call/:method", async (req: Req<{ method: string }, Record<string, string>, unknown>, reply) => {
@@ -731,14 +740,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.get("/api/channels", async (req: Req<Record<string, string>, { all?: string }>) => ({ channels: filterOf(req).channels(ctx.channels.list(req.query.all === "1")) }));
 
-  app.patch("/api/channels/:id", async (req: Req<{ id: string }, Record<string, string>, { favourite?: boolean; hidden?: boolean; number?: number }>, reply) => {
+  app.patch("/api/channels/:id", async (req: Req<{ id: string }, Record<string, string>, { favourite?: boolean; hidden?: boolean; number?: number; swap?: boolean; category?: ChannelCategory | null }>, reply) => {
     try {
       const c = ctx.channels.update(req.params.id, req.body ?? {});
       if (!c) return reply.code(404).send({ error: "No such channel" });
       ctx.events.emit({ type: "guide.updated" });
       return c;
     } catch (err) {
-      return reply.code(409).send({ error: (err as Error).message });
+      return reply.code((err as { statusCode?: number }).statusCode ?? 409).send({ error: (err as Error).message });
     }
   });
 
@@ -770,6 +779,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const who = viewer(req);
     const channels = who.filter.channels(ctx.channels.list());
     return { choices: ctx.guides.choices(channels), custom: ctx.guides.list(), default: ctx.guides.resolveDefault(who.profile?.defaultGuide, channels) };
+  });
+
+  /** The order of the lists above the guide (after All channels), for the phone settings page. */
+  app.put("/api/guides/order", async (req: Req<Record<string, string>, Record<string, string>, { order?: string[] }>) => {
+    const order = ctx.guides.setOrder(req.body?.order ?? []);
+    ctx.events.emit({ type: "guide.updated" });
+    return { order };
   });
 
   app.post("/api/guides", async (req: Req<Record<string, string>, Record<string, string>, { name?: string; channels?: string[] }>, reply) => {
@@ -1145,13 +1161,15 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   app.get("/api/search", async (req: Req<Record<string, string>, { q?: string }>) => ({ results: await library.search(req.query.q ?? "", Date.now(), filterOf(req)) }));
 
-  // Downloads to the NAS.
+  // Downloads to the NAS (Save to NAS), then added to Jellyfin.
   app.get("/api/downloads", async () => ({ downloads: ctx.downloads.list() }));
   app.post("/api/downloads", async (req: Req<Record<string, string>, Record<string, string>, { titleId: string; episodeId?: string; streamId?: string }>, reply) => {
     const { titleId, episodeId, streamId } = req.body;
     const ep = episodeId ? episodeNumbers(episodeId) : undefined;
     const streams = await library.streams(titleId, ep);
-    const pick = streamId ? streams.find((s) => s.id === streamId) : streams.find((s) => s.downloadable && s.ready && s.kind !== "xtream") ?? streams.find((s) => s.downloadable);
+    // The version asked for (the one playing, or picked in Versions), else the best one to save.
+    const chosen = streamId ? streams.find((s) => s.id === streamId && s.downloadable) : undefined;
+    const pick = chosen ?? streams.find((s) => s.downloadable && s.ready && s.kind !== "xtream") ?? streams.find((s) => s.downloadable);
     if (!pick?.downloadable) return reply.code(422).send({ error: "There's no copy of this that can be saved to the NAS" });
     const details = await library.details(titleId);
     const request: Parameters<typeof ctx.downloads.add>[0] = { title: details.name, kind: details.kind, url: pick.url };
