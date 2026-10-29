@@ -69,9 +69,33 @@ export class CustomGuideStore {
     return channels;
   }
 
-  /** The lists worth offering this profile: empty categories and favourites are left out. */
+  /** The household's order for the lists after All channels (ids of favourites, custom guides and categories). */
+  order(): string[] {
+    return this.db.getKv<string[]>("guide-list-order") ?? [];
+  }
+
+  setOrder(ids: string[]): string[] {
+    if (!Array.isArray(ids)) throw badRequest("order must be a list of guide list ids");
+    const clean = [...new Set(ids.map(String).filter(Boolean))].slice(0, 500);
+    this.db.setKv("guide-list-order", clean);
+    return clean;
+  }
+
+  /**
+   * The lists worth offering this profile, All channels first and the rest in the household's
+   * order; lists it doesn't mention (a new custom guide) follow in the usual order. Empty
+   * categories and favourites are left out.
+   */
   choices(channels: Channel[]): GuideChoice[] {
-    const out: GuideChoice[] = [{ id: "", label: "All channels", kind: "all", count: channels.length }];
+    const rest = this.unordered(channels);
+    const rank = new Map(this.order().map((id, i) => [id, i]));
+    const at = (c: GuideChoice, i: number) => rank.get(c.id) ?? rank.size + i;
+    const sorted = rest.map((c, i) => ({ c, r: at(c, i) })).sort((a, b) => a.r - b.r).map((x) => x.c);
+    return [{ id: "", label: "All channels", kind: "all", count: channels.length }, ...sorted];
+  }
+
+  private unordered(channels: Channel[]): GuideChoice[] {
+    const out: GuideChoice[] = [];
     const favourites = channels.filter((c) => c.favourite).length;
     if (favourites) out.push({ id: "favourites", label: "Favourites", kind: "favourites", count: favourites });
     // A custom guide with nothing this profile can see (a Kids profile and a grown-up's guide) is left out.

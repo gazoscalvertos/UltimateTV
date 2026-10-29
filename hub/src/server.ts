@@ -185,6 +185,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "PATCH /api/profiles/:id",
     "DELETE /api/profiles/:id",
     "POST /api/guides",
+    "PUT /api/guides/order",
     "PATCH /api/guides/:id",
     "DELETE /api/guides/:id",
     "POST /api/downloads",
@@ -729,14 +730,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.get("/api/channels", async (req: Req<Record<string, string>, { all?: string }>) => ({ channels: filterOf(req).channels(ctx.channels.list(req.query.all === "1")) }));
 
-  app.patch("/api/channels/:id", async (req: Req<{ id: string }, Record<string, string>, { favourite?: boolean; hidden?: boolean; number?: number }>, reply) => {
+  app.patch("/api/channels/:id", async (req: Req<{ id: string }, Record<string, string>, { favourite?: boolean; hidden?: boolean; number?: number; swap?: boolean; category?: ChannelCategory | null }>, reply) => {
     try {
       const c = ctx.channels.update(req.params.id, req.body ?? {});
       if (!c) return reply.code(404).send({ error: "No such channel" });
       ctx.events.emit({ type: "guide.updated" });
       return c;
     } catch (err) {
-      return reply.code(409).send({ error: (err as Error).message });
+      return reply.code((err as { statusCode?: number }).statusCode ?? 409).send({ error: (err as Error).message });
     }
   });
 
@@ -768,6 +769,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const who = viewer(req);
     const channels = who.filter.channels(ctx.channels.list());
     return { choices: ctx.guides.choices(channels), custom: ctx.guides.list(), default: ctx.guides.resolveDefault(who.profile?.defaultGuide, channels) };
+  });
+
+  /** The order of the lists above the guide (after All channels), for the phone settings page. */
+  app.put("/api/guides/order", async (req: Req<Record<string, string>, Record<string, string>, { order?: string[] }>) => {
+    const order = ctx.guides.setOrder(req.body?.order ?? []);
+    ctx.events.emit({ type: "guide.updated" });
+    return { order };
   });
 
   app.post("/api/guides", async (req: Req<Record<string, string>, Record<string, string>, { name?: string; channels?: string[] }>, reply) => {
