@@ -1,6 +1,8 @@
 # UltimateTV: Product & Technical Plan
 
 > Status: **Draft v5** (2026-10-24). Phase 0 (server side) is built. This draft moves the app off the TV and onto a Linux mini PC.
+>
+> **Update 2026-10-29:** this plan is kept as the record of why things were chosen. For what is built now, see [FEATURES.md](FEATURES.md), [ARCHITECTURE.md](ARCHITECTURE.md) and [ROADMAP.md](ROADMAP.md). Since this draft, profiles with PINs and two Android apps (the phone remote and a watching client) were added, so the "out of scope" line below no longer holds.
 > Target display: **Hisense 85" 85U7STUK** (2026 U7 Mini-LED), driven over HDMI by a **Linux mini PC** running our own app.
 > North star: **the best picture and sound the TV can show, wrapped in a UI that passes the Wife Acceptance Factor (WAF).**
 
@@ -307,7 +309,7 @@ Every action is also reachable from the on-screen **Options** menu, so a key the
 
 ## 8. Phased roadmap
 
-**Status (2026-10-24):** Gary asked for the whole app to be built ahead of testing on the real hardware. The code for phases 1 to 5 is written and tested against a demo Hub in a browser: Hub, TV UI, box shell and installer, profiles with a Kids lock, and a phone remote (web and Android, added because the CEC adapter is a week away). Nothing has run on the box or with the real IPTV yet; [TESTING.md](TESTING.md) is the test run.
+**Current status:** [ROADMAP.md](ROADMAP.md). **Status (2026-10-24):** Gary asked for the whole app to be built ahead of testing on the real hardware. The code for phases 1 to 5 is written and tested against a demo Hub in a browser: Hub, TV UI, box shell and installer, profiles with a Kids lock, and a phone remote (web and Android, added because the CEC adapter is a week away). Nothing has run on the box or with the real IPTV yet; [TESTING.md](TESTING.md) is the test run.
 
 | Phase | Name | Scope | Exit criteria |
 |-------|------|-------|---------------|
