@@ -127,6 +127,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["DELETE /api/scares/clips/:id", "script"],
     ["POST /api/scares/mixes", "script"],
     ["DELETE /api/scares/mixes/:id", "script"],
+    ["POST /api/scares/loop", "script"],
+    ["POST /api/scares/packs", "paired"],
+    ["POST /api/scares/packs/link", "paired"],
+    ["DELETE /api/scares/packs/:id", "paired"],
+    ["POST /api/scares/packs/export", "paired"],
+    ["POST /api/scares/shares", "paired"],
+    ["POST /api/scares/library/install", "paired"],
     ["POST /api/tv/call/:method", "paired"],
     ["POST /api/queue", "paired"],
     ["POST /api/queue/:id/move", "paired"],
@@ -521,8 +528,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   // Pop-ups on the TV from the phone or anything on the home network (a doorbell, an alarm).
   await registerNotices(app, ctx, config.dataDir);
-  // Jump scares: clips the Hub keeps and cuts in over whatever is on (see scares.ts).
-  const clipStore = await registerScares(app, ctx, config.dataDir);
+  // Jump scares and projected clips: clips the Hub keeps and cuts in over whatever is on, and the packs that share them (see scares.ts).
+  const clipStore = await registerScares(app, ctx, config.dataDir, { phoneBase });
   // Seasonal projections and the community clip library (see projections.ts).
   const projections = new Projections(ctx, clipStore);
   registerProjections(app, projections);

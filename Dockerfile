@@ -59,6 +59,7 @@ COPY --from=build /app/shared/dist shared/dist
 COPY --from=build /app/hub/package.json hub/
 COPY --from=build /app/hub/dist hub/dist
 COPY --from=build /app/hub/public hub/public
+COPY --from=build /app/hub/packs hub/packs
 COPY --from=build /app/ui/dist ui/dist
 COPY --from=build /app/tools/probe/dist tools/probe/dist
 COPY --from=comskip /src/comskip /usr/local/bin/comskip

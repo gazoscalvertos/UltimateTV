@@ -1,0 +1,2 @@
+# Clip packs are checksummed on the community list: keep them byte for byte.
+*.utvpack binary

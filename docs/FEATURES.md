@@ -83,6 +83,7 @@ Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #60). Almo
 - **Save for later**: a list per profile from the TV (Red on a title), the phone and voice, shown as a row on Home.
 - **Advert skip**: comskip in the Hub's image finds the breaks in recordings; playback offers Skip adverts or skips them itself.
 - **Seasonal clips**: a sleigh, a bunny, fireworks, a ghost and more drift across the TV for Christmas, New Year, Valentine's, Easter, Halloween, Bonfire Night and birthdays, drawn by the TV or uploaded from the phone, with a community library in [community/clips](../community/clips/README.md).
+- **Projected clips and packs** ([projected-clips.md](projected-clips.md)): built clips (a picture and a sound, placed and walking, hopping, flying, rising or falling) for each occasion, six starter packs (Christmas, Easter, Valentine's, Birthday, Halloween, Fireworks), `.utvpack` packs to share by file, link or QR code, a community pack list, and a loop mode for a window projector. Never on Kids.
 
 ## Other screens and games ([casting-and-games.md](casting-and-games.md))
 
