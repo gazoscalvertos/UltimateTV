@@ -1,6 +1,6 @@
 # Features
 
-Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #56). Almost all of it is untested on the Hisense; [ROADMAP.md](ROADMAP.md) says what has run on real hardware. [CHANGELOG.md](../CHANGELOG.md) has the detail of each change.
+Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #60). Almost all of it is untested on the Hisense; [ROADMAP.md](ROADMAP.md) says what has run on real hardware. [CHANGELOG.md](../CHANGELOG.md) has the detail of each change.
 
 ## Live TV and the guide
 
@@ -76,6 +76,20 @@ Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #56). Almo
 - **Halloween** ([halloween.md](halloween.md)): an automatic theme from 25 October to 1 November, three hidden easter eggs, and jump scares (your own clips, or ones built from a picture or video plus a sound), never on Kids.
 - **Themes** ([themes.md](themes.md)): Dark, Light, Slick, Cyberpunk, Ocean, Forest and Sunset, plus seasonal Halloween, Christmas, Easter and Valentine's themes that come out on their days, on the TV, the phone remote and the web pages.
 - **App name**: call it GazosTV or anything else; it shows everywhere, including Spotify's device list.
+
+- **Button hints and help** ([everyday-extras.md](everyday-extras.md)): a strip along the bottom says what the colour keys do on each screen; Info opens a help screen with the remote drawn. On Home the colour keys are shortcuts.
+- **Sleep timer**: 15 minutes to 2 hours or the end of the programme, from Options, the phone or voice. "Still watching?" a minute before, then the sound fades, playback stops and the TV goes to standby over CEC.
+- **Alerts**: IPTV or TorBox expiry, the guide not updating, failed recordings, a full NAS and live TV failing go to a Home Assistant webhook or ntfy, and to a card on the TV for grown-ups.
+- **Save for later**: a list per profile from the TV (Red on a title), the phone and voice, shown as a row on Home.
+- **Advert skip**: comskip in the Hub's image finds the breaks in recordings; playback offers Skip adverts or skips them itself.
+- **Seasonal clips**: a sleigh, a bunny, fireworks, a ghost and more drift across the TV for Christmas, New Year, Valentine's, Easter, Halloween, Bonfire Night and birthdays, drawn by the TV or uploaded from the phone, with a community library in [community/clips](../community/clips/README.md).
+
+## Other screens and games ([casting-and-games.md](casting-and-games.md))
+
+- **AirPlay** from an iPhone, iPad or Mac (UxPlay on the box); Back ends it, and Kids can't be cast to.
+- **Laptop screen share** from Chrome, Edge or Firefox at `https://<hub>:8096/cast/`, after the TV asks.
+- **Links and photos from a phone**: the phone remote's Cast sheet, also in Android's share menu; YouTube plays through mpv and yt-dlp.
+- **Games**: RetroArch, Moonlight, Steam Link, GeForce NOW and Steam open full screen from Cast and games (Blue on Home), and the TV app comes back when they close. Off on Kids unless allowed.
 
 ## Running and looking after it
 

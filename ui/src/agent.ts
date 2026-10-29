@@ -2,6 +2,8 @@
 // own window under this transparent UI. In a normal browser (development, screenshots) a <video>
 // element stands in; streams it can't decode (MPEG-TS, HEVC) show their artwork instead.
 
+import type { CastState } from "@ultimatetv/shared";
+import { GAME_APPS } from "@ultimatetv/shared";
 import type { BoxAgent, BoxDownloads, BoxInfo, BoxSoftware, MusicPage, MusicTracks, PlaybackStats, PlayerState, PlayOptions, SpotifyState, VideoLayout, WebAppLoginReport, WebAppState } from "@ultimatetv/shared";
 
 class BrowserAgent implements BoxAgent {
@@ -236,6 +238,26 @@ class BrowserAgent implements BoxAgent {
   onDownloads(): () => void {
     return () => undefined;
   }
+
+  // AirPlay and games run on the box. The demo shows what the screen looks like with them installed.
+  async cast(): Promise<CastState> {
+    const demo = /[?&]demo-cast/.test(location.search);
+    return {
+      airplay: { installed: demo, enabled: true, running: demo, connected: false, name: document.title || "UltimateTV" },
+      apps: GAME_APPS.map((a) => ({ ...a, installed: demo && a.id !== "steam" })),
+      foreground: null,
+    };
+  }
+  castSettings = this.cast;
+  async launchApp(): Promise<CastState> {
+    throw new Error("Games open on the TV box");
+  }
+  stopApp = this.cast;
+  onCast(): () => void {
+    return () => undefined;
+  }
+  async tvStandby(): Promise<void> {}
+  async setVolume(): Promise<void> {}
 }
 
 export const agent: BoxAgent = window.ultimatetv ?? new BrowserAgent();

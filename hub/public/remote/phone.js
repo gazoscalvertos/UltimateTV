@@ -139,6 +139,7 @@
     else if (web) mode = "web";
     card.hidden = !mode;
     card.dataset.mode = mode || "";
+    $("np-sleep-at").textContent = tv?.sleep?.at ? clock(tv.sleep.at) : "";
     if (!mode) return;
 
     const range = $("np-range");
@@ -464,6 +465,162 @@
   $("notify-btn").addEventListener("click", () => void notifySheet());
 
   // ---------------------------------------------------------------------------
+  // Cast: a link or photo to the TV, the laptop's screen-share page, AirPlay, and the games on the
+  // box. Sharing a link to the installed remote from YouTube or a browser opens this too.
+
+  const MOTIONS = [["across-top", "Across the top"], ["across-bottom", "Along the bottom"], ["fall", "Falling"], ["rise", "Rising"], ["corner", "In a corner"]];
+  const SEASON_LIST = [["any", "Any"], ["christmas", "Christmas"], ["newyear", "New Year"], ["valentines", "Valentine's"], ["easter", "Easter"], ["halloween", "Halloween"], ["bonfire", "Bonfire Night"], ["birthday", "Birthday"]];
+
+  async function sendLink(url, title) {
+    if (!url) return toast("Paste a link first", true);
+    toast("Sending to the TV…");
+    try {
+      await post("/api/cast/link", { url, ...(title ? { title } : {}) });
+      closeSheet();
+      toast("Playing on the TV");
+      setTimeout(poll, 1500);
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+
+  async function showPhoto(file) {
+    toast(file.type.startsWith("video/") ? "Sending the video…" : "Sending the photo…");
+    try {
+      const r = await fetch("/api/notify/media", { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || r.statusText);
+      await post("/api/notify", { kind: "info", position: "full", size: "large", seconds: d.kind === "video" ? 0 : 60, sound: "none", pause: true, [d.kind]: d.url });
+      toast("On the TV now. Back on the TV remote closes it");
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+
+  async function castSheet(shared) {
+    let info = null;
+    try {
+      info = await call("cast");
+    } catch {
+      // The TV app isn't answering: links and photos still go through the Hub.
+    }
+    const st = info?.state;
+    const fg = st?.foreground;
+    const games = (st?.apps ?? []).filter((a) => a.installed);
+    const air = st?.airplay;
+    openSheet(`<h2>Cast to the TV</h2>
+      ${fg ? `<div class="actions"><button class="primary" id="ca-back">Back to the TV app (close ${esc(fg.name)})</button></div>` : ""}
+      <h3>Play a link</h3>
+      <p class="meta">A YouTube video, or a link to a video file or stream.</p>
+      <input class="field" id="ca-url" type="url" placeholder="https://…" autocomplete="off" value="${esc(shared?.url ?? "")}">
+      <div class="actions"><button class="primary" id="ca-send">Play on the TV</button><button id="ca-paste">Paste</button></div>
+      <h3>Photos and videos from this phone</h3>
+      <div class="actions"><button id="ca-photo">Show a photo or video full screen</button></div>
+      <input type="file" id="ca-file" accept="image/*,video/*" hidden>
+      ${info?.shareUrl ? `<h3>A laptop's screen</h3><p class="meta">On the laptop, open this in Chrome or Edge and choose Share my screen. The TV asks first.</p><div class="copy"><code>${esc(info.shareUrl)}</code><button id="ca-copy">Copy</button></div>` : ""}
+      ${air?.installed ? `<h3>iPhone, iPad or Mac (AirPlay)</h3><p class="meta">Control Centre › Screen Mirroring › “${esc(air.name)}”.</p><div class="seg" id="ca-air"><button type="button" data-v="1" class="${air.enabled ? "on" : ""}">On</button><button type="button" data-v="0" class="${air.enabled ? "" : "on"}">Off</button></div>` : ""}
+      ${info?.box && info.gamesAllowed && games.length ? `<h3>Games</h3><div class="games">${games.map((g) => `<button type="button" data-game="${esc(g.id)}">${esc(g.name)}<small>${esc(g.detail)}</small></button>`).join("")}</div>` : ""}
+      <h3>Seasonal clips</h3>
+      <div class="actions"><button id="ca-proj">Show one on the TV now</button><button id="ca-proj-add">Add your own</button></div>
+      <button class="link" data-close>Close</button>`);
+    $("ca-send").onclick = () => void sendLink($("ca-url").value.trim(), shared?.title);
+    $("ca-paste").onclick = async () => {
+      try {
+        $("ca-url").value = (await navigator.clipboard.readText()).trim();
+      } catch {
+        toast("Long-press the box and choose Paste", true);
+      }
+    };
+    $("ca-photo").onclick = () => $("ca-file").click();
+    $("ca-file").onchange = (e) => {
+      const f = e.target.files[0];
+      e.target.value = "";
+      if (f) void showPhoto(f);
+    };
+    if ($("ca-copy")) $("ca-copy").onclick = () => void navigator.clipboard?.writeText(info.shareUrl).then(() => toast("Copied"), () => toast("Couldn't copy", true));
+    if ($("ca-back")) $("ca-back").onclick = () => void call("castApp", { stop: true }).then(() => (closeSheet(), toast("Back to the TV app")), (e) => toast(e.message, true));
+    for (const b of document.querySelectorAll("#ca-air button")) b.onclick = () => void call("castAirplay", { on: b.dataset.v === "1" }).then(() => castSheet(), (e) => toast(e.message, true));
+    for (const b of document.querySelectorAll("[data-game]")) b.onclick = () => void call("castApp", { id: b.dataset.game }).then(() => (closeSheet(), toast("Opening on the TV")), (e) => toast(e.message, true));
+    $("ca-proj").onclick = () => void post("/api/projections/now", {}).then(() => toast("On the TV now"), (e) => toast(e.message, true));
+    $("ca-proj-add").onclick = () => projectionUpload();
+  }
+
+  function projectionUpload() {
+    const seg = (id, items, value) => `<div class="seg" id="${id}">${items.map(([v, l]) => `<button type="button" data-v="${v}" class="${v === value ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
+    const pick = { season: "christmas", motion: "across-top", file: null };
+    openSheet(`<h2>Add a seasonal clip</h2>
+      <p class="meta">A GIF, a short video or a picture with a see-through background works best. It drifts across the TV now and then while its season lasts.</p>
+      <h3>Season</h3>${seg("pj-season", SEASON_LIST, pick.season)}
+      <h3>How it moves</h3>${seg("pj-motion", MOTIONS, pick.motion)}
+      <input type="file" id="pj-file" accept="image/*,video/*" hidden>
+      <div class="actions"><button class="primary" id="pj-add">Choose the clip</button></div>
+      <button class="link" data-close>Close</button>`);
+    const mark = (id, v) => {
+      for (const b of $(id).querySelectorAll("button")) b.classList.toggle("on", b.dataset.v === v);
+    };
+    for (const b of $("pj-season").querySelectorAll("button")) b.onclick = () => ((pick.season = b.dataset.v), mark("pj-season", pick.season));
+    for (const b of $("pj-motion").querySelectorAll("button")) b.onclick = () => ((pick.motion = b.dataset.v), mark("pj-motion", pick.motion));
+    $("pj-add").onclick = () => $("pj-file").click();
+    $("pj-file").onchange = async (e) => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      toast("Sending…");
+      try {
+        const q = new URLSearchParams({ name: file.name.replace(/\.[^.]+$/, ""), projection: "1", season: pick.season, motion: pick.motion });
+        const r = await fetch(`/api/scares/clips?${q}`, { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || r.statusText);
+        await post("/api/projections/now", { clipId: d.clip.id }).catch(() => undefined);
+        closeSheet();
+        toast("Added, and showing on the TV now");
+      } catch (err) {
+        toast(err.message, true);
+      }
+    };
+  }
+  $("cast-btn").addEventListener("click", () => void castSheet());
+
+  // Shared from another app to the installed remote (manifest share_target): straight to Cast.
+  {
+    const q = new URLSearchParams(location.search);
+    const text = [q.get("share_url"), q.get("share_text")].filter(Boolean).join(" ");
+    if (text) {
+      const url = (/https?:\/\/\S+/i.exec(text) || [""])[0];
+      history.replaceState(null, "", location.pathname);
+      void castSheet({ url, title: q.get("share_title") || "" });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sleep timer: the TV fades out, stops and turns off.
+
+  function sleepSheet() {
+    const s = tv?.sleep;
+    const mins = [[15, "15 min"], [30, "30 min"], [45, "45 min"], [60, "1 hour"], [90, "1½ hours"], [120, "2 hours"]];
+    openSheet(`<h2>Sleep timer</h2>
+      <p class="meta">${s?.at ? `Set: ${esc(s.label)}.` : "Off."} When it goes off the sound fades, playback stops and the TV turns off.</p>
+      ${tv?.playing ? `<button class="row-btn" data-sleep="end">At the end of this</button>` : ""}
+      ${mins.map(([m, l]) => `<button class="row-btn" data-sleep="${m}">${l}</button>`).join("")}
+      ${s?.at ? `<button class="row-btn" data-sleep="off">Turn it off</button>` : ""}
+      <button class="link" data-close>Close</button>`);
+    for (const b of document.querySelectorAll("[data-sleep]")) {
+      b.onclick = async () => {
+        const v = b.dataset.sleep;
+        try {
+          await post("/api/tv/sleep", v === "off" ? { off: true } : v === "end" ? { end: true } : { minutes: Number(v) });
+          closeSheet();
+          toast(v === "off" ? "Sleep timer off" : "Sleep timer set");
+          setTimeout(poll, 800);
+        } catch (e) {
+          toast(e.message, true);
+        }
+      };
+    }
+  }
+  $("np-sleep").onclick = () => sleepSheet();
+
+  // ---------------------------------------------------------------------------
   // Jump scares: a clip cut in over whatever is on. The settings and the clips live on the Hub
   // (/api/scares), so the TV and every phone agree; the TV picks the moment for a random one.
 
@@ -781,7 +938,7 @@
     openSheet(`${d.backdrop ? `<div class="hero" style="background-image:url('${esc(d.backdrop)}')"></div>` : ""}
       <h2>${esc(d.name)}</h2><p class="meta">${esc(meta)}</p>
       ${d.overview ? `<p class="overview">${esc(d.overview)}</p>` : ""}
-      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>${!kidsProfile && !d.inLibrary ? `<button id="s-save">Save to NAS</button>` : ""}` : ""}</div>
+      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>${!kidsProfile && !d.inLibrary ? `<button id="s-save">Save to NAS</button>` : ""}` : ""}<button id="s-later">Save for later</button></div>
       ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="actions"><button id="s-dl-season">Download this series to the TV box</button>${!kidsProfile ? `<button id="s-save-season">Save this series to the NAS</button>` : ""}${seasons.filter((s) => s.season > 0).length > 1 ? `<button id="s-dl-all">Download every series</button>` : ""}</div><div class="list" id="s-eps"></div>` : ""}
       <button class="link" data-close>Close</button>`);
     if ($("s-play")) $("s-play").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef);
@@ -789,6 +946,11 @@
     const art = d.backdrop ?? d.poster;
     if ($("s-queue")) $("s-queue").onclick = () => queueIt({ req: { kind: "title", id: d.id }, title: titleRef, name: d.name, ...(d.year ? { subtitle: String(d.year) } : {}), ...(art ? { image: art } : {}) });
     if ($("s-dl")) $("s-dl").onclick = () => downloadToBox({ titleId: d.id });
+    $("s-later").onclick = () =>
+      void post("/api/watchlist", { title: titleRef, from: "phone" }).then(
+        () => (($("s-later").textContent = "Saved for later"), ($("s-later").disabled = true), toast("Saved: it's on the TV's Home")),
+        (e) => toast(e.message, true),
+      );
     if ($("s-dl-season")) $("s-dl-season").onclick = () => downloadToBox({ titleId: d.id, season: seasons[Number($("s-season").value)].season });
     if ($("s-dl-all")) $("s-dl-all").onclick = () => downloadToBox({ titleId: d.id, all: true });
     if ($("s-save")) $("s-save").onclick = () => saveToNas({ titleId: d.id });

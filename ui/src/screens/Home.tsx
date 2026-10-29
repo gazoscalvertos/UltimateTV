@@ -8,13 +8,28 @@ import { QueueRow } from "../components/QueueRow";
 import { RailRow } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
+import { HOME_KEYS, useHints } from "../hints";
+import { useKeys } from "../keys";
 import { play } from "../player";
-import { nav } from "../store";
+import { isKids, nav } from "../store";
+import { castSettings } from "../cast";
 
 export function Home() {
   const [home, { refetch }] = createResource(() => hub.home());
   // Refreshed only when a recording finishes, so the rails don't shift under the remote.
-  onCleanup(onHubEvent((e) => (e.type === "recording.finished" ? void refetch() : undefined)));
+  onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" ? void refetch() : undefined)));
+
+  // The colour keys are shortcuts on Home, as on Sky.
+  const castOk = () => !isKids() || castSettings().gamesForKids;
+  useHints(() => HOME_KEYS.filter((h) => h.key !== "blue" || castOk()));
+  useKeys((a) => {
+    if (a === "red") nav.push({ name: "planner" });
+    else if (a === "green") nav.push({ name: "guide" });
+    else if (a === "yellow") nav.push({ name: "search" });
+    else if (a === "blue" && castOk()) nav.push({ name: "cast" });
+    else return false;
+    return true;
+  });
 
   return (
     <div class="screen home" data-layer>

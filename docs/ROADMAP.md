@@ -15,7 +15,7 @@ Gary asked for the whole app to be built before testing on the real hardware, so
 | 3. Unified films and TV | Built. Jellyfin playback has run on the box. |
 | 4. AIOStreams, TorBox, NAS pipeline, phone remote | Built. The phone remote is in daily use; TorBox and Save to NAS are untested. |
 | 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates). Automatic rollback, backups and the WAF test remain. |
-| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads: built, mostly untested. |
+| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, sleep timer, alerts, Save for later, advert skip, seasonal clips: built, mostly untested. |
 
 ## What has run on real hardware
 
@@ -46,6 +46,8 @@ In the order of [TESTING.md](TESTING.md):
 - **Spotify and Deezer** on the box (neither has been tried against the real services).
 - **Pop-ups from Home Assistant** (existing commands need the `X-Api-Key` header).
 - **Play queue, screensavers, Halloween and jump scares, Download to box, and a trip** with `travel.sh`.
+- **Cast and games:** AirPlay, a laptop's screen share (trust the Hub's certificate first), links from the phone, RetroArch, Moonlight, Steam Link and GeForce NOW. The sleep timer's CEC standby needs the Pulse-Eight.
+- **Advert skip** on real UK recordings (comskip's settings may need tuning), and alerts reaching Home Assistant or ntfy.
 - **The WAF test:** watch BBC One, record tonight's film, set a series link, carry on yesterday's film, find a 4K comedy, with no help.
 
 ## Recent pull requests
@@ -56,6 +58,10 @@ In the order of [TESTING.md](TESTING.md):
 | [#52](https://github.com/gazoscalvertos/UltimateTV/pull/52) | QR codes and links for the Android apps in settings | Merged |
 | [#53](https://github.com/gazoscalvertos/UltimateTV/pull/53) | Save to NAS from Versions, the player and the phone | Merged |
 | [#54](https://github.com/gazoscalvertos/UltimateTV/pull/54) | Theme picker with seasonal themes | Merged |
+| [#55](https://github.com/gazoscalvertos/UltimateTV/pull/55) | These overview docs | Merged |
+| [#56](https://github.com/gazoscalvertos/UltimateTV/pull/56) | Spotify and Deezer sign-in fixed, music guide | Merged |
+| [#60](https://github.com/gazoscalvertos/UltimateTV/pull/60) | Cast and games, button hints, sleep timer, alerts, Save for later, advert skip, seasonal clips | Merged |
+| [#58](https://github.com/gazoscalvertos/UltimateTV/pull/58), [#59](https://github.com/gazoscalvertos/UltimateTV/pull/59) | Earlier takes on the watchlist, advert skip, help, sleep timer and alerts | Closed, #60 has them |
 
 ## Not built yet
 

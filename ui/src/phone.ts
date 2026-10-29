@@ -2,14 +2,16 @@
 // to play something, seek, pick a track, drive the music, download to the box or save to the NAS. The Hub relays each call as a
 // "tv.call" event and waits for the answer posted back to /api/tv/reply/:id.
 
-import type { PlaybackRequest, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
+import type { GameAppId, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
+import { backToTv, canCast, castSettings, castState, gamesAllowed, openGame, refreshCast, setAirplay, shareUrl } from "./cast";
 import { api, hub } from "./api";
 import { allEpisodes, canDownload, downloadToBox, episodeRequest, episodesOf, filmRequest, recordingRequest, removeFromBox, visibleDownloads } from "./downloads";
 import { onHubEvent } from "./events";
 import { music, spotify, spotifySetup, webApp } from "./music";
 import { channels, liveChannelId, nowPlaying, play, playerState } from "./player";
 import { saveEpisodes, saveToNas } from "./save";
+import { sleep, setSleep } from "./sleep";
 import { isKids, nav, profile } from "./store";
 
 /** What the phone's "On the TV box" list shows: no pictures (they're data: URLs on the box), just links to them. */
@@ -98,7 +100,14 @@ async function now(): Promise<TvNow> {
     info,
     spotify: s.available && (s.status !== "stopped" || s.track) ? s : null,
     webApp: w.app ? w : null,
+    ...(sleep().at ? { sleep: sleep() } : {}),
   };
+}
+
+/** The phone's Cast sheet: AirPlay, the laptop page, the games and who may use them. */
+async function castForPhone() {
+  await refreshCast();
+  return { box: canCast(), state: castState(), settings: castSettings(), shareUrl: shareUrl(), kids: isKids(), gamesAllowed: gamesAllowed() };
 }
 
 const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
@@ -144,6 +153,20 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
     if (isKids()) throw new Error("Ask a grown-up to delete downloads");
     await removeFromBox(a.id);
     return downloadsForPhone();
+  },
+  sleep: async (a: Partial<SleepChoice>) => ("minutes" in a || "end" in a || "off" in a ? setSleep(a as SleepChoice) : sleep()),
+  cast: async () => castForPhone(),
+  castApp: async (a: { id?: GameAppId; stop?: boolean }) => {
+    if (!canCast()) throw new Error("Games open on the TV box");
+    if (a.stop) await backToTv();
+    else if (a.id) await openGame(a.id);
+    return castForPhone();
+  },
+  castAirplay: async (a: { on: boolean }) => {
+    if (!canCast()) throw new Error("AirPlay runs on the TV box");
+    if (isKids()) throw new Error("Ask a grown-up to change AirPlay");
+    await setAirplay(Boolean(a.on));
+    return castForPhone();
   },
 };
 

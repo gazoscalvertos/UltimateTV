@@ -9,6 +9,8 @@ export type VoiceCommand =
   | { kind: "search"; text: string; say: string }
   | { kind: "stats"; on: boolean; say: string }
   | { kind: "reload"; say: string }
+  | { kind: "save"; name: string; say: string }
+  | { kind: "sleep"; minutes: number | "end" | "off"; say: string }
   | { kind: "none"; say: string };
 
 const NUMBER_WORDS: Record<string, number> = {
@@ -112,6 +114,22 @@ export function parseVoice(said: string, channels: Channel[]): VoiceCommand {
     return { kind: "stats", on, say: on ? "Showing playback stats" : "Hiding playback stats" };
   }
   if (/^(reload|restart|refresh) (the )?(tv )?(app|screen)$/.test(text)) return { kind: "reload", say: "Reloading the TV app" };
+
+  // "save Dune for later", "add The Bear to my list", "put Dune on the watchlist"
+  const save = /^(?:save|add|put|remember)\s+(.+?)\s+(?:for later|to (?:my |the )?(?:list|watch ?list)|on (?:my |the )?(?:list|watch ?list))$/.exec(text) ?? /^(?:save for later|watch later)\s+(.+)$/.exec(text);
+  if (save) return { kind: "save", name: save[1]!, say: `Saved “${save[1]}” for later` };
+
+  // "sleep in 30 minutes", "sleep timer an hour", "turn off at the end of this", "cancel the sleep timer"
+  if (/^(cancel|stop|turn off) (the )?sleep( timer)?$|^sleep( timer)? off$/.test(text)) return { kind: "sleep", minutes: "off", say: "Sleep timer off" };
+  const sleepy = /^(?:sleep timer|sleep|turn (?:the tv )?off|switch (?:the tv )?off|go to sleep)\s+(?:in |after |for )?(.+)$/.exec(text);
+  if (sleepy) {
+    const when = sleepy[1]!;
+    if (/end|finish/.test(when)) return { kind: "sleep", minutes: "end", say: "Sleeping at the end of this" };
+    const hours = /^(an?|one|\d+(?:\.\d+)?|half an?) hours?$/.exec(when);
+    const mins = /^(\w+) min(?:ute)?s?$/.exec(when);
+    const n = hours ? (hours[1]!.startsWith("half") ? 0.5 : /^(an?|one)$/.test(hours[1]!) ? 1 : Number(hours[1])) * 60 : mins ? count(mins[1]) : NaN;
+    if (Number.isFinite(n) && n > 0 && n <= 600) return { kind: "sleep", minutes: Math.round(n), say: `Sleeping in ${Math.round(n)} minutes` };
+  }
 
   // "channel 101", "go to channel one oh one", "101"
   const numbered = /^(?:(?:go to|switch to|change to|put on|turn to|watch) )?(?:channel )?(.+)$/.exec(text);

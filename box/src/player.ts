@@ -325,6 +325,8 @@ export class Player {
   }
 
   async play(o: PlayOptions): Promise<void> {
+    // A sleep timer may have faded the last thing out.
+    await this.mpv.set("volume", 100).catch(() => undefined);
     this.options = o;
     this.live = o.live;
     this.queued = Boolean(o.queue?.length);
@@ -409,6 +411,11 @@ export class Player {
   async setNightMode(on: boolean): Promise<void> {
     await this.mpv.set("audio-spdif", on ? "" : "ac3,eac3,dts").catch(() => undefined);
     await this.mpv.set("af", on ? "lavfi=[acompressor=threshold=-24dB:ratio=4:attack=5:release=200:makeup=6dB],lavfi=[dynaudnorm=f=250:g=15]" : "").catch(() => undefined);
+  }
+
+  /** The volume, 0–100: the sleep timer fades out with it (passthrough sound can't be faded). */
+  async setVolume(percent: number): Promise<void> {
+    await this.mpv.set("volume", Math.max(0, Math.min(100, Math.round(percent)))).catch(() => undefined);
   }
 
   async setLayout(layout: VideoLayout): Promise<void> {

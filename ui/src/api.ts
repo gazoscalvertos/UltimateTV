@@ -1,5 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
+import type { AdSkipSettings, AlertSettings, AlertState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
 import type { BoxState, Channel, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
 const store = {
@@ -162,6 +163,36 @@ export const hub = {
   letScreenIn: (id: string) => api<PairedDevice>(`/api/devices/pending/${enc(id)}`, { method: "POST" }),
   turnScreenAway: (id: string) => api<{ ok: boolean }>(`/api/devices/pending/${enc(id)}`, { method: "DELETE" }),
   apiKey: (fresh = false) => api<{ key: string }>("/api/pair/api-key", fresh ? { method: "POST" } : {}),
+
+  // Watchlist ("Save for later"), per profile.
+  watchlist: () => api<{ items: WatchItem[] }>("/api/watchlist"),
+  saveForLater: (input: WatchlistInput) => api<{ item: WatchItem; items: WatchItem[] }>("/api/watchlist", { method: "POST", body: { from: "tv", ...input } }),
+  unsave: (id: string) => api<{ ok: boolean; items: WatchItem[] }>(`/api/watchlist/${enc(id)}`, { method: "DELETE" }),
+
+  // Alerts.
+  alerts: () => api<AlertState>("/api/alerts"),
+  saveAlerts: (patch: Partial<AlertSettings>) => api<AlertState>("/api/alerts/settings", { method: "PUT", body: patch }),
+  checkAlerts: () => api<AlertState>("/api/alerts/check", { method: "POST" }),
+  testAlert: () => api<{ ok: true }>("/api/alerts/test", { method: "POST" }),
+  playbackFailed: (what: string, error?: string) => api<{ told: boolean }>("/api/alerts/playback", { method: "POST", body: { what, ...(error ? { error } : {}) } }),
+
+  // Advert skipping on recordings.
+  adskip: () => api<{ settings: AdSkipSettings; installed: boolean | null }>("/api/adskip"),
+  saveAdskip: (patch: Partial<AdSkipSettings>) => api<{ settings: AdSkipSettings; installed: boolean | null }>("/api/adskip", { method: "PUT", body: patch }),
+
+  // Other screens: settings, and the TV's side of a laptop's screen share.
+  castSettings: () => api<{ settings: CastSettings; shareUrl: string | null }>("/api/cast/settings"),
+  saveCastSettings: (patch: Partial<CastSettings>) => api<{ settings: CastSettings; shareUrl: string | null }>("/api/cast/settings", { method: "PUT", body: patch }),
+  answerShare: (id: string, sdp: string) => api<ShareSession>(`/api/cast/share/${enc(id)}/answer`, { method: "POST", body: { sdp } }),
+  refuseShare: (id: string, reason: string) => api<ShareSession>(`/api/cast/share/${enc(id)}/refuse`, { method: "POST", body: { reason } }),
+  endShare: (id: string) => api<{ ok: boolean }>(`/api/cast/share/${enc(id)}/end`, { method: "POST" }),
+
+  // Seasonal projections.
+  projections: () => api<ProjectionState & { communityUrl: string }>("/api/projections"),
+  saveProjections: (patch: Partial<ProjectionSettings>) => api<ProjectionState & { communityUrl: string }>("/api/projections", { method: "PUT", body: patch }),
+  projectionNow: (want: { clipId?: string; drawn?: DrawnProjection; season?: SeasonId } = {}) => api<{ ok: true }>("/api/projections/now", { method: "POST", body: want }),
+  community: () => api<CommunityIndex>("/api/community/clips"),
+  downloadCommunity: (id: string) => api<{ library: CommunityIndex }>(`/api/community/clips/${enc(id)}/download`, { method: "POST" }),
 };
 
 /** Live updates from the Hub. Reconnects on its own. */

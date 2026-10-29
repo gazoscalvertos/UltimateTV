@@ -2,7 +2,9 @@
 
 import { For, Show } from "solid-js";
 import { clockTime } from "@ultimatetv/shared";
+import { castSettings } from "../cast";
 import { visibleDownloads } from "../downloads";
+import { sleep } from "../sleep";
 import { appName, isKids, nav, now, profile, type Route } from "../store";
 import { Icon } from "./Icon";
 
@@ -18,6 +20,8 @@ const TABS: Tab[] = [
   { label: "Recordings", route: { name: "planner" }, match: "planner" },
   // Once something is on the box's own disk (for a trip, say).
   { label: "Downloaded", route: { name: "downloads" }, match: "downloads", when: () => visibleDownloads().length > 0 },
+  // Kids only see it when a grown-up has allowed the games.
+  { label: "Cast & games", route: { name: "cast" }, match: "cast", when: () => !isKids() || castSettings().gamesForKids },
 ];
 
 function isActive(t: Tab): boolean {
@@ -51,6 +55,12 @@ export function TopBar() {
         </Show>
       </nav>
       <div class="topbar-right">
+        <Show when={sleep().at}>
+          <span class="sleep-badge" title={`Sleep timer: ${sleep().label}`}>
+            <Icon name="moon" />
+            {clockTime(sleep().at!)}
+          </span>
+        </Show>
         <span class="clock">{clockTime(now())}</span>
         <Show when={profile()}>
           {(p) => (

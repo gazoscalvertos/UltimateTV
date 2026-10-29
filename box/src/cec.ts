@@ -125,6 +125,12 @@ export class Cec {
     await this.activeSource();
   }
 
+  /** Puts the TV into standby (the sleep timer). */
+  async standby(): Promise<void> {
+    if (!this.connected) return;
+    await run("cec-ctl", ["-d", this.device, "--to", "0", "--standby"], { timeout: 5000 }).catch((e: Error) => this.log(e.message));
+  }
+
   private async activeSource(): Promise<void> {
     if (!this.physAddr) return;
     await run("cec-ctl", ["-d", this.device, "--to", "15", "--active-source", `phys-addr=${this.physAddr}`], { timeout: 5000 }).catch((e: Error) => this.log(e.message));

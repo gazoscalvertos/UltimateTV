@@ -2,6 +2,7 @@ import path from "node:path";
 import { loadConfig } from "./config.js";
 import { LogRing, RollingFile } from "./diagnostics.js";
 import { applyPendingRestore, movedAway } from "./move.js";
+import { startHttps } from "./cast.js";
 import { buildServer } from "./server.js";
 
 const config = loadConfig();
@@ -20,6 +21,8 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 
 await app.listen({ port: config.port, host: config.host });
 app.log.info({ clipsDir: config.clipsDir, dataDir: config.dataDir, demo: config.demo }, "UltimateTV Hub ready");
+// The same Hub over HTTPS, for laptops sharing their screen (browsers insist on a secure page).
+if (config.httpsPort) void startHttps(app, config.dataDir, config.httpsPort, config.publicUrl ? [new URL(config.publicUrl).hostname] : []);
 
 const moved = movedAway(ctx.db);
 if (moved) {
@@ -48,4 +51,7 @@ if (moved) {
   ctx.mix.seed();
   void ctx.mix.start().catch((err) => app.log.error({ err: String(err) }, "Music channels failed to start"));
   setInterval(() => void ctx.downloads.tidyInbox().catch(() => undefined), 5 * 60_000);
+  // Warnings before things break, and advert breaks in new recordings.
+  app.jobs.alerts.start();
+  app.jobs.adSkipper.start();
 }

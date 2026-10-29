@@ -3,6 +3,7 @@
 
 import type { HostStats, PlaybackInfo, PlaybackRequest, TitleRef } from "./domain.js";
 import type { Action } from "./keys.js";
+import type { CastState, GameAppId } from "./cast.js";
 import type { MusicPage, MusicTracks, SpotifyCommand, SpotifySetup, SpotifyState, WebAppCommand, WebAppId, WebAppLoginReport, WebAppState } from "./music.js";
 
 export interface AudioTrack {
@@ -252,6 +253,22 @@ export interface BoxAgent {
   /** Where a download got to as it plays, for resuming and for deleting once watched. */
   downloadPosition(id: string, positionMs: number, durationMs?: number): Promise<void>;
   onDownloads(listener: (downloads: BoxDownloads) => void): () => void;
+
+  // Other screens and games (see cast.ts). Older box shells lack these: check with agentHas first.
+  cast(): Promise<CastState>;
+  /** Turns the AirPlay receiver on or off, and names it. */
+  castSettings(settings: { airplay?: boolean; name?: string }): Promise<CastState>;
+  /** Opens a game app full screen; the TV app steps aside until it closes. */
+  launchApp(id: GameAppId): Promise<CastState>;
+  /** Closes whatever has the screen (a game, or an AirPlay connection) and brings the TV app back. */
+  stopApp(): Promise<CastState>;
+  onCast(listener: (state: CastState) => void): () => void;
+
+  // The sleep timer. Older box shells lack these.
+  /** Puts the TV into standby over HDMI-CEC. */
+  tvStandby(): Promise<void>;
+  /** The player's volume, 0–100 (for fading out). */
+  setVolume(percent: number): Promise<void>;
 }
 
 declare global {

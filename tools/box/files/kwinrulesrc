@@ -1,6 +1,6 @@
 [General]
-count=2
-rules=ultimatetv-ui,ultimatetv-video
+count=3
+rules=ultimatetv-ui,ultimatetv-video,ultimatetv-apps
 
 [ultimatetv-ui]
 Description=UltimateTV UI on top
@@ -31,3 +31,14 @@ skiptaskbar=true
 skiptaskbarrule=2
 acceptfocus=false
 acceptfocusrule=2
+
+[ultimatetv-apps]
+Description=AirPlay and games full screen
+wmclass=(?i)(uxplay|retroarch|moonlight|steam|geforce|gfn)
+wmclassmatch=3
+fullscreen=true
+fullscreenrule=2
+noborder=true
+noborderrule=2
+skiptaskbar=true
+skiptaskbarrule=2

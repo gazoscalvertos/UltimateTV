@@ -49,7 +49,9 @@ Guides for each feature are linked from the steps below.
 9. **Themes:** Dark, Light, Slick, Cyberpunk, Ocean, Forest and Sunset, plus Halloween, Christmas, Easter and Valentine's that come out by themselves on their days, on the TV, the phone remote and the web pages ([docs/themes.md](docs/themes.md)).
 10. **Halloween:** the theme, Spooky TV's ghosts and ghostly sounds, hidden easter eggs and jump scares cut into whatever is on ([docs/halloween.md](docs/halloween.md)).
 11. **Trips:** take the box away and the Hub goes with it for a while, then comes home with what changed ([docs/travel.md](docs/travel.md)). Download films and episodes onto the box first ([docs/downloads.md](docs/downloads.md)).
-12. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
+12. **Other screens and games:** AirPlay from an iPhone or Mac, a laptop's screen from its browser, links and photos from a phone, and RetroArch, Moonlight, Steam Link and GeForce NOW ([docs/casting-and-games.md](docs/casting-and-games.md)).
+13. **Everyday extras:** button hints, the sleep timer, alerts before things break, Save for later, advert skipping and seasonal clips ([docs/everyday-extras.md](docs/everyday-extras.md)).
+14. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 
 ## Development
 

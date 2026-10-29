@@ -10,7 +10,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, readdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { cleanScareSettings, DEFAULT_SCARE_SETTINGS, SCARE_SIZES, SCARE_SPOTS, scareFrom, type ScareClip, type ScareMix, type ScareSettings, type ScareState } from "@ultimatetv/shared";
+import { cleanScareSettings, DEFAULT_SCARE_SETTINGS, PROJECTION_MOTIONS, SCARE_SIZES, SCARE_SPOTS, SEASON_IDS, scareFrom, type ProjectionMotion, type ScareClip, type ScareMix, type ScareSettings, type ScareState, type SeasonId } from "@ultimatetv/shared";
 import type { HubContext } from "./context.js";
 import { sendFile } from "./streaming.js";
 
@@ -42,8 +42,35 @@ const MAX_UPLOAD = 200 * 1024 * 1024;
 const MAX_CLIPS = 40;
 
 /** A clip as the Hub keeps it: what the phone sees, plus the file it's in. */
-interface StoredClip extends ScareClip {
+export interface StoredClip extends ScareClip {
   file: string;
+}
+
+/** What a clip is for: a jump scare (the default), or a seasonal projection (projections.ts). */
+export interface ClipUse {
+  projection?: boolean;
+  season?: SeasonId | "any";
+  motion?: ProjectionMotion;
+  communityId?: string;
+}
+
+/** The clip library, shared by jump scares and seasonal projections. */
+export interface ClipStore {
+  dir: string;
+  all(): StoredClip[];
+  keep(body: Buffer, type: string, name: string, use?: ClipUse): Promise<StoredClip>;
+  update(id: string, patch: ClipUse & { name?: string }): StoredClip | undefined;
+  remove(id: string): Promise<boolean>;
+}
+
+/** Keeps a clip's projection fields sane whoever sent them. */
+export function cleanUse(input: Record<string, unknown>): ClipUse {
+  const use: ClipUse = {};
+  const flag = input.projection;
+  if (flag !== undefined) use.projection = flag === true || flag === "1" || flag === "true";
+  if (input.season !== undefined) use.season = SEASON_IDS.includes(input.season as SeasonId) ? (input.season as SeasonId) : "any";
+  if (PROJECTION_MOTIONS.includes(input.motion as ProjectionMotion)) use.motion = input.motion as ProjectionMotion;
+  return use;
 }
 
 type Req = FastifyRequest<{ Params: { id?: string }; Querystring: Record<string, string | undefined>; Body: unknown }>;
@@ -67,17 +94,21 @@ function sniff(b: Buffer): string | undefined {
   return undefined;
 }
 
-export async function registerScares(app: FastifyInstance, ctx: HubContext, dataDir: string): Promise<void> {
+export async function registerScares(app: FastifyInstance, ctx: HubContext, dataDir: string): Promise<ClipStore> {
   const clipDir = path.join(dataDir, "scare-clips");
   await mkdir(clipDir, { recursive: true });
 
   const settings = (): ScareSettings => cleanScareSettings(ctx.db.getKv<Partial<ScareSettings>>("scares") ?? {}, DEFAULT_SCARE_SETTINGS);
   const clips = (): StoredClip[] => (ctx.db.getKv<StoredClip[]>("scare-clips") ?? []).slice().sort((a, b) => b.addedAt - a.addedAt);
   const saveClips = (list: StoredClip[]) => ctx.db.setKv("scare-clips", list);
-  const shown = (c: StoredClip): ScareClip => ({ id: c.id, name: c.name, kind: c.kind, url: c.url, sizeBytes: c.sizeBytes, addedAt: c.addedAt });
+  const shown = (c: StoredClip): ScareClip => {
+    const { file: _file, ...clip } = c;
+    return clip;
+  };
   const mixes = (): ScareMix[] => (ctx.db.getKv<ScareMix[]>("scare-mixes") ?? []).slice().sort((a, b) => b.createdAt - a.createdAt);
   const saveMixes = (list: ScareMix[]) => ctx.db.setKv("scare-mixes", list);
-  const state = (): ScareState => ({ settings: settings(), clips: clips().map(shown), mixes: mixes() });
+  // Seasonal projection clips live in the same library but are never jump scares.
+  const state = (): ScareState => ({ settings: settings(), clips: clips().filter((c) => !c.projection).map(shown), mixes: mixes() });
 
   // Files left behind by a Hub that was restored from a backup without its clips, and the other
   // way round: a clip whose file has gone is no use, so it's dropped from the list on start.
@@ -85,7 +116,7 @@ export async function registerScares(app: FastifyInstance, ctx: HubContext, data
   const kept = clips().filter((c) => files.has(c.file));
   if (kept.length !== clips().length) saveClips(kept);
 
-  const keep = async (body: Buffer, type: string, name: string): Promise<StoredClip> => {
+  const keep = async (body: Buffer, type: string, name: string, use: ClipUse = {}): Promise<StoredClip> => {
     const real = CLIP_TYPES[type] ? type : sniff(body);
     const ext = real && CLIP_TYPES[real];
     if (!real || !ext) throw new BadClip("Send an MP4, WebM or MOV video, a JPEG, PNG, GIF or WebP picture, or an MP3, OGG, WAV or M4A sound");
@@ -100,6 +131,8 @@ export async function registerScares(app: FastifyInstance, ctx: HubContext, data
       url: `/api/scares/clips/${id}`,
       sizeBytes: body.length,
       addedAt: Date.now(),
+      ...(use.projection ? { projection: true, season: use.season ?? "any", motion: use.motion ?? "across-top" } : {}),
+      ...(use.communityId ? { communityId: use.communityId } : {}),
     };
     const list = [clip, ...clips()];
     for (const old of list.splice(MAX_CLIPS)) await unlink(path.join(clipDir, old.file)).catch(() => undefined);
@@ -108,6 +141,48 @@ export async function registerScares(app: FastifyInstance, ctx: HubContext, data
   };
 
   const changed = () => ctx.events.emit({ type: "scares.changed" });
+
+  const remove = async (id: string): Promise<boolean> => {
+    const clip = clips().find((c) => c.id === id);
+    if (!clip) return false;
+    saveClips(clips().filter((c) => c.id !== clip.id));
+    await unlink(path.join(clipDir, clip.file)).catch(() => undefined);
+    // Built scares lose the clip; one left with nothing in it goes too.
+    const without = (m: ScareMix): ScareMix => {
+      const { visualId, audioId, ...rest } = m;
+      return { ...rest, ...(visualId && visualId !== clip.id ? { visualId } : {}), ...(audioId && audioId !== clip.id ? { audioId } : {}) };
+    };
+    saveMixes(mixes().map(without).filter((m) => m.visualId || m.audioId));
+    changed();
+    if (clip.projection) ctx.events.emit({ type: "projections.changed" });
+    return true;
+  };
+
+  const update = (id: string, patch: ClipUse & { name?: string }): StoredClip | undefined => {
+    const list = clips();
+    const clip = list.find((c) => c.id === id);
+    if (!clip) return undefined;
+    const name = patch.name?.replace(/\s+/g, " ").trim().slice(0, 60);
+    if (name) clip.name = name;
+    if (patch.projection !== undefined) {
+      if (patch.projection) {
+        clip.projection = true;
+        clip.season = patch.season ?? clip.season ?? "any";
+        clip.motion = patch.motion ?? clip.motion ?? "across-top";
+      } else {
+        delete clip.projection;
+        delete clip.season;
+        delete clip.motion;
+      }
+    } else if (clip.projection) {
+      if (patch.season) clip.season = patch.season;
+      if (patch.motion) clip.motion = patch.motion;
+    }
+    saveClips(list);
+    changed();
+    ctx.events.emit({ type: "projections.changed" });
+    return clip;
+  };
 
   /** Sends a scare to the TV: the built scare or clip asked for, else one at random. */
   const fire = (want: { clipId?: string; mixId?: string }, byHand: boolean) => {
@@ -154,8 +229,9 @@ export async function registerScares(app: FastifyInstance, ctx: HubContext, data
 
     scope.post("/api/scares/clips", { bodyLimit: MAX_UPLOAD }, async (req: Req, reply) => {
       if (!Buffer.isBuffer(req.body) || !req.body.length) return reply.code(400).send({ error: "Send the clip as the request body" });
-      const clip = await keep(req.body, String(req.headers["content-type"] ?? "").split(";")[0]!.trim().toLowerCase(), String(req.query.name ?? ""));
+      const clip = await keep(req.body, String(req.headers["content-type"] ?? "").split(";")[0]!.trim().toLowerCase(), String(req.query.name ?? ""), cleanUse(req.query));
       changed();
+      if (clip.projection) ctx.events.emit({ type: "projections.changed" });
       return { clip: shown(clip), clips: state().clips };
     });
 
@@ -163,22 +239,22 @@ export async function registerScares(app: FastifyInstance, ctx: HubContext, data
       const clip = clips().find((c) => c.id === req.params.id);
       if (!clip) return reply.code(404).send({ error: "That clip has gone" });
       reply.header("Cache-Control", "private, max-age=86400");
+      // ?download=1 saves it (to share it, or add it to the community library).
+      if (req.query.download) reply.header("Content-Disposition", `attachment; filename="${clip.name.replace(/[^\w .-]+/g, "_")}${path.extname(clip.file)}"`);
       return sendFile(req, reply, path.join(clipDir, clip.file));
     });
 
     scope.delete("/api/scares/clips/:id", async (req: Req, reply) => {
-      const clip = clips().find((c) => c.id === req.params.id);
-      if (!clip) return reply.code(404).send({ error: "That clip has gone" });
-      saveClips(clips().filter((c) => c.id !== clip.id));
-      await unlink(path.join(clipDir, clip.file)).catch(() => undefined);
-      // Built scares lose the clip; one left with nothing in it goes too.
-      const without = (m: ScareMix): ScareMix => {
-        const { visualId, audioId, ...rest } = m;
-        return { ...rest, ...(visualId && visualId !== clip.id ? { visualId } : {}), ...(audioId && audioId !== clip.id ? { audioId } : {}) };
-      };
-      saveMixes(mixes().map(without).filter((m) => m.visualId || m.audioId));
-      changed();
+      if (!(await remove(req.params.id ?? ""))) return reply.code(404).send({ error: "That clip has gone" });
       return { ok: true, clips: state().clips, mixes: state().mixes };
+    });
+
+    /** Renames a clip, or makes it a seasonal projection: { name, projection, season, motion }. */
+    scope.patch("/api/scares/clips/:id", async (req: Req, reply) => {
+      const b = (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body) ? req.body : {}) as Record<string, unknown> & { name?: string };
+      const clip = update(req.params.id ?? "", { ...cleanUse(b), ...(typeof b.name === "string" ? { name: b.name } : {}) });
+      if (!clip) return reply.code(404).send({ error: "That clip has gone" });
+      return { clip: shown(clip), clips: state().clips };
     });
 
     /** Saves a scare built on the phone: { name, visualId, audioId, spot, size, muteVideo, seconds }. */
@@ -207,4 +283,6 @@ export async function registerScares(app: FastifyInstance, ctx: HubContext, data
       return { scare: fire({ ...(clipId ? { clipId } : {}), ...(mixId ? { mixId } : {}) }, true) };
     });
   });
+
+  return { dir: clipDir, all: clips, keep, update, remove };
 }

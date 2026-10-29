@@ -10,6 +10,7 @@ import { hub } from "../api";
 import { askText, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { focus, move } from "../focus";
+import { useHints } from "../hints";
 import { useKeys } from "../keys";
 import { setGuideList } from "../player";
 import { errorToast, nav, profile, toast } from "../store";
@@ -149,6 +150,12 @@ export function GuideEditor(props: { id?: string }) {
   let digits = "";
   let digitTimer: number | undefined;
 
+  useHints(() => [
+    { key: "ok", label: "Add or remove" },
+    { key: "red", label: "Remove" },
+    { key: "yellow", label: "Add all shown" },
+    { key: "blue", label: "Filter" },
+  ]);
   useKeys((a) => {
     const el = document.activeElement;
     const inLeft = el === leftEl;

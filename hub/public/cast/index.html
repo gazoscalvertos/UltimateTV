@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<title>Share your screen on the TV</title>
+<style>
+  :root {
+    --bg: #0b1220; --card: #131c2e; --line: #24324d; --fg: #eef3fb; --muted: #9aa8c2;
+    --accent: #4f8cff; --ok: #35c27a; --bad: #ff6b6b; --radius: 14px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 80px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .logo { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, #4f8cff, #8a5cff); display: grid; place-items: center; font-weight: 800; font-size: 20px; }
+  h1 { font-size: 24px; margin: 0; }
+  h1 small { display: block; font-size: 15px; color: var(--muted); font-weight: 400; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  h2 { font-size: 17px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; }
+  .hint { color: var(--muted); font-size: 14px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 0 0 4px; }
+  input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: #0d1526; color: var(--fg); font: inherit; }
+  button { margin-top: 14px; width: 100%; padding: 14px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font: 600 17px/1 inherit; cursor: pointer; }
+  button.secondary { background: transparent; border: 1px solid var(--line); color: var(--fg); }
+  button:disabled { opacity: .5; cursor: default; }
+  .state { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 4px rgba(53, 194, 122, .2); }
+  .dot.bad { background: var(--bad); }
+  .dot.wait { background: var(--accent); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  video { width: 100%; border-radius: 10px; background: #000; margin-top: 12px; }
+  ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+  ol li { margin-bottom: 6px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo" id="mark">U</div>
+    <h1><span id="appName">UltimateTV</span><small>Show this computer's screen on the TV</small></h1>
+  </header>
+
+  <section id="unsupported" hidden>
+    <h2>This browser can't share its screen from here</h2>
+    <p class="hint" id="whyNot"></p>
+  </section>
+
+  <section id="start">
+    <h2>Share your screen</h2>
+    <p class="hint">Pick the whole screen to show everything, or one window or tab. To use the TV as a second screen, add a virtual display on the computer first and share that (see below). The TV asks before it shows anything.</p>
+    <label for="name">Your name (shown on the TV)</label>
+    <input id="name" maxlength="40" placeholder="Gary's laptop">
+    <button id="go">Share my screen on the TV</button>
+  </section>
+
+  <section id="live" hidden>
+    <div class="state"><span class="dot" id="dot"></span><span id="status">Starting…</span></div>
+    <video id="preview" muted autoplay playsinline></video>
+    <button id="stop" class="secondary">Stop sharing</button>
+  </section>
+
+  <section>
+    <h2>Tips</h2>
+    <ol>
+      <li>Works in Chrome, Edge and Firefox on Windows, Mac and Linux. Phones can't share their screen from a browser: use AirPlay on an iPhone, or the phone remote's Cast tab to send a photo, video or link.</li>
+      <li>The first time, the browser warns that this page's certificate isn't trusted. It's the Hub's own: choose Advanced, then continue to the page.</li>
+      <li>Second screen (extend): on Windows, install a virtual display driver (such as the free "Virtual Display Driver") and share the new screen; on a Mac, use AirPlay instead (Control Centre › Screen Mirroring › the TV › Use as separate display).</li>
+      <li>Fine for slides, photos, web pages and video calls. For games, use Moonlight from the TV's Cast and games screen: it's much quicker.</li>
+    </ol>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let pc = null;
+let stream = null;
+let session = null;
+let stopped = false;
+
+fetch("/api/settings").then((r) => r.json()).then((s) => {
+  if (!s.appName) return;
+  $("appName").textContent = s.appName;
+  $("mark").textContent = s.appName.slice(0, 1).toUpperCase();
+  document.title = `Share your screen on ${s.appName}`;
+}).catch(() => {});
+
+try {
+  $("name").value = localStorage.getItem("utv-cast-name") || "";
+} catch {}
+
+function guessName() {
+  const ua = navigator.userAgent;
+  const browser = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : "A browser";
+  const os = /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "";
+  return os ? `${browser} on ${os}` : browser;
+}
+
+function setStatus(text, tone) {
+  $("status").textContent = text;
+  $("dot").className = `dot ${tone || ""}`;
+}
+
+if (!window.isSecureContext || !navigator.mediaDevices?.getDisplayMedia) {
+  $("unsupported").hidden = false;
+  $("start").hidden = true;
+  $("whyNot").textContent = !window.isSecureContext
+    ? `Open this page over HTTPS: ${location.href.replace(/^http:/, "https:").replace(/:\d+\//, ":8096/")}`
+    : "Use Chrome, Edge or Firefox on a computer. Phone browsers can't share their screen.";
+}
+
+/** Waits until every ICE candidate is in the description, so one offer is enough (no trickle). */
+function gathered(conn) {
+  if (conn.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      if (conn.iceGatheringState === "complete") {
+        conn.removeEventListener("icegatheringstatechange", done);
+        resolve();
+      }
+    };
+    conn.addEventListener("icegatheringstatechange", done);
+    // On a home network the local addresses come within a second; don't wait for anything slower.
+    setTimeout(resolve, 3000);
+  });
+}
+
+async function api(method, url, body) {
+  const res = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `The Hub answered ${res.status}`);
+  return data;
+}
+
+async function start() {
+  stopped = false;
+  const name = $("name").value.trim() || guessName();
+  try {
+    localStorage.setItem("utv-cast-name", $("name").value.trim());
+  } catch {}
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30, max: 60 }, width: { max: 3840 }, height: { max: 2160 } }, audio: true });
+  } catch {
+    return;
+  }
+  $("start").hidden = true;
+  $("live").hidden = false;
+  $("preview").srcObject = stream;
+  setStatus("Asking the TV…", "wait");
+  const track = stream.getVideoTracks()[0];
+  track.contentHint = "detail";
+  track.addEventListener("ended", () => stop("You stopped sharing"));
+  pc = new RTCPeerConnection({ iceServers: [] });
+  for (const t of stream.getTracks()) pc.addTrack(t, stream);
+  // Prefer sharp text over smooth motion, and plenty of bitrate on the home network.
+  for (const sender of pc.getSenders()) {
+    if (sender.track?.kind !== "video") continue;
+    const p = sender.getParameters();
+    p.degradationPreference = "maintain-resolution";
+    p.encodings = [{ ...(p.encodings?.[0] || {}), maxBitrate: 12_000_000 }];
+    sender.setParameters(p).catch(() => {});
+  }
+  pc.addEventListener("connectionstatechange", () => {
+    if (pc.connectionState === "connected") setStatus("On the TV now", "ok");
+    if (pc.connectionState === "failed") stop("The TV couldn't be reached. Is this computer on the same Wi-Fi?");
+    if (pc.connectionState === "disconnected") setStatus("Connection wobbling…", "wait");
+  });
+  try {
+    await pc.setLocalDescription(await pc.createOffer());
+    await gathered(pc);
+    session = await api("POST", "/api/cast/share", { name, sdp: pc.localDescription.sdp, surface: track.getSettings().displaySurface });
+    setStatus("The TV is asking whether to show your screen…", "wait");
+    while (!stopped && session.status === "waiting") session = await api("GET", `/api/cast/share/${session.id}?seen=waiting`);
+    if (stopped) return;
+    if (session.status !== "accepted") return stop(session.reason || "The TV said no");
+    await pc.setRemoteDescription({ type: "answer", sdp: session.answer });
+    setStatus("Connecting…", "wait");
+    // Hear when the TV stops it.
+    while (!stopped && session.status === "accepted") {
+      session = await api("GET", `/api/cast/share/${session.id}?seen=accepted`).catch((e) => (e.message.includes("gone") ? { status: "ended" } : session));
+    }
+    if (!stopped) stop(session.reason || "The TV stopped showing your screen");
+  } catch (err) {
+    stop(err.message);
+  }
+}
+
+function stop(reason) {
+  if (stopped) return;
+  stopped = true;
+  if (session?.id) fetch(`/api/cast/share/${session.id}`, { method: "DELETE" }).catch(() => {});
+  stream?.getTracks().forEach((t) => t.stop());
+  pc?.close();
+  pc = null;
+  stream = null;
+  setStatus(reason || "Stopped", reason && !/stopped/i.test(reason) ? "bad" : "");
+  $("preview").srcObject = null;
+  $("start").hidden = false;
+  $("go").textContent = "Share again";
+}
+
+$("go").addEventListener("click", () => void start());
+$("stop").addEventListener("click", () => stop("You stopped sharing"));
+window.addEventListener("pagehide", () => stop());
+</script>
+</body>
+</html>

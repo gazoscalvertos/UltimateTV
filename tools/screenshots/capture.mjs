@@ -473,6 +473,99 @@ try {
   await sheet.close();
   await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ screensaver: { theme: "shuffle", clock: true } }) });
 
+  // Button hints, help, Save for later, Cast and games, a laptop asking to share, the sleep timer,
+  // seasonal projections, advert skipping and their settings.
+  await page.goto(`${base}/app/?demo-cast`);
+  await wait(1800);
+  const json = (url, body, method = "POST") => fetch(`${base}${url}`, { method, headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
+  // Two films saved for later (not Copper Sky: its page saves it with the red button below).
+  const rails = (await (await fetch(`${base}/api/home`, { headers: asTv })).json()).rails;
+  const films = [...new Map(rails.flatMap((r) => r.items ?? []).filter((t) => t.kind === "movie" && t.name !== "Copper Sky").map((t) => [t.id, t])).values()];
+  for (const f of films.slice(0, 3)) await json("/api/watchlist", { title: f });
+  await json("/api/watchlist", { name: "The Long Field", from: "voice" });
+  await page.goto(`${base}/app/?demo-cast`);
+  await wait(1800);
+  await shot("70-home-key-hints");
+  await key("F6");
+  await wait(600);
+  await shot("71-help-buttons");
+  await key("Escape");
+  await key("ArrowDown", 2);
+  await shot("72-home-saved-for-later");
+  await page.goto(`${base}/app/?demo-cast`);
+  await wait(1500);
+  await tab("Films");
+  await wait(1200);
+  await page.locator(".card", { hasText: "Copper Sky" }).first().focus();
+  await key("Enter");
+  await wait(1500);
+  await key("F1");
+  await wait(300);
+  await shot("73-details-save-for-later");
+  await page.goto(`${base}/app/?demo-cast`);
+  await wait(1500);
+  await key("F4");
+  await wait(1500);
+  await shot("74-cast-and-games");
+  // A laptop asks to share its screen: a real WebRTC offer from another page.
+  const laptop = await browser.newPage();
+  const offer = await laptop.evaluate(async () => {
+    const pc = new RTCPeerConnection();
+    pc.addTransceiver("video", { direction: "sendonly" });
+    await pc.setLocalDescription(await pc.createOffer());
+    await new Promise((r) => (pc.iceGatheringState === "complete" ? r() : (pc.onicegatheringstatechange = () => pc.iceGatheringState === "complete" && r(), setTimeout(r, 2000))));
+    return pc.localDescription.sdp;
+  });
+  await laptop.close();
+  await json("/api/cast/share", { name: "Gary's laptop", sdp: offer, surface: "monitor" });
+  await wait(1200);
+  await shot("75-screen-share-ask");
+  await key("Escape");
+  // The sleep timer over a film, a minute before it goes off.
+  await page.goto(`${base}/app/?demo-cast`);
+  await wait(1500);
+  await key("Enter");
+  await wait(2000);
+  await json("/api/tv/sleep", { minutes: 1 });
+  await wait(1500);
+  await shot("76-sleep-still-watching");
+  await key("Escape");
+  await key("F3");
+  await wait(600);
+  await page.locator(".option-list .option", { hasText: "Off: set one" }).first().focus().catch(() => undefined);
+  await shot("77-options-sleep-timer");
+  await key("Escape");
+  // Seasonal projections over the film.
+  await json("/api/projections/now", { drawn: "sleigh", season: "christmas" });
+  await wait(4200);
+  await shot("78-projection-sleigh");
+  await key("Escape");
+  await json("/api/projections/now", { drawn: "bunny", season: "easter" });
+  await wait(3500);
+  await shot("79-projection-bunny");
+  await key("Escape");
+  await key("Escape");
+  await key("Escape");
+  // A recording with its adverts found.
+  await json("/api/tv/call/play", { req: { kind: "recording", id: "demo-done-wild-islands-5" } });
+  await wait(2500);
+  await json("/api/tv/call/seek", { ms: 2 * 60_000, mode: "absolute" });
+  await wait(1500);
+  await shot("80-skip-adverts");
+  await key("Escape");
+  await key("Escape");
+  await page.goto(`${base}/app/?demo-cast`);
+  await wait(1500);
+  await tab("Settings");
+  await key("ArrowDown");
+  for (const [section, name] of [["Seasonal clips", "81-settings-seasonal-clips"], ["Cast and games", "82-settings-cast"], ["Alerts", "83-settings-alerts"]]) {
+    await page.locator(".settings-nav-item", { hasText: section }).first().focus();
+    await wait(1500);
+    await shot(name);
+  }
+  await page.goto(`${base}/app/`);
+  await wait(1500);
+
   // Kids profile.
   await page.locator(".avatar-small").first().focus();
   await key("Enter");
@@ -589,6 +682,27 @@ try {
   await phone.waitForTimeout(300);
   await phone.screenshot({ path: path.join(out, "62-phone-build-scare.png") });
   console.log("  62-phone-build-scare.png");
+  // Cast from the phone, and the sleep timer.
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
+  await phone.click("#cast-btn");
+  await phone.waitForTimeout(1500);
+  await phone.fill("#ca-url", "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  await phone.screenshot({ path: path.join(out, "84-phone-cast.png") });
+  console.log("  84-phone-cast.png");
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
+  await phone.evaluate(() => document.getElementById("np-sleep").click());
+  await phone.waitForTimeout(500);
+  await phone.screenshot({ path: path.join(out, "85-phone-sleep-timer.png") });
+  console.log("  85-phone-sleep-timer.png");
+  // The laptop's screen-share page.
+  await phone.setViewportSize({ width: 1280, height: 800 });
+  await phone.goto(`${base}/cast/`);
+  await phone.waitForTimeout(800);
+  await phone.screenshot({ path: path.join(out, "86-laptop-share-page.png") });
+  console.log("  86-laptop-share-page.png");
+  await phone.setViewportSize({ width: 412, height: 915 });
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.click("#settings");

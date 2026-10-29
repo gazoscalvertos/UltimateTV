@@ -98,6 +98,8 @@ interface PlayOpts {
   fromStart?: boolean;
   /** The next episode, looked up ahead of time: start it without the "finding" and "starting" cards. */
   quiet?: boolean;
+  /** Already known how to play (a link sent from a phone): don't ask the Hub. */
+  info?: PlaybackInfo;
 }
 
 let playCount = 0;
@@ -123,7 +125,7 @@ export function cancelStarting(): void {
 async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: number): Promise<boolean> {
   let info: PlaybackInfo | null;
   try {
-    info = await resolve(req);
+    info = opts.info ?? (await resolve(req));
   } catch (err) {
     if (n === playCount) errorToast(err);
     return false;
@@ -163,7 +165,8 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
 
 async function report(event: "start" | "progress" | "stop"): Promise<void> {
   const np = nowPlaying();
-  if (!np || np.info.live) return;
+  // A link from a phone has nowhere to keep its place.
+  if (!np || np.info.live || np.info.progressKey.startsWith("link:")) return;
   const st = playerState();
   // The box keeps a download's place itself, as the Hub (or Jellyfin) may be out of reach.
   if (np.downloadId) void agent.downloadPosition(np.downloadId, st.positionMs, st.durationMs ?? np.info.durationMs).catch(() => undefined);
@@ -177,6 +180,12 @@ async function report(event: "start" | "progress" | "stop"): Promise<void> {
       ...(np.title ? { title: np.title } : {}),
     })
     .catch(() => undefined);
+}
+
+/** Plays a link sent from a phone: a video file, a stream, or a YouTube page (mpv on the box uses yt-dlp). */
+export function playLink(url: string, title: string): Promise<boolean> {
+  const info: PlaybackInfo = { url, title, live: false, startMs: 0, externalSubtitles: [], progressKey: `link:${url}`, skip: [] };
+  return play({ kind: "stream", id: `link:${url}` }, { info, title: { id: `link:${url}`, kind: "movie", name: title } as TitleRef });
 }
 
 export async function stopPlayback(): Promise<void> {

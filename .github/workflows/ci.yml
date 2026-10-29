@@ -66,6 +66,9 @@ jobs:
           curl -fsS localhost:8080/remote/ | grep -q "UltimateTV"
           docker exec hub sh -c 'make-test-clips /tmp/clips 1 && test -f /tmp/clips/clips.json'
           docker exec hub node --check tools/iptv/check-catchup.mjs
+          # comskip (advert skipping) is there and finds all its libraries; openssl makes the HTTPS certificate.
+          docker exec hub sh -c 'test -x /usr/local/bin/comskip && ! ldd /usr/local/bin/comskip | grep -q "not found"'
+          docker exec hub openssl version
           docker rm -f hub
 
   pxe-server:

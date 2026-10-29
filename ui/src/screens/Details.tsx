@@ -11,12 +11,13 @@ import { choose, DialogFrame } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { Progress } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
+import { useHints } from "../hints";
 import { useKeys } from "../keys";
 import { play } from "../player";
 import { addToQueue } from "../queue";
 import { allEpisodes, canDownload, downloadLabel, downloadOf, downloadToBox, episodeRequest, episodesOf, filmRequest } from "../downloads";
 import { canSave, saveEpisodes, saveToNas } from "../save";
-import { errorToast, isKids, openDialog } from "../store";
+import { errorToast, isKids, openDialog, toast } from "../store";
 
 const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
 
@@ -97,6 +98,29 @@ export function Details(props: { id: string }) {
     (id) => hub.streams(id).catch(() => ({ streams: [] as StreamRow[] })),
   );
   const [season, setSeason] = createSignal<number | null>(null);
+  // Save for later (the watchlist, one per profile).
+  const [saved, { mutate: setSaved }] = createResource(
+    () => props.id,
+    (id) => hub.watchlist().then((w) => w.items.find((i) => i.title?.id === id || i.id === id) ?? null, () => null),
+  );
+  const toggleSaved = async () => {
+    const t = d();
+    if (!t) return;
+    try {
+      const item = saved();
+      if (item) {
+        await hub.unsave(item.id);
+        setSaved(null);
+        toast(`Took ${t.name} off Saved for later`);
+      } else {
+        const r = await hub.saveForLater({ title: { id: t.id, kind: t.kind, name: t.name, ...(t.year ? { year: t.year } : {}), ...(t.poster ? { poster: t.poster } : {}), ...(t.backdrop ? { backdrop: t.backdrop } : {}) } });
+        setSaved(r.item);
+        toast(`${t.name} saved for later: it's on Home`, "good");
+      }
+    } catch (err) {
+      errorToast(err);
+    }
+  };
   createEffect(() => {
     const s = d()?.seasons;
     if (s?.length && season() === null) setSeason(s.find((x) => x.season > 0)?.season ?? s[0]!.season);
@@ -214,7 +238,17 @@ export function Details(props: { id: string }) {
     }
   };
 
+  useHints(() => [
+    { key: "red", label: saved() ? "Remove from saved" : "Save for later" },
+    { key: "green", label: "Add to queue" },
+    { key: "yellow", label: "Versions" },
+    { key: "play", label: "Play" },
+  ]);
   useKeys((a) => {
+    if (a === "red" && d()) {
+      void toggleSaved();
+      return true;
+    }
     if (a === "yellow" && d()) {
       if (d()!.kind === "series") episodeVersions(focusedEpisode() ?? nextEpisode());
       else void chooseVersion(d()!);
@@ -317,6 +351,9 @@ export function Details(props: { id: string }) {
                       </button>
                     )}
                   </Show>
+                  <button class="btn btn-large" classList={{ selected: Boolean(saved()) }} data-focus onClick={() => void toggleSaved()}>
+                    <Icon name={saved() ? "bookmarked" : "bookmark"} /> {saved() ? "Saved" : "Save for later"}
+                  </button>
                   <Show when={canDownload() && !isKids() && !(t().kind === "movie" && filmDownload())}>
                     <button class="btn btn-large" data-focus onClick={() => void downloadIt()}>
                       <Icon name="download" /> Download to box

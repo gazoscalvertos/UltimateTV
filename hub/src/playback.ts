@@ -4,6 +4,7 @@
 import { randomBytes } from "node:crypto";
 import type { Channel, PlaybackInfo, PlaybackRequest, StreamCandidate, TitleRef } from "@ultimatetv/shared";
 import { episodeLabel } from "@ultimatetv/shared";
+import { adSkipSettings } from "./adskip.js";
 import { catchupUrl } from "./catchup.js";
 import type { HubContext } from "./context.js";
 import { type Library, NotAllowedError } from "./library.js";
@@ -207,7 +208,9 @@ export class Playback {
       fps: 25,
       externalSubtitles: [],
       progressKey: `recording:${id}`,
-      skip: [],
+      // Advert breaks comskip found (adskip.ts) show Skip adverts, or are jumped over.
+      skip: (r.adBreaks ?? []).map((b) => ({ kind: "adverts" as const, startMs: b.startMs, endMs: b.endMs })),
+      ...(r.adBreaks?.length && adSkipSettings(this.ctx.db).mode === "auto" ? { autoSkipAdverts: true } : {}),
       ...(p.image ? { artwork: p.image } : {}),
     };
   }

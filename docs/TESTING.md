@@ -83,6 +83,22 @@ Update the box first (Settings › About › Update the box): the update builds 
 5. The phone remote's **On the box** tab shows the same list with percentages; ✕ deletes one.
 6. Switch to Kids: the Downloaded tab only lists what Kids may watch.
 
+## 8c. Cast, games and the everyday extras
+
+See [casting-and-games.md](casting-and-games.md) for the one-off setup (box installer, HTTPS port,
+controller pairing).
+
+- [ ] iPhone: Control Centre › Screen Mirroring lists the TV; mirroring shows full screen; Back on the TV remote ends it and the app comes back.
+- [ ] Laptop: `https://<hub>:8096/cast/` in Chrome, accept the certificate warning, Share my screen; the TV asks; OK shows it; Back stops it; Stop sharing on the laptop also returns the TV.
+- [ ] Phone remote › Cast: a YouTube link plays on the TV; a photo shows full screen; sharing a link from the YouTube app to the installed remote opens Cast.
+- [ ] Cast and games: RetroArch opens full screen with a Bluetooth pad; quitting it brings the TV app back. Same for Moonlight (with Sunshine on a PC).
+- [ ] Kids profile: AirPlay is dropped, a laptop share is refused, games are hidden.
+- [ ] Sleep timer of 15 minutes from Options: the card shows a minute before; OK adds 15 minutes; left alone, the sound fades and the TV turns off.
+- [ ] Alerts: set an ntfy topic, Send a test alert; it arrives on the phone.
+- [ ] Red on a film saves it; it's on Home under Saved for later; "save Dune for later" by voice adds it too.
+- [ ] A recording from an ad-funded channel shows Skip adverts in its breaks (give comskip a few minutes after it finishes).
+- [ ] Settings › Seasonal clips › Try one now shows a projection; download one from Shared by others.
+
 ## 9. The WAF test
 
 Hand over the remote with no instructions and ask for: watch BBC One; find tonight's film and record it; set a series link; carry on the film from yesterday; find a 4K comedy.

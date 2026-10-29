@@ -7,6 +7,8 @@ services:
     ports: !reset []
     environment:
       PORT: ${HUB_PORT:-8095}
+      HTTPS_PORT: ${HUB_HTTPS_PORT:-8096}
+      HTTPS_PUBLIC_PORT: ${HUB_HTTPS_PORT:-8096}
     volumes:
       # The NAS as the trip sees it: the music videos travel.sh copied, at the paths they have on
       # the NAS, and anything recorded or downloaded on the trip (sent back to the NAS by "home").

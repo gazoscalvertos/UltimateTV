@@ -1,6 +1,6 @@
 # Architecture
 
-How UltimateTV fits together as of 2026-10-29 (main at PR #56). [PLAN.md](PLAN.md) has the reasoning behind the choices; this page describes what is built.
+How UltimateTV fits together as of 2026-10-29 (main at PR #60). [PLAN.md](PLAN.md) has the reasoning behind the choices; this page describes what is built.
 
 ## The pieces
 
