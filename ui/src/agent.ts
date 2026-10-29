@@ -2,7 +2,7 @@
 // own window under this transparent UI. In a normal browser (development, screenshots) a <video>
 // element stands in; streams it can't decode (MPEG-TS, HEVC) show their artwork instead.
 
-import type { BoxAgent, BoxDownloads, BoxInfo, BoxSoftware, MusicPage, MusicTracks, PlaybackStats, PlayerState, PlayOptions, SpotifyState, VideoLayout, WebAppLoginResult, WebAppState } from "@ultimatetv/shared";
+import type { BoxAgent, BoxDownloads, BoxInfo, BoxSoftware, MusicPage, MusicTracks, PlaybackStats, PlayerState, PlayOptions, SpotifyState, VideoLayout, WebAppLoginReport, WebAppState } from "@ultimatetv/shared";
 
 class BrowserAgent implements BoxAgent {
   private video: HTMLVideoElement;
@@ -196,6 +196,9 @@ class BrowserAgent implements BoxAgent {
     throw new Error("Music plays on the TV box");
   }
   async spotifyControl(): Promise<void> {}
+  async spotifySetup(): Promise<SpotifyState> {
+    throw new Error("Spotify plays on the TV box");
+  }
   onSpotify(): () => void {
     return () => undefined;
   }
@@ -206,7 +209,7 @@ class BrowserAgent implements BoxAgent {
   async webAppKey(): Promise<void> {}
   async webAppText(): Promise<void> {}
   async webAppControl(): Promise<void> {}
-  async webAppLogin(): Promise<WebAppLoginResult> {
+  async webAppLogin(): Promise<WebAppLoginReport> {
     throw new Error("Deezer opens on the TV box");
   }
   async webApp(): Promise<WebAppState> {

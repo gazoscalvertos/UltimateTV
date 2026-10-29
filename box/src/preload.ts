@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld("ultimatetv", {
   spotifyTracks: call("spotifyTracks"),
   spotifyPlay: call("spotifyPlay"),
   spotifyControl: call("spotifyControl"),
+  spotifySetup: call("spotifySetup"),
   openWebApp: call("openWebApp"),
   closeWebApp: call("closeWebApp"),
   webAppKey: call("webAppKey"),

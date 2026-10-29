@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { libraryItem, Spotify, toState } from "../src/spotify.js";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { lastProblem, libraryItem, signInOf, Spotify, toState, withSignIn } from "../src/spotify.js";
 
 const status = {
   username: "gary",
@@ -38,6 +41,38 @@ describe("Spotify receiver status", () => {
   });
 });
 
+describe("Spotify receiver config", () => {
+  const template = readFileSync(path.join(__dirname, "../../tools/box/files/go-librespot.yml"), "utf8");
+
+  it("signs in from a phone out of the box", () => {
+    expect(signInOf(template)).toBe("phone");
+    expect(template).toMatch(/^zeroconf_enabled: true$/m);
+  });
+
+  it("switches between phone and code and back, keeping the rest", () => {
+    const code = withSignIn(template, "code");
+    expect(signInOf(code)).toBe("code");
+    expect(code).toMatch(/^credentials:\n  type: device_auth\n/m);
+    expect(code).toMatch(/^zeroconf_enabled: false$/m);
+    expect(code).toContain("port: 3678");
+    expect(code).toContain("device_name: UltimateTV");
+    const back = withSignIn(code, "phone");
+    expect(signInOf(back)).toBe("phone");
+    expect(back).toContain("persist_credentials: true");
+    expect(withSignIn(back, "phone")).toBe(back);
+  });
+
+  it("reads the old config's code sign-in", () => {
+    expect(signInOf("zeroconf_enabled: true\ncredentials:\n  type: device_auth\nserver:\n  enabled: true\n")).toBe("code");
+  });
+
+  it("picks the receiver's complaint out of its log", () => {
+    const log = 'level=info msg="running go-librespot 0.0.0"\nlevel=error msg="failed creating app" error="failed initializing audio output: pulse: connection refused"\n';
+    expect(lastProblem(log)).toBe("failed creating app: failed initializing audio output: pulse: connection refused");
+    expect(lastProblem("")).toBeUndefined();
+  });
+});
+
 describe("Spotify receiver API", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -60,13 +95,41 @@ describe("Spotify receiver API", () => {
     expect(state).toMatchObject({ available: true, signedIn: false, pair: { url: "https://www.spotify.com/pair", code: "ABC123" } });
   });
 
-  it("is unavailable when the receiver doesn't answer", async () => {
+  it("is unavailable when the receiver doesn't answer, and says whether it's installed", async () => {
     vi.stubGlobal("fetch", async () => {
       throw new Error("ECONNREFUSED");
     });
-    const s = new Spotify("http://box", () => undefined);
-    expect((await s.refresh()).available).toBe(false);
+    const missing = new Spotify("http://box", () => undefined, { bin: "/nonexistent/go-librespot", config: "/nonexistent/config.yml" });
+    expect(await missing.refresh()).toMatchObject({ available: false, installed: false });
+    missing.stop();
+    const there = new Spotify("http://box", () => undefined, { bin: process.execPath, config: "/nonexistent/config.yml" });
+    expect(await there.refresh()).toMatchObject({ available: false, installed: true });
+    there.stop();
+  });
+
+  it("shows the code even while /status can't answer (a receiver busy signing in)", async () => {
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (url.endsWith("/status")) throw Object.assign(new Error("timed out"), { name: "TimeoutError" });
+      return Response.json({ url: "https://www.spotify.com/pair", code: "XYZ789" });
+    });
+    const s = new Spotify("http://box", () => undefined, { config: "/nonexistent/config.yml" });
+    expect(await s.refresh()).toMatchObject({ available: true, signedIn: false, pair: { code: "XYZ789" } });
     s.stop();
+  });
+
+  it("switches to a code sign-in by rewriting the config and restarting the receiver", async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "spotify-"));
+    const config = path.join(dir, "config.yml");
+    writeFileSync(config, readFileSync(path.join(__dirname, "../../tools/box/files/go-librespot.yml"), "utf8"));
+    const ran: string[] = [];
+    fake({ "/status": () => new Response(null, { status: 204 }), "/auth/code": () => Response.json({ url: "https://www.spotify.com/pair", code: "ABC123" }) });
+    const s = new Spotify("http://box", () => undefined, { config, exec: async (cmd, args) => (ran.push(`${cmd} ${args.join(" ")}`), "") });
+    const state = await s.setup({ signIn: "code" });
+    s.stop();
+    expect(ran).toContain("systemctl --user restart ultimatetv-spotify.service");
+    expect(signInOf(readFileSync(config, "utf8"))).toBe("code");
+    expect(readFileSync(config, "utf8")).toMatch(/^zeroconf_enabled: false$/m);
+    expect(state).toMatchObject({ signIn: "code", pair: { code: "ABC123" } });
   });
 
   it("sets shuffle before playing, and repeat as two switches", async () => {

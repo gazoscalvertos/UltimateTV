@@ -905,9 +905,47 @@
     if (d.items.some((i) => i.status === "downloading" || i.status === "queued")) downloadsTimer = setTimeout(() => current === "downloads" && document.visibilityState === "visible" && showDownloads().catch(() => undefined), 3000);
   }
 
+  // Signing in to Spotify and Deezer on the TV, from the phone: the first thing the Music page shows
+  // until both are done (TV apps from before musicStatus show the library straight away).
+  function musicSetupHtml(st) {
+    const sp = st.spotify || {};
+    const name = esc(sp.deviceName || "the TV");
+    let spotify = "";
+    if (sp.installed === false || (!sp.available && sp.installed === undefined)) spotify = `<div class="msetup"><h3>Spotify isn't on the TV box yet</h3><p>Update the box from the TV (Settings › About), then come back here.</p></div>`;
+    else if (!sp.available)
+      spotify = `<div class="msetup"><h3>${sp.problem ? "Spotify isn't starting on the TV" : "Spotify is starting on the TV…"}</h3>${sp.problem ? `<p>${esc(sp.problem)}</p>` : ""}${st.setup ? `<button class="link" data-ms="restart">Restart Spotify</button>` : ""}</div>`;
+    else if (!sp.signedIn && sp.signIn === "code")
+      spotify = `<div class="msetup spotify"><h3>Sign in to Spotify with a code</h3>${sp.pair ? `<p>Tap below, sign in, and enter this code:</p><div class="code">${esc(sp.pair.code)}</div><a class="btn" href="${esc(sp.pair.url)}" target="_blank" rel="noopener">Open ${esc(sp.pair.url.replace(/^https?:\/\//, "").replace(/\?.*$/, ""))}</a>` : `<p>Getting a code from Spotify…</p>`}${st.setup ? `<button class="link" data-ms="phone">Sign in from the Spotify app instead</button>` : ""}</div>`;
+    else if (!sp.signedIn)
+      spotify = `<div class="msetup spotify"><h3>Sign in to Spotify on the TV</h3><ol><li>Open the Spotify app (on the home Wi-Fi).</li><li>Play any song and tap the devices button at the bottom of the player.</li><li>Pick <b>${name}</b>.</li></ol><p>The TV remembers you, and your playlists appear here and on the TV. Needs Spotify Premium.</p><a class="btn" href="https://open.spotify.com/" target="_blank" rel="noopener">Open Spotify</a>${st.setup ? `<button class="link" data-ms="code">${name} not listed? Sign in with a code</button>` : ""}</div>`;
+    const deezer = st.deezer && st.deezer.signedIn === false ? `<div class="msetup deezer"><h3>Log in to Deezer on the TV</h3><p>Type your Deezer email and password on your phone and the TV logs in. Google or Apple sign-in doesn't work on the TV: set a Deezer password first (Forgot your password on deezer.com).</p><a class="btn" href="/music-login/">Log in to Deezer</a></div>` : "";
+    return spotify + deezer;
+  }
+  function wireMusicSetup(kind) {
+    for (const b of body.querySelectorAll("[data-ms]"))
+      b.onclick = () => {
+        b.disabled = true;
+        const m = b.dataset.ms;
+        call("musicSetup", m === "restart" ? { restart: true } : { signIn: m }).then(
+          () => setTimeout(() => showMusic(kind), 1500),
+          (e) => (toast(e.message, true), (b.disabled = false)),
+        );
+      };
+  }
+
   // Music: the Spotify library on the box.
   async function showMusic(kind) {
-    body.innerHTML = `<div class="seg">${["playlists", "albums", "artists"].map((k) => `<button data-mk="${k}" class="${k === kind ? "on" : ""}">${k[0].toUpperCase() + k.slice(1)}</button>`).join("")}</div><div id="music-list"><p class="empty">Loading…</p></div>`;
+    const st = await call("musicStatus").catch(() => null);
+    const setup = st ? musicSetupHtml(st) : "";
+    if (st && !st.spotify?.signedIn) {
+      body.innerHTML = setup;
+      wireMusicSetup(kind);
+      // Check again while the page is open: signing in happens elsewhere.
+      clearTimeout(showMusic.timer);
+      showMusic.timer = setTimeout(() => current === "music" && document.visibilityState === "visible" && showMusic(kind).catch(() => undefined), 5000);
+      return;
+    }
+    body.innerHTML = `${setup}<div class="seg">${["playlists", "albums", "artists"].map((k) => `<button data-mk="${k}" class="${k === kind ? "on" : ""}">${k[0].toUpperCase() + k.slice(1)}</button>`).join("")}</div><div id="music-list"><p class="empty">Loading…</p></div>`;
     for (const b of body.querySelectorAll("[data-mk]")) b.onclick = () => showMusic(b.dataset.mk);
     let page;
     try {
@@ -915,7 +953,7 @@
     } catch (e) {
       return ($("music-list").innerHTML = `<p class="empty">${esc(e.message)}</p>`);
     }
-    if (!page.items.length) return ($("music-list").innerHTML = `<p class="empty">Nothing here. Sign in to Spotify in the TV's Music tab.</p>`);
+    if (!page.items.length) return ($("music-list").innerHTML = `<p class="empty">Nothing here yet.</p>`);
     $("music-list").innerHTML = `<div class="grid">${page.items.map((m, i) => `<button class="tile" data-mi="${i}">${m.image ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : `<span class="noimg">♪</span>`}<b>${esc(m.name)}</b>${m.subtitle ? `<small>${esc(m.subtitle)}</small>` : ""}</button>`).join("")}</div>`;
     for (const b of $("music-list").querySelectorAll("[data-mi]")) b.onclick = () => musicSheet(page.items[Number(b.dataset.mi)]);
   }

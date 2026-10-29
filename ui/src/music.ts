@@ -3,7 +3,7 @@
 // playlists so the screens can be seen; otherwise Spotify shows as not set up.
 
 import { createSignal } from "solid-js";
-import type { Action, MusicItem, MusicPage, MusicTracks, SpotifyCommand, SpotifyState, WebAppCommand, WebAppId, WebAppLoginResult, WebAppState } from "@ultimatetv/shared";
+import type { Action, MusicItem, MusicPage, MusicTracks, SpotifyCommand, SpotifySetup, SpotifyState, WebAppCommand, WebAppId, WebAppLoginReport, WebAppLoginResult, WebAppState } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
 import { hub } from "./api";
 import { onHubEvent } from "./events";
@@ -11,7 +11,7 @@ import { errorToast, toast } from "./store";
 
 type Source = Pick<
   typeof agent,
-  "spotify" | "spotifyLibrary" | "spotifyTracks" | "spotifyPlay" | "spotifyControl" | "onSpotify" | "openWebApp" | "closeWebApp" | "webAppKey" | "webAppText" | "webAppControl" | "webAppLogin" | "webApp" | "onWebApp"
+  "spotify" | "spotifyLibrary" | "spotifyTracks" | "spotifyPlay" | "spotifyControl" | "spotifySetup" | "onSpotify" | "openWebApp" | "closeWebApp" | "webAppKey" | "webAppText" | "webAppControl" | "webAppLogin" | "webApp" | "onWebApp"
 >;
 
 const OFF: SpotifyState = { available: false, signedIn: false, status: "stopped", positionMs: 0, at: 0, volume: 0, shuffle: false, repeat: "off" };
@@ -31,6 +31,9 @@ class NoMusic implements Source {
     throw new Error(onBox ? "Update the box to play music (Settings › About)" : "Music plays on the TV box");
   }
   async spotifyControl(_c: SpotifyCommand): Promise<void> {}
+  async spotifySetup(_setup: SpotifySetup): Promise<SpotifyState> {
+    throw new Error(onBox ? "Update the box to set up Spotify (Settings › About)" : "Spotify plays on the TV box");
+  }
   onSpotify(_listener: (s: SpotifyState) => void): () => void {
     return () => undefined;
   }
@@ -41,7 +44,7 @@ class NoMusic implements Source {
   async webAppKey() {}
   async webAppText() {}
   async webAppControl() {}
-  async webAppLogin(): Promise<WebAppLoginResult> {
+  async webAppLogin(): Promise<WebAppLoginReport> {
     throw new Error(onBox ? "Update the box to log in to Deezer from the phone (Settings › About)" : "Deezer opens on the TV box");
   }
   async webApp(): Promise<WebAppState> {
@@ -92,8 +95,10 @@ class DemoMusic extends NoMusic {
   constructor() {
     super();
     // ?demo-music=pair shows Spotify waiting for someone to sign in.
-    if (new URLSearchParams(location.search).get("demo-music") === "pair") {
-      this.state = { ...OFF, available: true, deviceName: "UltimateTV", at: Date.now(), pair: { url: "https://www.spotify.com/pair", code: "KQ4F7T" } };
+    // ?demo-music=phone or =pair: not signed in yet (for the sign-in screens and screenshots).
+    const demo = new URLSearchParams(location.search).get("demo-music");
+    if (demo === "phone" || demo === "pair") {
+      this.state = this.notSignedIn(demo === "pair" ? "code" : "phone");
       return;
     }
     this.queue = demoTracks("spotify:playlist:friday-night-house");
@@ -112,6 +117,15 @@ class DemoMusic extends NoMusic {
       context: { uri: "spotify:playlist:friday-night-house", name: "Friday Night House" },
       track: { uri: t.uri, name: t.name, artists: [t.subtitle!], album: "Friday Night House", cover: t.image!, durationMs: t.durationMs! },
     };
+  }
+
+  private notSignedIn(signIn: "phone" | "code"): SpotifyState {
+    return { ...OFF, available: true, installed: true, signIn, deviceName: "UltimateTV", at: Date.now(), ...(signIn === "code" ? { pair: { url: "https://www.spotify.com/pair", code: "KQ4F7T" } } : {}) };
+  }
+
+  override async spotifySetup(setup: SpotifySetup): Promise<SpotifyState> {
+    if ("signIn" in setup) this.set(this.notSignedIn(setup.signIn));
+    return this.state;
   }
 
   private set(patch: Partial<SpotifyState>): void {
@@ -227,12 +241,26 @@ async function logInFromPhone(id: string): Promise<void> {
     if (music() === agent && !agentHas("webAppLogin")) throw new Error("Update the box to log in to Deezer from the phone (Settings › About)");
     const login = await hub.musicLogin(id);
     toast("Logging in to Deezer…");
-    const result = await music().webAppLogin("deezer", login);
-    if (result === "no-form") toast("Couldn't find Deezer's login boxes. Log in on the page with the phone remote's keyboard.", "bad");
-    if (result === "partial") toast("Deezer only asked for some of it. Finish on the page with the remote.");
+    // Older box shells answer with just the result.
+    const answer = (await music().webAppLogin("deezer", login)) as WebAppLoginReport | WebAppLoginResult;
+    const report: WebAppLoginReport = typeof answer === "string" ? { result: answer } : answer;
+    void hub.musicLoginResult(id, report).catch(() => undefined);
+    const says = report.message ? ` Deezer says: “${report.message}”` : "";
+    if (report.result === "signed-in") toast("Logged in to Deezer", "good");
+    if (report.result === "rejected") toast(`Deezer didn't take that login.${says}`, "bad");
+    if (report.result === "check") toast(report.message ?? "Deezer wants something more. Finish on the page with the remote.");
+    if (report.result === "no-form") toast("Couldn't find Deezer's login boxes. Log in on the page with the phone remote's keyboard.", "bad");
+    if (report.result === "partial") toast("Deezer only asked for some of it. Finish on the page with the remote.");
   } catch (e) {
+    void hub.musicLoginResult(id, { result: "no-form", message: e instanceof Error ? e.message : String(e) }).catch(() => undefined);
     errorToast(e);
   }
+}
+
+/** Switch how Spotify signs in, or start it again; says so if the box is too old to. */
+export async function spotifySetup(setup: SpotifySetup): Promise<void> {
+  if (music() === agent && !agentHas("spotifySetup")) throw new Error("Update the box to change this (Settings › About)");
+  setSpotify(await music().spotifySetup(setup));
 }
 
 /** Where the Spotify song is now, counting on from the last report while it plays. */

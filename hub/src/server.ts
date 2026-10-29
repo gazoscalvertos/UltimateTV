@@ -11,7 +11,7 @@ import { registerNotices } from "./notify.js";
 import { registerQueue } from "./queue.js";
 import { registerScares } from "./scares.js";
 import { movedAway, registerMove } from "./move.js";
-import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
+import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { cleanAppName, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
@@ -141,6 +141,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/tv/reply/:id", "tv"],
     ["POST /api/box/state", "tv"],
     ["GET /api/music/login/:id", "tv"],
+    ["POST /api/music/login/:id/result", "tv"],
+    ["GET /api/music/login/:id/status", "paired"],
     ["GET /api/pair/code", "tv"],
     ["GET /api/hub/move-out", "paired"],
     ["GET /api/remote/qr.svg", "tv"],
@@ -525,9 +527,18 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const password = String(req.body?.password ?? "").slice(0, 200);
     if (req.body?.app !== "deezer" || !email || !password) return reply.code(400).send({ error: "Enter your email and password" });
     if (tvSockets === 0) return reply.code(409).send({ error: "The TV app isn't connected to the Hub. Is the box on?" });
-    ctx.events.emit({ type: "music.login", app: "deezer", id: musicLogins.add({ email, password }) });
-    return { ok: true };
+    const id = musicLogins.add({ email, password });
+    ctx.events.emit({ type: "music.login", app: "deezer", id });
+    return { ok: true, id };
   });
+  // The TV says how the login went; the phone page asks (the id is the phone's own, unguessable).
+  app.post("/api/music/login/:id/result", async (req: Req<{ id: string }, Record<string, string>, { result?: string; message?: string }>, reply) => {
+    const result = String(req.body?.result ?? "") as WebAppLoginResult;
+    if (!["signed-in", "rejected", "check", "submitted", "partial", "no-form"].includes(result)) return reply.code(400).send({ error: "Unknown result" });
+    const ok = musicLogins.report(req.params.id, { result, ...(req.body?.message ? { message: String(req.body.message) } : {}) });
+    return ok ? { ok: true } : reply.code(404).send({ error: "No such login" });
+  });
+  app.get("/api/music/login/:id/status", async (req: Req<{ id: string }>, reply) => reply.header("Cache-Control", "no-store").send(musicLogins.status(req.params.id)));
   app.get("/api/music/login/:id", async (req: Req<{ id: string }>, reply) => {
     const login = musicLogins.take(req.params.id);
     return login ? reply.header("Cache-Control", "no-store").send(login) : reply.code(404).send({ error: "That login has gone; send it again" });
@@ -638,7 +649,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "saveToNas"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "musicStatus", "musicSetup", "downloads", "download", "downloadRemove", "saveToNas"]);
   const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
   let tvCallSeq = 0;
   app.post("/api/tv/call/:method", async (req: Req<{ method: string }, Record<string, string>, unknown>, reply) => {
