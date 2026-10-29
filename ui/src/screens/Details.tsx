@@ -199,7 +199,7 @@ export function Details(props: { id: string }) {
   };
 
   useHints(() => [
-    { key: "red", label: saved() ? "Saved for later" : "Save for later" },
+    { key: "red", label: saved() ? "Remove from saved" : "Save for later" },
     { key: "green", label: "Add to queue" },
     { key: "yellow", label: "Versions" },
     { key: "play", label: "Play" },

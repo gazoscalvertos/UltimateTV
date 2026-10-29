@@ -35,7 +35,12 @@ export function SleepWarning() {
           <h3>Still watching?</h3>
           <p>The TV turns off in {left() > 50 ? "a minute" : `${left()} seconds`}.</p>
           <p class="sleep-keys">
-            <kbd>OK</kbd> 15 more minutes <kbd>Back</kbd> cancel the timer
+            <span>
+              <kbd>OK</kbd> 15 more minutes
+            </span>
+            <span>
+              <kbd>Back</kbd> cancel the timer
+            </span>
           </p>
         </div>
       </div>
@@ -70,7 +75,7 @@ export function ScreenShareLayer() {
             {(stream) => <video autoplay playsinline ref={(v) => (v.srcObject = stream())} />}
           </Show>
           <div class="cast-hint" classList={{ hidden: !hint() }}>
-            <Icon name="laptop" /> Showing {s().name}'s screen · <kbd>Back</kbd> stops
+            <Icon name="laptop" /> Showing {s().name} · <kbd>Back</kbd> stops
           </div>
         </div>
       )}

@@ -334,6 +334,8 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
     const p = demoProgramme(c, s, 60, title, { season, episode, subtitle: sub }, DESCRIPTIONS[episode % DESCRIPTIONS.length]!);
     const extra: Partial<Recording> = { path: path.join(config.clipsDir, "h264-1080p25-aac.mp4"), sizeBytes: 2.4e9, watched, positionMs: episode === 3 ? 22 * 60_000 : 0 };
     if (title === "Harbour Lights") extra.seriesLinkId = link.id;
+    // Advert breaks found by comskip, for the Skip adverts button.
+    if (title === "Wild Islands") Object.assign(extra, { adBreaks: [{ startMs: 1000, endMs: 4 * 60_000 }, { startMs: 22 * 60_000, endMs: 25 * 60_000 }], adScan: "done" });
     return rec(`demo-done-${slugOf(title)}-${episode}`, p, "completed", extra);
   };
   for (const r of [

@@ -15,6 +15,33 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Cast and games** ([docs/casting-and-games.md](docs/casting-and-games.md)): a new screen (Blue
+  on Home) for putting other screens on the TV. iPhones, iPads and Macs mirror over **AirPlay**
+  (UxPlay on the box). Any laptop shares its screen from Chrome, Edge or Firefox at
+  `https://<hub>:8096/cast/`, after the TV asks; add a virtual display first to use the TV as a
+  second screen. Android phones send a **link** (YouTube, a video, a stream) or a **photo or video**
+  from the phone remote's new **Cast** sheet, which the installed remote also opens from Android's
+  share menu. **Games** open full screen from the same screen: RetroArch, Moonlight (games from a PC
+  running Sunshine), Steam Link and GeForce NOW, and the TV app comes back when they close. Nothing
+  can be cast onto the Kids profile, and games there are off unless allowed. Update the Hub (it now
+  also serves HTTPS on `HUB_HTTPS_PORT`, 8096 by default) and run the box installer again.
+- **What the buttons do** ([docs/everyday-extras.md](docs/everyday-extras.md)): a strip along the
+  bottom of each screen says what the colour keys do there, and Info opens a help screen with the
+  remote drawn. On Home the colour keys are shortcuts.
+- **Sleep timer**: 15 minutes to 2 hours or the end of the programme, from Options, the phone's moon
+  button or by voice. A minute before it asks "Still watching?"; then the sound fades, playback stops
+  and the TV goes to standby.
+- **Alerts before things break**: the IPTV or TorBox subscription running out, the guide not
+  updating, failed recordings, a full NAS and live TV not starting go to a Home Assistant webhook or
+  ntfy, and to a small card on the TV for grown-ups. Settings › Alerts.
+- **Save for later**: a watchlist per profile from the TV (Red on a title), the phone and voice
+  ("save Dune for later"), as a row on Home.
+- **Skip the adverts in recordings**: comskip (now in the Hub's image) finds the breaks; recordings
+  show Skip adverts, or skip them by themselves (Settings › Recording).
+- **Seasonal clips**: now and then a sleigh, a bunny, fireworks or a ghost drifts across the TV for
+  the season, drawn by the TV or uploaded from the phone. A community library
+  ([community/clips](community/clips/README.md)) shares clips and jump scares between households.
+
 - **Steady update status**: the phone's Updates card no longer flips between "Couldn't check" and
   "Update available". The Hub keeps GitHub's last answer (a quick reload used to drop it), shares
   one check between everyone asking, waits a minute after a failure and falls back to git's own

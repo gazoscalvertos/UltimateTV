@@ -45,3 +45,13 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 60 | Every built-in screensaver on one sheet |
 | 61 | A built scare: a transparent ghost placed bottom right over the film |
 | 62 | Building a scare on the phone: a picture or video, a sound, where it goes and how big |
+| 70, 71 | Button hints along the bottom of Home, and the help screen Info opens |
+| 72, 73 | Saved for later on Home, and Red saving a film from its page |
+| 74 | Cast and games: AirPlay, a laptop's screen, an Android phone, and the games |
+| 75 | A laptop asking to show its screen; the TV asks first |
+| 76, 77 | The sleep timer's "Still watching?" card, and the timer in Options |
+| 78, 79 | Seasonal projections over a film: a sleigh at Christmas, a bunny at Easter |
+| 80 | Skip adverts in a recording, from the breaks comskip found |
+| 81–83 | Settings: Seasonal clips, Cast and games, Alerts |
+| 84, 85 | The phone remote's Cast sheet and sleep timer |
+| 86 | The page a laptop opens to share its screen |

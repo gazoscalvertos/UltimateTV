@@ -33,7 +33,9 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md). See [
 7. **Pop-ups:** put the doorbell camera, a meeting or an alarm on the TV from Home Assistant or the phone ([docs/notifications.md](docs/notifications.md)).
 8. **Halloween:** the theme, Spooky TV's ghosts and ghostly sounds, hidden easter eggs and jump scares cut into whatever is on ([docs/halloween.md](docs/halloween.md)).
 9. **Trips:** take the box away and the Hub goes with it for a while, then comes home with what changed ([docs/travel.md](docs/travel.md)).
-10. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
+10. **Other screens and games:** AirPlay from an iPhone or Mac, a laptop's screen from its browser, links and photos from a phone, and RetroArch, Moonlight, Steam Link and GeForce NOW ([docs/casting-and-games.md](docs/casting-and-games.md)).
+11. **Everyday extras:** button hints, the sleep timer, alerts before things break, Save for later, advert skipping and seasonal clips ([docs/everyday-extras.md](docs/everyday-extras.md)).
+12. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 
 ## Development
 

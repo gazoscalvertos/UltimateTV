@@ -132,7 +132,7 @@ async function offered(offer: ShareOffer): Promise<void> {
   if (!castSettings().screenShare) return void hub.refuseShare(offer.id, "Screen sharing is turned off on the TV").catch(() => undefined);
   if (castState().foreground) return void hub.refuseShare(offer.id, "The TV is showing something else (a game or AirPlay)").catch(() => undefined);
   const pick = await choose({
-    title: `Show ${offer.name}'s screen?`,
+    title: `Show the screen from ${offer.name}?`,
     message: `${offer.name} wants to show its ${offer.surface === "browser" ? "browser tab" : offer.surface === "window" ? "window" : "screen"} on the TV. Back stops it at any time.`,
     options: [
       { label: "Show it", value: "yes", icon: "laptop" },

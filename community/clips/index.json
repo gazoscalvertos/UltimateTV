@@ -1,0 +1,40 @@
+{
+  "clips": [
+    {
+      "id": "robin-hop",
+      "name": "Hopping robin",
+      "use": "projection",
+      "season": "christmas",
+      "motion": "across-bottom",
+      "url": "robin-hop.webp",
+      "type": "image/webp",
+      "sizeBytes": 67946,
+      "author": "UltimateTV",
+      "licence": "CC0"
+    },
+    {
+      "id": "chick-hatch",
+      "name": "Chick hatching",
+      "use": "projection",
+      "season": "easter",
+      "motion": "corner",
+      "url": "chick-hatch.webp",
+      "type": "image/webp",
+      "sizeBytes": 59402,
+      "author": "UltimateTV",
+      "licence": "CC0"
+    },
+    {
+      "id": "shooting-star",
+      "name": "Shooting star",
+      "use": "projection",
+      "season": "newyear",
+      "motion": "across-top",
+      "url": "shooting-star.webp",
+      "type": "image/webp",
+      "sizeBytes": 92182,
+      "author": "UltimateTV",
+      "licence": "CC0"
+    }
+  ]
+}
