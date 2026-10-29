@@ -15,6 +15,9 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Get the Android apps again**: TV Settings › Android apps and the phone's ⚙ Settings › Android
+  apps show a QR code and the link for each app (the watching app and the remote). Scan with a
+  phone's camera, or tap Download on the phone, to install. Home Wi-Fi only, as before.
 - Phone settings › Guide lists and channels: put the TV Guide's lists (favourites, custom guides,
   categories) in your own order, choose which list each profile's guide opens on, build and
   reorder custom guides, and give any channel a new number (taking another's swaps them), a

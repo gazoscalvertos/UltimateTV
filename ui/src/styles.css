@@ -2237,6 +2237,14 @@ kbd.key-blue {
   font-weight: 400;
   font-size: 0.9rem;
 }
+.app-qrs {
+  display: flex;
+  flex: none;
+  gap: 1.5rem;
+}
+.app-qrs .qr-card {
+  width: 15rem;
+}
 .qr-card .pair-code {
   display: block;
   margin: 0.3rem 0 0.2rem;

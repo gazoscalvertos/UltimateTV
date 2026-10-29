@@ -413,6 +413,9 @@ export function Settings(props: { section?: string }) {
     }
   };
 
+  /** The Hub's address as phones on the home Wi-Fi reach it. */
+  const hubAddress = () => settings()?.setupUrl.replace(/\/setup\/?$/, "") ?? "";
+
   const SECTIONS = [
     { id: "profiles", label: "Profiles and PIN" },
     { id: "playback", label: "Picture and sound" },
@@ -422,6 +425,7 @@ export function Settings(props: { section?: string }) {
     { id: "scares", label: "Jump scares" },
     { id: "sources", label: "Sources" },
     { id: "remote", label: "Phones and remotes" },
+    { id: "apps", label: "Android apps" },
     { id: "about", label: "About" },
   ];
 
@@ -632,6 +636,27 @@ export function Settings(props: { section?: string }) {
                     <span class="pair-code">{pairCode() ? spaced(pairCode()!.code) : "…"}</span>
                     <span class="muted">at {settings()!.setupUrl.replace(/\/setup\/?$/, "/remote/")}</span>
                   </p>
+                </div>
+              </div>
+            </Show>
+
+            <Show when={section() === "apps"}>
+              <h2>Android apps</h2>
+              <div class="sources">
+                <div class="sources-list">
+                  <p class="hint">Scan a code with the phone's camera to download the app, then open the download to install it (allow installs from Chrome if Android asks). Downloads work on the home Wi-Fi only. The app pairs itself with the TV when you first open it.</p>
+                  <Row label={`${appName()} for Android`} hint={`Watch everything the TV has on a phone or tablet, and download it for trips · ${hubAddress()}/api/client/app.apk`} icon="download" onSelect={() => toast("Scan the left code with the phone's camera")} />
+                  <Row label={`${appName()} Remote`} hint={`The phone remote, with voice control and the volume keys for channels · ${hubAddress()}/api/remote/app.apk`} icon="download" onSelect={() => toast("Scan the right code with the phone's camera")} />
+                </div>
+                <div class="app-qrs">
+                  <div class="qr-card">
+                    <img src="/api/apps/client/qr.svg" alt="" />
+                    <p>{appName()} for Android</p>
+                  </div>
+                  <div class="qr-card">
+                    <img src="/api/apps/remote/qr.svg" alt="" />
+                    <p>{appName()} Remote</p>
+                  </div>
                 </div>
               </div>
             </Show>

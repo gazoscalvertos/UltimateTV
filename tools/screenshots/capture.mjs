@@ -206,6 +206,10 @@ try {
   await key("ArrowDown", 5);
   await wait(1200);
   await shot("18-settings-phone-remote");
+  // The QR codes and links for downloading the two Android apps.
+  await page.locator(".settings-nav-item", { hasText: "Android apps" }).first().focus();
+  await wait(1200);
+  await shot("63-settings-android-apps");
 
   // Music video channels: the list in Settings, one channel, watching it and its guide.
   await page.locator(".settings-nav-item", { hasText: "Music channels" }).first().focus();
@@ -527,6 +531,8 @@ try {
   await phone.waitForTimeout(1500);
   await phone.screenshot({ path: path.join(out, "23-phone-setup.png"), fullPage: true });
   console.log("  23-phone-setup.png");
+  await phone.locator("#apps").screenshot({ path: path.join(out, "64-phone-android-apps.png") });
+  console.log("  64-phone-android-apps.png");
   // Guide lists, custom guides and channels on the phone settings page.
   await phone.goto(`${base}/setup/#lists`);
   await phone.waitForTimeout(1500);
