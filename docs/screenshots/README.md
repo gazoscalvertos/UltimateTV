@@ -46,3 +46,4 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 61 | A built scare: a transparent ghost placed bottom right over the film |
 | 62 | Building a scare on the phone: a picture or video, a sound, where it goes and how big |
 | 63, 64 | Settings › Android apps on the TV and the phone: QR codes and links to download the watching app and the remote |
+| 63 | Phone settings: the guide lists' order, each profile's opening list, custom guides and every channel's number, category and favourite |

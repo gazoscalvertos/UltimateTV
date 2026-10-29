@@ -533,6 +533,16 @@ try {
   console.log("  23-phone-setup.png");
   await phone.locator("#apps").screenshot({ path: path.join(out, "64-phone-android-apps.png") });
   console.log("  64-phone-android-apps.png");
+  // Guide lists, custom guides and channels on the phone settings page.
+  await phone.goto(`${base}/setup/#lists`);
+  await phone.waitForTimeout(1500);
+  await phone.locator("#cg-list button", { hasText: "Edit" }).first().click();
+  await phone.waitForTimeout(400);
+  await phone.selectOption("#ch-filter", "sport");
+  await phone.evaluate(() => (document.getElementById("toast").hidden = true));
+  await phone.waitForTimeout(400);
+  await phone.locator("#lists").screenshot({ path: path.join(out, "63-phone-guide-lists.png") });
+  console.log("  63-phone-guide-lists.png");
 } finally {
   await browser.close();
   hub.kill();
