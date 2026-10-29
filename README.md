@@ -31,7 +31,7 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md). See [
 5. **Music video channels:** Clubland TV, House TV, Halloween TV and Spooky TV fill themselves on the first start; make your own in Settings › Music channels ([docs/music-channels.md](docs/music-channels.md)).
 6. **Profiles:** set a PIN on the adult profile so the children stay in Kids ([docs/profiles.md](docs/profiles.md)).
 7. **Pop-ups:** put the doorbell camera, a meeting or an alarm on the TV from Home Assistant or the phone ([docs/notifications.md](docs/notifications.md)).
-8. **Halloween:** the theme, Spooky TV's ghosts and ghostly sounds, hidden easter eggs and jump scares cut into whatever is on ([docs/halloween.md](docs/halloween.md)).
+8. **Halloween:** the theme, Spooky TV's ghosts and ghostly sounds, hidden easter eggs and jump scares cut into whatever is on ([docs/halloween.md](docs/halloween.md)). Out of season, the same clips become **projected clips** for Christmas, Easter, Valentine's, birthdays and fireworks, with starter packs and shareable packs ([docs/projected-clips.md](docs/projected-clips.md)).
 9. **Trips:** take the box away and the Hub goes with it for a while, then comes home with what changed ([docs/travel.md](docs/travel.md)).
 10. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 

@@ -15,6 +15,16 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Projected clips** ([docs/projected-clips.md](docs/projected-clips.md)): jump scares become
+  clips for any occasion. A snowman walks along the bottom at Christmas, the Easter bunny hops
+  across, hearts float up on Valentine's, a banner drops in on a birthday, fireworks for Bonfire
+  Night and New Year. Built clips say which occasion they're for (Auto goes by the date), can walk,
+  hop, fly, float up, drop in or peek, and can sit see-through over the whole screen. **Play on a
+  loop** turns the TV into a window projector. Six starter packs come with the Hub. Clips can be
+  shared as a pack file or a link and QR code, and the phone's **Browse packs** reads a curated
+  community list from this repository (GitHub only, checksummed, every file checked). The phone's
+  Scares tab is now **Clips**; Settings › Jump scares is **Projected clips**. Update the Hub and the
+  box.
 - **Steady update status**: the phone's Updates card no longer flips between "Couldn't check" and
   "Update available". The Hub keeps GitHub's last answer (a quick reload used to drop it), shares
   one check between everyone asking, waits a minute after a failure and falls back to git's own

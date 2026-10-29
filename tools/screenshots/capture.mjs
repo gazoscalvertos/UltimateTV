@@ -332,7 +332,10 @@ try {
   await fetch(`${base}/api/notify`, { method: "DELETE", headers: asTv });
   await key("Escape");
 
-  // A jump scare cut into the film (no clips uploaded, so the TV draws its own).
+  // A jump scare cut into the film (no clips uploaded, so the TV draws its own). Halloween's
+  // clips, whatever the date the screenshots are taken.
+  const scares = (p, body) => fetch(`${base}/api/scares${p}`, { method: body === undefined ? "GET" : "POST", headers: { ...asTv, "Content-Type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }).then((r) => r.json());
+  await fetch(`${base}/api/scares`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ season: "halloween" }) });
   await fetch(`${base}/api/scares/now`, { method: "POST", headers: { ...asTv, "Content-Type": "application/json" }, body: "{}" });
   await wait(900);
   await shot("49-jump-scare");
@@ -349,6 +352,20 @@ try {
   await wait(900);
   await shot("61-jump-scare-placed");
   await key("Enter");
+  // Projected clips from the starter packs: a snowman walking by, snow over the film, the Easter bunny.
+  for (const id of ["christmas-starter", "easter-starter", "birthday-starter"]) await scares("/library/install", { id, from: "starter" });
+  const clipState = await scares("");
+  const showClip = async (name, file) => {
+    const m = clipState.mixes.find((x) => x.name === name);
+    await scares("/now", { mixId: m.id });
+    await wait(1200);
+    await shot(file);
+    await key("Enter");
+  };
+  await showClip("Snowman walks by", "67-clip-snowman");
+  await showClip("Let it snow", "68-clip-snowfall");
+  await showClip("Bunny hops across", "69-clip-bunny");
+  await showClip("Happy Birthday banner", "70-clip-birthday");
   await key("Escape");
   await key("Escape");
 
@@ -370,7 +387,7 @@ try {
   await shot("51-spooky-tv");
   await key("Escape");
   await wait(800);
-  await page.locator(".settings-nav-item", { hasText: "Jump scares" }).first().focus();
+  await page.locator(".settings-nav-item", { hasText: "Projected clips" }).first().focus();
   await wait(1200);
   await shot("52-settings-jump-scares");
   // Back to the plain theme for the screenshots that follow.
@@ -521,6 +538,50 @@ try {
   await phone.waitForTimeout(300);
   await phone.screenshot({ path: path.join(out, "62-phone-build-scare.png") });
   console.log("  62-phone-build-scare.png");
+  // Projected clips: the sheet at Christmas, packs to browse, a walking clip being built, a share link.
+  await fetch(`${base}/api/scares`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ season: "christmas" }) });
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
+  await phone.click("#scare-btn");
+  await phone.waitForTimeout(900);
+  await phone.screenshot({ path: path.join(out, "71-phone-clips.png") });
+  console.log("  71-phone-clips.png");
+  await phone.locator("#sc-packs").scrollIntoViewIfNeeded();
+  await phone.waitForTimeout(400);
+  await phone.screenshot({ path: path.join(out, "72-phone-clip-packs.png") });
+  console.log("  72-phone-clip-packs.png");
+  await phone.click("#sc-browse");
+  await phone.waitForTimeout(1500);
+  await phone.screenshot({ path: path.join(out, "73-phone-browse-packs.png") });
+  console.log("  73-phone-browse-packs.png");
+  await phone.click("#br-back");
+  await phone.waitForTimeout(900);
+  await phone.click("#sc-build");
+  await phone.waitForTimeout(600);
+  await phone.click('#bd-theme [data-v="christmas"]');
+  await phone.locator("#bd-visual .row-btn", { hasText: "Snowman" }).first().click();
+  await phone.click('#bd-where [data-v="bottom"]');
+  await phone.click('#bd-motion [data-v="walk-right"]');
+  await phone.locator("#bd-where").scrollIntoViewIfNeeded();
+  await phone.waitForTimeout(400);
+  await phone.screenshot({ path: path.join(out, "74-phone-build-clip.png") });
+  console.log("  74-phone-build-clip.png");
+  await phone.click("#bd-back");
+  await phone.waitForTimeout(900);
+  await phone.click("#sc-share");
+  await phone.waitForTimeout(600);
+  await phone.fill("#sh-name", "Our Christmas clips");
+  await phone.click("#sh-link");
+  await phone.waitForTimeout(1200);
+  await phone.locator("#sh-out").scrollIntoViewIfNeeded();
+  await phone.waitForTimeout(300);
+  await phone.screenshot({ path: path.join(out, "75-phone-share-pack.png") });
+  console.log("  75-phone-share-pack.png");
+  const shareUrl = await phone.inputValue("#sh-url");
+  await phone.goto(shareUrl.replace(/^https?:\/\/[^/]+/, base));
+  await phone.waitForTimeout(1500);
+  await phone.screenshot({ path: path.join(out, "76-clip-share-page.png") });
+  console.log("  76-clip-share-page.png");
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.click("#settings");
