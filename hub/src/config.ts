@@ -24,6 +24,12 @@ export interface HubConfig {
   publicUrl?: string;
   /** Phones and screens must pair before they can control the TV (on unless PAIRING=off). */
   pairing?: boolean;
+  /** The laptop screen share page. */
+  castDir?: string;
+  /** HTTPS port (inside the container) for screen sharing, which browsers only allow on a secure page; 0 turns it off. */
+  httpsPort?: number;
+  /** The HTTPS port as phones and laptops reach it (Docker maps it to 8096 by default). */
+  httpsPublicPort?: number;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -41,7 +47,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     mediaRoot: env.MEDIA_ROOT ?? "/mnt/nas",
     demo: env.DEMO === "1" || env.DEMO === "true",
     pairing: env.PAIRING !== "off",
+    castDir: env.CAST_DIR ?? path.resolve(here, "../public/cast"),
+    httpsPort: Number(env.HTTPS_PORT ?? 8443),
   };
+  if (env.HTTPS_PUBLIC_PORT) config.httpsPublicPort = Number(env.HTTPS_PUBLIC_PORT);
   if (env.PUBLIC_URL) config.publicUrl = env.PUBLIC_URL.replace(/\/+$/, "");
   return config;
 }

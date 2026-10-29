@@ -18,6 +18,18 @@ COPY ui ui
 COPY tools/probe tools/probe
 RUN npm run build -w shared && npm run build -w tools/probe && npm run build -w hub && npm run build -w ui
 
+# comskip finds the advert breaks in recordings (hub/src/adskip.ts). Not packaged by Debian, so
+# built here from a pinned commit against the same FFmpeg libraries the final image has.
+FROM debian:bookworm-slim AS comskip
+ARG COMSKIP_COMMIT=a140b6ac8bc8f596729e9052819affc779c3b377
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates git build-essential autoconf automake libtool pkg-config \
+      libargtable2-dev libavformat-dev libavcodec-dev libavutil-dev libswscale-dev \
+ && git init -q /src && git -C /src fetch -q --depth 1 https://github.com/erikkaashoek/Comskip.git "$COMSKIP_COMMIT" \
+ && git -C /src checkout -q FETCH_HEAD \
+ && cd /src && ./autogen.sh && ./configure && make -j"$(nproc)" \
+ && strip comskip
+
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
@@ -33,7 +45,7 @@ FROM node:22-bookworm-slim
 # intel-media-va-driver-non-free is the iHD VA-API driver that supports the N150's AV1 decode and HEVC encode.
 RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg vainfo intel-media-va-driver-non-free python3 bash ca-certificates \
+ && apt-get install -y --no-install-recommends ffmpeg vainfo intel-media-va-driver-non-free python3 bash ca-certificates libargtable2-0 \
  && rm -rf /var/lib/apt/lists/*
 # yt-dlp finds and downloads the music video channels' videos. The standalone build bundles what
 # YouTube needs (it uses this image's Node as its JavaScript runtime); the Hub updates it daily.
@@ -49,13 +61,14 @@ COPY --from=build /app/hub/dist hub/dist
 COPY --from=build /app/hub/public hub/public
 COPY --from=build /app/ui/dist ui/dist
 COPY --from=build /app/tools/probe/dist tools/probe/dist
+COPY --from=comskip /src/comskip /usr/local/bin/comskip
 COPY tools/clips/make-test-clips.sh /usr/local/bin/make-test-clips
 COPY tools/iptv/check-catchup.mjs tools/iptv/check-catchup.mjs
 # The commit and date this image was built from, shown in Settings › About (tools/hub/update.sh sets them).
 ARG GIT_COMMIT=""
 ARG BUILD_DATE=""
 ENV GIT_COMMIT=$GIT_COMMIT BUILD_DATE=$BUILD_DATE
-EXPOSE 8080
+EXPOSE 8080 8443
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 CMD ["node", "hub/dist/index.js"]

@@ -10,6 +10,11 @@ import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
 import { registerNotices } from "./notify.js";
 import { registerQueue } from "./queue.js";
 import { registerScares } from "./scares.js";
+import { AdSkipper, registerAdSkip } from "./adskip.js";
+import { Alerts, registerAlerts } from "./alerts.js";
+import { registerCast, ScreenShares } from "./cast.js";
+import { Projections, registerProjections } from "./projections.js";
+import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { movedAway, registerMove } from "./move.js";
 import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { cleanAppName, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
@@ -55,7 +60,7 @@ export const HUB_BUILD = { commit: process.env.GIT_COMMIT || undefined, date: pr
 
 type Req<P = Record<string, string>, Q = Record<string, string | undefined>, B = unknown> = FastifyRequest<{ Params: P; Querystring: Q; Body: B }>;
 
-export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Promise<FastifyInstance & { hub: HubContext }> {
+export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Promise<FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper } }> {
   // With a log ring the logger runs at LOG_LEVEL (debug by default): the rolling file in
   // data/logs gets everything, docker logs info and up.
   const app = Fastify({ logger: deps.logger ? (deps.logRing ? { level: deps.env?.LOG_LEVEL ?? "debug", stream: deps.logRing.stream } : true) : false, bodyLimit: 2 * 1024 * 1024 });
@@ -64,6 +69,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   if (config.demo) seedDemo(ctx, config);
   const library = new Library(ctx);
   const playback = new Playback(ctx, library);
+  const watchlist = new Watchlist(ctx.db, ctx.events);
   const reports = new ReportStore(path.join(config.dataDir, "probe-reports"));
   const getSystem = deps.systemReport ?? systemReport;
   app.addHook("onClose", async () => ctx.close());
@@ -149,6 +155,22 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/screensaver", "paired"],
     ["GET /api/screensaver/photos", "paired"],
     ["GET /api/screensaver/photos/:id", "paired"],
+    ["POST /api/watchlist", "paired"],
+    ["DELETE /api/watchlist/:id", "paired"],
+    ["GET /api/alerts", "paired"],
+    ["POST /api/alerts/check", "paired"],
+    ["POST /api/alerts/test", "paired"],
+    ["POST /api/alerts/playback", "tv"],
+    ["POST /api/recordings/:id/adscan", "paired"],
+    ["POST /api/cast/share/:id/answer", "tv"],
+    ["POST /api/cast/share/:id/refuse", "tv"],
+    ["POST /api/cast/share/:id/end", "tv"],
+    ["POST /api/cast/link", "paired"],
+    ["POST /api/tv/sleep", "script"],
+    ["PATCH /api/scares/clips/:id", "script"],
+    ["PUT /api/projections", "script"],
+    ["POST /api/projections/now", "script"],
+    ["POST /api/community/clips/:id/download", "script"],
   ]);
   const NOT_PAIRED = "Pair this phone with the TV first: on the TV, open Settings › Phones and remotes and scan the code";
 
@@ -201,6 +223,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "GET /api/mix/nas",
     "DELETE /api/mix-channels/:id/videos/:videoId",
     "GET /api/screensaver/nas",
+    "PUT /api/alerts/settings",
+    "PUT /api/adskip",
+    "PUT /api/cast/settings",
   ]);
   app.addHook("preHandler", async (req) => {
     const route = `${req.method} ${req.routeOptions.url}`;
@@ -492,7 +517,30 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // Pop-ups on the TV from the phone or anything on the home network (a doorbell, an alarm).
   await registerNotices(app, ctx, config.dataDir);
   // Jump scares: clips the Hub keeps and cuts in over whatever is on (see scares.ts).
-  await registerScares(app, ctx, config.dataDir);
+  const clipStore = await registerScares(app, ctx, config.dataDir);
+  // Seasonal projections and the community clip library (see projections.ts).
+  const projections = new Projections(ctx, clipStore);
+  registerProjections(app, projections);
+  // Warnings before things break (see alerts.ts); checks start with the Hub's other jobs.
+  const alerts = new Alerts(ctx);
+  registerAlerts(app, ctx, alerts);
+  // Advert breaks in recordings (see adskip.ts).
+  const adSkipper = new AdSkipper(ctx, config.dataDir);
+  await registerAdSkip(app, adSkipper, config.dataDir);
+  // Laptops sharing their screen, links from phones (see cast.ts).
+  const screenShares = new ScreenShares(ctx);
+  registerCast(app, ctx, screenShares, {
+    castUrl: (req) => (config.httpsPort ? `https://${new URL(phoneBase(req)).hostname}:${config.httpsPublicPort ?? config.httpsPort}/cast/` : null),
+  });
+  /** Sleep timer from a phone or a script: { minutes } , { end: true } or { off: true }. */
+  app.post("/api/tv/sleep", async (req: Req<Record<string, string>, Record<string, string>, { minutes?: number; end?: boolean; off?: boolean }>, reply) => {
+    const b = req.body ?? {};
+    const minutes = Number(b.minutes);
+    const choice = b.off ? { off: true as const } : b.end ? { end: true as const } : Number.isFinite(minutes) && minutes > 0 && minutes <= 600 ? { minutes: Math.round(minutes) } : null;
+    if (!choice) return reply.code(400).send({ error: "Say how many minutes, end, or off" });
+    ctx.events.emit({ type: "sleep", choice });
+    return { ok: true, tvConnected: tvSockets > 0 };
+  });
   await registerMove(app, {
     db: ctx.db,
     dataDir: config.dataDir,
@@ -622,12 +670,19 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (cmd.kind === "search") ctx.events.emit({ type: "remote.text", text: cmd.text.slice(0, 120) });
     if (cmd.kind === "stats") ctx.events.emit({ type: "box.command", command: "stats", on: cmd.on });
     if (cmd.kind === "reload") ctx.events.emit({ type: "box.command", command: "reload" });
+    if (cmd.kind === "sleep") ctx.events.emit({ type: "sleep", choice: cmd.minutes === "off" ? { off: true } : cmd.minutes === "end" ? { end: true } : { minutes: cmd.minutes } });
+    if (cmd.kind === "save") {
+      // The profile the TV is on when the phone doesn't say: the voice came from the room.
+      const who = viewer(req);
+      const found = (await library.search(cmd.name, Date.now(), who.filter).catch(() => [])).find((r) => r.kind === "title" && r.title);
+      watchlist.add(who.profile?.id ?? null, { ...(found?.title ? { title: found.title } : { name: cmd.name }), from: "voice" });
+    }
     if (cmd.kind !== "none" && said) ctx.events.emit({ type: "remote.said", text: cmd.say });
     return { ...cmd, heard: said, tvConnected: tvSockets > 0 };
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "sleep", "cast", "castApp", "castAirplay"]);
   const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
   let tvCallSeq = 0;
   app.post("/api/tv/call/:method", async (req: Req<{ method: string }, Record<string, string>, unknown>, reply) => {
@@ -901,6 +956,15 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // The play queue: what plays after this, ahead of the next episode.
   registerQueue(app, ctx, filterOf);
+  registerWatchlist(
+    app,
+    watchlist,
+    (req) => {
+      const who = viewer(req);
+      return { profileId: who.profile?.id ?? null, filter: who.filter };
+    },
+    (q, f) => library.search(q, Date.now(), f),
+  );
 
   // The TV asks for the next episode while the current one plays; the answer comes straight back.
   app.post("/api/play/prefetch", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest>) => {
@@ -1128,7 +1192,17 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // -------------------------------------------------------------------------
   // Library
 
-  app.get("/api/home", async (req) => library.home(Date.now(), filterOf(req)));
+  app.get("/api/home", async (req) => {
+    const who = viewer(req);
+    const home = await library.home(Date.now(), who.filter);
+    // The watchlist ("Save for later") goes after Continue watching, or first when there's none.
+    const saved = watchlist.list(who.profile?.id ?? null).filter((i) => i.title && who.filter.ref(i.title)).map((i) => i.title!);
+    if (saved.length) {
+      const at = home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0);
+      home.rails.splice(at, 0, { id: "watchlist", title: "Saved for later", kind: "titles", items: saved.slice(0, 30) });
+    }
+    return home;
+  });
   app.get("/api/browse/:kind", async (req: Req<{ kind: "movie" | "series" }>) => ({ rails: await library.browse(req.params.kind === "series" ? "series" : "movie", filterOf(req)) }));
   app.get("/api/titles/:id", async (req: Req<{ id: string }>) => library.details(req.params.id, filterOf(req)));
   app.get("/api/titles/:id/season/:n", async (req: Req<{ id: string; n: string }>, reply) => {
@@ -1224,6 +1298,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   await serveDir(config.probeDir, "/probe/", "Probe page not built. Run `npm run build` first.", true);
   await serveDir(config.uiDir, "/app/", "TV app not built. Run `npm run build` first.");
   await serveDir(config.setupDir, "/setup/", "Setup page missing.");
+  // A laptop's screen share page (open it over HTTPS: see cast.ts).
+  if (config.castDir) await serveDir(config.castDir, "/cast/", "Screen share page missing.");
   if (config.remoteDir) {
     const remoteDir = config.remoteDir;
     // The install name follows the app's name, so a renamed app installs as "GazosTV Remote".
@@ -1243,7 +1319,12 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   }
 
   app.decorate("hub", ctx);
-  return app as unknown as FastifyInstance & { hub: HubContext };
+  app.decorate("jobs", { alerts, adSkipper });
+  app.addHook("onClose", async () => {
+    alerts.stop();
+    adSkipper.stop();
+  });
+  return app as unknown as FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper } };
 }
 
 function marksFor(ctx: HubContext, from: number, to: number): Record<string, ProgrammeMark> {

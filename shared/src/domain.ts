@@ -4,6 +4,9 @@
 import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState } from "./agent.js";
 import type { SpotifyState, WebAppState } from "./music.js";
 import type { ScreensaverSettings } from "./screensaver.js";
+import type { CastLink, ShareOffer } from "./cast.js";
+import type { AdBreak, Alert, SleepChoice } from "./household.js";
+import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
 
 export type Id = string;
 
@@ -139,6 +142,10 @@ export interface Recording {
   watched: boolean;
   positionMs: number;
   createdAt: number;
+  /** The advert breaks comskip found, once it has looked. */
+  adBreaks?: AdBreak[];
+  /** Where the advert search got to: not run yet, done, failed, or comskip isn't installed. */
+  adScan?: "pending" | "done" | "failed" | "unavailable";
 }
 
 export type ChannelScope = "this" | "any";
@@ -334,7 +341,9 @@ export interface PlaybackInfo {
   /** Report progress to this key. */
   progressKey: string;
   /** Intro/credits markers from Jellyfin media segments. */
-  skip: { kind: "intro" | "recap" | "credits"; startMs: number; endMs: number }[];
+  skip: { kind: "intro" | "recap" | "credits" | "adverts"; startMs: number; endMs: number }[];
+  /** Jump over the advert breaks without asking (Settings › Recording). */
+  autoSkipAdverts?: boolean;
   /** The next episode, for autoplay. */
   /** What plays next (the next episode), with its still and summary for the Up Next card. */
   next?: PlaybackRequest & { name: string; image?: string; overview?: string };
@@ -603,7 +612,23 @@ export type HubEvent =
   /** A phone or screen paired or was removed, a screen is waiting to be let in, or the pairing code was used. */
   | { type: "devices.changed" }
   /** The play queue changed (added to on the TV or the phone, reordered, or an item started): fetch /api/queue again. */
-  | { type: "queue.changed" };
+  | { type: "queue.changed" }
+  /** A profile's watchlist changed (saved from the phone, say): fetch /api/watchlist again. */
+  | { type: "watchlist.changed"; profileId: string | null }
+  /** A new alert, or one cleared (Settings › Alerts, and a pop-up for adults when that's on). */
+  | { type: "alerts.changed"; alert?: Alert }
+  /** A laptop asks to share its screen; the TV asks before it accepts. */
+  | { type: "cast.share"; offer: ShareOffer }
+  /** The laptop stopped sharing (or went away). */
+  | { type: "cast.share.end"; id: string }
+  /** A link from a phone to play now. */
+  | { type: "cast.link"; link: CastLink }
+  /** A seasonal clip to drift across the screen now. */
+  | { type: "projection"; projection: Projection }
+  /** The seasonal clip settings or clips changed. */
+  | { type: "projections.changed" }
+  /** Set or cancel the TV's sleep timer (voice, or the phone). */
+  | { type: "sleep"; choice: SleepChoice };
 
 /** The Hub's own software, for the phone's settings page. */
 export interface HubSoftware {
@@ -690,7 +715,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove";
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "sleep" | "cast" | "castApp" | "castAirplay";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {
@@ -870,6 +895,12 @@ export interface ScareClip {
   url: string;
   sizeBytes: number;
   addedAt: number;
+  /** A seasonal projection clip rather than a jump scare, and the season it's for. */
+  projection?: boolean;
+  season?: SeasonId | "any";
+  motion?: ProjectionMotion;
+  /** Downloaded from the community library (its id there). */
+  communityId?: string;
 }
 
 export interface ScareSettings {
