@@ -36,6 +36,7 @@ import { closeTopDialog, nav, setAppName, setProfile, setTheme, toast, toasts } 
 import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
 import { startDownloads } from "./downloads";
+import { startSaveNotices } from "./save";
 import { DownloadsScreen } from "./screens/Downloads";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
@@ -166,6 +167,7 @@ export function App() {
     startIdle();
     startQueue();
     startDownloads();
+    startSaveNotices();
     void startMusic();
     void restoreSession();
     const loadLook = () =>

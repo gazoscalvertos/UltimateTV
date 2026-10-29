@@ -333,6 +333,10 @@ export interface PlaybackInfo {
   quality?: StreamQuality;
   /** Where it plays from, shown in the player ("Jellyfin", "TorBox", "IPTV"). */
   source?: { kind: SourceKind; label: string };
+  /** The version playing, so Save to NAS keeps this exact copy. */
+  streamId?: Id;
+  /** This copy can be saved to the NAS (TorBox, online and IPTV films and episodes not already there). */
+  savable?: boolean;
   externalSubtitles: SubtitleTrack[];
   /** Report progress to this key. */
   progressKey: string;
@@ -394,6 +398,8 @@ export interface Download {
   speedBps?: number;
   path?: string;
   error?: string;
+  /** What Jellyfin made of the saved file, once it's finished. */
+  jellyfin?: { added: boolean; note: string };
   createdAt: number;
 }
 
@@ -693,7 +699,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove";
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "saveToNas";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {
@@ -711,6 +717,8 @@ export interface TvNow {
     /** Where it plays from ("Jellyfin", "TorBox", "IPTV"). */
     source?: string;
     channel?: { id: Id; number: number; name: string };
+    /** Save to NAS can keep a copy of what's playing. */
+    savable?: boolean;
   } | null;
   player: PlayerState;
   /** The stats overlay's sections, when something plays. */

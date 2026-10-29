@@ -227,6 +227,8 @@ export class Playback {
       startMs: 0,
       quality: chosen.quality,
       source: { kind: chosen.kind, label: chosen.label },
+      streamId: chosen.id,
+      savable: chosen.downloadable,
       externalSubtitles: [],
       progressKey: `title:${req.id}${req.episodeId ? `|${req.episodeId}` : ""}`,
       skip: [],

@@ -87,7 +87,8 @@ export class DownloadManager {
     private events: EventBus,
     private log: Logger,
     private torbox: () => TorboxClient | null,
-    private onLibraryChanged: (paths: string[]) => void,
+    /** Tells Jellyfin, and says what it made of the files. */
+    private onLibraryChanged: (paths: string[]) => Promise<Download["jellyfin"]> | void,
     private fetchImpl: Fetch = fetch,
     private maxParallel = 2,
   ) {}
@@ -126,6 +127,14 @@ export class DownloadManager {
 
   add(request: DownloadRequest): Download {
     if (!request.url && !request.infoHash) throw new Error("Nothing to download");
+    // Pressing Save twice (on the TV and then the phone, say) keeps one copy.
+    const same = this.all().find(
+      (d) => d.status !== "failed" && d.status !== "cancelled" && d.kind === request.kind && d.title === request.title && d.year === request.year && d.season === request.season && d.episode === request.episode,
+    );
+    if (same) {
+      const { request: _r, torboxId: _t, ...pub } = same;
+      return pub;
+    }
     const d: StoredDownload = {
       id: newId("d"),
       title: request.title,
@@ -235,8 +244,9 @@ export class DownloadManager {
 
     d = this.save({ ...d, status: "moving", bytesDone: done, progress: 1 });
     await rename(part, target);
-    this.save({ ...d, status: "completed", path: target, progress: 1 });
-    this.onLibraryChanged([target]);
+    d = this.save({ ...d, status: "completed", path: target, progress: 1 });
+    const jellyfin = await Promise.resolve(this.onLibraryChanged([target])).catch((err: unknown) => ({ added: false, note: `Jellyfin didn't take it: ${err instanceof Error ? err.message : String(err)}` }));
+    if (jellyfin) this.save({ ...d, jellyfin });
   }
 
   /** Moves finished files from the Inbox share into the library with Jellyfin naming. */
@@ -269,7 +279,7 @@ export class DownloadManager {
         this.log.warn({ file: rel, err: String(err) }, "Couldn't move an Inbox file");
       }
     }
-    if (moved.length) this.onLibraryChanged(moved);
+    if (moved.length) void Promise.resolve(this.onLibraryChanged(moved)).catch(() => undefined);
     return moved;
   }
 }

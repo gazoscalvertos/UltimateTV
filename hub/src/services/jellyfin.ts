@@ -274,13 +274,26 @@ export class JellyfinClient {
     await fetchOk(`${this.base}/Users/${this.userId}/PlayedItems/${itemId}`, this.fetchImpl, { method: played ? "POST" : "DELETE", headers: this.headers() });
   }
 
-  /** Tells Jellyfin about a new file so it appears without a full library scan. */
-  async mediaUpdated(paths: string[]): Promise<void> {
+  /**
+   * Tells Jellyfin about new files so they appear without a full library scan. Jellyfin quietly
+   * ignores a file outside its libraries, so check the folders first (that needs an admin
+   * account; without one, just send the update) and say where Jellyfin looks instead.
+   */
+  async mediaUpdated(paths: string[]): Promise<{ added: boolean; note: string }> {
+    const folders = await this.get<{ Name: string; Locations?: string[] }[]>("/Library/VirtualFolders").catch(() => null);
+    if (folders) {
+      const locations = folders.flatMap((f) => f.Locations ?? []).map((l) => l.replace(/\/+$/, ""));
+      const outside = paths.filter((p) => !locations.some((l) => p.startsWith(`${l}/`)));
+      if (outside.length === paths.length && locations.length) {
+        return { added: false, note: `Jellyfin doesn't look in that folder. Its libraries are in ${locations.join(", ")}: set MOVIES_PATH and TV_PATH in the Hub's .env to folders inside them.` };
+      }
+    }
     try {
       await this.post("/Library/Media/Updated", { Updates: paths.map((Path) => ({ Path, UpdateType: "Created" })) });
     } catch {
       await this.post("/Library/Refresh");
     }
+    return { added: true, note: "Added to Jellyfin" };
   }
 
   // Mapping --------------------------------------------------------------
