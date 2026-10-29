@@ -289,13 +289,19 @@ try {
   await key("ArrowDown", 3);
   await shot("30-music-playlist");
   await key("Escape");
-  // Spotify before anyone has signed in on the box.
-  await page.goto(`${base}/app/?demo-music=pair`);
+  // Spotify before anyone has signed in on the box: from the Spotify app, or with a code.
+  await page.goto(`${base}/app/?demo-music=phone`);
   await wait(1500);
   await tab("Music");
   await wait(1500);
   await key("ArrowDown");
   await shot("31-music-spotify-sign-in");
+  await page.goto(`${base}/app/?demo-music=pair`);
+  await wait(1500);
+  await tab("Music");
+  await wait(1500);
+  await key("ArrowDown");
+  await shot("31-music-spotify-code");
 
   // Play a film for the on-screen display.
   await page.goto(`${base}/app/`);
@@ -483,6 +489,15 @@ try {
   await phone.screenshot({ path: path.join(out, "39-phone-title.png") });
   console.log("  39-phone-title.png");
   await phone.locator("#sheet [data-close]").first().click();
+  // The phone's Music page before Spotify is signed in on the TV.
+  await page.goto(`${base}/app/?demo-music=phone`);
+  await wait(2000);
+  await phone.click('[data-browse="music"]');
+  await phone.waitForTimeout(2000);
+  await phone.screenshot({ path: path.join(out, "36-phone-music-sign-in.png") });
+  console.log("  36-phone-music-sign-in.png");
+  await page.goto(`${base}/app/`);
+  await wait(1500);
   await phone.click('[data-tab="remote"]');
   // Stats for the box and the Hub.
   await phone.goto(`${base}/setup/stats.html`);

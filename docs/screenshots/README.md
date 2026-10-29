@@ -23,10 +23,10 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 27 | Search finds channels by name, with what's on them now |
 | 28, 29 | Music: what's playing on Spotify with its controls, then your playlists, albums and artists |
 | 30 | A Spotify playlist's songs, with Play and Shuffle |
-| 31 | Signing the box in to Spotify with a code, and the QR code for logging in to Deezer from the phone |
+| 31 | Signing the box in to Spotify from the Spotify app on a phone (or with a code, 31-music-spotify-code), and the QR code for logging in to Deezer from the phone |
 | 32, 33 | Music video channels in Settings, and one channel's videos |
 | 34, 35 | Watching Clubland TV, and the music channels in the guide, a programme per video |
-| 36 | The phone page that logs the TV in to Deezer |
+| 36 | The phone page that logs the TV in to Deezer, and the phone's Music page before Spotify is signed in (36-phone-music-sign-in) |
 | 37–39 | Choosing what to watch from the phone: the guide, films, and a film |
 | 40 | The phone's Stats page for the box and the Hub |
 | 41, 42 | The music channel caption: the song playing, then what's coming up next |

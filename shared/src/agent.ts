@@ -3,7 +3,7 @@
 
 import type { HostStats, PlaybackInfo, PlaybackRequest, TitleRef } from "./domain.js";
 import type { Action } from "./keys.js";
-import type { MusicPage, MusicTracks, SpotifyCommand, SpotifyState, WebAppCommand, WebAppId, WebAppLoginResult, WebAppState } from "./music.js";
+import type { MusicPage, MusicTracks, SpotifyCommand, SpotifySetup, SpotifyState, WebAppCommand, WebAppId, WebAppLoginReport, WebAppState } from "./music.js";
 
 export interface AudioTrack {
   id: number;
@@ -222,6 +222,8 @@ export interface BoxAgent {
   /** Plays a playlist, album or artist, from `skipTo` (a track in it) or shuffled. */
   spotifyPlay(uri: string, options?: { skipTo?: string; shuffle?: boolean }): Promise<void>;
   spotifyControl(command: SpotifyCommand): Promise<void>;
+  /** Switches how Spotify signs in (phone or code), or starts the receiver again. Newer shells only. */
+  spotifySetup(setup: SpotifySetup): Promise<SpotifyState>;
   onSpotify(listener: (state: SpotifyState) => void): () => void;
   /** Shows a music service's web player over the UI; Back on the remote hides it again. */
   openWebApp(id: WebAppId): Promise<void>;
@@ -230,8 +232,11 @@ export interface BoxAgent {
   webAppKey(action: Action): Promise<void>;
   webAppText(text: string): Promise<void>;
   webAppControl(command: WebAppCommand): Promise<void>;
-  /** Opens the service and fills in its login form with what was typed on the phone. */
-  webAppLogin(id: WebAppId, login: { email: string; password: string }): Promise<WebAppLoginResult>;
+  /**
+   * Opens the service and fills in its login form with what was typed on the phone. Shells from
+   * before reports answer with just the result, as a string.
+   */
+  webAppLogin(id: WebAppId, login: { email: string; password: string }): Promise<WebAppLoginReport>;
   webApp(): Promise<WebAppState>;
   onWebApp(listener: (state: WebAppState) => void): () => void;
 

@@ -14,9 +14,18 @@ export interface MusicTrack {
 export interface SpotifyState {
   /** The Spotify receiver is installed and answering on the box. */
   available: boolean;
+  /** The receiver is on the box (undefined: the box shell is too old to say). */
+  installed?: boolean;
+  /** Installed but not answering for a while: why, from its log, when it says. */
+  problem?: string;
   /** Signed in to a Spotify account (Premium). */
   signedIn: boolean;
-  /** While not signed in: the code to enter at the address, on a phone or computer. */
+  /**
+   * How the box waits for someone to sign in: "phone" (pick the TV in the Spotify app on a
+   * phone on the Wi-Fi) or "code" (a code to enter at spotify.com/pair).
+   */
+  signIn?: SpotifySignIn;
+  /** While not signed in with "code": the code to enter at the address, on a phone or computer. */
   pair?: { url: string; code: string; expiresAt?: string };
   /** The name phones see in Spotify's device list. */
   deviceName?: string;
@@ -56,6 +65,11 @@ export interface MusicTracks {
   items: MusicItem[];
 }
 
+export type SpotifySignIn = "phone" | "code";
+
+/** Setting Spotify up on the box: how to sign in, or start the receiver again. */
+export type SpotifySetup = { signIn: SpotifySignIn } | { restart: true };
+
 export type SpotifyCommand =
   | { cmd: "playPause" | "pause" | "resume" | "next" | "prev" }
   | { cmd: "seek"; ms: number }
@@ -78,5 +92,15 @@ export interface WebAppState {
 
 export type WebAppCommand = "playPause" | "pause" | "next" | "prev";
 
-/** How a login typed on the phone went: filled in and sent, or the page had no login form. */
-export type WebAppLoginResult = "submitted" | "partial" | "no-form";
+/**
+ * How a login typed on the phone went: "signed-in" (Deezer took it), "rejected" (Deezer said no,
+ * with what it said in `message`), "check" (Deezer wants more on the TV: a tick box, a code or a
+ * puzzle), "submitted" (sent, no answer yet), "partial" (only part of the form was there) or
+ * "no-form" (no login form found).
+ */
+export type WebAppLoginResult = "signed-in" | "rejected" | "check" | "submitted" | "partial" | "no-form";
+
+export interface WebAppLoginReport {
+  result: WebAppLoginResult;
+  message?: string;
+}

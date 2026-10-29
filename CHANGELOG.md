@@ -15,6 +15,16 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Spotify and Deezer sign-in fixed**: Spotify showed nothing because the receiver was set to wait
+  for a sign-in code with phones also turned on, and in that state it can't answer the TV, so the
+  TV thought it wasn't installed. It now signs in the usual Spotify Connect way (pick the TV in the
+  Spotify app on your phone) and remembers the account, with a code as the other way. The Music tab
+  always shows a Spotify card and says what's needed: not installed, starting, not starting (with
+  the reason and a Restart button), or how to sign in. The phone remote's Music page shows the same.
+  Deezer's phone login now copes with a cookie banner and a login in two steps, and tells the phone
+  how it went: logged in, Deezer's own error, or that Deezer wants a puzzle or code on the TV. New
+  guide: docs/music.md. Needs a Hub update and a box update.
+
 - **Steady update status**: the phone's Updates card no longer flips between "Couldn't check" and
   "Update available". The Hub keeps GitHub's last answer (a quick reload used to drop it), shares
   one check between everyone asking, waits a minute after a failure and falls back to git's own

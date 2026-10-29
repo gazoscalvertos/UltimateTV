@@ -8,7 +8,7 @@ import { Icon } from "../components/Icon";
 import { Progress } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { useKeys } from "../keys";
-import { activeMusic, duration, likedSongs, music, musicPlayPause, musicSkip, openWebApp, spotify, spotifyPosition, webApp } from "../music";
+import { activeMusic, duration, likedSongs, music, musicPlayPause, musicSkip, openWebApp, spotify, spotifyPosition, spotifySetup, webApp } from "../music";
 import { pairStamp } from "../pairing";
 import { stopPlayback } from "../player";
 import { appName, errorToast, nav } from "../store";
@@ -148,7 +148,7 @@ function Welcome() {
     <section class="music-welcome" data-row>
       <h1 class="page-title">Music</h1>
       <p class="empty">
-        <Show when={spotify().signedIn} fallback="Play Deezer below, or set up Spotify.">
+        <Show when={spotify().signedIn} fallback="Open Deezer, or sign in to Spotify below.">
           Pick a playlist below, or choose <b>{spotify().deviceName ?? appName()}</b> in the Spotify app on your phone.
         </Show>
       </p>
@@ -156,28 +156,120 @@ function Welcome() {
   );
 }
 
-/** Spotify isn't signed in: sign in on a phone with the code, or cast from the Spotify app. */
-function SpotifyPair() {
+const host = (url: string) => url.replace(/^https?:\/\//, "").replace(/\?.*$/, "");
+
+/**
+ * Spotify isn't ready: not installed, not running, or nobody signed in yet. Signing in is from
+ * a phone's Spotify app (pick the TV in its device list) or, the other way, with a code.
+ */
+function SpotifySetup() {
   const s = spotify;
+  const name = () => s().deviceName ?? appName();
+  const [busy, setBusy] = createSignal(false);
+  const setup = (arg: Parameters<typeof spotifySetup>[0]) => {
+    setBusy(true);
+    void spotifySetup(arg)
+      .catch(errorToast)
+      .finally(() => setBusy(false));
+  };
   return (
     <section class="music-pair" data-row>
-      <Show when={s().pair} fallback={<p class="empty">Getting a sign-in code from Spotify…</p>}>
-        {(pair) => (
-          <>
-            <div class="qr-card">
-              <img src={`/api/qr.svg?text=${encodeURIComponent(pair().url)}`} alt="" />
-              <p>{pair().url.replace(/^https?:\/\//, "").replace(/\?.*$/, "")}</p>
+      <Switch>
+        <Match when={s().installed === false}>
+          <div class="music-pair-text">
+            <h2>Spotify isn't on this box yet</h2>
+            <p>Update the box in Settings › About and Spotify is added. It needs a Spotify Premium account.</p>
+          </div>
+        </Match>
+        <Match when={!s().available && s().installed === undefined}>
+          <div class="music-pair-text">
+            <h2>Spotify isn't set up on this box yet</h2>
+            <p>Update the box in Settings › About to add it.</p>
+          </div>
+        </Match>
+        <Match when={!s().available}>
+          <div class="music-pair-text" data-focus-group>
+            <h2>{s().problem ? "Spotify isn't starting" : "Spotify is starting…"}</h2>
+            <Show when={s().problem} fallback={<p>This takes a few seconds after the box starts.</p>}>
+              <p>
+                The box says: <span class="music-problem">{s().problem}</span>
+              </p>
+            </Show>
+            <button class="btn" data-focus data-autofocus disabled={busy()} onClick={() => setup({ restart: true })}>
+              {busy() ? "Restarting…" : "Restart Spotify"}
+            </button>
+          </div>
+        </Match>
+        <Match when={s().signIn === "code"}>
+          <Show when={s().pair}>
+            {(pair) => (
+              <div class="qr-card">
+                <img src={`/api/qr.svg?text=${encodeURIComponent(pair().url)}`} alt="" />
+                <p>{host(pair().url)}</p>
+              </div>
+            )}
+          </Show>
+          <div class="music-pair-text">
+            <h2>Sign in to Spotify with a code</h2>
+            <Show when={s().pair} fallback={<p>Getting a sign-in code from Spotify…</p>}>
+              {(pair) => (
+                <>
+                  <p>Scan the code with your phone, or go to {host(pair().url)} and enter:</p>
+                  <div class="pair-code">{pair().code}</div>
+                  <p class="muted">Spotify needs a Premium account to play on the TV. Once you're signed in, your playlists appear here.</p>
+                </>
+              )}
+            </Show>
+            <div class="music-pair-actions" data-focus-group>
+              <button class="btn" data-focus disabled={busy()} onClick={() => setup({ signIn: "phone" })}>
+                Sign in from the Spotify app instead
+              </button>
             </div>
-            <div class="music-pair-text">
-              <h2>Sign in to Spotify</h2>
-              <p>Scan the code with your phone, or go to {pair().url.replace(/^https?:\/\//, "").replace(/\?.*$/, "")} and enter:</p>
-              <div class="pair-code">{pair().code}</div>
-              <p class="muted">Spotify needs a Premium account to play on the TV. Once you're signed in, your playlists appear here, and the TV shows up as {s().deviceName ?? appName()} in the Spotify app.</p>
+          </div>
+        </Match>
+        <Match when={true}>
+          <div class="qr-card">
+            <img src={`/api/qr.svg?text=${encodeURIComponent("https://open.spotify.com/")}`} alt="" />
+            <p>Opens Spotify</p>
+          </div>
+          <div class="music-pair-text">
+            <h2>Sign in to Spotify from your phone</h2>
+            <ol class="music-steps">
+              <li>Join the home Wi-Fi on your phone and open the Spotify app (scan the code to open it).</li>
+              <li>Play any song, then tap the devices button (the little speaker and screen) at the bottom of the player.</li>
+              <li>
+                Pick <b>{name()}</b>. The music plays on the TV.
+              </li>
+            </ol>
+            <p class="muted">The TV remembers the account, and your playlists, albums and artists appear here. It needs Spotify Premium. Anyone else at home can pick {name()} from their own Spotify app too.</p>
+            <div class="music-pair-actions" data-focus-group>
+              <button class="btn" data-focus disabled={busy()} onClick={() => setup({ signIn: "code" })}>
+                {busy() ? "Getting a code…" : "Not listed? Sign in with a code"}
+              </button>
             </div>
-          </>
-        )}
-      </Show>
+          </div>
+        </Match>
+      </Switch>
     </section>
+  );
+}
+
+/** Spotify's card in the services row: whether it's ready, and how to use it. */
+function SpotifyCard() {
+  const s = spotify;
+  const name = () => s().deviceName ?? appName();
+  const sub = () => {
+    const st = s();
+    if (st.signedIn) return `Signed in${st.username ? ` as ${st.username}` : ""}. Pick a playlist below, or choose ${name()} in the Spotify app.`;
+    if (st.installed === false || (!st.available && st.installed === undefined)) return "Not on this box yet. Update the box in Settings › About.";
+    if (!st.available) return st.problem ? "Not starting. See below." : "Starting…";
+    return "Not signed in yet. Sign in below.";
+  };
+  return (
+    <div class="service-card service-spotify" classList={{ "service-off": !s().signedIn }}>
+      <span class="service-name">Spotify</span>
+      <span class="service-sub">{sub()}</span>
+    </div>
   );
 }
 
@@ -189,7 +281,7 @@ function Services() {
         <button class="service-card service-deezer" data-focus onClick={() => run(stopPlayback().then(() => openWebApp("deezer")))}>
           <span class="service-name">Deezer</span>
           <span class="service-sub">
-            <Show when={webApp().nowPlaying} fallback="Opens Deezer's player. Back returns here; the music keeps playing.">
+            <Show when={webApp().nowPlaying} fallback={webApp().signedIn ? "Opens Deezer's player. Back returns here; the music keeps playing." : "Opens Deezer's player. Log in first with the code beside this."}>
               {(np) => `${np().playing ? "Playing" : "Paused"}: ${np().title}`}
             </Show>
           </span>
@@ -201,16 +293,11 @@ function Services() {
             </div>
             <div class="service-login-text">
               <h3>Log in to Deezer</h3>
-              <p>Scan this with your phone and type your Deezer email and password there. Deezer opens on the TV and logs in.</p>
+              <p>Scan this with your phone and type your Deezer email and password there. Deezer opens on the TV and logs in. Google or Apple sign-in doesn't work on the TV: set a Deezer password first.</p>
             </div>
           </div>
         </Show>
-        <Show when={spotify().signedIn}>
-          <div class="service-card service-spotify">
-            <span class="service-name">Spotify</span>
-            <span class="service-sub">Signed in{spotify().username ? ` as ${spotify().username}` : ""}. Cast from your phone to {spotify().deviceName ?? appName()}.</span>
-          </div>
-        </Show>
+        <SpotifyCard />
       </div>
     </section>
   );
@@ -244,13 +331,9 @@ export function Music() {
           <NowPlaying />
         </Show>
         <Switch>
-          <Match when={!spotify().available}>
-            <Services />
-            <p class="empty music-note">Spotify isn't set up on this box yet. Update the box in Settings › About to add it.</p>
-          </Match>
           <Match when={!signedIn()}>
             <Services />
-            <SpotifyPair />
+            <SpotifySetup />
           </Match>
           <Match when={true}>
             <Services />

@@ -5,7 +5,9 @@
 
 import { session, WebContentsView, type BrowserWindow, type Input, type WebContents } from "electron";
 import path from "node:path";
-import type { Action, WebAppCommand, WebAppId, WebAppLoginResult, WebAppState } from "@ultimatetv/shared";
+import type { Action, WebAppCommand, WebAppId, WebAppLoginReport, WebAppState } from "@ultimatetv/shared";
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 type Log = (line: string) => void;
 
@@ -15,54 +17,94 @@ const APPS: Record<WebAppId, { url: string; login: string; cookie: string; hosts
 };
 
 /**
- * Runs in the page: fills in the email and password boxes (one step or two, as the page asks)
- * the way typing would, so the site's own scripts see it, and presses the page's submit button.
+ * Runs in the page: one step of a login form. Waits for the email and password boxes it hasn't
+ * filled yet, fills in those it finds the way typing would (so the site's own scripts see it) and
+ * presses the form's button. Answers with what it filled; the next step may be a new page.
  */
-function fillLogin(email: string, password: string): Promise<WebAppLoginResult> {
+function fillStep(email: string, password: string, skip: string[]): Promise<string[]> {
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const shown = (el: Element) => {
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0;
   };
-  const find = (sel: string) => Array.from(document.querySelectorAll<HTMLInputElement>(sel)).find(shown);
+  const find = (sel: string, scope: ParentNode = document) => Array.from(scope.querySelectorAll<HTMLInputElement>(sel)).find((el) => shown(el) && !el.disabled);
   const type = (el: HTMLInputElement, value: string) => {
     el.focus();
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(el, value);
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
+    el.dispatchEvent(new Event("blur", { bubbles: true }));
   };
   const submit = (el: HTMLInputElement) => {
     const scope: ParentNode = el.form ?? document;
-    const button = Array.from(scope.querySelectorAll<HTMLElement>('button[type="submit"],input[type="submit"]')).find(shown);
+    const buttons = Array.from(scope.querySelectorAll<HTMLElement>('button[type="submit"],input[type="submit"],button:not([type])')).filter(shown);
+    const button = buttons.find((b) => /log ?in|sign ?in|continue|next|connexion|weiter|suivant|anmelden/i.test(b.textContent ?? (b as HTMLInputElement).value ?? "")) ?? buttons[0];
     if (button) button.click();
     else if (el.form) el.form.requestSubmit();
     else el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));
   };
-  return (async () => {
-    const done = new Set<string>();
-    for (let i = 0; i < 40; i++) {
+  const emailBox = () =>
+    find('input[type="email"],input[name="email"],input[name="mail"],input[name="login"],input[name="username"],input[autocomplete="username"],input[autocomplete="email"],input[id*="mail" i]') ??
+    // A plain text box in the same form as the password, as some sites have.
+    (() => {
       const pw = find('input[type="password"]');
-      const em = find('input[type="email"],input[name="email"],input[name="login"],input[autocomplete="username"],input[autocomplete="email"]');
-      let typed: HTMLInputElement | undefined;
-      if (em && !done.has("email")) {
-        type(em, email);
-        done.add("email");
-        typed = em;
-      }
-      if (pw && !done.has("password")) {
+      return pw?.form ? find('input[type="text"]', pw.form) : undefined;
+    })();
+  return (async () => {
+    for (let i = 0; i < 20; i++) {
+      const em = skip.includes("email") ? undefined : emailBox();
+      const pw = skip.includes("password") ? undefined : find('input[type="password"]');
+      const filled: string[] = [];
+      if (em && !(em.value && em.value.toLowerCase() === email.toLowerCase())) type(em, email);
+      if (em) filled.push("email");
+      if (pw) {
         type(pw, password);
-        done.add("password");
-        typed = pw;
+        filled.push("password");
       }
-      if (typed) {
-        await sleep(400);
-        submit(typed);
-        if (done.has("password")) return "submitted";
+      if (filled.length) {
+        await sleep(500);
+        submit(pw ?? em!);
+        return filled;
       }
       await sleep(500);
     }
-    return done.size ? "partial" : "no-form";
+    return [];
   })();
+}
+
+/** Runs in the page: says yes to a cookie banner in the way, if there is one. */
+function acceptCookies(): boolean {
+  const ids = ["onetrust-accept-btn-handler", "didomi-notice-agree-button", "gdpr-btn-accept-all"];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.click();
+      return true;
+    }
+  }
+  const button = Array.from(document.querySelectorAll<HTMLElement>("button")).find((b) => /^(accept( all)?( cookies)?|agree( and close)?|tout accepter|accepter|alle akzeptieren|ok)$/i.test((b.textContent ?? "").trim()) && b.getBoundingClientRect().width > 0);
+  button?.click();
+  return Boolean(button);
+}
+
+/**
+ * Runs in the page after a login was sent: what the page says now, if it says something wrong
+ * (an error under the form), or wants more (a puzzle, a tick box, or a code sent by email).
+ */
+function loginProbe(): { error?: string; check?: string } {
+  const shown = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+  const text = (el: Element) => (el.textContent ?? "").replace(/\s+/g, " ").trim();
+  const puzzle = Array.from(document.querySelectorAll("iframe")).find((f) => shown(f) && /captcha|challenge|arkose|funcaptcha/i.test(`${f.src} ${f.title}`));
+  if (puzzle) return { check: "Deezer wants you to prove you're not a robot. Do the puzzle on the TV with the remote." };
+  const code = Array.from(document.querySelectorAll<HTMLInputElement>('input[autocomplete="one-time-code"],input[name*="code" i],input[inputmode="numeric"]')).find(shown);
+  if (code) return { check: "Deezer sent a code to check it's you. Type it on the TV with the phone remote's keyboard." };
+  const error = Array.from(document.querySelectorAll('[role="alert"],[aria-live="assertive"],[class*="error" i],[data-testid*="error" i],[class*="invalid" i]'))
+    .filter((el) => shown(el) && text(el).length > 3 && text(el).length < 300)
+    .map(text)[0];
+  return error ? { error } : {};
 }
 
 /** Phone remote keys, as key presses on the page. */
@@ -97,12 +139,16 @@ export class WebApps {
     }
   }
 
-  /** A login typed on the phone: show the page, go to its login form if it isn't there, fill it in. */
-  async login(id: WebAppId, login: { email: string; password: string }): Promise<WebAppLoginResult> {
+  /**
+   * A login typed on the phone: show the page, go to its login form if it isn't there, fill it in
+   * (email and password together, or one page after the other), then watch what the site says.
+   */
+  async login(id: WebAppId, login: { email: string; password: string }): Promise<WebAppLoginReport> {
     await this.open(id);
     const wc = this.view!.webContents;
-    const run = () => wc.executeJavaScript(`(${fillLogin.toString()})(${JSON.stringify(login.email)}, ${JSON.stringify(login.password)})`) as Promise<WebAppLoginResult>;
-    const hasForm = await wc.executeJavaScript(`!!document.querySelector('input[type="password"],input[type="email"]')`).catch(() => false);
+    const js = <T>(code: string, fallback: T, ms = 15_000): Promise<T> =>
+      Promise.race([wc.executeJavaScript(code) as Promise<T>, new Promise<T>((r) => setTimeout(() => r(fallback), ms))]).catch(() => fallback);
+    const hasForm = await js(`!!document.querySelector('input[type="password"],input[type="email"]')`, false, 3000);
     if (!hasForm) {
       const loaded = new Promise<void>((resolve) => {
         wc.once("did-finish-load", () => resolve());
@@ -111,13 +157,39 @@ export class WebApps {
       void wc.loadURL(APPS[id].login).catch(() => undefined);
       await loaded;
     }
-    const result = await run().catch((e: Error) => {
-      this.log(`${id} login didn't run: ${e.message}`);
-      return "no-form" as const;
-    });
-    this.log(`${id} login from the phone: ${result}`);
-    setTimeout(() => void this.checkSignedIn(id), 6000);
-    return result;
+    await js(`(${acceptCookies.toString()})()`, false, 3000);
+    const done = new Set<string>();
+    for (let step = 0; step < 3 && !done.has("password"); step++) {
+      if (step) await sleep(2500);
+      const filled = await js<string[]>(`(${fillStep.toString()})(${JSON.stringify(login.email)}, ${JSON.stringify(login.password)}, ${JSON.stringify([...done])})`, []);
+      if (!filled.length) {
+        // A cookie banner may have come late and covered the form.
+        if (await js(`(${acceptCookies.toString()})()`, false, 3000)) continue;
+        break;
+      }
+      for (const f of filled) done.add(f);
+    }
+    const report = await this.watchLogin(id, done);
+    this.log(`${id} login from the phone: ${report.result}${report.message ? ` (${report.message})` : ""}`);
+    return report;
+  }
+
+  /** After the login was sent: signed in, turned down (with the site's words), or wanting more. */
+  private async watchLogin(id: WebAppId, done: Set<string>): Promise<WebAppLoginReport> {
+    if (!done.size) return { result: "no-form" };
+    if (!done.has("password")) return { result: "partial" };
+    const wc = this.view?.webContents;
+    for (let i = 0; i < 20; i++) {
+      await sleep(1000);
+      await this.checkSignedIn(id);
+      if (this.signedIn) return { result: "signed-in" };
+      if (i < 2 || !wc || wc.isDestroyed()) continue;
+      const probe = (await Promise.race([wc.executeJavaScript(`(${loginProbe.toString()})()`), sleep(3000).then(() => ({}))]).catch(() => ({}))) as { error?: string; check?: string };
+      if (probe.check) return { result: "check", message: probe.check };
+      if (probe.error) return { result: "rejected", message: probe.error };
+    }
+    setTimeout(() => void this.checkSignedIn(id), 10_000);
+    return { result: "submitted" };
   }
 
   onState(listener: (s: WebAppState) => void): () => void {

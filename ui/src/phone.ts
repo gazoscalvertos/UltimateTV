@@ -2,12 +2,12 @@
 // to play something, seek, pick a track, drive the music or download to the box. The Hub relays each call as a
 // "tv.call" event and waits for the answer posted back to /api/tv/reply/:id.
 
-import type { PlaybackRequest, SpotifyCommand, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
-import { agent, onBox } from "./agent";
+import type { PlaybackRequest, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
+import { agent, agentHas, onBox } from "./agent";
 import { api, hub } from "./api";
 import { allEpisodes, canDownload, downloadToBox, episodeRequest, episodesOf, filmRequest, recordingRequest, removeFromBox, visibleDownloads } from "./downloads";
 import { onHubEvent } from "./events";
-import { music, spotify, webApp } from "./music";
+import { music, spotify, spotifySetup, webApp } from "./music";
 import { channels, liveChannelId, nowPlaying, play, playerState } from "./player";
 import { isKids, nav, profile } from "./store";
 
@@ -108,6 +108,12 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
   musicControl: async (a: SpotifyCommand) => {
     await music().spotifyControl(a);
     return { ok: true };
+  },
+  // The phone's Music page: is Spotify signed in (and how to), is Deezer.
+  musicStatus: async () => ({ spotify: spotify(), deezer: { signedIn: webApp().signedIn ?? null }, setup: music() !== agent || agentHas("spotifySetup") }),
+  musicSetup: async (a: SpotifySetup) => {
+    await spotifySetup(a);
+    return { spotify: spotify() };
   },
   downloads: async () => downloadsForPhone(),
   download: async (a: Parameters<typeof downloadFromPhone>[0]) => downloadFromPhone(a),

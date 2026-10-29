@@ -2724,6 +2724,27 @@ kbd.key-blue {
 .service-spotify {
   background: linear-gradient(135deg, #1ed760 0%, #128a3e 55%, #0b3a1d 100%);
 }
+.service-off {
+  filter: saturate(0.55) brightness(0.8);
+}
+.music-pair-actions {
+  margin-top: 1.2rem;
+}
+.music-steps {
+  margin: 0 0 1rem;
+  padding-left: 1.8rem;
+  font-size: 1.35rem;
+  line-height: 1.5;
+  max-width: 54rem;
+}
+.music-steps li + li {
+  margin-top: 0.4rem;
+}
+.music-problem {
+  font-family: ui-monospace, "DejaVu Sans Mono", monospace;
+  font-size: 1.1rem;
+  color: var(--muted);
+}
 .service-card:focus {
   transform: scale(1.05);
   box-shadow: 0 0 0 0.25rem var(--focus), 0 1.4rem 3rem rgba(0, 0, 0, 0.6);

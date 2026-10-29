@@ -206,6 +206,7 @@ async function main(): Promise<void> {
     spotifyTracks: (uri: never) => spotify.tracks(uri),
     spotifyPlay: (uri: never, options: never) => spotify.play(uri, options),
     spotifyControl: (c: never) => spotify.control(c),
+    spotifySetup: (setup: never) => spotify.setup(setup),
     openWebApp: (id: never) => webApps.open(id),
     closeWebApp: () => webApps.close(),
     webAppKey: (a: never) => webApps.key(a),
