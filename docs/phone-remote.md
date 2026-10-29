@@ -44,6 +44,7 @@ The **Watch** tab at the bottom chooses what the TV plays, without using the TV'
 - **Films** and **TV**: the same rails as the TV's home. Tap a poster to play, resume or start
   again, or pick a season and episode.
 - **Recordings**: newest first.
+- **Watchlist**: the watchlist of the profile the TV is on, with when each is next on TV. Tap to play a recording or what's on now, ● to record it ([watchlist.md](watchlist.md)).
 - **Music**: your Spotify playlists, albums and artists. Play, shuffle, or start at a song.
 - **Search**: films, series, channels, programmes and recordings.
 

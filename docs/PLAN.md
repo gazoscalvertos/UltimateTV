@@ -233,7 +233,7 @@ Unchanged from Phase 0 and documented in [phase0/proxmox-setup.md](phase0/proxmo
   3. **Use a repeat airing** (e.g. +1 channel or a later showing) when one fits around what's being watched.
   4. **Ask, Sky-style.** Only when none of the above work: "*Silent Witness is recording on BBC One at 9pm. Switching channel will stop the recording. Switch anyway?*" A recording in progress is never stopped silently.
 - **Conflicts between recordings** use the same order. Upgrading the IPTV plan to 4–5 connections removes almost all of this, and the engine needs no change because the connection count is a setting.
-- **Post-processing:** remux TS → MKV, optional ad-break chapters (comskip), write an NFO, place in `/Recordings/Series/Season NN/` and trigger a Jellyfin scan. Recordings are therefore also watchable from any Jellyfin client.
+- **Post-processing:** remux TS → MKV, ad-break markers (comskip, built: see [adverts.md](adverts.md)), write an NFO, place in `/Recordings/Series/Season NN/` and trigger a Jellyfin scan. Recordings are therefore also watchable from any Jellyfin client.
 - **Reminders:** a toast on the TV 2 min before, with "Watch now" / "Dismiss". If the box is asleep, the reminder waits; it never turns the TV on by itself.
 
 ### 5.4 Remote mapping (target)

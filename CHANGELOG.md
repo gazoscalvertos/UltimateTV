@@ -15,6 +15,17 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Watchlist** ([docs/watchlist.md](docs/watchlist.md)): each profile keeps a list of films and
+  shows to watch some day. Add from a film's or series' page, a programme's card in the guide, or
+  the phone remote. **Your watchlist** on Home says when each is next on TV or that it's recorded,
+  and selecting one plays the recording, watches it, records it or sets a reminder. The phone's
+  Watch tab lists the watchlist of the profile the TV is on. Update the Hub.
+- **Skip adverts in recordings** ([docs/adverts.md](docs/adverts.md)): the Hub finds the advert
+  breaks in each finished recording with comskip (now in the Hub's image; ffmpeg's black and
+  silence detection when it isn't there), one at a time at low priority. The player marks them on
+  the seek bar and offers **Skip adverts**, or jumps them on its own (Settings › Recording). Older
+  recordings are looked at too, and each gets an `.edl` beside it for Kodi. Rebuild the Hub's image
+  (`tools/hub/update.sh` does it); the first build takes a minute longer while comskip compiles.
 - **Steady update status**: the phone's Updates card no longer flips between "Couldn't check" and
   "Update available". The Hub keeps GitHub's last answer (a quick reload used to drop it), shares
   one check between everyone asking, waits a minute after a failure and falls back to git's own
