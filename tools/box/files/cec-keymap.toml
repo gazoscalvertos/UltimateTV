@@ -41,3 +41,4 @@ protocol = "cec"
 0x72 = "KEY_F1"         # F2 (Red)
 0x73 = "KEY_F2"         # F3 (Green)
 0x74 = "KEY_F3"         # F4 (Yellow)
+0x36 = "KEY_F10"        # Help (few remotes have it; Info opens help on screens that don't use Info)

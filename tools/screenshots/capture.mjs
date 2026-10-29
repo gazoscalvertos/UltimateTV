@@ -378,6 +378,53 @@ try {
   await page.goto(`${base}/app/`);
   await wait(1800);
 
+  // Help: the colour buttons along the bottom, and the help screen (the Help key, or Info where
+  // Info has no other job).
+  await tab("TV Guide");
+  await wait(1500);
+  await key("ArrowDown");
+  await shot("70-guide-key-hints");
+  await key("h");
+  await wait(600);
+  await shot("71-help-guide");
+  await key("Escape");
+  // Alerts pop up once each when a TV is listening: the demo's IPTV ends in five days, a
+  // recording failed last night and the NAS is getting full.
+  await fetch(`${base}/api/sleep`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ minutes: 45 }) });
+  await fetch(`${base}/api/alerts/check`, { method: "POST", headers: asTv });
+  await wait(1500);
+  await shot("72-alert-popups");
+  await fetch(`${base}/api/notify`, { method: "DELETE", headers: asTv });
+  await tab("Home");
+  await wait(1200);
+  await key("i");
+  await wait(600);
+  await shot("73-help-home");
+  await key("Escape");
+  await tab("Settings");
+  await wait(1000);
+  await key("ArrowDown");
+  await page.locator(".settings-nav-item", { hasText: "Alerts" }).first().focus();
+  await wait(1000);
+  await shot("74-settings-alerts");
+  await page.locator(".settings-nav-item", { hasText: "Sleep timer and help" }).first().focus();
+  await wait(800);
+  await shot("75-settings-sleep-help");
+  await page.locator(".setting-row", { hasText: "Sleep timer" }).first().focus();
+  await key("Enter");
+  await wait(600);
+  await shot("76-sleep-timer");
+  await key("Escape");
+  // The minute before the TV goes off.
+  await fetch(`${base}/api/sleep`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ leftMs: 42_000 }) });
+  await wait(2500);
+  await shot("77-sleep-warning");
+  if (!(await page.locator(".sleep-warning").count())) errors.push("The sleep timer's warning didn't show");
+  await key("Escape");
+  if (await page.locator(".sleep-warning").count()) errors.push("Back didn't put the sleep warning away");
+  await page.goto(`${base}/app/`);
+  await wait(1800);
+
   // Dimming and the screensaver: the settings, then each theme through "Try it now", put
   // together on one contact sheet (and a few full size).
   await tab("Settings");
@@ -440,6 +487,12 @@ try {
   await phone.waitForTimeout(800);
   await phone.screenshot({ path: path.join(out, "22-phone-remote.png") });
   console.log("  22-phone-remote.png");
+  // The sleep timer from the phone.
+  await phone.click("#sleep-btn");
+  await phone.waitForTimeout(800);
+  await phone.screenshot({ path: path.join(out, "78-phone-sleep.png") });
+  console.log("  78-phone-sleep.png");
+  await phone.locator("#sheet [data-close]").first().click();
   // Voice control, as the Android app hands over what it heard.
   await phone.evaluate(() => window.utvVoiceResult("watch BBC One"));
   await phone.waitForTimeout(800);

@@ -3429,3 +3429,265 @@ kbd.key-blue {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Help: the colour button hints along the bottom, and the help screen. */
+
+.key-hints {
+  position: fixed;
+  z-index: 25;
+  left: 0;
+  right: 0;
+  bottom: 1.4rem;
+  width: max-content;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2.2rem;
+  padding: 0.7rem 1.6rem;
+  border-radius: 99rem;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border: 1px solid var(--line);
+  box-shadow: 0 0.8rem 2.4rem rgba(0, 0, 0, 0.45);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: rise 0.2s var(--ease);
+}
+.key-hints span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.key-hints kbd.key-red,
+.key-hints kbd.key-green,
+.key-hints kbd.key-yellow,
+.key-hints kbd.key-blue {
+  width: 1.25rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+}
+.key-hints-help:not(:first-child) {
+  padding-left: 1.6rem;
+  border-left: 1px solid var(--line);
+}
+kbd.key-rec-cap {
+  color: var(--rec);
+  font-size: 1rem;
+}
+
+.help-panel {
+  width: 86rem;
+}
+.help-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.help-panel h2 .icon {
+  width: 2.2rem;
+  height: 2.2rem;
+  color: var(--accent);
+}
+.help-columns {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 3rem;
+  margin-top: 0.6rem;
+}
+.help-columns h4 {
+  margin: 1.2rem 0 0.7rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.help-keys,
+.help-tips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.help-keys li {
+  display: grid;
+  grid-template-columns: 5.6rem 1fr;
+  align-items: center;
+  padding: 0.38rem 0;
+  font-size: 1.15rem;
+}
+.help-keys kbd {
+  justify-self: start;
+  font-size: 0.9rem;
+  height: 1.9rem;
+  min-width: 2rem;
+}
+.help-keys kbd.key-red,
+.help-keys kbd.key-green,
+.help-keys kbd.key-yellow,
+.help-keys kbd.key-blue {
+  width: 1.6rem;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  margin-left: 0.2rem;
+}
+.help-tips li {
+  position: relative;
+  padding: 0.5rem 0 0.5rem 1.6rem;
+  font-size: 1.15rem;
+  line-height: 1.45;
+}
+.help-tips li::before {
+  content: "";
+  position: absolute;
+  left: 0.2rem;
+  top: 1.05rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.help-none {
+  color: var(--muted);
+  font-size: 1.15rem;
+}
+.help-phone {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  margin-top: 1.6rem;
+  padding: 1.2rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+.help-phone img {
+  width: 8.5rem;
+  height: 8.5rem;
+  border-radius: 0.6rem;
+  background: #fff;
+  padding: 0.4rem;
+}
+.help-phone p {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.help-actions {
+  flex-direction: row;
+  margin-top: 1.8rem;
+}
+.help-actions .btn .icon {
+  margin-right: 0.4rem;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Sleep timer: the top bar's countdown and "Still watching?" */
+
+.topbar-sleep,
+.topbar-alerts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.6rem;
+  padding: 0 1rem;
+  border-radius: 99rem;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--fg);
+  transition: transform 0.15s var(--ease), box-shadow 0.15s;
+}
+.topbar-sleep .icon,
+.topbar-alerts .icon {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.topbar-sleep .icon {
+  color: #b8a6ff;
+}
+.topbar-alerts {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 16%, transparent);
+}
+.topbar-alerts.bad {
+  color: #fff;
+  background: color-mix(in srgb, var(--bad) 70%, transparent);
+}
+.topbar-sleep:focus,
+.topbar-alerts:focus {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 0.2rem var(--focus);
+}
+
+.sleep-warning {
+  position: fixed;
+  z-index: 50;
+  left: 0;
+  right: 0;
+  bottom: 4rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  width: 62rem;
+  padding: 2rem 2.4rem;
+  border-radius: 1.4rem;
+  background: linear-gradient(135deg, rgba(30, 24, 64, 0.96), rgba(13, 20, 36, 0.96));
+  border: 1px solid rgba(184, 166, 255, 0.35);
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.6);
+  animation: notice-in 0.35s var(--ease);
+}
+.sleep-moon {
+  flex: none;
+  width: 4.4rem;
+  height: 4.4rem;
+  color: #b8a6ff;
+}
+.sleep-text {
+  flex: 1;
+}
+.sleep-text h2 {
+  margin: 0 0 0.4rem;
+  font-size: 2rem;
+}
+.sleep-text p {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.sleep-text b {
+  color: var(--fg);
+}
+.sleep-keys {
+  display: flex;
+  gap: 2rem;
+  margin-top: 0.9rem !important;
+}
+.sleep-keys span {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fg);
+}
+.sleep-ring {
+  flex: none;
+  width: 4.6rem;
+  height: 4.6rem;
+  border-radius: 50%;
+  background: conic-gradient(#b8a6ff calc(var(--p) * 360deg), rgba(255, 255, 255, 0.1) 0);
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 56%);
+  mask: radial-gradient(circle, transparent 54%, #000 56%);
+}
+
+/* Settings › Alerts */
+.alert-level {
+  font-weight: 700;
+}
+.alert-warn {
+  color: var(--amber);
+}
+.alert-bad {
+  color: var(--bad);
+}

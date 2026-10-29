@@ -48,7 +48,8 @@ Guides for each feature are linked from the steps below.
 8. **Screensaver:** dimming after 10 minutes and a screensaver after 20, in the TV's Settings › Screensaver ([docs/screensaver.md](docs/screensaver.md)).
 9. **Halloween:** the theme, Spooky TV's ghosts and ghostly sounds, hidden easter eggs and jump scares cut into whatever is on ([docs/halloween.md](docs/halloween.md)).
 10. **Trips:** take the box away and the Hub goes with it for a while, then comes home with what changed ([docs/travel.md](docs/travel.md)). Download films and episodes onto the box first ([docs/downloads.md](docs/downloads.md)).
-11. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
+11. **Help, sleep timer and alerts:** Info shows what every button does; the sleep timer turns the TV off; alerts warn before the IPTV or TorBox subscription runs out ([docs/help-sleep-alerts.md](docs/help-sleep-alerts.md)).
+12. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 
 ## Development
 

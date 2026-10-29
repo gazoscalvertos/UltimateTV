@@ -524,6 +524,54 @@ export interface Settings {
   channelFilter: string;
   /** Dimming the screen and the screensaver when the TV is left with nothing playing. */
   screensaver: ScreensaverSettings;
+  /** The colour button hints along the bottom of each screen on the TV. */
+  keyHints: boolean;
+  sleep: SleepSettings;
+  alerts: AlertSettings;
+}
+
+export interface SleepSettings {
+  /** Standby after this many hours with nothing pressed on the remote (0: never), as Sky boxes do. */
+  autoOffHours: number;
+}
+
+export interface AlertSettings {
+  /** Pop alerts up on the TV as well as listing them (Settings › Alerts and the phone). */
+  onTv: boolean;
+  /** Warn this many days before the IPTV or TorBox subscription runs out. */
+  expiryDays: number;
+}
+
+/** The sleep timer: when it runs out the TV stops what's on and goes to standby. Set from the TV or the phone. */
+export interface SleepTimer {
+  mode: "off" | "minutes" | "programme";
+  /** Time left as the Hub sends it, so the TV needn't trust its clock to match the Hub's. Null while off, or for "programme" until the TV says when that ends. */
+  leftMs: number | null;
+  /** The minutes asked for ("minutes"). */
+  minutes?: number;
+  /** For "programme": what it's waiting for the end of. */
+  programme?: string;
+  /** Where it was set: "tv" or "phone". */
+  by?: "tv" | "phone";
+}
+/** The sleep timer's choices, in minutes, on the TV and the phone. */
+export const SLEEP_MINUTES = [15, 30, 45, 60, 90, 120] as const;
+
+export type AlertKind = "iptv-expiry" | "torbox-expiry" | "recording-failed" | "disk-full";
+export type AlertLevel = "warn" | "bad";
+
+/** Something the household should know about before it bites: a subscription ending, a recording that failed, a full NAS. */
+export interface HubAlert {
+  /** Stable for the same problem ("iptv-expiry:xtream1"), so dismissing it sticks. */
+  id: string;
+  kind: AlertKind;
+  level: AlertLevel;
+  title: string;
+  text: string;
+  /** When the Hub first saw it. */
+  at: number;
+  /** For subscriptions: when it runs out. */
+  expiresAt?: number;
 }
 
 /** Settings as the UI sees them: secrets replaced by a flag saying they're set. */
@@ -542,6 +590,9 @@ export interface PublicSettings {
   channelFilter: string;
   library: Settings["library"];
   screensaver: ScreensaverSettings;
+  keyHints: boolean;
+  sleep: SleepSettings;
+  alerts: AlertSettings;
   setupUrl: string;
 }
 
@@ -603,7 +654,11 @@ export type HubEvent =
   /** A phone or screen paired or was removed, a screen is waiting to be let in, or the pairing code was used. */
   | { type: "devices.changed" }
   /** The play queue changed (added to on the TV or the phone, reordered, or an item started): fetch /api/queue again. */
-  | { type: "queue.changed" };
+  | { type: "queue.changed" }
+  /** The sleep timer was set, changed or turned off (on the TV or the phone). */
+  | { type: "sleep"; timer: SleepTimer }
+  /** An alert appeared, got worse, went away or was dismissed: fetch /api/alerts again. */
+  | { type: "alerts.changed" };
 
 /** The Hub's own software, for the phone's settings page. */
 export interface HubSoftware {

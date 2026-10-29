@@ -90,7 +90,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#sleep">Sleep and alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -159,6 +159,16 @@
       <button type="button" class="small secondary" style="margin:6px 0 0" id="ss-browse">Browse the NAS</button>
       <div class="nas-browse" id="ss-nas"></div>
     </form>
+  </section>
+
+  <section id="sleep">
+    <h2>Sleep, help and alerts <span class="pill" id="al-pill"></span></h2>
+    <p class="hint">The sleep timer is on the remote page and under Yellow (Options) on the TV. Alerts warn before the IPTV or TorBox subscription runs out, when a recording fails and when the NAS is nearly full.</p>
+    <ul class="list" id="al-list"></ul>
+    <label class="opt"><span>Turn the TV off when nobody's pressed anything<small>A minute before, it asks whether you're still watching</small></span><select data-sl="autoOffHours" data-number><option value="0">Never</option><option value="2">After 2 hours</option><option value="3">After 3 hours</option><option value="4">After 4 hours</option><option value="6">After 6 hours</option></select></label>
+    <label class="opt"><span>Colour button hints on the TV<small>What red, green, yellow and blue do, along the bottom of each screen</small></span><input type="checkbox" data-kh></label>
+    <label class="opt"><span>Pop alerts up on the TV<small>Off: only listed here, on the remote page and in the TV's Settings</small></span><input type="checkbox" data-al="onTv"></label>
+    <label class="opt"><span>Warn before a subscription ends</span><select data-al="expiryDays" data-number><option value="3">3 days before</option><option value="7">7 days before</option><option value="14">14 days before</option><option value="30">30 days before</option></select></label>
   </section>
 
   <section id="recording">
@@ -578,6 +588,28 @@ $("#mix-add").onsubmit = async (e) => {
   } catch (err) { toast(err.message, true); }
 };
 
+// Alerts: each can be dismissed (it comes back if it gets worse).
+async function loadAlerts() {
+  const { alerts } = await api("/api/alerts");
+  const list = $("#al-list");
+  list.innerHTML = "";
+  pill("#al-pill", alerts.length ? `${alerts.length} alert${alerts.length === 1 ? "" : "s"}` : "All clear", alerts.length ? "" : "ok");
+  for (const a of alerts) {
+    const li = document.createElement("li");
+    const span = document.createElement("span");
+    span.textContent = a.title;
+    const small = document.createElement("small");
+    small.textContent = a.text;
+    span.append(small);
+    const b = document.createElement("button");
+    b.className = "small secondary";
+    b.textContent = "Dismiss";
+    b.onclick = () => api(`/api/alerts/${encodeURIComponent(a.id)}/dismiss`, { method: "POST" }).then(() => loadAlerts(), (e) => toast(e.message, true));
+    li.append(span, b);
+    list.append(li);
+  }
+}
+
 // Picture, sound and recording: each control saves as soon as it changes.
 function setValue(el, v) {
   if (el.type === "checkbox") el.checked = Boolean(v);
@@ -587,9 +619,14 @@ function setValue(el, v) {
   }
 }
 const valueOf = (el) => (el.type === "checkbox" ? el.checked : "number" in el.dataset ? Number(el.value) : el.value);
-for (const el of document.querySelectorAll("[data-pb], [data-rec], [data-ss]")) {
+for (const el of document.querySelectorAll("[data-pb], [data-rec], [data-ss], [data-sl], [data-al], [data-kh]")) {
   el.addEventListener("change", async () => {
-    const body = el.dataset.pb ? { playback: { [el.dataset.pb]: valueOf(el) } } : el.dataset.ss ? { screensaver: { [el.dataset.ss]: valueOf(el) } } : { recording: { [el.dataset.rec]: valueOf(el) } };
+    const body = el.dataset.pb ? { playback: { [el.dataset.pb]: valueOf(el) } }
+      : el.dataset.ss ? { screensaver: { [el.dataset.ss]: valueOf(el) } }
+      : el.dataset.sl ? { sleep: { [el.dataset.sl]: valueOf(el) } }
+      : el.dataset.al ? { alerts: { [el.dataset.al]: valueOf(el) } }
+      : "kh" in el.dataset ? { keyHints: valueOf(el) }
+      : { recording: { [el.dataset.rec]: valueOf(el) } };
     try {
       const saved = await api("/api/settings", { method: "PUT", body });
       toast("Saved");
@@ -766,6 +803,10 @@ async function load() {
   $("#jf-disconnect").hidden = !s.jellyfin;
   for (const el of document.querySelectorAll("[data-pb]")) setValue(el, s.playback[el.dataset.pb]);
   for (const el of document.querySelectorAll("[data-rec]")) setValue(el, s.recording[el.dataset.rec]);
+  for (const el of document.querySelectorAll("[data-sl]")) setValue(el, s.sleep?.[el.dataset.sl] ?? 4);
+  for (const el of document.querySelectorAll("[data-al]")) setValue(el, s.alerts?.[el.dataset.al]);
+  for (const el of document.querySelectorAll("[data-kh]")) setValue(el, s.keyHints ?? true);
+  loadAlerts().catch(() => {});
   if (s.screensaver) loadScreensaver(s).catch(() => {});
   for (const [id, on] of [["#tmdb-pill", s.tmdb], ["#torbox-pill", s.torbox]]) { $(id).textContent = on ? "Set" : "Not set"; $(id).className = "pill" + (on ? " ok" : ""); }
   $("#addon-list").innerHTML = s.addons.map((a) => `<li><span>${a.name}<small>${a.url}</small></span></li>`).join("");

@@ -172,6 +172,8 @@ class BrowserAgent implements BoxAgent {
 
   async wakeTv(): Promise<void> {}
 
+  async standbyTv(): Promise<void> {}
+
   async reload(): Promise<void> {
     location.reload();
   }

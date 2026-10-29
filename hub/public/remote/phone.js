@@ -966,4 +966,89 @@
     });
     q.focus();
   }
+  // ---------------------------------------------------------------------------
+  // Sleep timer: the TV turns off when it runs out (it asks "Still watching?" a minute before).
+
+  const SLEEP_MINUTES = [15, 30, 45, 60, 90, 120];
+  let sleep = { mode: "off", leftMs: null };
+  let sleepAt = 0;
+  const sleepLeft = () => (sleep.leftMs === null ? null : Math.max(0, sleep.leftMs - (Date.now() - sleepAt)));
+  const minutesText = (m) => (m < 60 ? `${m} min` : m % 60 ? `${Math.floor(m / 60)}½ hours` : `${m / 60} hour${m === 60 ? "" : "s"}`);
+  const leftText = (ms) => {
+    const m = Math.max(1, Math.ceil(ms / 60000));
+    return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`;
+  };
+  function showSleep() {
+    const left = sleepLeft();
+    const on = sleep.mode !== "off";
+    $("sleep-btn").classList.toggle("on", on);
+    $("sleep-label").textContent = !on ? "Sleep timer" : left !== null ? `Off in ${leftText(left)}` : "At the end";
+  }
+  async function loadSleep() {
+    try {
+      sleep = (await get("/api/sleep")).timer;
+      sleepAt = Date.now();
+    } catch {}
+    showSleep();
+  }
+  async function setSleep(body) {
+    try {
+      const r = await fetch("/api/sleep", body ? { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, by: "phone" }) } : { method: "DELETE" });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || r.statusText);
+      sleep = d.timer;
+      sleepAt = Date.now();
+      showSleep();
+      closeSheet();
+      toast(sleep.mode === "off" ? "Sleep timer off" : sleep.mode === "programme" && sleep.leftMs === null ? "The TV goes off when this programme ends" : `The TV goes off in ${leftText(sleepLeft())}`);
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+  async function sleepSheet() {
+    await loadSleep();
+    const left = sleepLeft();
+    const on = sleep.mode !== "off";
+    openSheet(`<h2>Sleep timer</h2>
+      <p class="meta">${on ? (left !== null ? `The TV goes off in ${esc(leftText(left))}${sleep.programme ? `, when ${esc(sleep.programme)} ends` : ""}.` : "The TV goes off when this programme ends.") : "The TV stops what's on and turns off when it runs out. A minute before, it asks whether you're still watching."}</p>
+      <div class="list">
+        <button type="button" class="row-btn${sleep.mode === "programme" ? " on" : ""}" data-sleep="programme">When this programme ends</button>
+        ${SLEEP_MINUTES.map((m) => `<button type="button" class="row-btn${sleep.mode === "minutes" && sleep.minutes === m ? " on" : ""}" data-sleep="${m}">${esc(minutesText(m))}</button>`).join("")}
+      </div>
+      <div class="actions">${on ? `<button id="sleep-off">Turn it off</button>` : ""}</div>
+      <button class="link" data-close>Close</button>`);
+    for (const b of document.querySelectorAll("[data-sleep]")) b.onclick = () => void setSleep(b.dataset.sleep === "programme" ? { mode: "programme" } : { minutes: Number(b.dataset.sleep) });
+    if ($("sleep-off")) $("sleep-off").onclick = () => void setSleep(null);
+  }
+  $("sleep-btn").addEventListener("click", () => void sleepSheet());
+  void loadSleep();
+  setInterval(showSleep, 15000);
+  setInterval(loadSleep, 60000);
+
+  // ---------------------------------------------------------------------------
+  // Alerts: a subscription running out, a failed recording, the NAS filling up.
+
+  async function loadAlerts() {
+    let alerts = [];
+    try {
+      alerts = (await get("/api/alerts")).alerts || [];
+    } catch {}
+    $("alerts").innerHTML = alerts
+      .map((a, i) => `<div class="alert${a.level === "bad" ? " bad" : ""}"><span><b>${esc(a.title)}</b><small>${esc(a.text)}</small></span><button class="x" data-alert="${i}" aria-label="Dismiss">×</button></div>`)
+      .join("");
+    // One line each, so the remote stays in reach; a tap shows the rest.
+    for (const el of $("alerts").querySelectorAll(".alert span")) el.onclick = () => el.parentElement.classList.toggle("open");
+    for (const b of $("alerts").querySelectorAll("[data-alert]")) {
+      b.onclick = () =>
+        post(`/api/alerts/${encodeURIComponent(alerts[Number(b.dataset.alert)].id)}/dismiss`, {}).then(loadAlerts, (e) => toast(e.message, true));
+    }
+  }
+  void loadAlerts();
+  setInterval(loadAlerts, 5 * 60000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      void loadAlerts();
+      void loadSleep();
+    }
+  });
 })();

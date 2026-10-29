@@ -16,7 +16,7 @@ export const [remoteText, setRemoteText] = createSignal<{ text: string; at: numb
 
 const ACTIONS = new Set<string>([
   "up", "down", "left", "right", "ok", "back", "red", "green", "yellow", "blue", "guide", "info", "play", "pause", "playPause", "stop",
-  "rewind", "fastForward", "record", "channelUp", "channelDown", "home",
+  "rewind", "fastForward", "record", "channelUp", "channelDown", "home", "help",
   ...Array.from({ length: 10 }, (_, i) => `digit${i}`),
 ]);
 

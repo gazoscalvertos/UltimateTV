@@ -28,8 +28,9 @@
   .row { display: grid; gap: 12px; }
   .r3 { grid-template-columns: repeat(3, 1fr); }
   .r4 { grid-template-columns: repeat(4, 1fr); }
-  .r3 button, .r4 button { height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; color: var(--muted); }
-  .r3 button svg, .r4 button svg { width: 24px; height: 24px; color: var(--fg); }
+  .r2 { grid-template-columns: repeat(2, 1fr); }
+  .r2 button, .r3 button, .r4 button { height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; color: var(--muted); }
+  .r2 button svg, .r3 button svg, .r4 button svg { width: 24px; height: 24px; color: var(--fg); }
   .pad { position: relative; width: min(78vw, 300px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #1c2944, #0f1729); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 18px 40px rgba(0,0,0,.45); touch-action: none; }
   .pad button { position: absolute; background: transparent; border-radius: 0; color: var(--fg); display: grid; place-items: center; }
   .pad button:active, .pad button.pressed { background: rgba(255,255,255,.07); transform: none; }
@@ -69,6 +70,18 @@
   .banner { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, rgba(61,139,255,.22), rgba(0,194,209,.18)); border: 1px solid rgba(61,139,255,.45); font-size: 14px; color: var(--fg); text-decoration: none; }
   .banner span { flex: 1; }
   .banner small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-all; }
+  .alerts { display: flex; flex-direction: column; gap: 8px; }
+  .alerts:empty { display: none; }
+  .alert { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: rgba(242,179,61,.14); border: 1px solid rgba(242,179,61,.45); font-size: 14px; }
+  .alert.bad { background: rgba(255,84,104,.16); border-color: rgba(255,84,104,.55); }
+  .alert span { flex: 1; }
+  .alert b { display: block; margin-bottom: 2px; }
+  .alert small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alert span { min-width: 0; }
+  .alert.open small { white-space: normal; }
+  .alert .x { flex: none; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.08); font-size: 16px; }
+  #sleep-btn.on { color: #b8a6ff; }
+  #sleep-btn.on svg { color: #b8a6ff; }
   .banner .x { flex: none; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.08); font-size: 16px; }
   .heard { min-height: 1.3em; text-align: center; color: var(--muted); font-size: 13px; margin: -4px 0 0; }
   .heard b { color: var(--fg); font-weight: 600; }
@@ -204,6 +217,7 @@
 <main id="tab-remote">
   <button class="install" id="install">Install as an app</button>
   <a class="banner" id="app-banner" href="/api/remote/app.apk" hidden><span id="app-banner-text"></span><button class="x" id="app-banner-x" aria-label="Not now">×</button></a>
+  <div class="alerts" id="alerts"></div>
   <p class="heard" id="heard"></p>
 
   <div class="row r4">
@@ -225,6 +239,11 @@
     <button data-key="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>Back</button>
     <button id="num-toggle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="6" r="1.8"/><circle cx="12" cy="6" r="1.8"/><circle cx="18" cy="6" r="1.8"/><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/><circle cx="6" cy="18" r="1.8"/><circle cx="12" cy="18" r="1.8"/><circle cx="18" cy="18" r="1.8"/></svg>123</button>
     <button data-key="yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Options</button>
+  </div>
+
+  <div class="row r2">
+    <button data-key="help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2.2-2.4 3.7M12 17h.01"/></svg>Help on the TV</button>
+    <button id="sleep-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/></svg><span id="sleep-label">Sleep timer</span></button>
   </div>
 
   <div class="numbers" id="numbers">

@@ -1,8 +1,9 @@
 // Remote keys → app actions. On the box the Hisense remote arrives over HDMI-CEC, and the
 // installer's keymap (tools/box/files/cec-keymap.toml) turns CEC buttons into ordinary keys:
 // arrows, Enter, Escape, F1–F4 for the colour keys, digits, PageUp/PageDown for channels and
-// F5–F9 for Guide, Info, Rewind, Fast forward and Record. A keyboard works the same way, and the
-// TV-style codes (403–406, 415, 19, …) are accepted too so the UI also runs on a TV browser.
+// F5–F9 for Guide, Info, Rewind, Fast forward and Record, and F10 for Help. A keyboard works the
+// same way, and the TV-style codes (403–406, 415, 19, …) are accepted too so the UI also runs on a
+// TV browser.
 
 export type Action =
   | "up"
@@ -27,6 +28,7 @@ export type Action =
   | "channelUp"
   | "channelDown"
   | "home"
+  | "help"
   | `digit${0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`;
 
 export interface KeyLike {
@@ -63,6 +65,9 @@ const BY_KEY: Record<string, Action> = {
   F7: "rewind",
   F8: "fastForward",
   F9: "record",
+  F10: "help",
+  Help: "help",
+  "?": "help",
   MediaPlay: "play",
   MediaPause: "pause",
   MediaPlayPause: "playPause",
@@ -84,6 +89,7 @@ const BY_KEY: Record<string, Action> = {
   y: "yellow",
   b: "blue",
   i: "info",
+  h: "help",
   "[": "rewind",
   "]": "fastForward",
 };

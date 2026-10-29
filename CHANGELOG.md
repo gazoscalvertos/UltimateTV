@@ -15,6 +15,14 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Help, sleep timer and alerts** ([docs/help-sleep-alerts.md](docs/help-sleep-alerts.md)): colour
+  button hints along the bottom of each screen and a help screen (Info, the Help key or the
+  phone); a sleep timer from the TV or the phone that asks "Still watching?" and then puts the TV
+  to standby over HDMI-CEC, plus auto-off after 4 hours with nothing pressed; alerts for the IPTV
+  or TorBox subscription ending, failed recordings and a filling NAS, popped up on the TV and
+  listed on the phone. A failed recording no longer says it "has recorded". Needs the Hub and
+  the box updated (the box for CEC standby).
+
 - **Steady update status**: the phone's Updates card no longer flips between "Couldn't check" and
   "Update available". The Hub keeps GitHub's last answer (a quick reload used to drop it), shares
   one check between everyone asking, waits a minute after a failure and falls back to git's own

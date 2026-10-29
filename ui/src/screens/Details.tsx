@@ -10,6 +10,7 @@ import { choose, DialogFrame } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { Progress } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
+import { useHints } from "../hints";
 import { useKeys } from "../keys";
 import { play } from "../player";
 import { addToQueue } from "../queue";
@@ -173,6 +174,17 @@ export function Details(props: { id: string }) {
       errorToast(err);
     }
   };
+
+  useHints(() =>
+    d()
+      ? [
+          { key: "ok", label: "Play" },
+          { key: "green", label: d()!.kind === "series" ? "Queue this episode" : "Add to queue" },
+          { key: "yellow", label: "Versions" },
+          { key: "play", label: "Play" },
+        ]
+      : [],
+  );
 
   useKeys((a) => {
     if (a === "yellow" && d()) {

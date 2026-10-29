@@ -8,10 +8,15 @@ import { QueueRow } from "../components/QueueRow";
 import { RailRow } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
+import { useHints } from "../hints";
 import { play } from "../player";
 import { nav } from "../store";
 
 export function Home() {
+  useHints(() => [
+    { key: "ok", label: "Open" },
+    { key: "guide", label: "The TV Guide" },
+  ]);
   const [home, { refetch }] = createResource(() => hub.home());
   // Refreshed only when a recording finishes, so the rails don't shift under the remote.
   onCleanup(onHubEvent((e) => (e.type === "recording.finished" ? void refetch() : undefined)));

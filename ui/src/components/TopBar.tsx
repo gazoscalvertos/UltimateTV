@@ -1,8 +1,11 @@
-// The menu along the top of every main screen, with the clock and who's watching.
+// The menu along the top of every main screen, with the clock, who's watching, the sleep timer
+// and any alerts.
 
 import { For, Show } from "solid-js";
 import { clockTime } from "@ultimatetv/shared";
+import { alerts } from "../alerts";
 import { visibleDownloads } from "../downloads";
+import { chooseSleep, leftLabel, sleepEndsAt, sleepTimer } from "../sleep";
 import { appName, isKids, nav, now, profile, type Route } from "../store";
 import { Icon } from "./Icon";
 
@@ -51,6 +54,24 @@ export function TopBar() {
         </Show>
       </nav>
       <div class="topbar-right">
+        <Show when={!isKids() && alerts().length > 0}>
+          <button
+            class="topbar-alerts"
+            classList={{ bad: alerts().some((a) => a.level === "bad") }}
+            data-focus
+            aria-label={`${alerts().length} alert${alerts().length === 1 ? "" : "s"}`}
+            onClick={() => (nav.current().name === "settings" ? nav.replace({ name: "settings", section: "alerts" }) : nav.push({ name: "settings", section: "alerts" }))}
+          >
+            <Icon name="alert" />
+            {alerts().length}
+          </button>
+        </Show>
+        <Show when={sleepTimer().mode !== "off"}>
+          <button class="topbar-sleep" data-focus aria-label="Sleep timer" onClick={() => void chooseSleep()}>
+            <Icon name="moon" />
+            {sleepEndsAt() ? leftLabel(sleepEndsAt()! - now()) : "End of programme"}
+          </button>
+        </Show>
         <span class="clock">{clockTime(now())}</span>
         <Show when={profile()}>
           {(p) => (

@@ -7,7 +7,9 @@ import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import QRCode from "qrcode";
 import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
+import { Alerts, registerAlerts, type AlertDeps } from "./alerts.js";
 import { registerNotices } from "./notify.js";
+import { registerSleep, SleepTimers } from "./sleep.js";
 import { registerQueue } from "./queue.js";
 import { registerScares } from "./scares.js";
 import { movedAway, registerMove } from "./move.js";
@@ -18,7 +20,7 @@ import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
 import { ConnectionBusyError } from "./connections.js";
 import { HubContext } from "./context.js";
-import { demoArt, seedDemo } from "./demo.js";
+import { demoAlerts, demoArt, seedDemo } from "./demo.js";
 import { BoxReportStore, cleanBoxReport, renderDiagnostics, RollingFile, type LogRing } from "./diagnostics.js";
 import { phoneReachable } from "./lan.js";
 import { Library, NotAllowedError } from "./library.js";
@@ -47,6 +49,8 @@ export interface ServerDeps {
   env?: NodeJS.ProcessEnv;
   /** Restarts the Hub after a move (Docker starts it again). Tests pass a fake. */
   restart?: () => void;
+  /** Alerts' disks, clock and TorBox check (tests pass fakes). */
+  alerts?: Pick<AlertDeps, "disks" | "now" | "torboxExpires">;
 }
 
 export const HUB_VERSION = "0.2.0";
@@ -122,6 +126,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/scares/mixes", "script"],
     ["DELETE /api/scares/mixes/:id", "script"],
     ["POST /api/tv/call/:method", "paired"],
+    ["PUT /api/sleep", "paired"],
+    ["DELETE /api/sleep", "paired"],
+    ["POST /api/alerts/check", "paired"],
+    ["POST /api/alerts/:id/dismiss", "paired"],
     ["POST /api/queue", "paired"],
     ["POST /api/queue/:id/move", "paired"],
     ["DELETE /api/queue/:id", "paired"],
@@ -288,6 +296,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const hubLog = deps.logRing?.list() ?? [];
     const hubErrors = hubLog.filter((l) => / (ERROR|FATAL) /.test(l) && l.slice(0, 24) >= hourAgo);
     const warnings = statsWarnings({ now: Date.now(), hub: host, box, sources, connections, hardwareTranscode: systemCache.report.renderNode ? systemCache.report.vaapi.available : false, hubErrors });
+    // Alerts (a subscription ending, a failed recording, a full NAS) belong on the Stats page too.
+    warnings.push(...alerts.visible().map((a) => ({ level: a.level, where: "hub" as const, text: a.title })));
     return {
       at: new Date().toISOString(),
       warnings,
@@ -381,6 +391,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       patch.screensaver = ss;
     }
     if (body.theme !== undefined && THEME_CHOICES.includes(body.theme)) patch.theme = body.theme;
+    if (typeof body.keyHints === "boolean") patch.keyHints = body.keyHints;
+    if (body.sleep) patch.sleep = { autoOffHours: clampNumber(body.sleep.autoOffHours, 0, 12, s.sleep.autoOffHours) };
+    if (body.alerts) {
+      patch.alerts = {
+        onTv: typeof body.alerts.onTv === "boolean" ? body.alerts.onTv : s.alerts.onTv,
+        expiryDays: clampNumber(body.alerts.expiryDays, 1, 60, s.alerts.expiryDays),
+      };
+    }
     if (body.channelFilter !== undefined) {
       try {
         if (body.channelFilter) new RegExp(body.channelFilter);
@@ -449,7 +467,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   const REMOTE_ACTIONS = new Set([
     "up", "down", "left", "right", "ok", "back", "red", "green", "yellow", "blue", "guide", "info", "play", "pause", "playPause", "stop",
-    "rewind", "fastForward", "record", "channelUp", "channelDown", "home", "digit0", "digit1", "digit2", "digit3", "digit4", "digit5", "digit6", "digit7", "digit8", "digit9",
+    "rewind", "fastForward", "record", "channelUp", "channelDown", "home", "help", "digit0", "digit1", "digit2", "digit3", "digit4", "digit5", "digit6", "digit7", "digit8", "digit9",
   ]);
   app.post("/api/remote/key", async (req: Req<Record<string, string>, Record<string, string>, { action?: string }>, reply) => {
     const action = String(req.body?.action ?? "");
@@ -490,7 +508,27 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ok: true };
   });
   // Pop-ups on the TV from the phone or anything on the home network (a doorbell, an alarm).
-  await registerNotices(app, ctx, config.dataDir);
+  const showNotice = await registerNotices(app, ctx, config.dataDir);
+
+  // The sleep timer (see sleep.ts) and alerts: subscriptions running out, failed recordings, a full NAS.
+  registerSleep(app, new SleepTimers(ctx.events));
+  const alerts = new Alerts({
+    db: ctx.db,
+    events: ctx.events,
+    log,
+    settings: () => ctx.settings.get(),
+    expiresOf: (id) => ctx.ingest.sourceMeta(id)?.expires,
+    torboxExpires: async () => (await ctx.torbox()?.user())?.premium_expires_at,
+    recordings: () => ctx.recordings.list(),
+    notify: showNotice,
+    tvConnected: () => tvSockets > 0,
+    ...(config.demo ? { demo: demoAlerts } : {}),
+    ...deps.alerts,
+  });
+  registerAlerts(app, alerts);
+  if (config.demo) void alerts.check();
+  else if (!movedAway(ctx.db)) alerts.start();
+  app.addHook("onClose", async () => alerts.stop());
   // Jump scares: clips the Hub keeps and cuts in over whatever is on (see scares.ts).
   await registerScares(app, ctx, config.dataDir);
   await registerMove(app, {
@@ -1259,4 +1297,10 @@ function marksFor(ctx: HubContext, from: number, to: number): Record<string, Pro
 
 export function hostname(): string {
   return os.hostname();
+}
+
+/** A whole number from a settings body, kept within bounds; anything else keeps the old value. */
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback;
 }

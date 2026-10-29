@@ -14,7 +14,10 @@ import { Icon } from "../components/Icon";
 import { MusicCaption } from "../components/MusicCaption";
 import { openProgramme, recordFlow } from "../components/ProgrammeCard";
 import { Progress } from "../components/Rail";
+import { openHelp } from "../components/Help";
+import { useHints } from "../hints";
 import { useKeys } from "../keys";
+import { chooseSleep, leftLabel, sleepEndsAt, sleepTimer } from "../sleep";
 import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
 import { queue } from "../queue";
@@ -274,11 +277,51 @@ export function Player() {
               Off
             </button>
           </div>
+          <h4>
+            <Icon name="moon" /> Sleep timer
+          </h4>
+          <div class="option-list">
+            <button class="option" classList={{ selected: sleepTimer().mode !== "off" }} data-focus onClick={() => (close(), void chooseSleep())}>
+              {sleepTimer().mode !== "off" && sleepEndsAt() ? `${leftLabel(sleepEndsAt()! - now())} left` : "Set"}
+            </button>
+            <button class="option" data-focus onClick={() => (close(), openHelp())}>
+              <Icon name="help" /> Help
+            </button>
+          </div>
         </DialogFrame>
       );
     });
 
+  useHints(() =>
+    live()
+      ? [
+          { key: "ok", label: "Hide or show the banner" },
+          { key: "updown", label: "What's on other channels" },
+          { key: "leftright", label: "Now and next" },
+          { key: "chupdown", label: "Change channel" },
+          { key: "digits", label: "Go to a channel number" },
+          { key: "red", label: "Record" },
+          { key: "yellow", label: "Options: subtitles, sound, sleep timer" },
+          { key: "blue", label: "Playback stats" },
+          { key: "info", label: "About the programme" },
+          { key: "play", label: "Pause live TV, and carry on" },
+          { key: "rewff", label: "Back and forward 30 seconds" },
+        ]
+      : [
+          { key: "ok", label: "Pause and carry on" },
+          { key: "leftright", label: "Back 10 seconds, forward 30" },
+          { key: "rewff", label: "Back 30 seconds, forward a minute" },
+          { key: "yellow", label: "Options: subtitles, sound, sleep timer" },
+          { key: "blue", label: "Playback stats" },
+          { key: "back", label: "Stop and go back" },
+        ],
+  );
+
   useKeys((a) => {
+    if (a === "help") {
+      openHelp();
+      return true;
+    }
     const np = nowPlaying();
     if (!np) {
       if (a === "back") nav.back();

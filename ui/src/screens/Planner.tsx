@@ -11,6 +11,7 @@ import { Progress } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
 import { canDownload, downloadLabel, downloadOf, downloadToBox, recordingRequest } from "../downloads";
+import { useHints } from "../hints";
 import { useKeys } from "../keys";
 import { play } from "../player";
 import { errorToast, isKids, type PlannerTab, toast } from "../store";
@@ -122,6 +123,11 @@ export function Planner(props: { tab?: PlannerTab }) {
       }
     }
   };
+
+  useHints(() => [
+    { key: "ok", label: "Play or change" },
+    { key: "blue", label: "Next tab" },
+  ]);
 
   useKeys((a) => {
     if (a === "blue") {

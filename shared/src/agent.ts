@@ -209,6 +209,8 @@ export interface BoxAgent {
   onPower(listener: (active: boolean) => void): () => void;
   /** Tells the TV (over CEC) to switch on and show the box. */
   wakeTv(): Promise<void>;
+  /** Tells the TV (over CEC) to go to standby, for the sleep timer. Older box shells lack it: check with agentHas. */
+  standbyTv(): Promise<void>;
   reload(): Promise<void>;
   /** The box's software; `check` also asks GitHub for the newest version. Null outside the box. */
   software(check: boolean): Promise<BoxSoftware | null>;

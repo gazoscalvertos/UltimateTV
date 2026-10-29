@@ -13,6 +13,11 @@ import { JumpScare } from "./components/JumpScare";
 import { NewsFlash } from "./components/NewsFlash";
 import { ScreensaverLayer } from "./components/Screensaver";
 import { Notices } from "./components/Notices";
+import { KeyHintsBar, openHelp } from "./components/Help";
+import { SleepWarning } from "./components/SleepWarning";
+import { startAlerts } from "./alerts";
+import { setKeyHintsOn } from "./hints";
+import { startSleep } from "./sleep";
 import { StartingCard } from "./components/Starting";
 import { startEvents, onHubEvent } from "./events";
 import { activeLayer, current, focus, focusFirst } from "./focus";
@@ -108,6 +113,11 @@ export function App() {
       nav.reset({ name: "home" });
       return true;
     }
+    // Info has no job on most screens: there it's help, which is easier to find than a Help button.
+    if (a === "help" || a === "info") {
+      openHelp();
+      return true;
+    }
     // Music playing and no video: Play/Pause is the music's, on any screen.
     if (a === "playPause" && !nowPlaying() && activeMusic()) {
       void musicPlayPause();
@@ -166,12 +176,15 @@ export function App() {
     startIdle();
     startQueue();
     startDownloads();
+    startSleep();
+    startAlerts();
     void startMusic();
     void restoreSession();
     const loadLook = () =>
       hub.settings().then((s) => {
         setAppName(s.appName);
         setTheme(resolveTheme(s.theme));
+        setKeyHintsOn(s.keyHints ?? true);
       }, () => undefined);
     void loadLook();
     // "auto" wears the Halloween theme over Halloween week: look again at midnight rather than
@@ -199,7 +212,8 @@ export function App() {
           if (isLive() && e.recording) void play({ kind: "channel", id: e.recording.channelId });
         }
         if (e.type === "recording.started" && !nowPlaying()) toast(`Recording ${e.recording.programme.title}`);
-        if (e.type === "recording.finished") toast(`${e.recording.programme.title} has recorded`, "good");
+        // A failed one comes up as an alert instead (see alerts.ts), with what went wrong.
+        if (e.type === "recording.finished" && e.recording.status !== "failed") toast(`${e.recording.programme.title} has recorded`, "good");
         if (e.type === "profiles.changed") {
           const { profiles } = await hub.profiles().catch(() => ({ profiles: [] }));
           const mine = profiles.find((p) => p.id === session.profileId);
@@ -287,6 +301,8 @@ export function App() {
       <NewsFlash />
       <Notices />
       <JumpScare />
+      <KeyHintsBar />
+      <SleepWarning />
       <DialogHost />
       <div class="toasts">
         <For each={toasts()}>{(t) => <div class={`toast toast-${t.tone}`}>{t.message}</div>}</For>

@@ -9,6 +9,7 @@ import { choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { Progress } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
+import { useHints } from "../hints";
 import { useKeys } from "../keys";
 import { boxDownloads, downloadLabel, removeFromBox, visibleDownloads } from "../downloads";
 import { play } from "../player";
@@ -73,6 +74,8 @@ export function DownloadsScreen() {
 
   // Red deletes the one the remote is on.
   const [focused, setFocused] = createSignal<string | null>(null);
+  useHints(() => (isKids() ? [{ key: "ok", label: "Play" }] : [{ key: "ok", label: "Play" }, { key: "red", label: "Delete" }]));
+
   useKeys((a) => {
     const d = a === "red" && !isKids() ? visibleDownloads().find((x) => x.id === focused()) : undefined;
     if (!d) return false;

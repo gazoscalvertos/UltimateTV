@@ -2,14 +2,18 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { Certification, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeChoice } from "@ultimatetv/shared";
+import type { Certification, HubAlert, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeChoice } from "@ultimatetv/shared";
 import { CERTIFICATIONS, formatBytes, resolveTheme, SCREENSAVER_THEMES, THEME_CHOICES } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { TopBar } from "../components/TopBar";
+import { alerts, checkAlerts, dismissAlert } from "../alerts";
+import { openHelp } from "../components/Help";
 import { onHubEvent } from "../events";
+import { setKeyHintsOn } from "../hints";
+import { chooseSleep, leftLabel, sleepEndsAt, sleepTimer } from "../sleep";
 import { previewScreensaver } from "../idle";
 import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, setShowStats, setTheme, showStats, toast } from "../store";
@@ -277,7 +281,7 @@ export function Settings(props: { section?: string }) {
     toast(`Theme: ${THEME_LABELS[next]}`, "good");
   };
 
-  const save = async (patch: Partial<Pick<PublicSettings, "recording" | "playback" | "theme">>) => {
+  const save = async (patch: Partial<Pick<PublicSettings, "recording" | "playback" | "theme" | "keyHints" | "sleep" | "alerts">>) => {
     try {
       mutate(await hub.saveSettings(patch));
     } catch (err) {
@@ -413,7 +417,16 @@ export function Settings(props: { section?: string }) {
     }
   };
 
-  const SECTIONS = [
+  const sleepSettings = () => settings()!.sleep ?? { autoOffHours: 4 };
+  const alertSettings = () => settings()!.alerts ?? { onTv: true, expiryDays: 14 };
+  const alertWhen = (a: HubAlert) => (a.expiresAt ? new Date(a.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ago(a.at));
+  const alertMenu = async (a: HubAlert) => {
+    const pick = await choose({ title: a.title, message: a.text, options: [{ label: "Dismiss", value: "dismiss", icon: "check", detail: "It comes back if it gets worse" }, { label: "Back", value: "back" }] });
+    if (pick === "dismiss") await dismissAlert(a.id);
+  };
+
+  const sections = () => [
+    ...(alerts().length ? [{ id: "alerts", label: `Alerts (${alerts().length})` }] : []),
     { id: "profiles", label: "Profiles and PIN" },
     { id: "playback", label: "Picture and sound" },
     { id: "screensaver", label: "Screensaver" },
@@ -422,6 +435,8 @@ export function Settings(props: { section?: string }) {
     { id: "scares", label: "Jump scares" },
     { id: "sources", label: "Sources" },
     { id: "remote", label: "Phones and remotes" },
+    { id: "help", label: "Sleep timer and help" },
+    ...(alerts().length ? [] : [{ id: "alerts", label: "Alerts" }]),
     { id: "about", label: "About" },
   ];
 
@@ -430,7 +445,7 @@ export function Settings(props: { section?: string }) {
       <TopBar />
       <div class="settings-layout">
         <nav class="settings-nav" data-focus-group>
-          <For each={SECTIONS}>
+          <For each={sections()}>
             {(s, i) => (
               <button class="settings-nav-item" classList={{ active: section() === s.id }} data-focus data-autofocus={s.id === (props.section ?? "profiles") ? "" : undefined} onFocus={() => setSection(s.id)} onClick={() => setSection(s.id)}>
                 {s.label}
@@ -634,6 +649,31 @@ export function Settings(props: { section?: string }) {
                   </p>
                 </div>
               </div>
+            </Show>
+
+            <Show when={section() === "alerts"}>
+              <h2>Alerts</h2>
+              <p class="hint">Things worth sorting before they bite: the IPTV or TorBox subscription running out, a recording that failed, the NAS filling up. Each new one pops up on the TV once, and they're on the phone too.</p>
+              <For each={alerts()} fallback={<Row label="Nothing needs doing" icon="check" hint="The Hub looks every half hour" />}>
+                {(a) => <Row label={a.title} hint={a.text} icon="alert" value={<span class={`alert-level alert-${a.level}`}>{alertWhen(a)}</span>} onSelect={() => void alertMenu(a)} />}
+              </For>
+              <Row label="Check now" icon="restart" onSelect={() => void checkAlerts().then(() => toast("Checked", "good"))} />
+              <Row label="Pop up on the TV" hint="Off: only listed here and on the phone" value={alertSettings().onTv ? "On" : "Off"} onSelect={() => void save({ alerts: { ...alertSettings(), onTv: !alertSettings().onTv } })} />
+              <Row label="Warn before a subscription ends" value={`${alertSettings().expiryDays} days`} onSelect={() => void save({ alerts: { ...alertSettings(), expiryDays: cycle([3, 7, 14, 30], alertSettings().expiryDays) } })} />
+            </Show>
+
+            <Show when={section() === "help"}>
+              <h2>Sleep timer and help</h2>
+              <p class="hint">The sleep timer turns the TV off after a while, or when the programme ends. A minute before, it asks whether you're still watching: OK gives half an hour more. Yellow while watching sets it too, and so does the phone.</p>
+              <Row label="Sleep timer" icon="moon" value={sleepTimer().mode !== "off" && sleepEndsAt() ? `${leftLabel(sleepEndsAt()! - Date.now())} left` : sleepTimer().mode === "programme" ? "End of programme" : "Off"} onSelect={() => void chooseSleep()} />
+              <Row
+                label="Turn off when nobody's pressed anything"
+                hint="Saves leaving the TV on all night. The minute before, any button keeps it on"
+                value={sleepSettings().autoOffHours ? `After ${sleepSettings().autoOffHours} hours` : "Never"}
+                onSelect={() => void save({ sleep: { autoOffHours: cycle([0, 2, 3, 4, 6], sleepSettings().autoOffHours) } })}
+              />
+              <Row label="Colour button hints" hint="What the red, green, yellow and blue buttons do, along the bottom of each screen" value={settings()!.keyHints ?? true ? "On" : "Off"} onSelect={() => void save({ keyHints: !(settings()!.keyHints ?? true) }).then(() => setKeyHintsOn(settings()!.keyHints ?? true))} />
+              <Row label="Show the help screen" icon="help" hint="Info opens it on any screen where Info has no other job" onSelect={() => openHelp()} />
             </Show>
 
             <Show when={section() === "about"}>

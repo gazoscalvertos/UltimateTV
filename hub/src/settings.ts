@@ -33,6 +33,9 @@ export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
     numbering: "uk",
     channelFilter: "^(UK|GB|United Kingdom)\\b|\\b(UK|GB)\\b",
     screensaver: { ...DEFAULT_SCREENSAVER },
+    keyHints: true,
+    sleep: { autoOffHours: 4 },
+    alerts: { onTv: true, expiryDays: 14 },
   };
 }
 
@@ -138,6 +141,8 @@ function mergeSettings(base: Settings, patch: Partial<Settings>): Settings {
     recording: { ...base.recording, ...patch.recording },
     playback: { ...base.playback, ...patch.playback },
     screensaver: { ...base.screensaver, ...patch.screensaver },
+    sleep: { ...base.sleep, ...patch.sleep },
+    alerts: { ...base.alerts, ...patch.alerts },
   };
 }
 
@@ -161,6 +166,9 @@ export function publicSettings(s: Settings, setupUrl: string, statusOf?: (source
     channelFilter: s.channelFilter,
     library: s.library,
     screensaver: s.screensaver,
+    keyHints: s.keyHints,
+    sleep: s.sleep,
+    alerts: s.alerts,
     setupUrl,
   };
   if (s.jellyfin) {

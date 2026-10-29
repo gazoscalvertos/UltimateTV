@@ -80,6 +80,8 @@ const PATHS: Record<string, () => JSX.Element> = {
     </>
   ),
   minus: () => <path d="M5 12h14" />,
+  help: () => <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.5a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2.2-2.4 3.7M12 17h.01" />,
+  alert: () => <path d="M12 4 2.5 20h19zM12 10v4.5M12 17.5h.01" />,
 };
 
 export function Icon(props: { name: string; class?: string }) {

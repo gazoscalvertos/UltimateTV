@@ -346,6 +346,9 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   ]) {
     ctx.recordings.save(r);
   }
+  // One that failed last night, for Settings › Alerts.
+  const failed = done("Gardeners' Diary", 1, 6, 2, "Autumn Bulbs", 2);
+  ctx.recordings.save({ ...failed, id: "demo-failed-1", status: "failed", error: "The stream stopped after 2 minutes and catch-up didn't have it.", path: undefined, sizeBytes: undefined });
 
   // Downloads.
   ctx.db.run("DELETE FROM downloads");
@@ -447,4 +450,15 @@ export function demoSeasons(slug: string): Season[] {
       return ep;
     }),
   }));
+}
+
+/** Demo mode's IPTV running out in five days, TorBox in twenty and a NAS getting full, for Settings › Alerts. */
+export function demoAlerts(now: number) {
+  const DAY = 86_400_000;
+  const GB = 1024 ** 3;
+  return {
+    iptv: [{ id: "demo-iptv", name: "Your IPTV", expires: now + 5 * DAY + 3 * 3600_000 }],
+    torboxExpires: now + 20 * DAY,
+    disks: [{ label: "Recordings", freeBytes: 310 * GB, totalBytes: 3726 * GB }],
+  };
 }

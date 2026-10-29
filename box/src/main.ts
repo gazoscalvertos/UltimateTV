@@ -198,6 +198,10 @@ async function main(): Promise<void> {
     setLayout: (l: never) => player.setLayout(l),
     stats: () => player.stats(),
     wakeTv: () => cec.wakeTv(),
+    standbyTv: () => {
+      log("Sleep timer: putting the TV to standby");
+      return cec.standbyTv();
+    },
     reload: async () => win?.webContents.reloadIgnoringCache(),
     software: (check: never) => updates.status(Boolean(check)),
     update: () => updates.start(),

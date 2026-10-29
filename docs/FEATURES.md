@@ -75,6 +75,12 @@ Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #50), then
 - **Halloween** ([halloween.md](halloween.md)): an automatic theme from 25 October to 1 November, three hidden easter eggs, and jump scares (your own clips, or ones built from a picture or video plus a sound), never on Kids.
 - **App name**: call it GazosTV or anything else; it shows everywhere, including Spotify's device list.
 
+## Help, sleep timer and alerts ([help-sleep-alerts.md](help-sleep-alerts.md))
+
+- **Colour button hints** along the bottom of each screen, and a **help screen** (Info where Info has no other job, the Help key, or the phone) with every button, tips and a QR code for the phone remote.
+- **Sleep timer**: minutes or "when this programme ends", from Options, Settings, the top bar or the phone. "Still watching?" a minute before, then stop and HDMI-CEC standby. **Auto-off** after 4 hours with nothing pressed.
+- **Alerts**: the IPTV or TorBox subscription ending, failed recordings and a filling NAS, popped up once on the TV and listed in the top bar, Settings › Alerts, the phone and the Stats page.
+
 ## Running and looking after it
 
 - **Setup page** at `/setup/` for IPTV, Jellyfin, AIOStreams, TorBox and every TV setting.
@@ -94,3 +100,4 @@ Not on main yet, so not on the Hub or the box until merged and updated.
 | [#52](https://github.com/gazoscalvertos/UltimateTV/pull/52) | QR codes and links for both Android apps in the TV's and the phone's settings |
 | [#53](https://github.com/gazoscalvertos/UltimateTV/pull/53) | Save to NAS and Jellyfin from Versions, the player (Options › Keep a copy) and the phone |
 | [#54](https://github.com/gazoscalvertos/UltimateTV/pull/54) | A theme picker on the TV and the phone (dark, light and more) with seasonal themes for Valentine's, Easter, Halloween and Christmas |
+| This branch | Colour button hints and a help screen, the sleep timer with CEC standby and auto-off, and alerts for subscriptions, failed recordings and a full NAS |

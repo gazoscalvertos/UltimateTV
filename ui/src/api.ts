@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { BoxState, Channel, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import type { BoxState, Channel, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubAlert, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, SleepTimer, StreamCandidate, TitleDetails, TitleRef } from "@ultimatetv/shared";
 
 const store = {
   get(key: string): string | null {
@@ -141,13 +141,19 @@ export const hub = {
   screensaver: () => api<ScreensaverInfo>("/api/screensaver"),
   screensaverPhotos: () => api<{ photos: ScreensaverPhoto[] }>("/api/screensaver/photos"),
   browsePhotos: (dir?: string) => api<NasListing>(`/api/screensaver/nas${q({ dir })}`),
-  saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback" | "appName" | "theme">> & { screensaver?: Partial<ScreensaverSettings> }) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
+  saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback" | "appName" | "theme" | "keyHints" | "sleep" | "alerts">> & { screensaver?: Partial<ScreensaverSettings> }) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
 
   /** Jump scares: the settings and clips the Hub keeps, and setting one off now. */
   scares: () => api<ScareState>("/api/scares"),
   saveScares: (patch: Partial<ScareSettings>) => api<ScareState>("/api/scares", { method: "PUT", body: patch }),
   scareNow: (clipId?: string) => api<{ scare: Scare }>("/api/scares/now", { method: "POST", body: clipId ? { clipId } : {} }),
   refresh: () => api<{ ok: true }>("/api/refresh", { method: "POST" }),
+  sleep: () => api<{ timer: SleepTimer }>("/api/sleep").then((r) => r.timer),
+  setSleep: (body: { minutes?: number; mode?: "programme"; leftMs?: number; programme?: string }) => api<{ timer: SleepTimer }>("/api/sleep", { method: "PUT", body: { ...body, by: "tv" } }).then((r) => r.timer),
+  clearSleep: () => api<{ timer: SleepTimer }>("/api/sleep?by=tv", { method: "DELETE" }).then((r) => r.timer),
+  alerts: () => api<{ alerts: HubAlert[] }>("/api/alerts").then((r) => r.alerts),
+  checkAlerts: () => api<{ alerts: HubAlert[] }>("/api/alerts/check", { method: "POST" }).then((r) => r.alerts),
+  dismissAlert: (id: string) => api<{ alerts: HubAlert[] }>(`/api/alerts/${enc(id)}/dismiss`, { method: "POST" }).then((r) => r.alerts),
   reportBox: (state: Omit<BoxState, "reportedAt">) => api<{ ok: true }>("/api/box/state", { method: "POST", body: state }),
   /** The Hub's own version, checked against GitHub's main. */
   hubSoftware: () => api<{ hub: HubSoftware }>("/api/software?check=1").then((r) => r.hub),

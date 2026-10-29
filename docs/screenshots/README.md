@@ -45,3 +45,9 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 60 | Every built-in screensaver on one sheet |
 | 61 | A built scare: a transparent ghost placed bottom right over the film |
 | 62 | Building a scare on the phone: a picture or video, a sound, where it goes and how big |
+| 70 | The TV Guide's own key legend (the hints bar keeps out of the way there) |
+| 71, 73 | The help screen in the guide and on Home |
+| 72 | Alerts popping up on the TV: IPTV ending, a failed recording, the NAS filling up |
+| 74, 75 | Settings › Alerts, and Settings › Sleep timer and help |
+| 76, 77 | Choosing a sleep timer, and "Still watching?" a minute before the TV goes off |
+| 78 | The sleep timer on the phone remote |

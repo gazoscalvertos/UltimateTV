@@ -45,6 +45,7 @@ In the order of [TESTING.md](TESTING.md):
 - **Profiles and the Kids lock**, and pairing (an unpaired phone is refused).
 - **Spotify and Deezer** on the box (neither has been tried against the real services).
 - **Pop-ups from Home Assistant** (existing commands need the `X-Api-Key` header).
+- **Sleep timer standby over CEC**, auto-off, and alerts with the real IPTV expiry date ([help-sleep-alerts.md](help-sleep-alerts.md#testing-on-the-box)).
 - **Play queue, screensavers, Halloween and jump scares, Download to box, and a trip** with `travel.sh`.
 - **The WAF test:** watch BBC One, record tonight's film, set a series link, carry on yesterday's film, find a 4K comedy, with no help.
 
@@ -56,6 +57,7 @@ In the order of [TESTING.md](TESTING.md):
 | [#52](https://github.com/gazoscalvertos/UltimateTV/pull/52) | QR codes and links for the Android apps in settings | Open |
 | [#53](https://github.com/gazoscalvertos/UltimateTV/pull/53) | Save to NAS from Versions, the player and the phone | Open |
 | [#54](https://github.com/gazoscalvertos/UltimateTV/pull/54) | Theme picker with seasonal themes | Open |
+| This branch | Help screen and colour hints, sleep timer, alerts | Open |
 
 ## Not built yet
 

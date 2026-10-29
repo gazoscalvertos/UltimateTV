@@ -13,6 +13,7 @@ import { openProgramme, recordFlow, timeRange } from "../components/ProgrammeCar
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
 import { focus, move } from "../focus";
+import { useHints } from "../hints";
 import { useKeys } from "../keys";
 import { channels as allChannels, guideList, liveChannelId, nowPlaying, play, setGuideList, setListChannels, stopPlayback } from "../player";
 import { errorToast, isKids, nav, now, profile, toast } from "../store";
@@ -208,6 +209,21 @@ export function Guide() {
       errorToast(err);
     }
   };
+
+  useHints(
+    () => [
+      { key: "ok", label: "Watch, or the details of a later one" },
+      { key: "info", label: "About the programme" },
+      { key: "red", label: "Record" },
+      { key: "green", label: "−24 hours" },
+      { key: "yellow", label: "+24 hours" },
+      { key: "blue", label: "Next list" },
+      { key: "digits", label: "Channel number" },
+      { key: "chupdown", label: "A page up or down" },
+      { key: "back", label: "Back to now, then out" },
+    ],
+    { legend: true },
+  );
 
   useKeys((a) => {
     if (document.activeElement !== grid) {
