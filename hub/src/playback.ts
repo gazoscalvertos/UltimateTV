@@ -207,7 +207,7 @@ export class Playback {
       fps: 25,
       externalSubtitles: [],
       progressKey: `recording:${id}`,
-      skip: [],
+      skip: (r.adverts ?? []).map((b) => ({ kind: "adverts" as const, ...b })),
       ...(p.image ? { artwork: p.image } : {}),
     };
   }

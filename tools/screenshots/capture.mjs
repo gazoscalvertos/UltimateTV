@@ -170,6 +170,16 @@ try {
   await wait(600);
   await shot("56-queue-actions");
   await key("Escape");
+  // The watchlist below the queue: when each is next on TV, and what selecting one offers.
+  await page.locator(".rail", { hasText: "Your watchlist" }).locator(".card").first().focus();
+  await key("ArrowRight");
+  await key("ArrowLeft");
+  await wait(600);
+  await shot("70-home-watchlist");
+  await key("Enter");
+  await wait(600);
+  await shot("71-watchlist-actions");
+  await key("Escape");
 
   await page.locator(".tab-icon").first().focus();
   await key("Enter");
@@ -189,6 +199,24 @@ try {
   await key("ArrowRight", 2);
   await wait(600);
   await shot("15-series-links");
+
+  // A recording with its advert breaks marked: the menu, the seek bar, then the Skip adverts button.
+  await key("ArrowLeft", 2);
+  await key("ArrowDown");
+  await page.locator(".list-row", { hasText: "Sea Cliffs" }).first().focus();
+  await key("Enter");
+  await wait(600);
+  await shot("72-recording-menu-adverts");
+  await key("Enter");
+  await wait(2000);
+  // Forward 30 s at a time to 12:30, the first break.
+  await key("ArrowRight", 25);
+  await wait(600);
+  await shot("73-recording-advert-marks");
+  await wait(5500);
+  await shot("74-skip-adverts");
+  await key("Escape");
+  await wait(800);
 
   await tab("Settings");
   await wait(1000);
@@ -382,6 +410,10 @@ try {
   // together on one contact sheet (and a few full size).
   await tab("Settings");
   await key("ArrowDown");
+  await page.locator(".settings-nav-item", { hasText: "Recording" }).first().focus();
+  await wait(1200);
+  await shot("75-settings-adverts");
+  await key("ArrowUp");
   await page.locator(".settings-nav-item", { hasText: "Screensaver" }).first().focus();
   await wait(1200);
   await shot("58-settings-screensaver");
@@ -463,6 +495,15 @@ try {
   await phone.waitForTimeout(800);
   await phone.screenshot({ path: path.join(out, "57-phone-queue.png") });
   console.log("  57-phone-queue.png");
+  // The watchlist of the profile the TV is on (Kids by now): a show from the guide and a series.
+  const later = (await (await fetch(`${base}/api/channels/${cbbc.id}/programmes?from=${Date.now() + 3600_000}&limit=3`, { headers: asTv })).json()).programmes;
+  if (later[0]) await fetch(`${base}/api/watchlist`, { method: "POST", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ profile: "kids", programmeId: later[0].id }) });
+  const kidsSeries = (await (await fetch(`${base}/api/browse/series`, { headers: { ...asTv, "X-Profile": "kids" } })).json()).rails.flatMap((r) => r.items ?? []).find((t) => t.name === "Space Detectives");
+  if (kidsSeries) await fetch(`${base}/api/watchlist`, { method: "POST", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ profile: "kids", title: { ...kidsSeries, genres: ["Kids", "Animation"] } }) });
+  await phone.locator('[data-browse="watchlist"]').click();
+  await phone.waitForTimeout(1000);
+  await phone.screenshot({ path: path.join(out, "76-phone-watchlist.png") });
+  console.log("  76-phone-watchlist.png");
   await phone.goto(`${base}/music-login/`);
   await phone.waitForTimeout(600);
   await phone.screenshot({ path: path.join(out, "36-phone-deezer-login.png") });

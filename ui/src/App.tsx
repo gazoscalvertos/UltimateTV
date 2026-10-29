@@ -35,6 +35,7 @@ import { Settings } from "./screens/Settings";
 import { closeTopDialog, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
+import { startWatchlist } from "./watchlist";
 import { startDownloads } from "./downloads";
 import { DownloadsScreen } from "./screens/Downloads";
 import { pairingWait, pairScreen } from "./pairing";
@@ -165,6 +166,7 @@ export function App() {
     startPhoneBridge();
     startIdle();
     startQueue();
+    startWatchlist();
     startDownloads();
     void startMusic();
     void restoreSession();

@@ -1,11 +1,13 @@
 // The programme card: what's on, and what you can do with it (watch, watch from the start via
-// catch-up, record, series link, remind). Also home to the Record button flow used everywhere.
+// catch-up, record, series link, remind, add to the watchlist). Also home to the Record button
+// flow used everywhere.
 
 import { createResource, For, Show } from "solid-js";
 import type { Programme } from "@ultimatetv/shared";
 import { clockTime, dayLabel, durationLabel, episodeLabel } from "@ultimatetv/shared";
 import { hub, type ProgrammeInfo } from "../api";
 import { play } from "../player";
+import { addProgrammeToWatchlist, removeFromWatchlist, watchlistEntryForProgramme } from "../watchlist";
 import { errorToast, openDialog, toast } from "../store";
 import { choose, confirm, DialogFrame } from "./Dialog";
 import { Icon } from "./Icon";
@@ -145,6 +147,20 @@ export function openProgramme(p: Programme): Promise<boolean> {
                   }
                 >
                   <Icon name="bell" /> {info()?.reminder ? "Remove reminder" : "Remind me"}
+                </button>
+              </Show>
+              <Show when={!p.channelId.startsWith("mix:")}>
+                <button
+                  class="btn"
+                  data-focus
+                  onClick={() => {
+                    const entry = watchlistEntryForProgramme(p);
+                    void (entry ? removeFromWatchlist(entry) : addProgrammeToWatchlist(p));
+                  }}
+                >
+                  <Show when={watchlistEntryForProgramme(p)} fallback={<><Icon name="bookmark" /> Add to watchlist</>}>
+                    <Icon name="bookmarked" /> On your watchlist
+                  </Show>
                 </button>
               </Show>
             </div>

@@ -3,6 +3,7 @@
 
 import path from "node:path";
 import { PhotoFolder } from "./screensaver.js";
+import { AdvertFinder, defaultDetect, type AdvertDetect } from "./adverts.js";
 import type { Settings } from "@ultimatetv/shared";
 import { ChannelStore } from "./channels.js";
 import { ConnectionGuard } from "./connections.js";
@@ -19,6 +20,7 @@ import { MixManager } from "./mixchannels.js";
 import { ProfileStore } from "./profiles.js";
 import { ProgressStore } from "./progress.js";
 import { PlayQueue } from "./queue.js";
+import { WatchlistStore } from "./watchlist.js";
 import { Recorder, type Remux } from "./recorder.js";
 import { RecordingStore } from "./recordings.js";
 import { LiveRelay } from "./relay.js";
@@ -50,6 +52,8 @@ export interface ContextOptions {
   mixCropDetect?: CropDetect;
   /** Reads music video files linked from the NAS (tests pass a fake). */
   mixProbe?: VideoProbe;
+  /** Finds advert breaks in recordings (tests pass a fake). Default: comskip, else ffmpeg. */
+  advertDetect?: AdvertDetect;
   demo?: boolean;
 }
 
@@ -63,10 +67,12 @@ export class HubContext {
   readonly relay: LiveRelay;
   readonly recordings: RecordingStore;
   readonly recorder: Recorder;
+  readonly adverts: AdvertFinder;
   readonly scheduler: Scheduler;
   readonly ingest: Ingestor;
   readonly progress: ProgressStore;
   readonly queue: PlayQueue;
+  readonly watchlist: WatchlistStore;
   readonly profiles: ProfileStore;
   readonly guides: CustomGuideStore;
   readonly proxy: StreamProxy;
@@ -98,6 +104,7 @@ export class HubContext {
     this.recordings = new RecordingStore(this.db);
     this.progress = new ProgressStore(this.db);
     this.queue = new PlayQueue(this.db, this.events);
+    this.watchlist = new WatchlistStore(this.db, this.events);
     this.profiles = new ProfileStore(this.db);
     this.guides = new CustomGuideStore(this.db);
     this.proxy = new StreamProxy(this.guard, this.fetchImpl);
@@ -126,6 +133,7 @@ export class HubContext {
       onLibraryChanged: (p) => onLibraryChanged([p]),
       ...(opts.remux ? { remux: opts.remux } : {}),
     });
+    this.adverts = new AdvertFinder({ store: this.recordings, events: this.events, settings: this.settings, log: this.log, detect: opts.advertDetect ?? defaultDetect(opts.dataDir, opts.env ?? process.env) });
     this.scheduler = new Scheduler({
       store: this.recordings,
       guide: this.guide,
@@ -188,6 +196,7 @@ export class HubContext {
 
   close(): void {
     this.scheduler.stop();
+    this.adverts.stop();
     this.downloads.stop();
     this.mix.stop();
     this.relay.closeAll();

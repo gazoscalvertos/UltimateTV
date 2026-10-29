@@ -91,6 +91,31 @@
     }
   }
 
+  // Watchlists belong to a profile and the phone has none: it uses the one the TV is on (or was
+  // on last time it looked).
+  const WATCH_KEY = "utv-watch-profile";
+  const watchProfile = () => {
+    const id = tv?.profile?.id;
+    try {
+      if (id) localStorage.setItem(WATCH_KEY, id);
+      return id ?? localStorage.getItem(WATCH_KEY);
+    } catch {
+      return id ?? null;
+    }
+  };
+  async function watchIt(body, name) {
+    const profile = watchProfile();
+    if (!profile) return toast("Turn the TV on first, so the phone knows whose watchlist", true);
+    try {
+      const r = await post("/api/watchlist", { ...body, profile });
+      const whose = `${r.profile.name}${/s$/i.test(r.profile.name) ? "'" : "'s"} watchlist`;
+      toast(r.added === false ? `${name} is already on ${whose}` : `${name} added to ${whose}`);
+      if (current === "watchlist") void showWatchlist();
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Now playing
 
@@ -696,6 +721,7 @@
       if (what === "movie" || what === "series") await showRails(what);
       if (what === "recordings") await showRecordings();
       if (what === "queue") await showQueue();
+      if (what === "watchlist") await showWatchlist();
       if (what === "downloads") await showDownloads();
       if (what === "music") await showMusic("playlists");
       if (what === "search") showSearch();
@@ -729,13 +755,16 @@
   function channelSheet(n) {
     openSheet(`<h2>${esc(n.channel.number)} ${esc(n.channel.name)}</h2>
       ${n.now ? programmeHtml(n.now, "Now") : ""}
-      <div class="actions"><button class="primary" id="s-watch">Watch on TV</button>${n.now ? `<button id="s-rec-now">Record this</button>` : ""}</div>
-      ${n.next ? programmeHtml(n.next, "Next") + `<div class="actions"><button id="s-rec-next">Record next</button></div>` : ""}
+      <div class="actions"><button class="primary" id="s-watch">Watch on TV</button>${n.now ? `<button id="s-rec-now">Record this</button><button id="s-wl-now">Add to watchlist</button>` : ""}</div>
+      ${n.next ? programmeHtml(n.next, "Next") + `<div class="actions"><button id="s-rec-next">Record next</button><button id="s-wl-next">Add to watchlist</button></div>` : ""}
       <button class="link" data-close>Close</button>`);
     $("s-watch").onclick = () => playOnTv({ kind: "channel", id: n.channel.id });
     const rec = (p) => post("/api/recordings", { programmeId: p.id }).then(() => (toast(`Recording ${p.title}`), closeSheet()), (e) => toast(e.message, true));
     if (n.now) $("s-rec-now").onclick = () => rec(n.now);
     if (n.next) $("s-rec-next").onclick = () => rec(n.next);
+    const wl = (p) => watchIt({ programmeId: p.id }, p.title.replace(/^film\s*:\s*/i, ""));
+    if (n.now) $("s-wl-now").onclick = () => wl(n.now);
+    if (n.next) $("s-wl-next").onclick = () => wl(n.next);
   }
 
   // Films and TV: the same rails as the TV.
@@ -768,6 +797,7 @@
       <h2>${esc(d.name)}</h2><p class="meta">${esc(meta)}</p>
       ${d.overview ? `<p class="overview">${esc(d.overview)}</p>` : ""}
       <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>` : ""}</div>
+      <div class="actions"><button id="s-watchlist">Add to watchlist</button></div>
       ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="actions"><button id="s-dl-season">Download this series to the TV box</button>${seasons.filter((s) => s.season > 0).length > 1 ? `<button id="s-dl-all">Download every series</button>` : ""}</div><div class="list" id="s-eps"></div>` : ""}
       <button class="link" data-close>Close</button>`);
     if ($("s-play")) $("s-play").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef);
@@ -775,6 +805,7 @@
     const art = d.backdrop ?? d.poster;
     if ($("s-queue")) $("s-queue").onclick = () => queueIt({ req: { kind: "title", id: d.id }, title: titleRef, name: d.name, ...(d.year ? { subtitle: String(d.year) } : {}), ...(art ? { image: art } : {}) });
     if ($("s-dl")) $("s-dl").onclick = () => downloadToBox({ titleId: d.id });
+    $("s-watchlist").onclick = () => watchIt({ title: { ...titleRef, ...(d.genres?.length ? { genres: d.genres } : {}), ...(d.certification ? { certification: d.certification } : {}) } }, d.name);
     if ($("s-dl-season")) $("s-dl-season").onclick = () => downloadToBox({ titleId: d.id, season: seasons[Number($("s-season").value)].season });
     if ($("s-dl-all")) $("s-dl-all").onclick = () => downloadToBox({ titleId: d.id, all: true });
     if (seasons.length) {
@@ -833,6 +864,43 @@
     for (const b of body.querySelectorAll("[data-qup]")) b.onclick = () => act(() => post(`/api/queue/${encodeURIComponent(queue[Number(b.dataset.qup)].id)}/move`, { to: 0 }));
     for (const b of body.querySelectorAll("[data-qx]")) b.onclick = () => act(() => del(`/api/queue/${encodeURIComponent(queue[Number(b.dataset.qx)].id)}`));
     $("q-clear").onclick = () => act(() => del("/api/queue"));
+  }
+
+  // The watchlist of the profile the TV is on: when each is next on TV, and recordings to play.
+  async function showWatchlist() {
+    const profile = watchProfile();
+    if (!profile) return (body.innerHTML = `<p class="empty">Turn the TV on and pick who's watching, then the watchlist shows here.</p>`);
+    const w = await get(`/api/watchlist?profile=${encodeURIComponent(profile)}`);
+    if (current !== "watchlist") return;
+    const head = `<p class="meta">${esc(w.profile.name)}${/s$/i.test(w.profile.name) ? "'" : "'s"} watchlist</p>`;
+    if (!w.items.length) return (body.innerHTML = `${head}<p class="empty">Nothing yet. Add films and shows with Add to watchlist, here or on the TV.</p>`);
+    const when = (e) => {
+      const p = e.onTv?.programme;
+      if (!p) return e.recordingId ? (e.recordings > 1 ? `${e.recordings} recordings` : "Recorded") : "Not on TV in the next fortnight";
+      const day = new Date(p.start).toDateString() === new Date().toDateString() ? "" : `${new Date(p.start).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })} `;
+      return p.start <= Date.now() ? `On now · ${e.onTv.channelName}` : `${day}${clock(p.start)} · ${e.onTv.channelName}`;
+    };
+    body.innerHTML = `${head}<div class="list">${w.items
+      .map(
+        (e, i) => `<div class="ep-row"><button class="item" data-wi="${i}"><span class="logo">${e.image ? `<img src="${esc(e.image)}" alt="" loading="lazy" style="object-fit:cover;width:100%;height:100%">` : ""}</span><span class="text"><b>${esc(e.name)}</b><small>${esc(when(e))}</small></span></button>${e.onTv && e.onTv.programme.start > Date.now() ? `<button class="qbtn" data-wrec="${i}" aria-label="Record">●</button>` : ""}<button class="qbtn danger" data-wx="${i}" aria-label="Take off the watchlist">✕</button></div>`,
+      )
+      .join("")}</div>`;
+    for (const b of body.querySelectorAll("[data-wi]")) {
+      const e = w.items[Number(b.dataset.wi)];
+      b.onclick = () => {
+        if (e.recordingId) return playOnTv({ kind: "recording", id: e.recordingId });
+        if (e.onTv && e.onTv.programme.start <= Date.now()) return playOnTv({ kind: "channel", id: e.onTv.programme.channelId });
+        if (e.title) return titleSheet(e.title);
+        toast(e.onTv ? "It's not on yet. Tap ● to record it." : "Not on TV in the next fortnight");
+      };
+    }
+    for (const b of body.querySelectorAll("[data-wrec]")) {
+      const p = w.items[Number(b.dataset.wrec)].onTv.programme;
+      b.onclick = () => post("/api/recordings", { programmeId: p.id }).then(() => toast(`Recording ${p.title}`), (e) => toast(e.message, true));
+    }
+    for (const b of body.querySelectorAll("[data-wx]")) {
+      b.onclick = () => del(`/api/watchlist/${encodeURIComponent(w.items[Number(b.dataset.wx)].id)}?profile=${encodeURIComponent(profile)}`).then(showWatchlist, (e) => toast(e.message, true));
+    }
   }
 
   // Recordings: finished ones to watch, and what's recording now.

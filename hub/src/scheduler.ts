@@ -156,6 +156,7 @@ export class Scheduler {
     if (r.path) {
       await rm(r.path, { force: true });
       await rm(r.path.replace(/\.(mkv|ts)$/, ".nfo"), { force: true });
+      await rm(r.path.replace(/\.(mkv|ts)$/, ".edl"), { force: true });
     }
     // Keep a cancelled stub for series-linked episodes so the planner doesn't record them again.
     if (r.seriesLinkId) {

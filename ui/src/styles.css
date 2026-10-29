@@ -1425,9 +1425,29 @@ kbd.key-blue {
 .osd-time:last-child {
   text-align: right;
 }
-.osd-progress {
+.osd-track {
+  position: relative;
   flex: 1;
+}
+.osd-progress {
   height: 0.5rem;
+}
+/* Advert breaks in a recording, marked along the seek bar. */
+.osd-advert {
+  position: absolute;
+  top: 0;
+  height: 0.5rem;
+  border-radius: 0.2rem;
+  background: rgba(242, 179, 61, 0.75);
+}
+.osd-advert-key {
+  display: inline-block;
+  width: 1.6rem;
+  height: 0.5rem;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+  border-radius: 0.2rem;
+  background: rgba(242, 179, 61, 0.75);
 }
 .osd-meta {
   display: flex;

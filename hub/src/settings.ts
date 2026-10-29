@@ -20,6 +20,7 @@ export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
       paddingAfterMin: 5,
       preferCatchup: true,
       autoDeleteWatchedDays: 0,
+      findAdverts: true,
     },
     playback: {
       preferredAudioLang: "eng",
@@ -28,6 +29,7 @@ export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
       maxSizeGb: 60,
       avoidDvProfile5: true,
       autoplayNext: true,
+      autoSkipAdverts: false,
       startOn: "home",
     },
     numbering: "uk",

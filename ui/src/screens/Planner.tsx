@@ -61,6 +61,14 @@ export function Planner(props: { tab?: PlannerTab }) {
     }
   };
 
+  /** "3 advert breaks marked", or how finding them is going. */
+  const advertNote = (r: Recording) => {
+    if (r.advertScan === "waiting" || r.advertScan === "scanning") return "Finding the adverts…";
+    if (r.advertScan === "failed") return "Couldn't find the adverts";
+    if (r.advertScan !== "done") return "";
+    const n = r.adverts?.length ?? 0;
+    return n ? `${n} advert break${n === 1 ? "" : "s"} marked` : "No adverts found";
+  };
   const recordingMenu = async (r: Recording) => {
     if (r.status !== "completed") {
       if (await confirm("Delete this failed recording?", r.error ?? "It didn't record.", "Delete", true)) await act(() => hub.deleteRecording(r.id), "Deleted");
@@ -68,16 +76,18 @@ export function Planner(props: { tab?: PlannerTab }) {
     }
     const pick = await choose({
       title: r.programme.title,
-      message: [episodeLabel(r.programme.season, r.programme.episode), r.programme.subtitle, `${r.channelName} · ${dayLabel(r.programme.start)} ${clockTime(r.programme.start)}`].filter(Boolean).join(" · "),
+      message: [episodeLabel(r.programme.season, r.programme.episode), r.programme.subtitle, `${r.channelName} · ${dayLabel(r.programme.start)} ${clockTime(r.programme.start)}`, advertNote(r)].filter(Boolean).join(" · "),
       options: [
         { label: r.positionMs > 0 && !r.watched ? "Resume" : "Play", value: "play", icon: "play" },
         { label: r.watched ? "Mark as not watched" : "Mark as watched", value: "watched", icon: "check" },
+        ...(r.advertScan === "waiting" || r.advertScan === "scanning" ? [] : [{ label: r.advertScan === "done" ? "Look for the adverts again" : "Find the adverts", value: "adverts", icon: "search" }]),
         ...(canDownload() && !isKids() ? [{ label: downloadLabel(downloadOf({ kind: "recording", id: r.id })) ?? "Download to box", value: "download", icon: "download" }] : []),
         ...(isKids() ? [] : [{ label: "Delete", value: "delete", icon: "trash", tone: "danger" as const }]),
       ],
     });
     if (pick === "play") void play({ kind: "recording", id: r.id });
     if (pick === "watched") await act(() => hub.markWatched(r.id, !r.watched));
+    if (pick === "adverts") await act(() => hub.findAdverts(r.id), "Looking for the adverts. It takes a few minutes.");
     if (pick === "download") await downloadToBox([recordingRequest(r)], r.programme.title).catch(errorToast);
     if (pick === "delete" && (await confirm("Delete this recording?", `${r.programme.title} will be deleted from the NAS.`, "Delete", true))) await act(() => hub.deleteRecording(r.id), "Recording deleted");
   };
@@ -195,6 +205,9 @@ export function Planner(props: { tab?: PlannerTab }) {
                                   </Show>
                                   <Show when={r.incomplete}>
                                     <span class="flag">Part recorded</span>
+                                  </Show>
+                                  <Show when={r.adverts?.length}>
+                                    <span class="flag">Adverts marked</span>
                                   </Show>
                                 </span>
                                 <span class="list-sub">

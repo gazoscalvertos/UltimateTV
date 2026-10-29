@@ -11,7 +11,7 @@ export type Route =
   | { name: "player" }
   | { name: "browse"; kind: "movie" | "series" }
   | { name: "details"; id: string }
-  | { name: "search" }
+  | { name: "search"; q?: string }
   | { name: "planner"; tab?: PlannerTab }
   | { name: "music" }
   | { name: "music-list"; item: MusicItem }

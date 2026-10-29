@@ -239,7 +239,7 @@ class PlayerActivity : ComponentActivity() {
         }
     }
 
-    /** "Skip intro" over an intro or recap; "Next episode" over the credits or the last minute. */
+    /** "Skip intro" over an intro or recap, "Skip adverts" over a recording's advert break; "Next episode" over the credits or the last minute. */
     private fun updateAction() {
         val p = player ?: return
         val pos = p.currentPosition
@@ -248,7 +248,11 @@ class PlayerActivity : ComponentActivity() {
         val nearEnd = !live && p.duration > 0 && p.duration - pos < 60_000
         when {
             marker != null && marker.kind != "credits" -> {
-                action.text = if (marker.kind == "recap") "Skip recap" else "Skip intro"
+                action.text = when (marker.kind) {
+                    "recap" -> "Skip recap"
+                    "adverts" -> "Skip adverts"
+                    else -> "Skip intro"
+                }
                 action.setOnClickListener { p.seekTo(marker.endMs) }
                 action.visibility = View.VISIBLE
             }

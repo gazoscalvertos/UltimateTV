@@ -1,6 +1,6 @@
 // A film or series: artwork, the best version ready to play, every other version (library,
-// IPTV, TorBox via AIOStreams), seasons and episodes, Add to queue, Save to NAS, and Download to
-// box (onto the box's own disk, to watch away from home).
+// IPTV, TorBox via AIOStreams), seasons and episodes, Add to queue, Add to watchlist, Save to NAS,
+// and Download to box (onto the box's own disk, to watch away from home).
 
 import { createEffect, createResource, createSignal, For, Show } from "solid-js";
 import type { Episode, TitleDetails, TitleRef } from "@ultimatetv/shared";
@@ -13,6 +13,7 @@ import { TopBar } from "../components/TopBar";
 import { useKeys } from "../keys";
 import { play } from "../player";
 import { addToQueue } from "../queue";
+import { addTitleToWatchlist, removeFromWatchlist, watchlistEntryForTitle } from "../watchlist";
 import { allEpisodes, canDownload, downloadLabel, downloadOf, downloadToBox, episodeRequest, episodesOf, filmRequest } from "../downloads";
 import { errorToast, isKids, openDialog, toast } from "../store";
 
@@ -277,6 +278,18 @@ export function Details(props: { id: string }) {
                       </button>
                     )}
                   </Show>
+                  <button
+                    class="btn btn-large"
+                    data-focus
+                    onClick={() => {
+                      const entry = watchlistEntryForTitle(t().id, t().name);
+                      void (entry ? removeFromWatchlist(entry) : addTitleToWatchlist(refOf(t())));
+                    }}
+                  >
+                    <Show when={watchlistEntryForTitle(t().id, t().name)} fallback={<><Icon name="bookmark" /> Add to watchlist</>}>
+                      <Icon name="bookmarked" /> On your watchlist
+                    </Show>
+                  </button>
                   <Show when={canDownload() && !isKids() && !(t().kind === "movie" && filmDownload())}>
                     <button class="btn btn-large" data-focus onClick={() => void downloadIt()}>
                       <Icon name="download" /> Download to box

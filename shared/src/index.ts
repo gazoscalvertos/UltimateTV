@@ -6,3 +6,4 @@ export * from "./text.js";
 export * from "./agent.js";
 export * from "./music.js";
 export * from "./screensaver.js";
+export * from "./watchlist.js";

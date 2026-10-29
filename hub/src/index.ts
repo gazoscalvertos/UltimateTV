@@ -43,6 +43,7 @@ if (moved) {
   // Series links follow schedule changes between full refreshes too.
   setInterval(() => ctx.scheduler.replan(), HOUR);
   ctx.scheduler.start();
+  ctx.adverts.start();
   ctx.downloads.start();
   // Music video channels: Clubland TV, House TV and Halloween TV on a new Hub, then curation and downloads.
   ctx.mix.seed();

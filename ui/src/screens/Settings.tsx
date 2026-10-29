@@ -505,6 +505,8 @@ export function Settings(props: { section?: string }) {
               <Row label="Carry on after by" value={`${recording().paddingAfterMin} min`} onSelect={() => void save({ recording: { ...recording(), paddingAfterMin: cycle([0, 2, 5, 10, 15, 30], recording().paddingAfterMin) } })} />
               <Row label="Use catch-up when it can" hint="Saves programmes from catch-up afterwards, keeping your connection free to watch" value={recording().preferCatchup ? "On" : "Off"} onSelect={() => void save({ recording: { ...recording(), preferCatchup: !recording().preferCatchup } })} />
               <Row label="Delete watched recordings" value={recording().autoDeleteWatchedDays ? `After ${recording().autoDeleteWatchedDays} days` : "Never"} onSelect={() => void save({ recording: { ...recording(), autoDeleteWatchedDays: cycle([0, 7, 30, 90], recording().autoDeleteWatchedDays) } })} />
+              <Row label="Find the adverts" hint="Marks the advert breaks in each recording once it's saved, so you can skip them" value={recording().findAdverts ? "On" : "Off"} onSelect={() => void save({ recording: { ...recording(), findAdverts: !recording().findAdverts } })} />
+              <Row label="Skip adverts" hint="Jump over them on their own, or show a Skip adverts button" value={playback().autoSkipAdverts ? "On their own" : "With a button"} onSelect={() => void save({ playback: { ...playback(), autoSkipAdverts: !playback().autoSkipAdverts } })} />
             </Show>
 
             <Show when={section() === "music"}>

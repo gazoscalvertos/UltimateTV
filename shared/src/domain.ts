@@ -139,7 +139,23 @@ export interface Recording {
   watched: boolean;
   positionMs: number;
   createdAt: number;
+  /** Advert breaks found after recording (comskip, or ffmpeg's black and silence detection), as times into the file. */
+  adverts?: AdBreak[];
+  /** Where finding the adverts has got to. Missing on recordings made before this existed (they're looked at too). */
+  advertScan?: AdvertScan;
 }
+
+/** An advert break in a recording: the player offers to skip from `startMs` to `endMs`. */
+export interface AdBreak {
+  startMs: number;
+  endMs: number;
+}
+
+/**
+ * waiting: in line to be looked at. scanning: being looked at now. done: `adverts` is the answer
+ * (maybe none). failed: the detector couldn't read the file. off: turned off in Settings when it finished.
+ */
+export type AdvertScan = "waiting" | "scanning" | "done" | "failed" | "off";
 
 export type ChannelScope = "this" | "any";
 
@@ -333,8 +349,8 @@ export interface PlaybackInfo {
   externalSubtitles: SubtitleTrack[];
   /** Report progress to this key. */
   progressKey: string;
-  /** Intro/credits markers from Jellyfin media segments. */
-  skip: { kind: "intro" | "recap" | "credits"; startMs: number; endMs: number }[];
+  /** Intro/credits markers from Jellyfin media segments, and advert breaks found in recordings. */
+  skip: SkipSegment[];
   /** The next episode, for autoplay. */
   /** What plays next (the next episode), with its still and summary for the Up Next card. */
   next?: PlaybackRequest & { name: string; image?: string; overview?: string };
@@ -356,6 +372,14 @@ export interface PlaybackInfo {
   crops?: string[];
 }
 
+export type SkipKind = "intro" | "recap" | "credits" | "adverts";
+
+export interface SkipSegment {
+  kind: SkipKind;
+  startMs: number;
+  endMs: number;
+}
+
 // ---------------------------------------------------------------------------
 // Play queue
 
@@ -370,6 +394,43 @@ export interface QueueItem {
   subtitle?: string;
   image?: string;
   addedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Watchlist
+
+/**
+ * Something a profile wants to watch some day: a film or series ("title"), or a programme seen in
+ * the guide that isn't matched to one ("programme", found again by its series or its name).
+ */
+export interface WatchlistItem {
+  id: Id;
+  kind: "title" | "programme";
+  /** "Dune", or the programme's name without "Film:". */
+  name: string;
+  title?: TitleRef;
+  /** The guide's series, for a programme. */
+  seriesKey?: string;
+  film: boolean;
+  year?: number;
+  image?: string;
+  addedAt: number;
+}
+
+/** A watchlist item with what the Hub knows about it now. */
+export interface WatchlistEntry extends WatchlistItem {
+  /** Its next showing on TV (or on now) in the guide, on a channel the profile can watch. */
+  onTv?: { programme: Programme; channelName: string; channelNumber: number };
+  /** How many showings the guide has in the next fortnight. */
+  showings: number;
+  /** The newest finished recording of it, and how many there are. */
+  recordingId?: Id;
+  recordings: number;
+}
+
+export interface Watchlist {
+  profile: { id: Id; name: string } | null;
+  items: WatchlistEntry[];
 }
 
 // ---------------------------------------------------------------------------
@@ -509,6 +570,8 @@ export interface Settings {
     paddingAfterMin: number;
     preferCatchup: boolean;
     autoDeleteWatchedDays: number;
+    /** Look for the advert breaks in each finished recording, so the player can skip them. */
+    findAdverts: boolean;
   };
   playback: {
     preferredAudioLang: string;
@@ -517,6 +580,8 @@ export interface Settings {
     maxSizeGb: number;
     avoidDvProfile5: boolean;
     autoplayNext: boolean;
+    /** Jump over advert breaks in recordings without asking (otherwise a Skip adverts button shows). */
+    autoSkipAdverts: boolean;
     startOn: "home" | "live";
   };
   numbering: "uk" | "provider";
@@ -603,7 +668,9 @@ export type HubEvent =
   /** A phone or screen paired or was removed, a screen is waiting to be let in, or the pairing code was used. */
   | { type: "devices.changed" }
   /** The play queue changed (added to on the TV or the phone, reordered, or an item started): fetch /api/queue again. */
-  | { type: "queue.changed" };
+  | { type: "queue.changed" }
+  /** A profile's watchlist changed (on the TV or the phone): fetch /api/watchlist again. */
+  | { type: "watchlist.changed"; profileId: Id };
 
 /** The Hub's own software, for the phone's settings page. */
 export interface HubSoftware {

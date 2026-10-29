@@ -157,6 +157,18 @@ export class GuideStore {
     return this.db.json<Programme>("SELECT data FROM programmes WHERE series_key = ? AND start >= ? AND start < ? ORDER BY start", seriesKey, from, to);
   }
 
+  /** Programmes by their normalised name ("film dune" for "Film: Dune" too), for watchlists. */
+  byName(titleNorm: string, from: number, to: number, limit = 50): Programme[] {
+    return this.db.json<Programme>(
+      "SELECT data FROM programmes WHERE title_norm IN (?, ?) AND end > ? AND start < ? ORDER BY start LIMIT ?",
+      titleNorm,
+      `film ${titleNorm}`,
+      from,
+      to,
+      limit,
+    );
+  }
+
   /** All upcoming programmes in a time range (for the series link planner). */
   between(from: number, to: number): Programme[] {
     return this.db.json<Programme>("SELECT data FROM programmes WHERE start >= ? AND start < ? ORDER BY start", from, to);

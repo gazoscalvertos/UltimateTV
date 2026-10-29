@@ -65,6 +65,8 @@ jobs:
           curl -fsS localhost:8080/setup/ | grep -q "UltimateTV"
           curl -fsS localhost:8080/remote/ | grep -q "UltimateTV"
           docker exec hub sh -c 'make-test-clips /tmp/clips 1 && test -f /tmp/clips/clips.json'
+          # Comskip runs (exit 0 found adverts, 1 found none) on a test clip.
+          docker exec hub sh -c 'comskip --quiet --output=/tmp /tmp/clips/h264-1080p25-aac.mp4; test $? -le 1'
           docker exec hub node --check tools/iptv/check-catchup.mjs
           docker rm -f hub
 

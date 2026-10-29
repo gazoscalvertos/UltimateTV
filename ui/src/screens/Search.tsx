@@ -17,8 +17,11 @@ import { nav } from "../store";
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890".split("");
 
 export function Search() {
-  const [text, setText] = createSignal("");
-  const [query, setQuery] = createSignal("");
+  // Opened with something to look for (a watchlist programme): start with it typed in.
+  const route = nav.current();
+  const start = route.name === "search" ? (route.q ?? "") : "";
+  const [text, setText] = createSignal(start);
+  const [query, setQuery] = createSignal(start);
   let timer: number | undefined;
   const update = (t: string) => {
     setText(t);

@@ -1,7 +1,7 @@
 // Full-screen playback. Live TV gets Sky's banner (now/next, browse other channels with up/down
 // without changing, channel numbers); films, episodes and recordings get a seek bar, skip intro,
-// audio and subtitle options, and Up Next: the first thing in the play queue, or else the next
-// episode.
+// skip adverts (marked on the seek bar, and jumped on their own if Settings says so), audio and
+// subtitle options, and Up Next: the first thing in the play queue, or else the next episode.
 
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import type { NowNext, PlaybackRequest, PlaybackStats, TitleRef } from "@ultimatetv/shared";
@@ -212,6 +212,24 @@ export function Player() {
     const pos = playerState().positionMs;
     return np?.info.skip.find((s) => pos >= s.startMs && pos < s.endMs - 2000);
   });
+
+  // Advert breaks: jumped straight over when Settings says so, but only once each, so going back
+  // into one (to see what was missed) shows the Skip adverts button instead.
+  const autoSkipAdverts = () => playSettings()?.autoSkipAdverts ?? false;
+  let skipped = new Set<number>();
+  createEffect(on(nowPlaying, () => (skipped = new Set())));
+  createEffect(() => {
+    const s = skip();
+    if (!s || s.kind !== "adverts" || !autoSkipAdverts() || skipped.has(s.startMs) || playerState().status === "paused") return;
+    skipped.add(s.startMs);
+    void agent.seek(s.endMs, "absolute");
+    toast(`Skipped the adverts (${fmt(s.endMs - Math.max(s.startMs, playerState().positionMs))})`);
+  });
+  const advertMarks = () => {
+    const np = nowPlaying();
+    const d = playerState().durationMs ?? np?.info.durationMs ?? 0;
+    return d ? (np?.info.skip ?? []).filter((s) => s.kind === "adverts").map((s) => ({ left: (s.startMs / d) * 100, width: ((s.endMs - s.startMs) / d) * 100 })) : [];
+  };
 
   const tune = (id: string) => {
     setBrowse(null);
@@ -560,7 +578,10 @@ export function Player() {
               <div class="osd-bar">
                 <Icon name={st().status === "paused" ? "pause" : "play"} class="osd-state" />
                 <span class="osd-time">{fmt(st().positionMs)}</span>
-                <Progress value={duration() ? st().positionMs / duration() : 0} class="osd-progress" />
+                <div class="osd-track">
+                  <Progress value={duration() ? st().positionMs / duration() : 0} class="osd-progress" />
+                  <For each={advertMarks()}>{(m) => <i class="osd-advert" style={{ left: `${m.left}%`, width: `${m.width}%` }} />}</For>
+                </div>
                 <span class="osd-time">{duration() ? `-${fmt(duration() - st().positionMs)}` : ""}</span>
               </div>
               <div class="osd-meta">
@@ -579,6 +600,11 @@ export function Player() {
                 <span>
                   <kbd>◀▶</kbd> Skip back and forward
                 </span>
+                <Show when={advertMarks().length}>
+                  <span>
+                    <i class="osd-advert-key" /> Adverts{autoSkipAdverts() ? ", skipped" : ""}
+                  </span>
+                </Show>
                 <span>
                   <kbd class="key-yellow" /> Audio and subtitles
                 </span>
@@ -590,7 +616,8 @@ export function Player() {
 
       <Show when={!live() && skip() && !showNextCard()}>
         <button class="skip-button" data-focus>
-          Skip {skip()!.kind === "credits" ? "credits" : skip()!.kind} <kbd>OK</kbd>
+          Skip {skip()!.kind}
+          <Show when={skip()!.kind === "adverts"}> ({fmt(skip()!.endMs - playerState().positionMs)})</Show> <kbd>OK</kbd>
         </button>
       </Show>
 

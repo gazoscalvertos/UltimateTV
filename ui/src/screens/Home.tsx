@@ -1,11 +1,12 @@
-// Home: a hero for what you were watching or what's new, then your play queue and rails (live
-// now, continue watching, recordings, films on TV tonight, trending, recently added).
+// Home: a hero for what you were watching or what's new, then your play queue, your watchlist and
+// rails (live now, continue watching, recordings, films on TV tonight, trending, recently added).
 
 import { createResource, For, onCleanup, Show } from "solid-js";
 import { hub } from "../api";
 import { Icon } from "../components/Icon";
 import { QueueRow } from "../components/QueueRow";
 import { RailRow } from "../components/Rail";
+import { WatchlistRow } from "../components/WatchlistRow";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
 import { play } from "../player";
@@ -57,6 +58,7 @@ export function Home() {
             )}
           </Show>
           <QueueRow />
+          <WatchlistRow />
           <For each={home()!.rails}>{(rail) => <RailRow rail={rail} />}</For>
         </Show>
       </div>

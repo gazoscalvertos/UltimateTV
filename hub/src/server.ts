@@ -9,6 +9,7 @@ import QRCode from "qrcode";
 import { MUSIC_LOGIN_PAGE, MusicLogins } from "./musiclogin.js";
 import { registerNotices } from "./notify.js";
 import { registerQueue } from "./queue.js";
+import { registerWatchlist } from "./watchlist.js";
 import { registerScares } from "./scares.js";
 import { movedAway, registerMove } from "./move.js";
 import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
@@ -126,6 +127,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/queue/:id/move", "paired"],
     ["DELETE /api/queue/:id", "paired"],
     ["DELETE /api/queue", "paired"],
+    ["POST /api/watchlist", "paired"],
+    ["POST /api/recordings/:id/adverts", "paired"],
+    ["DELETE /api/watchlist/:id", "paired"],
     ["POST /api/music/login", "paired"],
     ["POST /api/box/check", "paired"],
     ["POST /api/box/update", "paired"],
@@ -853,6 +857,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ok: true };
   });
 
+  /** Look for the advert breaks again (a recording made before this existed, or one it got wrong). */
+  app.post("/api/recordings/:id/adverts", async (req: Req<{ id: string }>, reply) => {
+    const r = ctx.recordings.get(req.params.id);
+    if (!r || !recordingAllowed(req, r.channelId)) return reply.code(404).send({ error: "No such recording" });
+    if (!ctx.adverts.enqueue(r.id)) return reply.code(409).send({ error: "That recording isn't finished yet" });
+    return { ok: true };
+  });
+
   app.post("/api/recordings/:id/watched", async (req: Req<{ id: string }, Record<string, string>, { watched: boolean }>, reply) => {
     const r = ctx.recordings.get(req.params.id);
     if (!r) return reply.code(404).send({ error: "No such recording" });
@@ -901,6 +913,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // The play queue: what plays after this, ahead of the next episode.
   registerQueue(app, ctx, filterOf);
+  // Watchlists: each profile's films and shows to watch some day.
+  registerWatchlist(app, ctx, viewer);
 
   // The TV asks for the next episode while the current one plays; the answer comes straight back.
   app.post("/api/play/prefetch", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest>) => {
@@ -1112,6 +1126,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.delete("/api/profiles/:id", async (req: Req<{ id: string }>) => {
     ctx.profiles.remove(req.params.id);
+    ctx.watchlist.drop(req.params.id);
     ctx.events.emit({ type: "profiles.changed" });
     return { ok: true };
   });

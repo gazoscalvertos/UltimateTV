@@ -11,6 +11,7 @@ import type { HubContext } from "./context.js";
 import type { VodEntry } from "./ingest/index.js";
 import { MIX_SEEDS } from "./mixseeds.js";
 import { hash } from "./ingest/xmltv.js";
+import { itemForProgramme, itemForTitle } from "./watchlist.js";
 
 interface DemoChannel {
   number: number;
@@ -328,11 +329,17 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   const clash = lm ? programmes.find((p) => p.channelId === itv.id && p.start < lm.end && p.end > lm.start) : undefined;
   if (clash && lm && lm.end > now) ctx.recordings.save(rec("demo-r3", clash, "scheduled"));
 
+  // Three breaks in each finished recording, so the player's Skip adverts and the seek bar's marks show.
+  const DEMO_ADVERTS = [
+    { startMs: 12 * 60_000 + 30_000, endMs: 15 * 60_000 + 40_000 },
+    { startMs: 28 * 60_000, endMs: 31 * 60_000 + 10_000 },
+    { startMs: 44 * 60_000 + 10_000, endMs: 47 * 60_000 },
+  ];
   const done = (title: string, daysAgo: number, season: number, episode: number, sub: string, channelIdx: number, watched = false) => {
     const c = channels[channelIdx]!;
     const s = today.getTime() - daysAgo * 86_400_000 + 20 * 3_600_000;
     const p = demoProgramme(c, s, 60, title, { season, episode, subtitle: sub }, DESCRIPTIONS[episode % DESCRIPTIONS.length]!);
-    const extra: Partial<Recording> = { path: path.join(config.clipsDir, "h264-1080p25-aac.mp4"), sizeBytes: 2.4e9, watched, positionMs: episode === 3 ? 22 * 60_000 : 0 };
+    const extra: Partial<Recording> = { path: path.join(config.clipsDir, "h264-1080p25-aac.mp4"), sizeBytes: 2.4e9, watched, positionMs: episode === 3 ? 22 * 60_000 : 0, advertScan: "done", adverts: DEMO_ADVERTS };
     if (title === "Harbour Lights") extra.seriesLinkId = link.id;
     return rec(`demo-done-${slugOf(title)}-${episode}`, p, "completed", extra);
   };
@@ -346,6 +353,14 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   ]) {
     ctx.recordings.save(r);
   }
+
+  // The Family profile's watchlist: a series that's on and recorded, a film from the library and a film from the guide.
+  ctx.db.run("DELETE FROM kv WHERE key LIKE 'watchlist:%'");
+  const nextFilm = programmes.find((p) => p.isFilm && p.start > now + 3_600_000);
+  if (nextFilm) ctx.watchlist.add("family", itemForProgramme(nextFilm), now - 3 * 86_400_000);
+  ctx.watchlist.add("family", itemForTitle(ref("the-lighthouse-keeper")), now - 2 * 86_400_000);
+  ctx.watchlist.add("family", itemForTitle(ref("harbour-lights")), now - 86_400_000);
+  ctx.watchlist.add("family", itemForTitle(ref("wild-islands")), now - 3_600_000);
 
   // Downloads.
   ctx.db.run("DELETE FROM downloads");

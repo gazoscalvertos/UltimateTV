@@ -45,6 +45,8 @@ const PATHS: Record<string, () => JSX.Element> = {
   ),
   plus: () => <path d="M12 5v14M5 12h14" />,
   trash: () => <path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13" />,
+  bookmark: () => <path d="M7 4h10v16l-5-4-5 4z" />,
+  bookmarked: () => <path d="M7 4h10v16l-5-4-5 4z" fill="currentColor" />,
   star: () => <path d="M12 4l2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z" />,
   speaker: () => <path d="M4 9.5h4l5-4v13l-5-4H4zM16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11" />,
   subtitles: () => (

@@ -57,6 +57,10 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX mix_entries_video ON mix_entries(video_id);
   `,
+  // Watchlists find a film's or a show's next showing by its name.
+  `
+  CREATE INDEX programmes_title ON programmes(title_norm, start);
+  `,
 ];
 
 export type Row = Record<string, SQLInputValue>;

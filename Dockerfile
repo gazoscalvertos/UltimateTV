@@ -1,5 +1,5 @@
 # UltimateTV Hub: API, the TV app, the setup page and phone remote, the probe page, plus ffmpeg
-# with Intel Quick Sync.
+# with Intel Quick Sync and comskip (finds the advert breaks in recordings).
 
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
@@ -18,6 +18,19 @@ COPY ui ui
 COPY tools/probe tools/probe
 RUN npm run build -w shared && npm run build -w tools/probe && npm run build -w hub && npm run build -w ui
 
+# Comskip isn't packaged for Debian: build it against the same ffmpeg libraries the image runs.
+# Pinned to a commit so a rebuild gets the same detector.
+FROM debian:bookworm-slim AS comskip
+ARG COMSKIP_COMMIT=a140b6ac8bc8f596729e9052819affc779c3b377
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl build-essential autoconf automake libtool pkg-config \
+      libargtable2-dev libavutil-dev libavformat-dev libavcodec-dev libswscale-dev \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+RUN curl -fsSL "https://github.com/erikkaashoek/Comskip/archive/${COMSKIP_COMMIT}.tar.gz" | tar xz --strip-components=1 \
+ && ./autogen.sh && ./configure && make -j"$(nproc)" \
+ && strip comskip
+
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
@@ -33,11 +46,12 @@ FROM node:22-bookworm-slim
 # intel-media-va-driver-non-free is the iHD VA-API driver that supports the N150's AV1 decode and HEVC encode.
 RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg vainfo intel-media-va-driver-non-free python3 bash ca-certificates \
+ && apt-get install -y --no-install-recommends ffmpeg libargtable2-0 vainfo intel-media-va-driver-non-free python3 bash ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 # yt-dlp finds and downloads the music video channels' videos. The standalone build bundles what
 # YouTube needs (it uses this image's Node as its JavaScript runtime); the Hub updates it daily.
 ADD --chmod=755 https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux /usr/local/bin/yt-dlp
+COPY --from=comskip /src/comskip /usr/local/bin/comskip
 WORKDIR /app
 ENV NODE_ENV=production PORT=8080 DATA_DIR=/data CLIPS_DIR=/clips PROBE_DIR=/app/tools/probe/dist
 COPY --from=deps /app/node_modules node_modules

@@ -110,6 +110,7 @@ export const hub = {
   planner: () => api<Planner>("/api/recordings"),
   record: (programmeId: string) => api<Recording>("/api/recordings", { method: "POST", body: { programmeId } }),
   deleteRecording: (id: string) => api<{ ok: true }>(`/api/recordings/${enc(id)}`, { method: "DELETE" }),
+  findAdverts: (id: string) => api<{ ok: true }>(`/api/recordings/${enc(id)}/adverts`, { method: "POST" }),
   markWatched: (id: string, watched: boolean) => api<{ ok: true }>(`/api/recordings/${enc(id)}/watched`, { method: "POST", body: { watched } }),
   seriesLink: (programmeId: string) => api<SeriesLink>("/api/series-links", { method: "POST", body: { programmeId } }),
   updateSeriesLink: (id: string, patch: Partial<SeriesLink>) => api<SeriesLink>(`/api/series-links/${enc(id)}`, { method: "PATCH", body: patch }),
