@@ -177,6 +177,16 @@
   .clip small { color: var(--muted); font-size: 12px; }
   .clip button { height: 34px; padding: 0 12px; border-radius: 9px; font-size: 13px; background: var(--panel-2); }
   .scare-now { background: #8a1f2d !important; font-weight: 700; }
+  #np-sleep { display: inline-flex; align-items: center; gap: 4px; }
+  #np-sleep span:empty { display: none; }
+  #np-sleep span { font-size: 12px; }
+  .games { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .games button { height: auto; min-height: 64px; padding: 10px; border-radius: 12px; text-align: left; font-size: 14px; background: var(--panel); }
+  .games button small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .games button[disabled] { opacity: .5; }
+  .copy { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .copy code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 10px 12px; border-radius: 10px; background: var(--panel); font-size: 13px; }
+  .copy button { height: 40px; padding: 0 14px; border-radius: 10px; font-size: 13px; }
 </style>
 <script src="/remote/pair.js"></script>
 </head>
@@ -199,6 +209,7 @@
     <button id="np-stop" aria-label="Stop"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg></button>
     <button id="np-live" hidden>LIVE</button>
     <button id="np-tracks" hidden>Audio</button>
+    <button id="np-sleep" aria-label="Sleep timer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><span id="np-sleep-at"></span></button>
   </div>
 </section>
 <main id="tab-remote">
@@ -269,6 +280,7 @@
 <nav class="tabbar">
   <button data-tab="remote" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="2" width="12" height="20" rx="4"/><circle cx="12" cy="9" r="2.5"/><path d="M10 15h.01M14 15h.01M10 18h.01M14 18h.01"/></svg>Remote</button>
   <button data-tab="browse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Watch</button>
+  <button id="cast-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><path d="M3 12a8 8 0 0 1 8 8M3 16a4 4 0 0 1 4 4M3 20h.01"/></svg>Cast</button>
   <button id="news-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM16 8.5a5 5 0 0 1 0 7M19 5.5a9 9 0 0 1 0 13"/></svg>News</button>
   <button id="notify-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><rect x="12" y="10" width="6" height="4" rx="1" fill="currentColor"/></svg>Pop-up</button>
   <button id="scare-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11a7 7 0 0 1 14 0v9l-2.5-2-2.3 2.2-2.2-2.2-2.2 2.2L5.5 18z"/><path d="M9.5 10.5h.01M14.5 10.5h.01"/></svg>Scares</button>

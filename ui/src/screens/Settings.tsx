@@ -14,34 +14,8 @@ import { previewScreensaver } from "../idle";
 import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
-
-function Row(props: { label: string; value?: JSX.Element; hint?: string; onSelect?: () => void; icon?: string }) {
-  return (
-    <button class="setting-row" data-focus onClick={() => props.onSelect?.()}>
-      <Show when={props.icon}>
-        <Icon name={props.icon!} class="setting-icon" />
-      </Show>
-      <span class="setting-label">
-        {props.label}
-        <Show when={props.hint}>
-          <small>{props.hint}</small>
-        </Show>
-      </span>
-      <span class="setting-value">{props.value}</span>
-    </button>
-  );
-}
-
-function Status(props: { ok: boolean; text: string }) {
-  return (
-    <span class="status" classList={{ ok: props.ok }}>
-      <Show when={props.ok} fallback={<span class="status-dot" />}>
-        <Icon name="check" />
-      </Show>
-      {props.text}
-    </span>
-  );
-}
+import { Row, Status } from "../components/SettingRow";
+import { AdvertRows, AlertsSection, CastSection, SeasonalSection } from "./SettingsMore";
 
 /** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
 const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
@@ -420,6 +394,9 @@ export function Settings(props: { section?: string }) {
     { id: "recording", label: "Recording" },
     { id: "music", label: "Music channels" },
     { id: "scares", label: "Jump scares" },
+    { id: "seasonal", label: "Seasonal clips" },
+    { id: "cast", label: "Cast and games" },
+    { id: "alerts", label: "Alerts" },
     { id: "sources", label: "Sources" },
     { id: "remote", label: "Phones and remotes" },
     { id: "about", label: "About" },
@@ -505,6 +482,7 @@ export function Settings(props: { section?: string }) {
               <Row label="Carry on after by" value={`${recording().paddingAfterMin} min`} onSelect={() => void save({ recording: { ...recording(), paddingAfterMin: cycle([0, 2, 5, 10, 15, 30], recording().paddingAfterMin) } })} />
               <Row label="Use catch-up when it can" hint="Saves programmes from catch-up afterwards, keeping your connection free to watch" value={recording().preferCatchup ? "On" : "Off"} onSelect={() => void save({ recording: { ...recording(), preferCatchup: !recording().preferCatchup } })} />
               <Row label="Delete watched recordings" value={recording().autoDeleteWatchedDays ? `After ${recording().autoDeleteWatchedDays} days` : "Never"} onSelect={() => void save({ recording: { ...recording(), autoDeleteWatchedDays: cycle([0, 7, 30, 90], recording().autoDeleteWatchedDays) } })} />
+              <AdvertRows />
             </Show>
 
             <Show when={section() === "music"}>
@@ -568,6 +546,18 @@ export function Settings(props: { section?: string }) {
                   );
                 }}
               </Show>
+            </Show>
+
+            <Show when={section() === "seasonal"}>
+              <SeasonalSection />
+            </Show>
+
+            <Show when={section() === "cast"}>
+              <CastSection />
+            </Show>
+
+            <Show when={section() === "alerts"}>
+              <AlertsSection />
             </Show>
 
             <Show when={section() === "sources"}>

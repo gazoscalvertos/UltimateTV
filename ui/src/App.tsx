@@ -40,6 +40,12 @@ import { DownloadsScreen } from "./screens/Downloads";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
 import { startIdle, wake } from "./idle";
+import { startCast } from "./cast";
+import { startSleep } from "./sleep";
+import { CastScreen } from "./screens/Cast";
+import { KeyHints, openHelp } from "./components/KeyHints";
+import { AlertCard, MirroringLayer, ScreenShareLayer, SleepWarning } from "./components/Overlays";
+import { ProjectionLayer } from "./components/Projection";
 
 function ScreenError(props: { error: unknown; reset: () => void }) {
   const message = props.error instanceof ApiError && props.error.status === 403 ? "That isn't available on this profile." : props.error instanceof Error ? props.error.message : "Something went wrong.";
@@ -108,6 +114,11 @@ export function App() {
       nav.reset({ name: "home" });
       return true;
     }
+    // Info on a screen that doesn't use it: what the buttons do.
+    if (a === "info" && nav.current().name !== "player") {
+      void openHelp();
+      return true;
+    }
     // Music playing and no video: Play/Pause is the music's, on any screen.
     if (a === "playPause" && !nowPlaying() && activeMusic()) {
       void musicPlayPause();
@@ -166,6 +177,8 @@ export function App() {
     startIdle();
     startQueue();
     startDownloads();
+    startCast();
+    startSleep();
     void startMusic();
     void restoreSession();
     const loadLook = () =>
@@ -265,6 +278,9 @@ export function App() {
           <Match when={nav.current().name === "music"}>
             <Music />
           </Match>
+          <Match when={nav.current().name === "cast"}>
+            <CastScreen />
+          </Match>
           <Match when={(() => { const r = nav.current(); return r.name === "music-list" ? r : null; })()}>
             {(r) => <MusicList item={r().item} />}
           </Match>
@@ -282,11 +298,17 @@ export function App() {
           </div>
         )}
       </Show>
+      <KeyHints />
+      <ProjectionLayer />
       <Halloween />
       <EasterEggs />
       <NewsFlash />
       <Notices />
       <JumpScare />
+      <ScreenShareLayer />
+      <MirroringLayer />
+      <AlertCard />
+      <SleepWarning />
       <DialogHost />
       <div class="toasts">
         <For each={toasts()}>{(t) => <div class={`toast toast-${t.tone}`}>{t.message}</div>}</For>

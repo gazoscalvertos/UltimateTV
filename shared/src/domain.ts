@@ -5,7 +5,7 @@ import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState } from "./agent.j
 import type { SpotifyState, WebAppState } from "./music.js";
 import type { ScreensaverSettings } from "./screensaver.js";
 import type { CastLink, ShareOffer } from "./cast.js";
-import type { AdBreak, Alert, SleepChoice } from "./household.js";
+import type { AdBreak, Alert, SleepChoice, SleepState } from "./household.js";
 import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
 
 export type Id = string;
@@ -740,6 +740,8 @@ export interface TvNow {
   info: BoxInfo | null;
   spotify: SpotifyState | null;
   webApp: WebAppState | null;
+  /** The sleep timer, when one is set. */
+  sleep?: SleepState;
 }
 
 /** A machine's health: the box or the Hub. Each part is missing when it couldn't be read. */

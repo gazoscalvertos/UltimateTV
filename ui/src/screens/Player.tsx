@@ -19,6 +19,7 @@ import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
 import { queue } from "../queue";
 import { nav, now, openDialog, setShowStats, showStats, toast } from "../store";
+import { openSleepMenu, sleep } from "../sleep";
 
 interface UpNext {
   req: PlaybackRequest;
@@ -213,6 +214,37 @@ export function Player() {
     return np?.info.skip.find((s) => pos >= s.startMs && pos < s.endMs - 2000);
   });
 
+  // Settings › Recording › "Skip them": straight past each advert break, once (going back into one plays it).
+  const skippedBreaks = new Set<string>();
+  createEffect(() => {
+    const s = skip();
+    const np = nowPlaying();
+    if (!s || s.kind !== "adverts" || !np?.info.autoSkipAdverts) return;
+    const key = `${np.info.progressKey}:${s.startMs}`;
+    if (skippedBreaks.has(key)) return;
+    skippedBreaks.add(key);
+    void agent.seek(s.endMs, "absolute");
+    toast("Skipped the adverts");
+  });
+
+  // Live TV that won't start: say so kindly, and let the Hub tell whoever looks after it.
+  const [failNote, setFailNote] = createSignal("");
+  createEffect(
+    on(
+      () => playerState().status,
+      (status) => {
+        const np = nowPlaying();
+        if (status !== "error" || !np?.info.live) return setFailNote("");
+        const what = channelById(liveChannelId())?.name ?? np.info.title;
+        setFailNote(`${what} isn't coming through right now. It's usually the TV provider's end rather than anything here: try another channel, or this one again in a minute.`);
+        void hub.playbackFailed(what, playerState().error).then(
+          (r) => r.told && setFailNote((n) => `${n} Whoever looks after the TV has been told.`),
+          () => undefined,
+        );
+      },
+    ),
+  );
+
   const tune = (id: string) => {
     setBrowse(null);
     setShowNext(false);
@@ -261,6 +293,14 @@ export function Player() {
             </button>
             <button class="option" data-focus onClick={() => void agent.setNightMode(false).then(() => close())}>
               Off
+            </button>
+          </div>
+          <h4>
+            <Icon name="moon" /> Sleep timer
+          </h4>
+          <div class="option-list">
+            <button class="option" classList={{ selected: Boolean(sleep().at) }} data-focus onClick={() => (close(), void openSleepMenu())}>
+              {sleep().at ? sleep().label : "Off: set one"}
             </button>
           </div>
           <h4>
@@ -448,8 +488,8 @@ export function Player() {
       <Show when={playerState().status === "error"}>
         <div class="player-spinner">
           <DialogFrame close={() => void stopAndBack()} class="player-error">
-            <h2>That didn't play</h2>
-            <p class="dialog-message">{playerState().error ?? "The stream didn't start."} Another version may work.</p>
+            <h2>{failNote() ? "This channel isn't working" : "That didn't play"}</h2>
+            <p class="dialog-message">{failNote() || `${playerState().error ?? "The stream didn't start."} Another version may work.`}</p>
             <div class="dialog-options">
               <Show when={nowPlaying()?.req.kind === "title"}>
                 <button class="btn btn-primary" data-focus data-autofocus onClick={() => void otherVersion()}>

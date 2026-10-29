@@ -2,6 +2,9 @@
 // title's page on the TV, the phone remote, the Android app or by voice ("save Dune for later").
 // A name saved before any source has it waits as a name, and turns into the title once a search
 // finds it, so the film heard about at work is there on Friday.
+//
+// Something saved with no profile (a phone remote or voice, which don't know who's watching) goes
+// on the household's list, which every profile sees under its own (Kids only what it may watch).
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { SearchResult, TitleRef, WatchItem, WatchlistInput } from "@ultimatetv/shared";
@@ -45,8 +48,18 @@ export class Watchlist {
     return `watchlist:${profileId ?? "default"}`;
   }
 
-  list(profileId: string | null): WatchItem[] {
+  /** One profile's own list, without the household's. */
+  private own(profileId: string | null): WatchItem[] {
     return this.db.getKv<WatchItem[]>(this.key(profileId)) ?? [];
+  }
+
+  /** A profile's list with the household's mixed in, newest first. */
+  list(profileId: string | null): WatchItem[] {
+    const mine = this.own(profileId);
+    if (profileId === null) return mine;
+    const ids = new Set(mine.map((i) => i.title?.id ?? i.id));
+    const shared = this.own(null).filter((i) => !ids.has(i.title?.id ?? i.id));
+    return [...mine, ...shared].sort((a, b) => b.addedAt - a.addedAt);
   }
 
   private save(profileId: string | null, items: WatchItem[]): void {
@@ -60,7 +73,7 @@ export class Watchlist {
     const name = title?.name ?? text(input.name, 160);
     if (!name) throw new WatchlistError("Say what to save");
     const year = title?.year ?? (typeof input.year === "number" && input.year > 1880 && input.year < 2100 ? input.year : undefined);
-    const list = this.list(profileId);
+    const list = this.own(profileId);
     const same = (i: WatchItem) => (title && i.title?.id === title.id) || (norm(i.name) === norm(name) && (!year || !i.year || i.year === year));
     const old = list.find(same);
     const item: WatchItem = {
@@ -79,12 +92,17 @@ export class Watchlist {
     return item;
   }
 
+  /** Takes it off the profile's list, and off the household's if it was saved there. */
   remove(profileId: string | null, idOrTitleId: string): boolean {
-    const list = this.list(profileId);
-    const next = list.filter((i) => i.id !== idOrTitleId && i.title?.id !== idOrTitleId);
-    if (next.length === list.length) return false;
-    this.save(profileId, next);
-    return true;
+    let removed = false;
+    for (const who of profileId === null ? [null] : [profileId, null]) {
+      const list = this.own(who);
+      const next = list.filter((i) => i.id !== idOrTitleId && i.title?.id !== idOrTitleId);
+      if (next.length === list.length) continue;
+      this.save(who, next);
+      removed = true;
+    }
+    return removed;
   }
 
   has(profileId: string | null, titleId: string): boolean {
@@ -97,7 +115,7 @@ export class Watchlist {
    * given) wins.
    */
   async resolveNames(profileId: string | null, search: (q: string) => Promise<SearchResult[]>, now = Date.now()): Promise<number> {
-    const list = this.list(profileId);
+    const list = this.own(profileId);
     const looked = this.db.getKv<Record<string, number>>("watchlist-looked") ?? {};
     let found = 0;
     for (const item of list) {
@@ -139,6 +157,7 @@ export function registerWatchlist(
     const { profileId, filter } = who(req);
     // Names saved before a source had them: look again in the background.
     void watchlist.resolveNames(profileId, (q) => search(q, filter));
+    if (profileId !== null) void watchlist.resolveNames(null, (q) => search(q, filter));
     return list(req);
   });
   app.post("/api/watchlist", async (req: Req<WatchlistInput>, reply) => {

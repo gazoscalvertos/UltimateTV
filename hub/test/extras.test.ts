@@ -74,6 +74,18 @@ describe("the watchlist", () => {
     expect(item.id).toMatch(/^w/);
     expect((await app.inject({ method: "POST", url: "/api/watchlist", payload: {} })).statusCode).toBe(400);
   });
+
+  it("shows what a phone saved (no profile) on every profile's list", async () => {
+    const family = { "x-profile": "family" };
+    await app.inject({ method: "POST", url: "/api/watchlist", payload: { title: film, from: "phone" } });
+    await app.inject({ method: "POST", url: "/api/watchlist", headers: family, payload: { name: "Severance" } });
+    const names = (await app.inject({ url: "/api/watchlist", headers: family })).json().items.map((i: WatchItem) => i.name);
+    expect(names.sort()).toEqual(["Dune", "Severance"]);
+    expect((await app.inject("/api/watchlist")).json().items.map((i: WatchItem) => i.name)).toEqual(["Dune"]);
+    // Taking it off one profile's list takes it off the household's too.
+    await app.inject({ method: "DELETE", url: `/api/watchlist/${encodeURIComponent(film.id)}`, headers: family });
+    expect((await app.inject("/api/watchlist")).json().items).toEqual([]);
+  });
 });
 
 describe("voice", () => {
