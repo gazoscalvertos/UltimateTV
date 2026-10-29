@@ -4,6 +4,7 @@
 import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState } from "./agent.js";
 import type { SpotifyState, WebAppState } from "./music.js";
 import type { ScreensaverSettings } from "./screensaver.js";
+import type { ThemeChoice, ThemeName } from "./themes.js";
 
 export type Id = string;
 
@@ -473,32 +474,13 @@ export function cleanAppName(name: string | undefined): string {
   return clean || DEFAULT_APP_NAME;
 }
 
-/** The look of the app. "auto" wears the Halloween theme over Halloween week and is plain the rest of the year. */
-export type ThemeChoice = "auto" | "default" | "halloween";
-export const THEME_CHOICES: readonly ThemeChoice[] = ["auto", "default", "halloween"];
-/** The theme actually worn, once "auto" has looked at the date. */
-export type ThemeName = "default" | "halloween";
-
-/** Halloween week: the theme comes out on 25 October and goes away after the 1st of November. */
-export function isHalloweenWeek(at: number | Date = Date.now()): boolean {
-  const d = at instanceof Date ? at : new Date(at);
-  const month = d.getMonth();
-  const day = d.getDate();
-  return (month === 9 && day >= 25) || (month === 10 && day <= 1);
-}
-
-/** Which theme to wear: what was chosen, or, on "auto", the date decides. */
-export function resolveTheme(choice: ThemeChoice | undefined, at: number | Date = Date.now()): ThemeName {
-  if (choice === "halloween") return "halloween";
-  if (choice === "default") return "default";
-  return isHalloweenWeek(at) ? "halloween" : "default";
-}
-
 export interface Settings {
   /** The app's name everywhere it's shown (the TV, the phone remote, the setup pages, Spotify). */
   appName: string;
-  /** The look of the app on the TV and the phone remote. */
+  /** The everyday look of the app on the TV, the phone remote and the web pages ("auto" from older Hubs). */
   theme: ThemeChoice;
+  /** The seasonal themes (Halloween, Christmas, Easter, Valentine's) take over on their days. */
+  seasonal?: boolean;
   iptv: IptvSource[];
   xmltvUrls: string[];
   jellyfin?: { url: string; userId: string; token: string; serverName?: string };
@@ -538,7 +520,10 @@ export interface Settings {
 /** Settings as the UI sees them: secrets replaced by a flag saying they're set. */
 export interface PublicSettings {
   appName: string;
-  theme: ThemeChoice;
+  theme: ThemeName;
+  seasonal: boolean;
+  /** The theme being worn today, once the seasons have had their say. */
+  themeNow: ThemeName;
   iptv: { id: Id; kind: "xtream" | "m3u"; name: string; connections: number; host: string; status?: IptvSourceStatus }[];
   xmltvCount: number;
   jellyfin?: { url: string; serverName?: string };

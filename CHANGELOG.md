@@ -15,6 +15,13 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Themes** ([docs/themes.md](docs/themes.md)): Settings › Theme on the TV and ⚙ › Theme on the
+  phone choose from Dark, Light, Slick, Cyberpunk, Ocean, Forest, Sunset, Halloween, Christmas,
+  Easter and Valentine's. On the TV, moving over a theme tries it on the whole app, and OK keeps
+  it. The phone remote and the web pages wear the theme too. **Seasonal themes** (on by default)
+  bring out Halloween, Christmas, Easter and Valentine's on their days and put your theme back
+  after. Christmas has snow and fairy lights, Easter blossom, Valentine's hearts and Cyberpunk a
+  neon grid. Update the Hub and the box.
 - **Save to NAS and Jellyfin, before and while watching** ([docs/save-to-nas.md](docs/save-to-nas.md)):
   Save to NAS now works for episodes and whole series too, Red in Versions saves that exact
   version, the player's Options has **Keep a copy** for the copy that's playing, and the phone has
