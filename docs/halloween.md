@@ -57,6 +57,11 @@ name, so new ones appear and ones the household deleted stay deleted.
 
 ## Jump scares
 
+Jump scares are now one kind of [projected clip](projected-clips.md): the same clips, built
+clips and settings, with occasions (Christmas, Easter and more), moving clips, packs to share and
+starter packs. The phone's **Scares** tab is now **Clips**, and **Settings › Jump scares** on the TV
+is **Settings › Projected clips**.
+
 A clip cut in **full screen over whatever is on**, for a few seconds, then gone. OK or Back takes
 it away early. Never on a Kids profile, and never while the app is in the background.
 

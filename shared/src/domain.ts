@@ -7,6 +7,7 @@ import type { ScreensaverSettings } from "./screensaver.js";
 import type { CastLink, ShareOffer } from "./cast.js";
 import type { AdBreak, Alert, SleepChoice, SleepState } from "./household.js";
 import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
+import { seasonOn } from "./seasons.js";
 import type { ThemeChoice, ThemeName } from "./themes.js";
 
 export type Id = string;
@@ -592,9 +593,9 @@ export type HubEvent =
   | { type: "notice"; notice: TvNotice }
   /** Takes a pop-up down, or all of them without an id. */
   | { type: "notice.clear"; id?: string }
-  /** A jump scare: cut this clip in over whatever is on, now. */
+  /** A jump scare or projected clip: cut it in over whatever is on, now. */
   | { type: "scare"; scare: Scare }
-  /** The jump scare settings or clips changed (the phone's Scares sheet, or the TV's settings). */
+  /** The clip settings, clips, packs or loop changed (the phone's Clips sheet, or the TV's settings). */
   | { type: "scares.changed" }
   /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
   | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean }
@@ -882,9 +883,15 @@ export interface MixOverview {
 }
 
 // ---------------------------------------------------------------------------
-// Jump scares
+// Jump scares and projected clips
+//
+// What started as Halloween jump scares is now any short clip cut in over the TV: a jump scare in
+// October, a snowman walking along the bottom in December, a bunny hopping across at Easter. Each
+// built clip says which occasion it's for, and only the current occasion's clips come up at
+// random. The names in the code (scare, ScareMix, /api/scares) stay as they were, so older phones,
+// TVs and scripts keep working.
 
-/** A clip the Hub keeps for jump scares, uploaded from the phone: a video, a picture (a GIF, transparent or not) or a sound. */
+/** A clip the Hub keeps, uploaded from the phone or from a pack: a video, a picture (a transparent GIF, PNG, WebP or SVG works best) or a sound. */
 export interface ScareClip {
   id: string;
   name: string;
@@ -899,23 +906,48 @@ export interface ScareClip {
   motion?: ProjectionMotion;
   /** Downloaded from the community library (its id there). */
   communityId?: string;
+  /** The pack it came with; removing the pack removes it. */
+  packId?: string;
 }
+
+/** The occasion a clip is for. "everyday" clips are for no occasion in particular. */
+export type ClipTheme = "halloween" | "christmas" | "newyear" | "valentines" | "easter" | "bonfire" | "birthday" | "everyday";
+export const CLIP_THEMES: readonly ClipTheme[] = ["halloween", "christmas", "newyear", "valentines", "easter", "bonfire", "birthday", "everyday"];
+export const CLIP_THEME_NAMES: Record<ClipTheme, string> = {
+  halloween: "Halloween",
+  christmas: "Christmas",
+  newyear: "New Year",
+  valentines: "Valentine's",
+  easter: "Easter",
+  bonfire: "Bonfire Night",
+  birthday: "Birthday",
+  everyday: "Any time",
+};
+/** Which occasion's clips come up: the date decides on "auto". */
+export type ClipSeason = "auto" | ClipTheme;
 
 export interface ScareSettings {
   enabled: boolean;
-  /** Never two scares closer together than this. */
+  /** Never two clips closer together than this. */
   minGapMinutes: number;
-  /** The chance, each time the gap has passed, that the next minute holds a scare. */
+  /** The chance, each time the gap has passed, that the next minute holds a clip. */
   chancePercent: number;
-  /** How long a scare is on screen (a video shorter than this ends it early). */
+  /** How long a clip is on screen when it doesn't say (a video shorter than this ends it early). */
   seconds: number;
-  /** How loud the scare is, 0 to 1. */
+  /** How loud, 0 to 1. */
   volume: number;
-  /** Scare during live TV as well as films, episodes and recordings. */
+  /** During live TV as well as films, episodes and recordings. */
   duringLive: boolean;
-  /** Only while something is playing; off means the scare can come on the menus too. */
+  /** Only while something is playing; off means a clip can come on the menus too. */
   whilePlayingOnly: boolean;
+  /** Whose clips come up at random and from "Show one now": the occasion, or "auto" by the date. */
+  season: ClipSeason;
+  /** The community pack list the Hub browses (an https address of an index.json); empty turns it off. */
+  libraryUrl: string;
 }
+
+/** The community pack list in this project's repository (community/clips/index.json). */
+export const DEFAULT_CLIP_LIBRARY = "https://raw.githubusercontent.com/gazoscalvertos/UltimateTV/main/community/clips/index.json";
 
 export const DEFAULT_SCARE_SETTINGS: ScareSettings = {
   enabled: false,
@@ -925,18 +957,43 @@ export const DEFAULT_SCARE_SETTINGS: ScareSettings = {
   volume: 0.7,
   duringLive: true,
   whilePlayingOnly: true,
+  season: "auto",
+  libraryUrl: DEFAULT_CLIP_LIBRARY,
 };
 
-/** Where a scare's picture sits: one of nine spots on the screen, or over all of it. */
-export type ScareSpot = "top-left" | "top" | "top-right" | "left" | "center" | "right" | "bottom-left" | "bottom" | "bottom-right" | "full";
-export const SCARE_SPOTS: readonly ScareSpot[] = ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right", "full"];
+/**
+ * Where a clip's picture sits: one of nine spots, over all of the screen on black ("full", for a
+ * jump scare), or over all of it with whatever is on still showing through ("overlay", for falling
+ * snow or rising hearts on a transparent picture).
+ */
+export type ScareSpot = "top-left" | "top" | "top-right" | "left" | "center" | "right" | "bottom-left" | "bottom" | "bottom-right" | "full" | "overlay";
+export const SCARE_SPOTS: readonly ScareSpot[] = ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right", "full", "overlay"];
 /** How much of the screen a placed picture takes (its height): a third, a half, or nearly all of it. */
 export type ScareSize = "small" | "medium" | "large";
 export const SCARE_SIZES: readonly ScareSize[] = ["small", "medium", "large"];
 
 /**
- * A scare built on the phone from the uploaded clips: a picture or a video, a sound, or both,
- * placed somewhere on the screen. A transparent GIF in a corner over the film, with a scream.
+ * How a placed picture moves while it's on. Walking, hopping and flying go across the screen in
+ * the spot's row (top, middle or bottom); rising, dropping and peeking stay in the spot's column.
+ */
+export type ClipMotion = "still" | "walk-left" | "walk-right" | "hop-left" | "hop-right" | "fly-left" | "fly-right" | "rise" | "drop" | "peek";
+export const CLIP_MOTIONS: readonly ClipMotion[] = ["still", "walk-left", "walk-right", "hop-left", "hop-right", "fly-left", "fly-right", "rise", "drop", "peek"];
+export const CLIP_MOTION_NAMES: Record<ClipMotion, string> = {
+  still: "Stays put",
+  "walk-left": "Walks across, right to left",
+  "walk-right": "Walks across, left to right",
+  "hop-left": "Hops across, right to left",
+  "hop-right": "Hops across, left to right",
+  "fly-left": "Flies across, right to left",
+  "fly-right": "Flies across, left to right",
+  rise: "Floats up from the bottom",
+  drop: "Drops down from the top, then goes back up",
+  peek: "Peeks up from the bottom edge",
+};
+
+/**
+ * A clip built on the phone (or brought in with a pack) from the uploaded clips: a picture or a
+ * video, a sound, or both, placed somewhere on the screen and perhaps moving across it.
  */
 export interface ScareMix {
   id: string;
@@ -952,9 +1009,15 @@ export interface ScareMix {
   /** Seconds it stays on; 0 uses the general setting. */
   seconds: number;
   createdAt: number;
+  /** The occasion it's for; built scares from before there were occasions are Halloween's. */
+  theme?: ClipTheme;
+  /** How it moves; still when missing. */
+  motion?: ClipMotion;
+  /** The pack it came with. */
+  packId?: string;
 }
 
-/** One scare on its way to the TV. Without a clip or a sound the TV draws (and screams) its own. */
+/** One clip on its way to the TV. Without a clip or a sound the TV draws (and screams) its own scare. */
 export interface Scare {
   id: string;
   clip?: Pick<ScareClip, "id" | "name" | "kind" | "url">;
@@ -963,9 +1026,12 @@ export interface Scare {
   /** Where the picture goes; "full" (the default) covers the screen on black. */
   spot?: ScareSpot;
   size?: ScareSize;
+  motion?: ClipMotion;
+  /** The occasion; the TV only screams for Halloween's. */
+  theme?: ClipTheme;
   /** The video's own sound is off. */
   muted?: boolean;
-  /** The built scare it came from. */
+  /** The built clip it came from. */
   mixId?: string;
   seconds: number;
   volume: number;
@@ -973,19 +1039,58 @@ export interface Scare {
   byHand: boolean;
 }
 
+/** A pack brought in to the Hub: its clips and built clips go when it's removed. */
+export interface InstalledClipPack {
+  id: string;
+  name: string;
+  theme: ClipTheme;
+  description?: string;
+  author?: string;
+  /** Where it came from: one that ships with the Hub, a file from the phone, a link, or the community list. */
+  source: "starter" | "file" | "link" | "community";
+  installedAt: number;
+  clipIds: string[];
+  mixIds: string[];
+  sizeBytes: number;
+}
+
 export interface ScareState {
   settings: ScareSettings;
   clips: ScareClip[];
   mixes: ScareMix[];
+  packs?: InstalledClipPack[];
+  /** The occasion the date (or the setting) picks right now. */
+  season?: ClipTheme;
+  /** The TV is playing this occasion's clips one after another, like a window projector. */
+  looping?: ClipTheme | null;
 }
 
 /**
- * Puts a scare together from what the Hub keeps: a built scare, a clip, or (with neither asked
- * for) one of the built scares and picture or video clips at random. Sounds on their own aren't
- * picked at random, only as part of a built scare or when asked for. Undefined when the one asked
- * for has gone. Used by the Hub (the phone's buttons) and the TV (the random timer) alike.
+ * The occasion for a date: the seasonal projections' calendar (seasonOn in seasons.ts), or
+ * "everyday" outside them. Birthdays are never guessed.
  */
-export function scareFrom(state: ScareState, want: { clipId?: string; mixId?: string }, byHand: boolean, rand: () => number = Math.random): Scare | undefined {
+export function clipSeasonFor(choice: ClipSeason | undefined, at: number | Date = Date.now()): ClipTheme {
+  if (choice && choice !== "auto") return choice;
+  return seasonOn(at instanceof Date ? at : new Date(at)) ?? "everyday";
+}
+
+/** The occasion a built clip is for. */
+export const mixTheme = (m: Pick<ScareMix, "theme">): ClipTheme => m.theme ?? "halloween";
+
+/**
+ * Puts a clip together from what the Hub keeps: a built clip, an uploaded clip, or (with neither
+ * asked for) one of the occasion's built clips at random. On Halloween, loose pictures and videos
+ * uploaded for jump scares join in, and with nothing at all the TV draws its own scare. Sounds on
+ * their own aren't picked at random. Undefined when the one asked for has gone, or the occasion
+ * has nothing to show. Used by the Hub (the phone's buttons) and the TV (the random timer) alike.
+ */
+export function scareFrom(
+  state: ScareState,
+  want: { clipId?: string; mixId?: string; theme?: ClipTheme },
+  byHand: boolean,
+  rand: () => number = Math.random,
+  at: number | Date = Date.now(),
+): Scare | undefined {
   const { settings, clips, mixes } = state;
   const id = `${Date.now().toString(36)}${Math.floor(rand() * 1e6).toString(36)}`;
   const base = { id, seconds: settings.seconds, volume: settings.volume, byHand };
@@ -999,6 +1104,8 @@ export function scareFrom(state: ScareState, want: { clipId?: string; mixId?: st
       ...(audio ? { audio: { id: audio.id, name: audio.name, url: audio.url } } : {}),
       spot: m.spot,
       size: m.size,
+      ...(m.motion && m.motion !== "still" ? { motion: m.motion } : {}),
+      theme: mixTheme(m),
       muted: m.muteVideo,
       mixId: m.id,
       seconds: m.seconds > 0 ? m.seconds : settings.seconds,
@@ -1014,15 +1121,26 @@ export function scareFrom(state: ScareState, want: { clipId?: string; mixId?: st
     const c = clips.find((x) => x.id === want.clipId);
     return c ? fromClip(c) : undefined;
   }
-  const pool: (() => Scare)[] = [...mixes.map((m) => () => fromMix(m)), ...clips.filter((c) => c.kind !== "audio").map((c) => () => fromClip(c))];
-  return pool.length ? pool[Math.floor(rand() * pool.length)]!() : base;
+  const theme = want.theme ?? clipSeasonFor(settings.season, at);
+  const pool: (() => Scare)[] = [
+    ...mixes.filter((m) => mixTheme(m) === theme).map((m) => () => fromMix(m)),
+    ...(theme === "halloween" ? clips.filter((c) => c.kind !== "audio" && !c.packId).map((c) => () => fromClip(c)) : []),
+  ];
+  if (pool.length) return pool[Math.floor(rand() * pool.length)]!();
+  return theme === "halloween" ? { ...base, theme } : undefined;
 }
 
-/** Keeps the scare settings sane whoever sent them (the phone, the TV, a script). */
+/** Keeps the settings sane whoever sent them (the phone, the TV, a script). */
 export function cleanScareSettings(patch: Partial<ScareSettings>, base: ScareSettings = DEFAULT_SCARE_SETTINGS): ScareSettings {
   const num = (value: unknown, min: number, max: number, fallback: number): number => {
     const n = Number(value);
     return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+  };
+  const season = (value: unknown): ClipSeason | undefined => (value === "auto" || CLIP_THEMES.includes(value as ClipTheme) ? (value as ClipSeason) : undefined);
+  const library = (value: unknown): string | undefined => {
+    if (typeof value !== "string") return undefined;
+    const url = value.trim();
+    return url === "" || /^https:\/\/[^\s]{1,300}$/.test(url) ? url : undefined;
   };
   return {
     enabled: patch.enabled === undefined ? base.enabled : Boolean(patch.enabled),
@@ -1032,7 +1150,58 @@ export function cleanScareSettings(patch: Partial<ScareSettings>, base: ScareSet
     volume: patch.volume === undefined ? base.volume : num(patch.volume, 0, 1, base.volume),
     duringLive: patch.duringLive === undefined ? base.duringLive : Boolean(patch.duringLive),
     whilePlayingOnly: patch.whilePlayingOnly === undefined ? base.whilePlayingOnly : Boolean(patch.whilePlayingOnly),
+    season: season(patch.season) ?? base.season ?? DEFAULT_SCARE_SETTINGS.season,
+    libraryUrl: library(patch.libraryUrl) ?? base.libraryUrl ?? DEFAULT_CLIP_LIBRARY,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Clip packs: built clips and the files they use, in one file to share
+
+/** A pack file (.utvpack): JSON, with each clip's file inside it as base64. */
+export interface ClipPackFile {
+  format: "ultimatetv.clips";
+  version: 1;
+  /** Lower-case letters, digits and dashes; bringing in a pack with the same id replaces it. */
+  id: string;
+  name: string;
+  theme: ClipTheme;
+  description?: string;
+  author?: string;
+  createdAt?: string;
+  clips: { key: string; name: string; type: string; data: string }[];
+  mixes: {
+    name: string;
+    visual?: string;
+    audio?: string;
+    spot?: ScareSpot;
+    size?: ScareSize;
+    motion?: ClipMotion;
+    muteVideo?: boolean;
+    seconds?: number;
+    /** When it differs from the pack's (fireworks for New Year in a Bonfire Night pack). */
+    theme?: ClipTheme;
+  }[];
+}
+
+/** A pack in a list to install from: one that ships with the Hub, or one on the community list. */
+export interface ClipPackListing {
+  id: string;
+  name: string;
+  theme: ClipTheme;
+  description?: string;
+  author?: string;
+  sizeBytes: number;
+  /** How many built clips it has. */
+  count?: number;
+  /** Jump scares or anything that might frighten; off for gentle seasonal ones. */
+  scary?: boolean;
+  installed: boolean;
+}
+
+export interface ClipLibrary {
+  starter: ClipPackListing[];
+  community: { url: string; packs: ClipPackListing[]; error?: string };
 }
 
 /** A phone, tablet or screen that has paired with the Hub and may control the TV. */

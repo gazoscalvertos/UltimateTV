@@ -57,3 +57,7 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 81–83 | Settings: Seasonal clips, Cast and games, Alerts |
 | 84, 85 | The phone remote's Cast sheet and sleep timer |
 | 86 | The page a laptop opens to share its screen |
+| 87–90 | Projected clips from the starter packs: a snowman walking by, falling snow, the Easter bunny, a Happy Birthday banner |
+| 91–93 | The phone's Clips tab at Christmas, its packs, and browsing the starter and community packs |
+| 94 | Building a clip on the phone: a snowman walking along the bottom for Christmas |
+| 95, 96 | Sharing built clips as a pack with a link and QR code, and the page the link opens |

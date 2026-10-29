@@ -27,6 +27,13 @@ const TYPES: Record<string, string> = {
   ".gif": "image/gif",
   ".webp": "image/webp",
   ".mov": "video/quicktime",
+  ".svg": "image/svg+xml",
+  ".mp3": "audio/mpeg",
+  ".ogg": "audio/ogg",
+  ".wav": "audio/wav",
+  ".m4a": "audio/mp4",
+  ".aac": "audio/aac",
+  ".weba": "audio/webm",
 };
 
 export async function sendFile(request: FastifyRequest, reply: FastifyReply, file: string): Promise<FastifyReply> {

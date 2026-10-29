@@ -3527,6 +3527,116 @@ kbd.key-blue {
   from { transform: scale(0.4); opacity: 0; }
 }
 
+/* An overlay (falling snow, rising hearts, fireworks): a transparent picture
+   over the whole screen, with the programme showing through. */
+.jump-scare.overlay {
+  padding: 0;
+}
+.jump-scare.overlay .scare-media {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  object-fit: cover;
+  animation: clip-fade 0.6s ease both;
+}
+@keyframes clip-fade {
+  from { opacity: 0; }
+}
+
+/* A moving clip (projected clips): it walks, hops or flies across the spot's
+   row, or rises, drops or peeks in the spot's column, for as long as it's on.
+   .clip-mover travels, .clip-place centres it, .clip-bob bobs or hops. */
+.jump-scare.moving {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  --clip-h: 55vh;
+}
+.jump-scare.moving.scare-size-small { --clip-h: 33vh; }
+.jump-scare.moving.scare-size-large { --clip-h: 85vh; }
+.jump-scare.moving .scare-media {
+  height: var(--clip-h);
+  width: auto;
+  max-width: 90vw;
+  animation: none;
+  display: block;
+}
+.clip-mover {
+  position: absolute;
+  animation-duration: var(--clip-secs, 10s);
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+.row-top .clip-mover { top: 4vh; }
+.row-middle .clip-mover { top: calc(50vh - var(--clip-h) / 2); }
+.row-bottom .clip-mover { top: calc(96vh - var(--clip-h)); }
+.col-left .clip-mover { left: 6vw; }
+.col-middle .clip-mover { left: 50vw; }
+.col-middle .clip-place { transform: translateX(-50%); }
+.col-right .clip-mover { right: 6vw; }
+
+/* Across the screen: the column doesn't matter. */
+.motion-walk-left .clip-mover, .motion-hop-left .clip-mover, .motion-fly-left .clip-mover { left: 0; right: auto; animation-name: clip-to-left; }
+.motion-walk-right .clip-mover, .motion-hop-right .clip-mover, .motion-fly-right .clip-mover { left: 0; right: auto; animation-name: clip-to-right; }
+[class*="motion-walk-"] .clip-place, [class*="motion-hop-"] .clip-place, [class*="motion-fly-"] .clip-place { transform: none; }
+@keyframes clip-to-left {
+  from { transform: translateX(100vw); }
+  to { transform: translateX(-100%); }
+}
+@keyframes clip-to-right {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100vw); }
+}
+[class*="motion-walk-"] .clip-bob { animation: clip-walk 0.7s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+[class*="motion-hop-"] .clip-bob { animation: clip-hop 0.9s infinite; }
+[class*="motion-fly-"] .clip-bob { animation: clip-fly 2.6s ease-in-out infinite alternate; }
+@keyframes clip-walk {
+  from { transform: translateY(0) rotate(-3deg); }
+  to { transform: translateY(-1.5vh) rotate(3deg); }
+}
+@keyframes clip-hop {
+  0%, 100% { transform: translateY(0) scale(1.06, 0.94); animation-timing-function: ease-out; }
+  15% { transform: translateY(0) scale(1); animation-timing-function: ease-out; }
+  50% { transform: translateY(-14vh); animation-timing-function: ease-in; }
+}
+@keyframes clip-fly {
+  from { transform: translateY(-3vh) rotate(-2deg); }
+  to { transform: translateY(3vh) rotate(2deg); }
+}
+
+/* Up, down and peeking: the row doesn't matter. */
+.motion-rise .clip-mover { top: 100vh; animation-name: clip-rise; animation-timing-function: ease-in-out; }
+.motion-rise .clip-bob { animation: clip-sway 2.2s ease-in-out infinite alternate; }
+@keyframes clip-rise {
+  from { transform: translateY(0); }
+  to { transform: translateY(calc(-100vh - 100%)); }
+}
+@keyframes clip-sway {
+  from { transform: translateX(-3vw) rotate(-3deg); }
+  to { transform: translateX(3vw) rotate(3deg); }
+}
+.motion-drop .clip-mover { top: 0; animation-name: clip-drop; }
+@keyframes clip-drop {
+  0% { transform: translateY(-100%); animation-timing-function: cubic-bezier(0.3, 1.4, 0.6, 1); }
+  25%, 80% { transform: translateY(6vh); animation-timing-function: ease-in; }
+  100% { transform: translateY(-100%); }
+}
+.motion-peek .clip-mover { top: auto; bottom: 0; animation-name: clip-peek; }
+@keyframes clip-peek {
+  0% { transform: translateY(100%); animation-timing-function: ease-out; }
+  20%, 80% { transform: translateY(8%); animation-timing-function: ease-in; }
+  100% { transform: translateY(100%); }
+}
+
+/* Without motion, each clip sits still where it would be part way through. */
+@media (prefers-reduced-motion: reduce) {
+  .clip-mover, .clip-bob { animation: none !important; }
+  [class*="motion-walk-"] .clip-mover, [class*="motion-hop-"] .clip-mover, [class*="motion-fly-"] .clip-mover { transform: translateX(38vw); }
+  .motion-rise .clip-mover { top: auto; bottom: 6vh; }
+  .motion-drop .clip-mover { transform: translateY(6vh); }
+  .motion-peek .clip-mover { transform: translateY(8%); }
+}
+
 /* ------------------------------------------------------------------------- */
 /* Dimming and the screensaver: over everything, never in the way of the remote. */
 

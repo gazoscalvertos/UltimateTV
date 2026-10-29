@@ -1,4 +1,80 @@
 {
+  "format": "ultimatetv.clip-index",
+  "version": 1,
+  "packs": [
+    {
+      "id": "birthday-starter",
+      "name": "Birthday starter",
+      "theme": "birthday",
+      "description": "Balloons floating up to Happy Birthday, a banner dropping in and confetti. Pick Birthday as the occasion on the day.",
+      "author": "UltimateTV",
+      "count": 3,
+      "scary": false,
+      "sizeBytes": 697741,
+      "sha256": "a2262b3b2c303926452de0fd744a004d58b4376f5feed47c5fd071ab76c3a5ce",
+      "url": "../../hub/packs/birthday-starter.utvpack"
+    },
+    {
+      "id": "christmas-starter",
+      "name": "Christmas starter",
+      "theme": "christmas",
+      "description": "A snowman strolling along the bottom, Santa's sleigh across the top, falling snow and a twinkling tree.",
+      "author": "UltimateTV",
+      "count": 4,
+      "scary": false,
+      "sizeBytes": 903838,
+      "sha256": "2e28676c2b6b4c3d2e832893b73dd064f4f75d1a53da3f53699e3fdcbb16b180",
+      "url": "../../hub/packs/christmas-starter.utvpack"
+    },
+    {
+      "id": "easter-starter",
+      "name": "Easter starter",
+      "theme": "easter",
+      "description": "The Easter bunny hopping across, a chick popping out of its egg and butterflies.",
+      "author": "UltimateTV",
+      "count": 3,
+      "scary": false,
+      "sizeBytes": 483257,
+      "sha256": "d2bd91cf1c6f5e5f8d86c66d63a52529806ad340dfc0db4b99b2ba2db7b0004f",
+      "url": "../../hub/packs/easter-starter.utvpack"
+    },
+    {
+      "id": "fireworks-starter",
+      "name": "Fireworks",
+      "theme": "bonfire",
+      "description": "Fireworks over whatever's on, and a rocket going up: for Bonfire Night and New Year.",
+      "author": "UltimateTV",
+      "count": 4,
+      "scary": false,
+      "sizeBytes": 426402,
+      "sha256": "bee6c4469867163a3b32aa93e04fc1a5f53ff1d8c27d54461893e9fce1b559f1",
+      "url": "../../hub/packs/fireworks-starter.utvpack"
+    },
+    {
+      "id": "halloween-starter",
+      "name": "Halloween starter",
+      "theme": "halloween",
+      "description": "A ghost drifting across, a spider dropping in and a swarm of bats. Spooky rather than a jump scare.",
+      "author": "UltimateTV",
+      "count": 3,
+      "scary": true,
+      "sizeBytes": 841762,
+      "sha256": "712885067fab6c3d0e6b7080f653fb1a7d5f017fc9712a31ce1c32e4685a0c87",
+      "url": "../../hub/packs/halloween-starter.utvpack"
+    },
+    {
+      "id": "valentines-starter",
+      "name": "Valentine's starter",
+      "theme": "valentines",
+      "description": "Hearts floating up over the film and Cupid flying past.",
+      "author": "UltimateTV",
+      "count": 2,
+      "scary": false,
+      "sizeBytes": 540461,
+      "sha256": "6a3c75588b9356e60d9d92a84ac4a13d0fd4ce0ab089dcb283a2ba907183f375",
+      "url": "../../hub/packs/valentines-starter.utvpack"
+    }
+  ],
   "clips": [
     {
       "id": "robin-hop",

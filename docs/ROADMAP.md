@@ -61,6 +61,7 @@ In the order of [TESTING.md](TESTING.md):
 | [#55](https://github.com/gazoscalvertos/UltimateTV/pull/55) | These overview docs | Merged |
 | [#56](https://github.com/gazoscalvertos/UltimateTV/pull/56) | Spotify and Deezer sign-in fixed, music guide | Merged |
 | [#60](https://github.com/gazoscalvertos/UltimateTV/pull/60) | Cast and games, button hints, sleep timer, alerts, Save for later, advert skip, seasonal clips | Merged |
+| [#57](https://github.com/gazoscalvertos/UltimateTV/pull/57) | Projected clips: packs, starter packs, motions, a community pack list, ported onto #60's seasonal clips | Replaced by the port PR |
 | [#58](https://github.com/gazoscalvertos/UltimateTV/pull/58), [#59](https://github.com/gazoscalvertos/UltimateTV/pull/59) | Earlier takes on the watchlist, advert skip, help, sleep timer and alerts | Closed, #60 has them |
 
 ## Not built yet

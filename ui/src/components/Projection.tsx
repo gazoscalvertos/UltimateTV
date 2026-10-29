@@ -5,10 +5,13 @@
 //
 // The Hub keeps the settings and the clips (hub/src/projections.ts); the TV decides when one comes,
 // as only it knows what's playing. They're gentle, so the Kids profile gets them too unless turned off.
+// The season's built clips (projected clips from packs, see JumpScare.tsx) come up here too, though
+// never on Kids.
 
 import { createSignal, For, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { DEFAULT_PROJECTION_SETTINGS, projectionFrom, type DrawnProjection, type Projection, type ProjectionState } from "@ultimatetv/shared";
 import { hub } from "../api";
+import { builtClipCount, showBuiltClip } from "./JumpScare";
 import { onHubEvent } from "../events";
 import { addOverlayKeys } from "../keys";
 import { isLive, playerState } from "../player";
@@ -164,6 +167,14 @@ export function ProjectionLayer() {
   });
   const tick = window.setInterval(() => {
     if (!dueNow()) return;
+    // The season's built clips (from packs, or built on the phone) take their turn with the rest.
+    const season = state().season;
+    const built = season ? builtClipCount(season) : 0;
+    const others = state().clips.filter((c) => c.kind !== "audio" && (c.season === season || c.season === "any")).length + (state().settings.drawn ? 2 : 0);
+    if (season && built && Math.random() < built / (built + Math.max(1, others)) && showBuiltClip(season)) {
+      lastAt = Date.now();
+      return;
+    }
     const p = projectionFrom(state(), {}, false);
     if (p) show(p);
   }, TICK_MS);
