@@ -39,6 +39,7 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 1. Films: a Jellyfin film plays straight away, and Resume works after stopping halfway.
 2. A title in both Jellyfin and IPTV: **Versions** lists both, library first.
 3. Something from AIOStreams/TorBox plays. **Save to NAS** downloads it, it appears in Recordings › Downloads, then in Jellyfin.
+   Also try Red in Versions, Options › Keep a copy while it plays, an episode's Save to NAS and the phone's Save button. The TV should say "saved and in Jellyfin" (see [save-to-nas.md](save-to-nas.md)).
 4. A series: seasons and episodes, Up Next at the end of an episode.
 
 ## 6. Profiles

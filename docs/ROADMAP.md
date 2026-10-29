@@ -48,14 +48,14 @@ In the order of [TESTING.md](TESTING.md):
 - **Play queue, screensavers, Halloween and jump scares, Download to box, and a trip** with `travel.sh`.
 - **The WAF test:** watch BBC One, record tonight's film, set a series link, carry on yesterday's film, find a 4K comedy, with no help.
 
-## Open pull requests
+## Recent pull requests
 
 | PR | What | State |
 |----|------|-------|
-| [#51](https://github.com/gazoscalvertos/UltimateTV/pull/51) | Phone settings for the guide's lists, custom guides and channels | Open |
-| [#52](https://github.com/gazoscalvertos/UltimateTV/pull/52) | QR codes and links for the Android apps in settings | Open |
-| [#53](https://github.com/gazoscalvertos/UltimateTV/pull/53) | Save to NAS from Versions, the player and the phone | Open |
-| [#54](https://github.com/gazoscalvertos/UltimateTV/pull/54) | Theme picker with seasonal themes | Open |
+| [#51](https://github.com/gazoscalvertos/UltimateTV/pull/51) | Phone settings for the guide's lists, custom guides and channels | Merged |
+| [#52](https://github.com/gazoscalvertos/UltimateTV/pull/52) | QR codes and links for the Android apps in settings | Merged |
+| [#53](https://github.com/gazoscalvertos/UltimateTV/pull/53) | Save to NAS from Versions, the player and the phone | Merged |
+| [#54](https://github.com/gazoscalvertos/UltimateTV/pull/54) | Theme picker with seasonal themes | Merged |
 
 ## Not built yet
 

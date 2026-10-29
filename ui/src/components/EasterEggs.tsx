@@ -74,7 +74,7 @@ export function EasterEggs() {
     }
     if (theme() !== "halloween") {
       setTheme("halloween");
-      toast("Boo! The Halloween theme is on. Settings › About › Theme turns it off.", "good");
+      toast("Boo! The Halloween theme is on. Settings › Theme changes it back.", "good");
     } else {
       toast("Boo!", "good");
     }

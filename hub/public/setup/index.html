@@ -4,48 +4,59 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
+<script src="/theme.js"></script>
 <title>UltimateTV settings</title>
 <style>
   :root {
-    --bg: #0b1220; --card: #131c2e; --line: #24324d; --fg: #eef3fb; --muted: #9aa8c2;
-    --accent: #4f8cff; --ok: #35c27a; --warn: #f2b33d; --bad: #ff6b6b; --radius: 14px;
+    /* The theme's colours come from /theme.js (chosen in Settings); these are the dark theme's, until it answers. */
+    --bg: #070b14; --panel: #121b2e; --panel-2: #18233a; --line: rgba(255, 255, 255, 0.1); --fg: #f3f6fb; --muted: #9aa6bd;
+    --accent: #3d8bff; --accent-2: #00c2d1; --on-accent: #fff; --good: #35c27a; --amber: #f2b33d; --bad: #ff5468; --radius: 14px;
+    --card: var(--panel); --field: var(--bg); --ok: var(--good); --warn: var(--amber);
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
   main { max-width: 640px; margin: 0 auto; padding: 20px 16px 80px; }
   header { display: flex; align-items: center; gap: 12px; margin: 8px 0 20px; }
-  .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #4f8cff, #8a5cff); display: grid; place-items: center; font-weight: 800; }
+  .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: grid; place-items: center; font-weight: 800; }
   h1 { font-size: 22px; margin: 0; }
   h1 small { display: block; font-size: 14px; color: var(--muted); font-weight: 400; }
   section { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
   h2 { font-size: 17px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
   .hint { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
   label { display: block; font-size: 14px; color: var(--muted); margin: 12px 0 4px; }
-  input, select, textarea { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: #0d1526; color: var(--fg); font: inherit; }
+  input, select, textarea { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--field); color: var(--fg); font: inherit; }
   textarea { min-height: 80px; resize: vertical; }
   input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  button { margin-top: 14px; width: 100%; padding: 13px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font: 600 16px/1 inherit; cursor: pointer; }
+  button { margin-top: 14px; width: 100%; padding: 13px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: 600 16px/1 inherit; cursor: pointer; }
   button.secondary { background: transparent; border: 1px solid var(--line); color: var(--fg); }
   button.small { width: auto; margin: 0; padding: 8px 12px; font-size: 14px; }
-  .pill { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: #22304d; color: var(--muted); font-weight: 600; }
-  .pill.ok { background: rgba(53, 194, 122, .15); color: var(--ok); }
-  .pill.bad { background: rgba(255, 107, 107, .15); color: var(--bad); }
+  .pill { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: var(--panel-2); color: var(--muted); font-weight: 600; }
+  .pill.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .pill.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
   .list { list-style: none; padding: 0; margin: 8px 0 0; }
   .list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
   .list li span small { display: block; color: var(--muted); font-size: 13px; }
   .tabs { display: flex; gap: 8px; margin: 6px 0 4px; }
   .tabs button { margin: 0; }
-  .code { font: 700 38px/1 ui-monospace, Menlo, monospace; letter-spacing: 6px; text-align: center; padding: 18px; border-radius: 12px; background: #0d1526; margin-top: 12px; }
-  #toast { position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); max-width: 608px; margin: 0 auto; padding: 14px 16px; border-radius: 12px; background: #1d2a44; border: 1px solid var(--line); transform: translateY(150%); transition: transform .25s ease; }
+  .code { font: 700 38px/1 ui-monospace, Menlo, monospace; letter-spacing: 6px; text-align: center; padding: 18px; border-radius: 12px; background: var(--field); margin-top: 12px; }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); max-width: 608px; margin: 0 auto; padding: 14px 16px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); transform: translateY(150%); transition: transform .25s ease; }
   #toast.show { transform: none; }
   #toast.bad { border-color: var(--bad); }
   .status { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .stat { background: #0d1526; border-radius: 10px; padding: 10px; text-align: center; }
+  .stat { background: var(--field); border-radius: 10px; padding: 10px; text-align: center; }
   .stat b { display: block; font-size: 20px; }
   .stat span { font-size: 12px; color: var(--muted); }
   [hidden] { display: none !important; }
+  .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; margin-top: 4px; }
+  .themes button.theme { margin: 0; padding: 0; overflow: hidden; text-align: left; background: var(--t-bg); color: var(--t-fg); border: 2px solid var(--line); border-radius: 12px; font: inherit; }
+  .themes button.theme.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .theme .sw { display: flex; gap: 6px; align-items: center; padding: 12px 10px 8px; }
+  .theme .sw i { flex: 1; height: 26px; border-radius: 7px; background: var(--t-panel); }
+  .theme .sw b { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, var(--t-accent), var(--t-accent-2)); }
+  .theme span { display: block; padding: 0 10px 10px; font-weight: 600; font-size: 14px; }
+  .theme span small { display: block; font-weight: 400; font-size: 12px; color: var(--t-muted); }
   .back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 15px; padding: 6px 0; }
   .jump { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 16px; padding: 0 16px 4px; scrollbar-width: none; }
   .jump a { flex: none; padding: 8px 12px; border-radius: 99px; background: var(--card); border: 1px solid var(--line); color: var(--fg); text-decoration: none; font-size: 14px; }
@@ -53,7 +64,7 @@
   .opt:first-of-type { border-top: 0; }
   .opt > span small { display: block; color: var(--muted); font-size: 13px; }
   .opt select { width: auto; min-width: 110px; padding: 9px 10px; }
-  .opt input[type=checkbox] { appearance: none; -webkit-appearance: none; flex: none; width: 50px; height: 30px; padding: 0; border-radius: 99px; background: #22304d; border: 0; position: relative; cursor: pointer; transition: background .15s; }
+  .opt input[type=checkbox] { appearance: none; -webkit-appearance: none; flex: none; width: 50px; height: 30px; padding: 0; border-radius: 99px; background: var(--panel-2); border: 0; position: relative; cursor: pointer; transition: background .15s; }
   .opt input[type=checkbox]::after { content: ""; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: left .15s; }
   .opt input[type=checkbox]:checked { background: var(--accent); }
   .opt input[type=checkbox]:checked::after { left: 24px; }
@@ -61,10 +72,10 @@
   .profile:first-child { border-top: 0; }
   .profile .name { display: flex; align-items: center; gap: 10px; font-weight: 600; }
   .profile .name small { color: var(--muted); font-weight: 400; }
-  .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--c, #4f8cff); }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--c, var(--accent)); }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .actions select { width: auto; padding: 8px 10px; font-size: 14px; }
-  button.danger { border-color: rgba(255, 107, 107, .5); color: var(--bad); }
+  button.danger { border-color: color-mix(in srgb, var(--bad) 50%, transparent); color: var(--bad); }
   button:disabled { opacity: .45; cursor: default; }
   .mix-edit, .mix-videos { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
   .mix-videos li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); list-style: none; font-size: 14px; }
@@ -77,8 +88,37 @@
   .sw { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
   .sw:first-of-type { border-top: 0; }
   .sw small { display: block; color: var(--muted); font-size: 13px; }
-  .pill.warn { background: rgba(242, 179, 61, .15); color: var(--warn); }
-  code { font-size: 13px; background: #0d1526; padding: 2px 5px; border-radius: 6px; word-break: break-all; }
+  .pill.warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+  .apps { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .app { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; background: var(--field); }
+  .app img { width: 100%; aspect-ratio: 1; padding: 6px; border-radius: 8px; background: #fff; }
+  .app b { font-size: 15px; }
+  .app b small { color: var(--muted); font-weight: 400; }
+  .app > small { color: var(--muted); font-size: 13px; flex: 1; }
+  .app .dl { display: block; padding: 10px; border-radius: 10px; background: var(--accent); color: #fff; text-align: center; text-decoration: none; font-weight: 600; }
+  .app .link { font-size: 11px; }
+  @media (max-width: 380px) { .apps { grid-template-columns: 1fr; } }
+  h3 { font-size: 15px; margin: 18px 0 4px; }
+  .order li, .ch li { padding: 8px 0; }
+  .order li > span { flex: 1; min-width: 0; }
+  .ch li { flex-direction: column; align-items: stretch; gap: 8px; }
+  .ch-top, .ch-tools { display: flex; align-items: center; gap: 8px; }
+  .ch-tools { justify-content: flex-end; }
+  .ch-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .ch-name small { display: block; color: var(--muted); font-size: 13px; font-weight: 400; }
+  .arrows { display: flex; gap: 6px; flex: none; }
+  .arrows button { min-width: 38px; }
+  .ch .num { width: 72px; flex: none; padding: 8px; text-align: center; }
+  .ch select { width: auto; flex: none; padding: 8px; font-size: 14px; }
+  .ch .fav { min-width: 38px; }
+  .ch .fav.on { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+  .ch li.off .ch-name { opacity: .5; }
+  .cg-edit { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+  .cg-edit ol { margin: 8px 0 0; padding: 0; list-style: none; }
+  .cg-edit li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .cg-edit li:first-child { border-top: 0; }
+  .cg-edit li > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  code { font-size: 13px; background: var(--field); padding: 2px 5px; border-radius: 6px; word-break: break-all; }
 </style>
 <script src="/remote/pair.js"></script>
 </head>
@@ -90,7 +130,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -120,6 +160,13 @@
       <button class="secondary small" type="button" id="refresh">Refresh channels and guide</button>
       <button class="secondary small" type="button" id="sw-check">Check again</button>
     </div>
+  </section>
+
+  <section id="theme">
+    <h2>Theme <span class="pill" id="theme-pill"></span></h2>
+    <p class="hint">The look of the TV, this remote and these pages. Tap one to try it: the TV changes straight away too.</p>
+    <div class="themes" id="themes"></div>
+    <label class="opt"><span>Seasonal themes<small>Halloween, Christmas, Easter and Valentine's take over on their days, then your theme comes back</small></span><input type="checkbox" id="seasonal"></label>
   </section>
 
   <section id="name">
@@ -208,6 +255,27 @@
     <p class="hint" id="key-box" hidden style="margin:12px 0 0"><code id="key-text"></code></p>
   </section>
 
+  <section id="apps">
+    <h2>Android apps</h2>
+    <p class="hint">Tap to download on this phone, or let another phone scan the code. Open the download to install it (allow installs from Chrome if Android asks). Works on the home Wi-Fi only; the app pairs itself with the TV when it's first opened.</p>
+    <div class="apps">
+      <div class="app">
+        <img src="/api/apps/client/qr.svg" alt="">
+        <b><span class="brand">UltimateTV</span> for Android <small id="client-app-version"></small></b>
+        <small>Watch everything the TV has on a phone or tablet, and download it for trips.</small>
+        <a class="dl" href="/api/client/app.apk" download>Download</a>
+        <code class="link" id="client-app-link"></code>
+      </div>
+      <div class="app">
+        <img src="/api/apps/remote/qr.svg" alt="">
+        <b><span class="brand">UltimateTV</span> Remote <small id="remote-app-version"></small></b>
+        <small>This remote as an app, with voice control and the volume keys for channels.</small>
+        <a class="dl" href="/api/remote/app.apk" download>Download</a>
+        <code class="link" id="remote-app-link"></code>
+      </div>
+    </div>
+  </section>
+
   <section id="iptv">
     <h2>Live TV <span class="pill" id="iptv-pill">Not set up</span></h2>
     <p class="hint">Your IPTV provider's details. They stay on the home server and never reach the TV.</p>
@@ -247,6 +315,23 @@
       </div>
       <button>Save guide settings</button>
     </form>
+  </section>
+
+  <section id="lists">
+    <h2>Guide lists and channels</h2>
+    <p class="hint">The lists along the top of the TV Guide and their order, which list each profile's guide opens on, your custom guides, and every channel's number, category and favourite. The TV shows changes straight away.</p>
+    <h3>Lists in the guide, in order</h3>
+    <ul class="list order" id="lists-order"></ul>
+    <h3>Each profile's guide opens on</h3>
+    <ul class="list order" id="lists-defaults"></ul>
+    <h3>Custom guides</h3>
+    <div id="cg-list"></div>
+    <button class="secondary" type="button" id="cg-new">New custom guide</button>
+    <h3>Channels</h3>
+    <p class="hint">Change a number to move a channel; taking another channel's number swaps the two. The arrows swap with the channel above or below in this view. Choosing a category keeps it through channel refreshes.</p>
+    <div class="row"><input id="ch-search" placeholder="Name or number" autocomplete="off" type="search"><select id="ch-filter"></select></div>
+    <ul class="list ch" id="ch-list"></ul>
+    <p class="hint" id="ch-more" hidden style="margin:10px 0 0"></p>
   </section>
 
   <section id="jellyfin">
@@ -730,11 +815,164 @@ $("#jf-disconnect").onclick = async () => {
   try { await api("/api/jellyfin", { method: "DELETE" }); toast("Jellyfin disconnected"); load(); } catch (e) { toast(e.message, true); }
 };
 
+// ---------------------------------------------------------------------------
+// Guide lists, custom guides and channels
+
+const CATS = [["entertainment", "Entertainment"], ["films", "Films"], ["sport", "Sport"], ["news", "News"], ["documentaries", "Documentaries"], ["kids", "Kids"], ["music", "Music"], ["other", "Other"]];
+const catLabel = (id) => (CATS.find(([c]) => c === id) || [id, id])[1];
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter((k) => k !== null && k !== undefined && k !== false)); return e; };
+const arrows = (onUp, onDown) => el("span", { className: "arrows" }, button("↑", "secondary", onUp), button("↓", "secondary", onDown));
+const guideState = { lists: null, channels: [], profiles: [], open: new Set(), drafts: new Map() };
+const chLabel = (c) => `${c.number} ${c.name}`;
+
+async function loadLists() {
+  const [lists, ch, pr] = await Promise.all([api("/api/guides"), api("/api/channels?all=1"), api("/api/profiles")]);
+  guideState.lists = lists;
+  guideState.channels = ch.channels;
+  guideState.profiles = pr.profiles;
+  renderOrder();
+  renderDefaults();
+  renderCustom();
+  renderChannels();
+}
+const refreshLists = (msg) => { if (msg) toast(msg); return loadLists().catch((e) => toast(e.message, true)); };
+
+function renderOrder() {
+  const ul = $("#lists-order");
+  ul.innerHTML = "";
+  const rest = guideState.lists.choices.filter((c) => c.id);
+  ul.append(el("li", {}, el("span", {}, "All channels", el("small", { textContent: "Always first" }))));
+  const move = (i, d) => {
+    const j = i + d;
+    if (j < 0 || j >= rest.length) return;
+    const ids = rest.map((c) => c.id);
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    api("/api/guides/order", { method: "PUT", body: { order: ids } }).then(() => refreshLists()).catch((e) => toast(e.message, true));
+  };
+  rest.forEach((c, i) => {
+    const kind = c.kind === "custom" ? "Custom guide" : c.kind === "favourites" ? "Favourites" : "Category";
+    ul.append(el("li", {}, el("span", {}, c.label, el("small", { textContent: `${kind} · ${c.count} channel${c.count === 1 ? "" : "s"}` })), arrows(() => move(i, -1), () => move(i, 1))));
+  });
+}
+
+function renderDefaults() {
+  const ul = $("#lists-defaults");
+  ul.innerHTML = "";
+  for (const p of guideState.profiles) {
+    const sel = el("select");
+    for (const c of guideState.lists.choices) sel.add(new Option(c.label, c.id, false, (p.defaultGuide || "") === c.id));
+    // A default that's gone (a deleted guide) shows as All channels, which is what the TV does.
+    if (![...sel.options].some((o) => o.selected)) sel.value = "";
+    sel.style.width = "auto";
+    sel.onchange = () => api(`/api/profiles/${encodeURIComponent(p.id)}`, { method: "PATCH", body: { defaultGuide: sel.value } }).then(() => toast(`${p.name}'s guide opens on ${sel.selectedOptions[0].text}`)).catch((e) => toast(e.message, true));
+    ul.append(el("li", {}, el("span", { textContent: p.name }), sel));
+  }
+}
+
+function renderCustom() {
+  const box = $("#cg-list");
+  box.innerHTML = "";
+  const byId = new Map(guideState.channels.map((c) => [c.id, c]));
+  for (const g of guideState.lists.custom) {
+    const row = el("div", { className: "profile" });
+    const ids = guideState.drafts.get(g.id) || g.channels.slice();
+    row.append(el("div", { className: "name" }, el("span", { className: "avatar", textContent: String(ids.length) }), el("span", {}, el("span", { className: "pname", textContent: g.name }), " ", el("small", { textContent: ids.slice(0, 4).map((id) => byId.get(id)?.name).filter(Boolean).join(", ") + (ids.length > 4 ? "…" : "") }))));
+    const edit = el("div", { className: "cg-edit" });
+    edit.hidden = !guideState.open.has(g.id);
+    const toggle = () => { edit.hidden = !edit.hidden; if (edit.hidden) { guideState.open.delete(g.id); guideState.drafts.delete(g.id); } else guideState.open.add(g.id); renderCustom(); };
+    row.append(el("div", { className: "actions" },
+      button(edit.hidden ? "Edit" : "Close", "secondary", toggle),
+      button("Rename", "secondary", () => { const n = prompt("Guide name", g.name); if (n && n.trim()) api(`/api/guides/${encodeURIComponent(g.id)}`, { method: "PATCH", body: { name: n.trim() } }).then(() => refreshLists("Renamed")).catch((e) => toast(e.message, true)); }),
+      button("Delete", "secondary danger", () => { if (confirm(`Delete ${g.name}? The channels stay.`)) api(`/api/guides/${encodeURIComponent(g.id)}`, { method: "DELETE" }).then(() => { guideState.open.delete(g.id); guideState.drafts.delete(g.id); refreshLists(`${g.name} deleted`); }).catch((e) => toast(e.message, true)); }),
+    ));
+    if (!edit.hidden) {
+      const setIds = (next) => { guideState.drafts.set(g.id, next); renderCustom(); };
+      const ol = el("ol");
+      ids.forEach((id, i) => {
+        const c = byId.get(id);
+        const swap = (d) => { const j = i + d; if (j < 0 || j >= ids.length) return; const n = ids.slice(); [n[i], n[j]] = [n[j], n[i]]; setIds(n); };
+        ol.append(el("li", {}, el("span", { textContent: `${i + 1}. ${c ? chLabel(c) : "(gone)"}` }), arrows(() => swap(-1), () => swap(1)), button("✕", "secondary danger", () => setIds(ids.filter((x) => x !== id)))));
+      });
+      const listId = `cg-dl-${g.id}`;
+      const dl = el("datalist", { id: listId });
+      for (const c of guideState.channels) if (!ids.includes(c.id)) dl.append(el("option", { value: chLabel(c) }));
+      const add = el("input", { placeholder: "Add a channel: type its name or number", autocomplete: "off" });
+      add.setAttribute("list", listId);
+      add.onchange = () => {
+        const c = guideState.channels.find((x) => chLabel(x) === add.value) || guideState.channels.find((x) => String(x.number) === add.value.trim());
+        if (c && !ids.includes(c.id)) setIds([...ids, c.id]);
+        else if (add.value.trim()) toast("Pick a channel from the list", true);
+      };
+      const save = button("Save this guide", "", () => api(`/api/guides/${encodeURIComponent(g.id)}`, { method: "PATCH", body: { channels: ids } }).then(() => { guideState.drafts.delete(g.id); refreshLists(`${g.name} saved`); }).catch((e) => toast(e.message, true)));
+      save.style.width = "100%";
+      save.style.marginTop = "12px";
+      edit.append(add, dl, ol.childNodes.length ? ol : el("p", { className: "hint", textContent: "No channels yet. Add some above." }), save);
+      if (guideState.drafts.has(g.id)) edit.append(el("p", { className: "mix-err", textContent: "Not saved yet." }));
+      row.append(edit);
+    }
+    box.append(row);
+  }
+  if (!guideState.lists.custom.length) box.append(el("p", { className: "hint", textContent: "None yet. Make one here or on the TV (TV Guide › New guide)." }));
+}
+$("#cg-new").onclick = async () => {
+  const name = prompt("Name for the new guide", "My guide");
+  if (name === null) return;
+  try {
+    const g = await api("/api/guides", { method: "POST", body: { name: name.trim(), channels: [] } });
+    guideState.open.add(g.id);
+    refreshLists(`${g.name} made. Add its channels below.`);
+  } catch (e) { toast(e.message, true); }
+};
+
+const chFilter = $("#ch-filter");
+chFilter.style.width = "100%";
+for (const [v, l] of [["", "All channels"], ["favourites", "Favourites"], ["hidden", "Hidden"], ...CATS]) chFilter.add(new Option(l, v));
+chFilter.onchange = () => renderChannels();
+let chTimer;
+$("#ch-search").oninput = () => { clearTimeout(chTimer); chTimer = setTimeout(renderChannels, 200); };
+const patchChannel = (c, body, done) => api(`/api/channels/${encodeURIComponent(c.id)}`, { method: "PATCH", body }).then(() => refreshLists(done)).catch((e) => { toast(e.message, true); renderChannels(); });
+
+function renderChannels() {
+  const q = $("#ch-search").value.trim().toLowerCase();
+  const f = chFilter.value;
+  const shown = guideState.channels
+    .filter((c) => (f === "hidden" ? c.hidden : f === "favourites" ? c.favourite && !c.hidden : f ? c.category === f && !c.hidden : true))
+    .filter((c) => !q || c.name.toLowerCase().includes(q) || String(c.number).startsWith(q))
+    .sort((a, b) => a.number - b.number);
+  const MAX = 150;
+  const ul = $("#ch-list");
+  ul.innerHTML = "";
+  shown.slice(0, MAX).forEach((c, i) => {
+    const num = el("input", { className: "num", type: "number", value: String(c.number), min: "1", inputMode: "numeric" });
+    num.onchange = () => {
+      const n = Number(num.value);
+      const other = guideState.channels.find((x) => x.number === n && x.id !== c.id);
+      if (other && !other.hidden && !confirm(`${n} is ${other.name}. Swap the two channels' numbers?`)) { num.value = String(c.number); return; }
+      patchChannel(c, { number: n, swap: true }, `${c.name} is now ${n}`);
+    };
+    const swapWith = (d) => { const o = shown[i + d]; if (o) patchChannel(c, { number: o.number, swap: true }, `${c.name} is now ${o.number}`); };
+    const cat = el("select");
+    for (const [v, l] of CATS) cat.add(new Option(l, v, false, v === c.category));
+    if (c.userCategory) cat.add(new Option("Automatic", "auto"));
+    cat.onchange = () => patchChannel(c, { category: cat.value === "auto" ? null : cat.value }, cat.value === "auto" ? `${c.name} goes back to its automatic category at the next refresh` : `${c.name} is in ${catLabel(cat.value)}`);
+    const fav = button(c.favourite ? "★" : "☆", `secondary fav${c.favourite ? " on" : ""}`, () => patchChannel(c, { favourite: !c.favourite }, c.favourite ? `${c.name} taken out of Favourites` : `${c.name} added to Favourites`));
+    fav.title = c.favourite ? "Favourite" : "Add to Favourites";
+    const hide = button(c.hidden ? "Show" : "Hide", "secondary", () => patchChannel(c, { hidden: !c.hidden }, c.hidden ? `${c.name} is back in the guide` : `${c.name} hidden from the guide`));
+    const name = el("span", { className: "ch-name" }, c.name, el("small", { textContent: [catLabel(c.category), c.userCategory ? "chosen by hand" : "", c.hidden ? "hidden" : ""].filter(Boolean).join(" · ") }));
+    ul.append(el("li", { className: c.hidden ? "off" : "" }, el("div", { className: "ch-top" }, num, name, fav), el("div", { className: "ch-tools" }, cat, f === "hidden" ? null : arrows(() => swapWith(-1), () => swapWith(1)), hide)));
+  });
+  const more = $("#ch-more");
+  more.hidden = shown.length <= MAX && shown.length > 0;
+  more.textContent = shown.length ? `Showing ${MAX} of ${shown.length}. Search or pick a category to find the rest.` : "No channels match.";
+}
+
 async function load() {
+  loadLists().catch(() => {});
   loadProfiles().catch(() => {});
   loadMix().catch(() => {});
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);
   showAppName(s.appName);
+  showLook(s);
   $("#name-form").appName.value = s.appName;
   $("#st-channels").textContent = st.channels;
   $("#st-programmes").textContent = st.programmes > 9999 ? Math.round(st.programmes / 1000) + "k" : st.programmes;
@@ -803,8 +1041,49 @@ function showAppName(name) {
   if (!name) return;
   $("#brand-mark").textContent = name.slice(0, 1).toUpperCase();
   $("#brand-name").textContent = name;
+  document.querySelectorAll(".brand").forEach((el) => { el.textContent = name; });
   document.title = `${name} settings`;
 }
+// The theme. Every tile is drawn in its own colours; tapping one wears it here at once and on the
+// TV, which hears the settings change.
+function showLook(s) {
+  const T = window.utvTheme;
+  if (!T || !s.theme) return;
+  const box = $("#themes");
+  if (!box.children.length) {
+    for (const t of T.themes) {
+      const p = T.palettes[t.id];
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "theme";
+      b.dataset.id = t.id;
+      for (const k of ["bg", "fg", "panel", "muted", "accent", "accent-2"]) b.style.setProperty(`--t-${k}`, p[`--${k}`]);
+      b.innerHTML = `<div class="sw"><i></i><b></b></div><span></span>`;
+      b.querySelector("span").textContent = t.name;
+      const small = document.createElement("small");
+      small.textContent = t.season ? `Seasonal: ${t.season}` : t.detail;
+      b.querySelector("span").append(small);
+      b.onclick = () => saveLook({ theme: t.id });
+      box.append(b);
+    }
+  }
+  for (const b of box.children) b.classList.toggle("on", b.dataset.id === s.theme);
+  $("#seasonal").checked = s.seasonal;
+  const now = T.themes.find((t) => t.id === s.themeNow);
+  pill("#theme-pill", `${now?.name ?? s.themeNow} today`, "ok");
+  $("#theme-pill").hidden = s.themeNow === s.theme;
+  T.apply(s.themeNow);
+}
+async function saveLook(patch) {
+  try {
+    const s = await api("/api/settings", { method: "PUT", body: patch });
+    showLook(s);
+    const name = window.utvTheme.themes.find((t) => t.id === s.themeNow)?.name ?? s.themeNow;
+    toast(s.themeNow !== s.theme ? `Saved. ${name} is on today, as it's the season.` : `${name} theme on`);
+  } catch (err) { toast(err.message, true); }
+}
+$("#seasonal").onchange = (e) => saveLook({ seasonal: e.target.checked });
+
 $("#name-form").onsubmit = async (e) => {
   e.preventDefault(); const f = e.target;
   try { const s = await api("/api/settings", { method: "PUT", body: { appName: f.appName.value } }); showAppName(s.appName); f.appName.value = s.appName; toast(`Renamed to ${s.appName}. The TV shows it straight away.`); }
@@ -850,6 +1129,13 @@ $("#jf-qc").onclick = async () => {
     }
   } catch (err) { toast(err.message.includes("401") ? "Quick Connect is turned off on this Jellyfin server. Use name and password." : err.message, true); }
 };
+
+// The Android apps: their links as other phones would type them, and the versions the Hub hands out.
+$("#client-app-link").textContent = new URL("/api/client/app.apk", location.href).href;
+$("#remote-app-link").textContent = new URL("/api/remote/app.apk", location.href).href;
+for (const [file, id] of [["/setup/client-app.json", "#client-app-version"], ["/remote/app-version.json", "#remote-app-version"]]) {
+  fetch(file, { cache: "no-store" }).then((r) => r.json()).then((v) => { $(id).textContent = v.versionName; }).catch(() => {});
+}
 
 load().catch((err) => toast(err.message, true));
 loadDevices().catch(() => {});

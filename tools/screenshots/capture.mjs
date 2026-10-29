@@ -89,11 +89,15 @@ try {
   await page.clock.install();
   await page.goto(`${base}/app/`);
   await wait(1200);
-  await shot("01-profiles");
   // The TV paired itself (the first screen is trusted); the phone's calls below send its key.
   const tvToken = (await page.context().cookies()).find((c) => c.name === "utv_device")?.value;
   if (!tvToken) throw new Error("The TV app didn't pair with the Hub");
   const asTv = { "X-Device-Token": tvToken };
+  // The plain dark theme for the screenshots, whatever the season is on the day they're taken.
+  await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ theme: "default", seasonal: false }) });
+  await page.goto(`${base}/app/`);
+  await wait(1200);
+  await shot("01-profiles");
 
   await key("Enter");
   await wait(1500);
@@ -206,6 +210,10 @@ try {
   await key("ArrowDown", 5);
   await wait(1200);
   await shot("18-settings-phone-remote");
+  // The QR codes and links for downloading the two Android apps.
+  await page.locator(".settings-nav-item", { hasText: "Android apps" }).first().focus();
+  await wait(1200);
+  await shot("63-settings-android-apps");
 
   // Music video channels: the list in Settings, one channel, watching it and its guide.
   await page.locator(".settings-nav-item", { hasText: "Music channels" }).first().focus();
@@ -373,8 +381,53 @@ try {
   await page.locator(".settings-nav-item", { hasText: "Jump scares" }).first().focus();
   await wait(1200);
   await shot("52-settings-jump-scares");
+  // The theme picker: moving over a tile tries the theme on the whole app.
+  await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ theme: "default", seasonal: true }) });
+  await page.goto(`${base}/app/`);
+  await wait(1800);
+  await tab("Settings");
+  await wait(1000);
+  await key("ArrowDown");
+  await page.locator(".settings-nav-item", { hasText: "Theme" }).first().focus();
+  await wait(1000);
+  await page.locator(".theme-tile", { hasText: "Cyberpunk" }).first().focus();
+  await wait(900);
+  if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== "cyberpunk") errors.push("Moving over a theme didn't try it on");
+  await shot("63-settings-theme");
+  await page.locator(".settings-nav-item", { hasText: "Theme" }).first().focus();
+  await wait(600);
+  if ((await page.evaluate(() => document.documentElement.dataset.theme)) === "cyberpunk") errors.push("Leaving the theme picker didn't put the theme back");
+  await page.locator(".theme-tile", { hasText: "Light" }).first().focus();
+  await key("Enter");
+  await wait(800);
+  if ((await (await fetch(`${base}/api/settings`)).json()).theme !== "light") errors.push("OK on a theme didn't keep it");
+  // Home in each theme, with the decorations moving.
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const looks = [];
+  for (const theme of ["default", "light", "slick", "cyberpunk", "ocean", "forest", "sunset", "halloween", "christmas", "easter", "valentine"]) {
+    await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ theme, seasonal: false }) });
+    await page.goto(`${base}/app/`);
+    await wait(theme === "halloween" ? 1800 : 3000);
+    if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== theme) errors.push(`The ${theme} theme didn't go on`);
+    const png = await page.screenshot();
+    looks.push({ theme, png });
+    if (["light", "cyberpunk", "christmas", "easter"].includes(theme)) {
+      await (await import("node:fs/promises")).writeFile(path.join(out, `64-theme-${theme}.png`), png);
+      console.log(`  64-theme-${theme}.png`);
+    }
+  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const themeSheet = await browser.newPage({ viewport: { width: 1920, height: 900 } });
+  await themeSheet.setContent(
+    `<body style="margin:0;padding:16px;background:#05070d;color:#fff;font:600 22px system-ui;display:grid;grid-template-columns:repeat(4,1fr);align-items:start;gap:12px">${looks
+      .map((f) => `<figure style="margin:0;position:relative"><img style="width:100%;display:block;border-radius:6px" src="data:image/png;base64,${f.png.toString("base64")}"><figcaption style="position:absolute;left:10px;bottom:8px;padding:2px 8px;border-radius:6px;background:rgba(0,0,0,.6)">${f.theme}</figcaption></figure>`)
+      .join("")}</body>`,
+  );
+  await themeSheet.screenshot({ path: path.join(out, "65-themes.png"), fullPage: true });
+  await themeSheet.close();
+  console.log("  65-themes.png");
   // Back to the plain theme for the screenshots that follow.
-  await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ theme: "default" }) });
+  await fetch(`${base}/api/settings`, { method: "PUT", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ theme: "default", seasonal: false }) });
   await page.goto(`${base}/app/`);
   await wait(1800);
 
@@ -527,6 +580,30 @@ try {
   await phone.waitForTimeout(1500);
   await phone.screenshot({ path: path.join(out, "23-phone-setup.png"), fullPage: true });
   console.log("  23-phone-setup.png");
+  await phone.locator("#apps").screenshot({ path: path.join(out, "64-phone-android-apps.png") });
+  console.log("  64-phone-android-apps.png");
+  // Guide lists, custom guides and channels on the phone settings page.
+  await phone.goto(`${base}/setup/#lists`);
+  await phone.waitForTimeout(1500);
+  await phone.locator("#cg-list button", { hasText: "Edit" }).first().click();
+  await phone.waitForTimeout(400);
+  await phone.selectOption("#ch-filter", "sport");
+  await phone.evaluate(() => (document.getElementById("toast").hidden = true));
+  await phone.waitForTimeout(400);
+  await phone.locator("#lists").screenshot({ path: path.join(out, "63-phone-guide-lists.png") });
+  console.log("  63-phone-guide-lists.png");
+  // The theme on the phone: tapping a tile wears it on the page (and the TV) straight away.
+  await phone.click('#themes [data-id="easter"]');
+  // Long enough for the "Easter theme on" toast to go.
+  await phone.waitForTimeout(4500);
+  if ((await phone.evaluate(() => document.documentElement.dataset.theme)) !== "easter") errors.push("Tapping a theme on the phone didn't put it on");
+  await phone.locator("#theme").screenshot({ path: path.join(out, "66-phone-theme.png") });
+  console.log("  66-phone-theme.png");
+  await phone.click('#themes [data-id="cyberpunk"]');
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(1000);
+  await phone.screenshot({ path: path.join(out, "67-phone-remote-cyberpunk.png") });
+  console.log("  67-phone-remote-cyberpunk.png");
 } finally {
   await browser.close();
   hub.kill();

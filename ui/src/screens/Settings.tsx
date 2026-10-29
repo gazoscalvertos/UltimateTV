@@ -2,8 +2,8 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { Certification, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeChoice } from "@ultimatetv/shared";
-import { CERTIFICATIONS, formatBytes, resolveTheme, SCREENSAVER_THEMES, THEME_CHOICES } from "@ultimatetv/shared";
+import type { Certification, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
+import { CERTIFICATIONS, formatBytes, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -12,7 +12,7 @@ import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
 import { previewScreensaver } from "../idle";
 import { pairStamp } from "../pairing";
-import { appName, errorToast, setAppName, nav, setShowStats, setTheme, showStats, toast } from "../store";
+import { appName, errorToast, setAppName, nav, previewTheme, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 
 function Row(props: { label: string; value?: JSX.Element; hint?: string; onSelect?: () => void; icon?: string }) {
@@ -54,7 +54,6 @@ const ago = (t: number) => {
 };
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const cycle = <T,>(list: readonly T[], value: T): T => list[(list.indexOf(value) + 1) % list.length]!;
-const THEME_LABELS: Record<ThemeChoice, string> = { auto: "Auto (Halloween week)", default: "Plain", halloween: "Halloween" };
 
 export function Settings(props: { section?: string }) {
   const [settings, { mutate }] = createResource(() => hub.settings());
@@ -269,15 +268,24 @@ export function Settings(props: { section?: string }) {
     }
   };
 
-  /** The theme is kept on the Hub, so the phone remote wears it too; the TV puts it on at once. */
-  const changeTheme = async () => {
-    const next = cycle(THEME_CHOICES, settings()!.theme ?? "auto");
-    await save({ theme: next });
-    setTheme(resolveTheme(next));
-    toast(`Theme: ${THEME_LABELS[next]}`, "good");
+  /**
+   * The theme is kept on the Hub, so the phone remote and the web pages wear it too. Moving over a
+   * tile tries it on the whole app; OK keeps it; moving away without pressing OK puts back the one
+   * being worn.
+   */
+  const chooseTheme = async (name: ThemeName) => {
+    await save({ theme: name });
+    const now = resolveTheme(settings()!);
+    setTheme(now);
+    toast(now === name ? `${themeInfo(name).name} theme on` : `Saved. ${themeInfo(now).name} stays on while it's the season.`, "good");
   };
+  const toggleSeasonal = async () => {
+    await save({ seasonal: !settings()!.seasonal });
+    setTheme(resolveTheme(settings()!));
+  };
+  const season = () => seasonalTheme();
 
-  const save = async (patch: Partial<Pick<PublicSettings, "recording" | "playback" | "theme">>) => {
+  const save = async (patch: Partial<Pick<PublicSettings, "recording" | "playback" | "theme" | "seasonal">>) => {
     try {
       mutate(await hub.saveSettings(patch));
     } catch (err) {
@@ -413,15 +421,20 @@ export function Settings(props: { section?: string }) {
     }
   };
 
+  /** The Hub's address as phones on the home Wi-Fi reach it. */
+  const hubAddress = () => settings()?.setupUrl.replace(/\/setup\/?$/, "") ?? "";
+
   const SECTIONS = [
     { id: "profiles", label: "Profiles and PIN" },
     { id: "playback", label: "Picture and sound" },
+    { id: "theme", label: "Theme" },
     { id: "screensaver", label: "Screensaver" },
     { id: "recording", label: "Recording" },
     { id: "music", label: "Music channels" },
     { id: "scares", label: "Jump scares" },
     { id: "sources", label: "Sources" },
     { id: "remote", label: "Phones and remotes" },
+    { id: "apps", label: "Android apps" },
     { id: "about", label: "About" },
   ];
 
@@ -474,6 +487,58 @@ export function Settings(props: { section?: string }) {
               <Row label="When the TV turns on" value={playback().startOn === "live" ? "Live TV" : "Home"} onSelect={() => void save({ playback: { ...playback(), startOn: playback().startOn === "live" ? "home" : "live" } })} />
               <Row label="Playback stats" hint="Show the stream, picture and sound details over the video. The blue button turns them on and off while watching" value={showStats() ? "On" : "Off"} onSelect={() => setShowStats(!showStats())} />
               <Row label="Largest file to stream" hint="Bigger versions are moved down the list" value={`${playback().maxSizeGb} GB`} onSelect={() => void save({ playback: { ...playback(), maxSizeGb: cycle([20, 40, 60, 100], playback().maxSizeGb) } })} />
+            </Show>
+
+            <Show when={section() === "theme"}>
+              <h2>Theme</h2>
+              <p class="hint">The look of the TV, the phone remote and the setup pages. Move over a theme to try it, and press OK to keep it.</p>
+              <div
+                class="theme-grid"
+                onFocusOut={(e) => {
+                  if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) previewTheme(null);
+                }}
+              >
+                <For each={THEMES}>
+                  {(t) => (
+                    <button
+                      class="theme-tile"
+                      classList={{ chosen: settings()!.theme === t.id }}
+                      data-focus
+                      style={{
+                        "--t-bg": `linear-gradient(160deg, ${t.palette["--bg-2"]}, ${t.palette["--bg"]})`,
+                        "--t-fg": t.palette["--fg"],
+                        "--t-panel": t.palette["--panel"],
+                        "--t-muted": t.palette["--muted"],
+                        "--t-accent": t.palette["--accent"],
+                        "--t-accent-2": t.palette["--accent-2"],
+                        "--t-on-accent": t.palette["--on-accent"],
+                      }}
+                      onFocus={() => previewTheme(t.id)}
+                      onClick={() => void chooseTheme(t.id)}
+                    >
+                      <span class="theme-swatch">
+                        <i />
+                        <b />
+                      </span>
+                      <span class="theme-name">
+                        {t.name}
+                        <small>{t.season ? `Seasonal · ${t.season}` : t.detail}</small>
+                      </span>
+                    </button>
+                  )}
+                </For>
+              </div>
+              <Row
+                label="Seasonal themes"
+                value={settings()!.seasonal ? "On" : "Off"}
+                hint={
+                  settings()!.seasonal && season() && season() !== settings()!.theme
+                    ? `${themeInfo(season()!).name} is on today; ${themeInfo(settings()!.theme).name} comes back after`
+                    : "Halloween, Christmas, Easter and Valentine's take over on their days, then your theme comes back"
+                }
+                icon="star"
+                onSelect={() => void toggleSeasonal()}
+              />
             </Show>
 
             <Show when={section() === "screensaver"}>
@@ -636,16 +701,30 @@ export function Settings(props: { section?: string }) {
               </div>
             </Show>
 
+            <Show when={section() === "apps"}>
+              <h2>Android apps</h2>
+              <div class="sources">
+                <div class="sources-list">
+                  <p class="hint">Scan a code with the phone's camera to download the app, then open the download to install it (allow installs from Chrome if Android asks). Downloads work on the home Wi-Fi only. The app pairs itself with the TV when you first open it.</p>
+                  <Row label={`${appName()} for Android`} hint={`Watch everything the TV has on a phone or tablet, and download it for trips · ${hubAddress()}/api/client/app.apk`} icon="download" onSelect={() => toast("Scan the left code with the phone's camera")} />
+                  <Row label={`${appName()} Remote`} hint={`The phone remote, with voice control and the volume keys for channels · ${hubAddress()}/api/remote/app.apk`} icon="download" onSelect={() => toast("Scan the right code with the phone's camera")} />
+                </div>
+                <div class="app-qrs">
+                  <div class="qr-card">
+                    <img src="/api/apps/client/qr.svg" alt="" />
+                    <p>{appName()} for Android</p>
+                  </div>
+                  <div class="qr-card">
+                    <img src="/api/apps/remote/qr.svg" alt="" />
+                    <p>{appName()} Remote</p>
+                  </div>
+                </div>
+              </div>
+            </Show>
+
             <Show when={section() === "about"}>
               <h2>About</h2>
               <Row label="App name" value={appName()} hint="Rename the app on the TV, the phone remote and Spotify" icon="edit" onSelect={() => void rename()} />
-              <Row
-                label="Theme"
-                value={THEME_LABELS[settings()!.theme ?? "auto"]}
-                hint={settings()!.theme === "auto" ? "Wears the Halloween theme over Halloween week, and is plain the rest of the year" : "The look of the TV and the phone remote"}
-                icon="list"
-                onSelect={() => void changeTheme()}
-              />
               <Row label="Hub" value={`${appName()} ${status()?.version ?? ""}${status()?.commit ? ` · ${status()!.commit}` : ""}${status()?.builtAt ? ` · ${shortDate(status()!.builtAt!)}` : ""}${status()?.demo ? " · demo mode" : ""}`} />
               <Row label="Update the Hub" value={hubState()} hint={hubChanges() || "Checks GitHub for the latest code"} icon="download" onSelect={() => void updateHub()} />
               <Row label="Box" value={box() ? `${box()!.hostname ?? box()!.kind} · ${box()!.version}` : ""} />

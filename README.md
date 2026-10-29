@@ -46,9 +46,10 @@ Guides for each feature are linked from the steps below.
 6. **Profiles:** set a PIN on the adult profile so the children stay in Kids ([docs/profiles.md](docs/profiles.md)).
 7. **Pop-ups:** put the doorbell camera, a meeting or an alarm on the TV from Home Assistant or the phone ([docs/notifications.md](docs/notifications.md)).
 8. **Screensaver:** dimming after 10 minutes and a screensaver after 20, in the TV's Settings › Screensaver ([docs/screensaver.md](docs/screensaver.md)).
-9. **Halloween:** the theme, Spooky TV's ghosts and ghostly sounds, hidden easter eggs and jump scares cut into whatever is on ([docs/halloween.md](docs/halloween.md)).
-10. **Trips:** take the box away and the Hub goes with it for a while, then comes home with what changed ([docs/travel.md](docs/travel.md)). Download films and episodes onto the box first ([docs/downloads.md](docs/downloads.md)).
-11. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
+9. **Themes:** Dark, Light, Slick, Cyberpunk, Ocean, Forest and Sunset, plus Halloween, Christmas, Easter and Valentine's that come out by themselves on their days, on the TV, the phone remote and the web pages ([docs/themes.md](docs/themes.md)).
+10. **Halloween:** the theme, Spooky TV's ghosts and ghostly sounds, hidden easter eggs and jump scares cut into whatever is on ([docs/halloween.md](docs/halloween.md)).
+11. **Trips:** take the box away and the Hub goes with it for a while, then comes home with what changed ([docs/travel.md](docs/travel.md)). Download films and episodes onto the box first ([docs/downloads.md](docs/downloads.md)).
+12. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 
 ## Development
 

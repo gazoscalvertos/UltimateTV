@@ -1,12 +1,13 @@
 # Features
 
-Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #50), then what's waiting in open pull requests. Almost all of it is untested on the Hisense; [ROADMAP.md](ROADMAP.md) says what has run on real hardware. [CHANGELOG.md](../CHANGELOG.md) has the detail of each change.
+Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #56). Almost all of it is untested on the Hisense; [ROADMAP.md](ROADMAP.md) says what has run on real hardware. [CHANGELOG.md](../CHANGELOG.md) has the detail of each change.
 
 ## Live TV and the guide
 
 - IPTV from M3U playlists or Xtream Codes logins, with XMLTV guides; several sources and several feeds per channel, merged into one channel list with names cleaned up and quality badges (4K / FHD / HD).
 - Sky-style TV guide: live TV keeps playing in the corner, the highlighted programme's details beside it, a channel/time grid, digits jump to a channel. Channel names show next to their logos.
 - Channel lists above the grid: all channels, favourites, categories, and **custom guides** built by hand with your own choice and order (TV Guide › New guide). Any list can be a profile's default, and channel up/down stays within it. ([profiles.md](profiles.md#custom-guides))
+- The phone's settings page arranges the guide's lists, builds and reorders custom guides, and renumbers, recategorises, stars or hides any channel.
 - Live player with the now-and-next banner, browsing other channels with up/down without changing, number tuning and channel up/down.
 - Pause and rewind live TV (mpv keeps up to a gigabyte behind the live point).
 - Catch-up and "watch from the start" on channels that offer it.
@@ -30,7 +31,7 @@ Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #50), then
 - Player: seek bar, skip intro, audio and subtitle tracks (Yellow), resume and Start again, Up Next with a countdown.
 - A starting card shows what playback is waiting on and how fast it's arriving, and says when TorBox is still fetching (the box waits up to 5 minutes). A version that fails says so and offers another.
 - **Play queue**: line up films, episodes and recordings from the TV or the phone; the queue plays before the next episode and survives restarts.
-- **Save to NAS**: TorBox/AIOStreams titles download to the NAS with Jellyfin naming and are announced to Jellyfin. Files dropped in the Inbox share are tidied too.
+- **Save to NAS**: TorBox/AIOStreams titles download to the NAS with Jellyfin naming and are announced to Jellyfin. Files dropped in the Inbox share are tidied too. Save from Versions (Red saves that exact version), the player (Options › Keep a copy) or the phone, for films, episodes and whole series ([save-to-nas.md](save-to-nas.md)).
 - **Download to box** ([downloads.md](downloads.md)): films, episodes, series and recordings copied onto the box's disk for trips, with a Downloaded tab, a 10 GB free-space floor and automatic clean-up.
 
 ## Picture and sound (on the box)
@@ -54,7 +55,7 @@ Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #50), then
 
 ## Phone remote ([phone-remote.md](phone-remote.md))
 
-- Works in any phone browser at `/remote/`, or as a small Android app served by the Hub at `/api/remote/app.apk` (with an update banner).
+- Works in any phone browser at `/remote/`, or as a small Android app served by the Hub at `/api/remote/app.apk` (with an update banner). TV Settings › Android apps and the phone's settings show QR codes and links for both apps.
 - Pairing by scanning the TV's code; only paired phones can control anything ([pairing.md](pairing.md)).
 - Arrows, OK, Back, colour keys, numbers and typing into Search; volume keys change channel in the Android app.
 - Now Playing card with progress, skip, live and track buttons; a Watch tab to start anything on the TV (guide, films, TV, recordings, Spotify, search, queue); On the box tab for box downloads.
@@ -73,6 +74,7 @@ Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #50), then
 - **Breaking news**: a BBC News style bar along the bottom with your own message.
 - **Screen dimming and screensavers** ([screensaver.md](screensaver.md)): twelve live scenes, generated landscapes and modern art, NAS photos and videos, black, or shuffle.
 - **Halloween** ([halloween.md](halloween.md)): an automatic theme from 25 October to 1 November, three hidden easter eggs, and jump scares (your own clips, or ones built from a picture or video plus a sound), never on Kids.
+- **Themes** ([themes.md](themes.md)): Dark, Light, Slick, Cyberpunk, Ocean, Forest and Sunset, plus seasonal Halloween, Christmas, Easter and Valentine's themes that come out on their days, on the TV, the phone remote and the web pages.
 - **App name**: call it GazosTV or anything else; it shows everywhere, including Spotify's device list.
 
 ## Running and looking after it
@@ -83,14 +85,3 @@ Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #50), then
 - **Diagnostics** ([diagnostics.md](diagnostics.md)): the box sends its log, a playback sample every 10 seconds and the screen's details to the Hub; read them at `/api/diagnostics?format=text`, with rolling 50 MB logs. Logins and keys are cut from addresses.
 - **Trips** ([travel.md](travel.md)): `travel.sh away` runs a Hub on the box with the household's data and music videos; `travel.sh home` sends back what changed and what was recorded.
 - **Demo Hub and screenshots**: `DEMO=1` fills a Hub with made-up channels, films and recordings; `npm run screenshots` regenerates [docs/screenshots](screenshots/README.md).
-
-## In open pull requests
-
-Not on main yet, so not on the Hub or the box until merged and updated.
-
-| PR | What it adds |
-|----|--------------|
-| [#51](https://github.com/gazoscalvertos/UltimateTV/pull/51) | Phone settings: arrange the guide's lists, build custom guides and edit channels from the phone |
-| [#52](https://github.com/gazoscalvertos/UltimateTV/pull/52) | QR codes and links for both Android apps in the TV's and the phone's settings |
-| [#53](https://github.com/gazoscalvertos/UltimateTV/pull/53) | Save to NAS and Jellyfin from Versions, the player (Options › Keep a copy) and the phone |
-| [#54](https://github.com/gazoscalvertos/UltimateTV/pull/54) | A theme picker on the TV and the phone (dark, light and more) with seasonal themes for Valentine's, Easter, Halloween and Christmas |

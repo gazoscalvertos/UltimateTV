@@ -18,7 +18,8 @@ import { useKeys } from "../keys";
 import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
 import { queue } from "../queue";
-import { nav, now, openDialog, setShowStats, showStats, toast } from "../store";
+import { canSave, saveToNas } from "../save";
+import { errorToast, nav, now, openDialog, setShowStats, showStats, toast } from "../store";
 
 interface UpNext {
   req: PlaybackRequest;
@@ -219,6 +220,18 @@ export function Player() {
     void play({ kind: "channel", id }).then(() => poke());
   };
 
+  // Save to NAS while it plays: this exact copy (TorBox, online or IPTV) goes to the NAS and into Jellyfin.
+  const savable = () => {
+    const np = nowPlaying();
+    return Boolean(np && np.req.kind === "title" && np.info.savable && !np.downloadId && canSave());
+  };
+  const saveNowPlaying = () => {
+    const np = nowPlaying();
+    if (!np || !savable()) return;
+    const req = { titleId: np.req.id, ...(np.req.episodeId ? { episodeId: np.req.episodeId } : {}), ...(np.info.streamId ? { streamId: np.info.streamId } : {}) };
+    void saveToNas(req, [np.title?.name ?? np.info.title, np.info.subtitle].filter(Boolean).join(" ")).catch(errorToast);
+  };
+
   const options = () =>
     openDialog((close) => {
       const st = playerState();
@@ -274,6 +287,16 @@ export function Player() {
               Off
             </button>
           </div>
+          <Show when={savable()}>
+            <h4>
+              <Icon name="download" /> Keep a copy
+            </h4>
+            <div class="option-list">
+              <button class="option" data-focus onClick={() => (close(), saveNowPlaying())}>
+                Save to NAS and Jellyfin
+              </button>
+            </div>
+          </Show>
         </DialogFrame>
       );
     });
@@ -580,7 +603,7 @@ export function Player() {
                   <kbd>◀▶</kbd> Skip back and forward
                 </span>
                 <span>
-                  <kbd class="key-yellow" /> Audio and subtitles
+                  <kbd class="key-yellow" /> Audio and subtitles{savable() ? ", Save to NAS" : ""}
                 </span>
               </div>
             </div>

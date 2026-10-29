@@ -103,9 +103,13 @@ export class HubContext {
     this.proxy = new StreamProxy(this.guard, this.fetchImpl);
     this.ingest = new Ingestor(this.db, this.settings, this.channels, this.guide, this.log, this.fetchImpl);
     const settingsStore = this.settings;
-    const onLibraryChanged = (paths: string[]) => {
+    const onLibraryChanged = async (paths: string[]) => {
       const jf = this.jellyfin();
-      if (jf) void jf.mediaUpdated(paths).catch((err) => this.log.warn({ err: String(err) }, "Jellyfin refresh failed"));
+      if (!jf) return { added: false, note: "Connect Jellyfin in Settings to have saves added there too." };
+      return jf.mediaUpdated(paths).catch((err) => {
+        this.log.warn({ err: String(err) }, "Jellyfin refresh failed");
+        return { added: false, note: `Jellyfin didn't answer (${String(err)}), so it'll appear after Jellyfin's next scan.` };
+      });
     };
     this.recorder = new Recorder({
       store: this.recordings,
@@ -123,7 +127,7 @@ export class HubContext {
         timeZoneOf: (id) => this.ingest.sourceMeta(id)?.timeZone,
       },
       fetchImpl: this.fetchImpl,
-      onLibraryChanged: (p) => onLibraryChanged([p]),
+      onLibraryChanged: (p) => void onLibraryChanged([p]),
       ...(opts.remux ? { remux: opts.remux } : {}),
     });
     this.scheduler = new Scheduler({
