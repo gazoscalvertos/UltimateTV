@@ -100,6 +100,29 @@ controller pairing).
 - [ ] Settings › Seasonal clips › Try one now shows a projection; download one from Shared by others.
 - [ ] Weather: on the phone's Settings › Weather, find your postcode and Use it. Home shows today's weather in the corner and the temperature by the clock; OK on the temperature opens the forecast, and the days show their hours. "What's the weather like" by voice opens it. The screensaver shows it under the clock.
 
+## 8d. Themes, queue, screensavers and projected clips
+
+These have no checks elsewhere in this run.
+
+- [ ] Settings › Theme: moving over a tile previews it; pick Cyberpunk and the phone remote follows. Turn Seasonal on and check the right theme on its dates ([themes.md](themes.md)).
+- [ ] Play queue: add a film and a recording from the TV and one from the phone; they play in order, and the queue survives a box restart.
+- [ ] Screensaver › Try it now, then leave the TV idle: it dims at 10 minutes and the screensaver starts at 20. A NAS photo folder shows your photos.
+- [ ] Projected clips: put on a starter pack (Christmas) over a 4K film; the animation stays smooth and its sound plays over the film. Send a `.utvpack` from the phone and add it from the QR code. Loop mode runs for an evening ([projected-clips.md](projected-clips.md#not-tested-on-the-box-yet)).
+- [ ] A trip: `travel.sh away` on the box, then `travel.sh home` sends the changes back ([travel.md](travel.md)).
+
+## 8e. Hub backup and the box without the Hub
+
+See [backup.md](backup.md). Update the Hub and the box first.
+
+- [ ] Ten minutes after the Hub starts, `/mnt/nas/.ultimatetv-backups` (on the Docker LXC: `/mnt/nas/video/.ultimatetv-backups`) has an `ultimatetv-hub-….tar.gz`. Settings › About › Hub backup on the TV and ⚙ Settings › Hub backup on the phone show it, "on the NAS".
+- [ ] Back up now on the phone adds another; the next morning there's one from 03:30.
+- [ ] `bash tools/hub/update.sh` prints "Backed up to …" before it rebuilds.
+- [ ] Change something small (rename the app), then Restore the earlier backup from the phone: the Hub restarts within a minute and the old name is back. `bash tools/hub/restore.sh` lists the same files.
+- [ ] `docker stop ultimatetv-hub`: within a minute or so (nothing playing) the TV shows the box's own screen with the time, "Can't reach the Hub" and the downloads. Play one with OK; Back stops it.
+- [ ] `docker start ultimatetv-hub`: the TV app comes back by itself.
+- [ ] Reboot the box with the Hub stopped: it goes straight to the box's screen, not a blank one.
+- [ ] On Kids, stop the Hub: only Kids' downloads show, and no games.
+
 ## 9. The WAF test
 
 Hand over the remote with no instructions and ask for: watch BBC One; find tonight's film and record it; set a series link; carry on the film from yesterday; find a 4K comedy.

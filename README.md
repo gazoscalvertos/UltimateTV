@@ -52,7 +52,8 @@ Guides for each feature are linked from the steps below.
 12. **Other screens and games:** AirPlay from an iPhone or Mac, a laptop's screen from its browser, links and photos from a phone, and RetroArch, Moonlight, Steam Link and GeForce NOW ([docs/casting-and-games.md](docs/casting-and-games.md)).
 13. **Weather:** today's weather on Home and the screensaver, the forecast a press away, from your town or postcode ([docs/weather.md](docs/weather.md)).
 14. **Everyday extras:** button hints, the sleep timer, alerts before things break, Save for later, advert skipping and seasonal clips ([docs/everyday-extras.md](docs/everyday-extras.md)).
-15. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
+15. **Backups and the Hub being down:** the Hub copies its data to the NAS every night, and the box shows the time, downloads and games when the Hub is down ([docs/backup.md](docs/backup.md)).
+16. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 
 ## Development
 

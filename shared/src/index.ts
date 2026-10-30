@@ -11,3 +11,5 @@ export * from "./household.js";
 export * from "./seasons.js";
 export * from "./themes.js";
 export * from "./weather.js";
+
+export * from "./backup.js";
