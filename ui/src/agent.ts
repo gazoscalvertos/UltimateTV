@@ -184,6 +184,8 @@ class BrowserAgent implements BoxAgent {
 
   async update(): Promise<void> {}
 
+  async rollback(): Promise<void> {}
+
   // Music plays on the box only (music.ts has a stand-in for the demo Hub).
   async spotify(): Promise<SpotifyState> {
     return { available: false, signedIn: false, status: "stopped", positionMs: 0, at: 0, volume: 0, shuffle: false, repeat: "off" };

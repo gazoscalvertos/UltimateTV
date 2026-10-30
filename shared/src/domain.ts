@@ -725,7 +725,7 @@ export type HubEvent =
   /** The clip settings, clips, packs or loop changed (the phone's Clips sheet, or the TV's settings). */
   | { type: "scares.changed" }
   /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
-  | { type: "box.command"; command: "update" | "reload" | "report" | "stats"; on?: boolean }
+  | { type: "box.command"; command: "update" | "rollback" | "reload" | "report" | "stats"; on?: boolean }
   /** The phone asks the TV app something (what's playing, play this, seek); it answers at /api/tv/reply/:id. */
   | { type: "tv.call"; id: string; method: TvMethod; args: unknown }
 

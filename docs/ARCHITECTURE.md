@@ -77,7 +77,7 @@ The box holds no household state, so a new one only needs the installer and the 
 - **Remote:** the Pulse-Eight adapter is attached by `inputattach` (a udev rule and `ultimatetv-cec-attach@.service`); the kernel turns its keys into key presses with `cec-keymap.toml`, and `cec.ts` registers the box, wakes the TV, watches for standby and hands the screen back to the TV's own apps (TV apps).
 - **Hub down:** the shell shows a "Can't reach the Hub" page and keeps retrying. The UI is loaded from the Hub each time, not cached.
 - **Extras:** `downloads.ts` (Download to box), `spotify.ts` (go-librespot as a Spotify Connect speaker), `webapp.ts` (Deezer's web player in a view over the UI with arrow-key focus), `diagnostics.ts` (log and playback samples to the Hub), `updates.ts` (version checks and Settings › About › Update the box).
-- **Updates:** a weekly systemd timer (Monday 4 am) takes a snapper snapshot when the root is btrfs, upgrades the OS, pulls the app and reruns the installer.
+- **Updates:** a weekly systemd timer (Monday 4 am) takes a snapper snapshot when the root is btrfs, upgrades the OS, pulls the app and reruns the installer (`tools/box/update.sh`). A health check (`healthcheck.sh`) then waits for the app's heartbeat, the Hub, an mpv test clip and the CEC adapter, and on a failure `rollback.sh` undoes the update from the snapshot, reboots and skips that commit. The results sit in `/var/lib/ultimatetv/update`, which the box app reports to the Hub (Settings › About, the phone, alerts, diagnostics).
 - **Install:** `tools/box/install.sh` on a fresh Arch (or Debian 13), or unattended over PXE from `tools/pxe` on the Docker LXC.
 
 ## Data flow

@@ -25,6 +25,7 @@ import { Cec } from "./cec.js";
 import { Diagnostics } from "./diagnostics.js";
 import { Display } from "./display.js";
 import { Downloads } from "./downloads.js";
+import { Heartbeat } from "./heartbeat.js";
 import { hubAnswers, HubWatch } from "./hubwatch.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
@@ -255,6 +256,7 @@ async function main(): Promise<void> {
     reload: async () => win?.webContents.reloadIgnoringCache(),
     software: (check: never) => updates.status(Boolean(check)),
     update: () => updates.start(),
+    rollback: () => updates.rollBack(),
     spotify: async () => spotify.current(),
     spotifyLibrary: (kind: never, offset: never) => spotify.library(kind, offset),
     spotifyTracks: (uri: never) => spotify.tracks(uri),
@@ -299,7 +301,9 @@ async function main(): Promise<void> {
     hubStatus: async () => ({ hubUrl: HUB_URL, appName, reason: offlineReason, since: watch.since, addresses: boxAddresses(), profile: offlineProfile }),
     retryHub: async () => void watch.check(),
   };
-  diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!() });
+  diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!(), updateLog: () => updates.history() });
+  // Tells the check after an update that the app is up (tools/box/healthcheck.sh).
+  const heartbeat = new Heartbeat(async () => ({ page: watch.mode, hub: await hubAnswers(HUB_URL) }), VERSION, log);
 
   ipcMain.handle("agent", async (e, method: string, ...args: unknown[]) => {
     if (!win || e.sender !== win.webContents) throw new Error("Not the TV window");
@@ -334,6 +338,7 @@ async function main(): Promise<void> {
   win.setMenu(null);
   win.webContents.setZoomFactor(1);
   win.once("ready-to-show", () => win?.show());
+  win.webContents.on("did-finish-load", () => heartbeat.start());
   // The TV UI titles its page with the app's name: remember it, and give Spotify the same name.
   win.webContents.on("page-title-updated", (_e, title) => {
     const name = title.trim();
@@ -388,6 +393,7 @@ async function main(): Promise<void> {
   app.on("window-all-closed", () => app.quit());
   app.on("before-quit", () => {
     diagnostics.stop();
+    heartbeat.stop();
     watch.stop();
     cec.stop();
     spotify.stop();
