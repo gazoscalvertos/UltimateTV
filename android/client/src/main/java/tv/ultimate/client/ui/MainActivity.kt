@@ -5,15 +5,19 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -104,6 +108,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Android 15 draws every app edge to edge anyway; doing it on older phones too keeps one layout,
+        // with light status bar icons on the dark app. The Scaffold below pads for the bars once.
+        enableEdgeToEdge(SystemBarStyle.dark(0xFF070B14.toInt()), SystemBarStyle.dark(0xFF070B14.toInt()))
         val startTab = intent.getStringExtra("tab")
         setContent {
             MaterialTheme(colorScheme = Colours) {
@@ -153,6 +160,8 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.background,
+        // The status bar, nav bar and (in landscape) the camera cut-out, applied here only once.
+        contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
             if (!wide && showBars) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
@@ -168,7 +177,7 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
     ) { pad ->
         Row(Modifier.fillMaxSize().padding(pad)) {
             if (wide && showBars) {
-                NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+                NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer, windowInsets = WindowInsets(0, 0, 0, 0)) {
                     Spacer(Modifier.size(8.dp))
                     for (t in TABS) NavigationRailItem(selected = route == t.route, onClick = { go(nav, t.route) }, icon = { Icon(t.icon, null) }, label = { Text(t.label) })
                     NavigationRailItem(selected = route == "search", onClick = { go(nav, "search") }, icon = { Icon(Icons.Default.Search, null) }, label = { Text("Search") })

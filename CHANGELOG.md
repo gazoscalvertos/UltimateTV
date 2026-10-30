@@ -27,6 +27,9 @@ pop up what's new after an update. So:
 
 ## 2026-10-30
 
+- **Android app fills the screen**: on newer phones (Android 15) the app left a big empty band
+  above the title bar, because the space for the status bar was added twice. It now sits just under
+  the status bar, in portrait and landscape, and keeps clear of the camera cut-out. Android app 0.3.2. (#117)
 - **Accessibility** ([docs/accessibility.md](docs/accessibility.md)): each profile has Settings ›
   Accessibility, also on the phone's setup page. Audio description plays the described soundtrack
   when a film or channel has one, text can be 125% or 150% on every screen, Bold focus puts a thick
