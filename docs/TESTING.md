@@ -163,6 +163,7 @@ See [notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a
 - [ ] Change channel on live TV: one `channel_changed` event, not a stop and a start. Switch profile: `profile_switched`.
 - [ ] Ring the doorbell (or turn the sensor on by hand) with a film playing: it pauses and the doorbell pop-up shows.
 - [ ] With the Pulse-Eight: `media_player.turn_off` puts the TV in standby and the state says `off`; `turn_on` wakes it.
+
 ## 8g. Box updates and automatic roll back
 
 See [box-install.md](box-install.md#updates-and-rolling-back). Built without a box to try it on: none of this has run on real hardware yet. The first update after this lands runs the old update script, so it installs the new scripts but doesn't check itself; the one after that is the first with a health check.
