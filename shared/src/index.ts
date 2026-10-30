@@ -14,3 +14,4 @@ export * from "./weather.js";
 
 export * from "./backup.js";
 export * from "./changelog.js";
+export * from "./homeassistant.js";

@@ -2,12 +2,13 @@
 // to play something, seek, pick a track, drive the music, download to the box or save to the NAS. The Hub relays each call as a
 // "tv.call" event and waits for the answer posted back to /api/tv/reply/:id.
 
-import type { GameAppId, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
+import type { GameAppId, HaCommand, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
 import { backToTv, canCast, castSettings, castState, gamesAllowed, openGame, refreshCast, setAirplay, shareUrl } from "./cast";
 import { api, hub } from "./api";
 import { allEpisodes, canDownload, downloadToBox, episodeRequest, episodesOf, filmRequest, recordingRequest, removeFromBox, visibleDownloads } from "./downloads";
 import { onHubEvent } from "./events";
+import { haCommand } from "./homeassistant";
 import { music, spotify, spotifySetup, webApp } from "./music";
 import { channels, liveChannelId, nowPlaying, play, playerState } from "./player";
 import { saveEpisodes, saveToNas } from "./save";
@@ -165,6 +166,8 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
     else if (a.id) await openGame(a.id);
     return castForPhone();
   },
+  // Home Assistant's media player controls, checked by the Hub (cleanHaCommand) on the way.
+  ha: async (a: HaCommand) => haCommand(a),
   castAirplay: async (a: { on: boolean }) => {
     if (!canCast()) throw new Error("AirPlay runs on the TV box");
     if (isKids()) throw new Error("Ask a grown-up to change AirPlay");

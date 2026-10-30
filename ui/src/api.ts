@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { Changelog, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
+import type { Changelog, HaEvent, HaSettings, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
 import type { AdSkipSettings, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -197,6 +197,10 @@ export const hub = {
   saveWeather: (patch: Partial<WeatherSettings>) => api<WeatherState>("/api/weather/settings", { method: "PUT", body: patch }),
   weatherPlaces: (q: string) => api<{ places: WeatherPlace[] }>(`/api/weather/places${q ? `?q=${enc(q)}` : ""}`),
   refreshWeather: () => api<WeatherState>("/api/weather/refresh", { method: "POST" }),
+  // Home Assistant playback events (the webhook; the media player side needs no setting).
+  haSettings: () => api<{ settings: HaSettings; events: HaEvent[] }>("/api/ha/settings"),
+  saveHa: (patch: Partial<HaSettings>) => api<{ settings: HaSettings; events: HaEvent[] }>("/api/ha/settings", { method: "PUT", body: patch }),
+  testHa: () => api<{ ok: true }>("/api/ha/test", { method: "POST" }),
   playbackFailed: (what: string, error?: string) => api<{ told: boolean }>("/api/alerts/playback", { method: "POST", body: { what, ...(error ? { error } : {}) } }),
 
   // Advert skipping on recordings.

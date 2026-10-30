@@ -293,13 +293,23 @@
     <p class="hint">Only phones and screens paired with the TV can work it. To add a phone, scan the code in Settings › Phones and remotes on the TV. Remove anything you don't recognise.</p>
     <ul class="list" id="devices-list"></ul>
     <h2 style="margin-top:18px">Home Assistant and scripts</h2>
-    <p class="hint">Pop-ups, news flashes and key presses from Home Assistant or a script need this key, sent as the header <code>X-Api-Key</code> (or <code>Authorization: Bearer …</code>). It can't change settings or play things.</p>
+    <p class="hint">Pop-ups, news flashes, key presses and the media player controls (play, pause, stop, volume, channels, standby) from Home Assistant or a script need this key, sent as the header <code>X-Api-Key</code> (or <code>Authorization: Bearer …</code>). It can't change settings. docs/notifications.md has the Home Assistant set-up.</p>
     <div class="actions">
       <button class="secondary small" type="button" id="key-show">Show the key</button>
       <button class="secondary small" type="button" id="key-new">Make a new key</button>
       <button class="secondary small danger" type="button" id="unpair-me">Unpair this phone</button>
     </div>
     <p class="hint" id="key-box" hidden style="margin:12px 0 0"><code id="key-text"></code></p>
+    <form id="ha-form" style="margin-top:14px">
+      <label>Playback events webhook</label>
+      <input name="webhookUrl" type="url" placeholder="http://homeassistant.local:8123/api/webhook/ultimatetv" autocomplete="off">
+      <p class="hint">Told when a film or programme starts, pauses, resumes, stops, reaches the credits, the channel changes or someone switches profile, so Home Assistant can dim the lights. Leave empty to send nothing.</p>
+      <div class="actions">
+        <button class="small">Save</button>
+        <button class="secondary small" type="button" id="ha-test">Send a test event</button>
+      </div>
+      <p class="hint" id="ha-recent" style="margin:8px 0 0"></p>
+    </form>
   </section>
 
   <section id="apps">
@@ -621,6 +631,18 @@ $("#key-new").onclick = () => {
   if (!confirm("Make a new key? Anything using the old one (Home Assistant, scripts) stops working until you give it the new one.")) return;
   api("/api/pair/api-key", { method: "POST" }).then((r) => { showKey(r.key); toast("New key made"); }).catch((e) => toast(e.message, true));
 };
+// Home Assistant playback events (see docs/notifications.md).
+const showHa = (r) => {
+  $("#ha-form").webhookUrl.value = r.settings.webhookUrl;
+  const last = r.events[0];
+  $("#ha-recent").textContent = last ? `Last event: ${last.type}${last.title ? ` (${last.title})` : ""} at ${new Date(last.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}, ${last.error ? `not sent: ${last.error}` : last.sent ? "sent" : "no webhook set"}` : "";
+};
+async function loadHa() { showHa(await api("/api/ha/settings")); }
+$("#ha-form").onsubmit = (e) => {
+  e.preventDefault();
+  api("/api/ha/settings", { method: "PUT", body: { webhookUrl: $("#ha-form").webhookUrl.value.trim() } }).then((r) => { showHa(r); toast("Saved"); }).catch((e) => toast(e.message, true));
+};
+$("#ha-test").onclick = () => api("/api/ha/test", { method: "POST" }).then(() => toast("Test event sent")).catch((e) => toast(e.message, true));
 $("#unpair-me").onclick = () => {
   if (!confirm("Unpair this phone? It will have to scan the TV's code again to work the TV.")) return;
   fetch("/api/pair/forget", { method: "POST" }).then(() => location.reload());
@@ -1438,6 +1460,7 @@ for (const [file, id] of [["/setup/client-app.json", "#client-app-version"], ["/
 
 load().catch((err) => toast(err.message, true));
 loadDevices().catch(() => {});
+loadHa().catch(() => {});
 loadSoftware(true).then(checkBox).catch(() => {});
 loadNews(false).catch(() => { $("#news-list").innerHTML = '<p class="hint">Couldn\'t ask the Hub.</p>'; });
 // Keep checking GitHub while the page is open (the Hub asks it at most every 5 minutes).
