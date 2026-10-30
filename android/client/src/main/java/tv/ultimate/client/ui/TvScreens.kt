@@ -42,6 +42,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -84,6 +85,8 @@ fun Header(title: String, nav: NavHostController, back: Boolean = false) {
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+        // The Scaffold already pads for the status bar; the bar's own inset doubled it (a big empty band).
+        windowInsets = WindowInsets(0, 0, 0, 0),
     )
 }
 
