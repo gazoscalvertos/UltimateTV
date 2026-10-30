@@ -15,6 +15,12 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Weather** ([docs/weather.md](docs/weather.md)): today's weather on Home ("Rain from 4pm"), the
+  temperature next to the clock, a forecast page with the next hours and the week, and the weather
+  under the screensaver's clock. Set your town or postcode in Settings › Weather on the TV or the
+  phone; the forecast is Open-Meteo's (free, no key). "What's the weather like" by voice, and Watch ›
+  Weather on the phone remote.
+
 - **Hub backup and the box without the Hub** ([docs/backup.md](docs/backup.md)): every night at
   03:30 the Hub copies its database and clips to `/mnt/nas/.ultimatetv-backups` and keeps the last
   14; `update.sh` takes one before each update. Settings › About on the TV and ⚙ Settings on the

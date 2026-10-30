@@ -15,7 +15,7 @@ import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, previewTheme, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 import { Row, Status } from "../components/SettingRow";
-import { AdvertRows, AlertsSection, CastSection, SeasonalSection } from "./SettingsMore";
+import { AdvertRows, AlertsSection, CastSection, SeasonalSection, WeatherSection } from "./SettingsMore";
 
 /** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
 const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
@@ -450,6 +450,7 @@ export function Settings(props: { section?: string }) {
     { id: "playback", label: "Picture and sound" },
     { id: "theme", label: "Theme" },
     { id: "screensaver", label: "Screensaver" },
+    { id: "weather", label: "Weather" },
     { id: "recording", label: "Recording" },
     { id: "music", label: "Music channels" },
     { id: "scares", label: "Projected clips" },
@@ -678,6 +679,10 @@ export function Settings(props: { section?: string }) {
 
             <Show when={section() === "cast"}>
               <CastSection />
+            </Show>
+
+            <Show when={section() === "weather"}>
+              <WeatherSection />
             </Show>
 
             <Show when={section() === "alerts"}>

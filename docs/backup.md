@@ -32,8 +32,8 @@ and music logins, so it's readable by its owner only; keep it on the home networ
 - **Alerts:** if a backup fails, or none has worked for two nights, Settings › Alerts (and Home
   Assistant or ntfy, if set up) say so.
 
-![Hub backup in Settings › About](screenshots/97-settings-backup.png)
-![Hub backup on the phone](screenshots/98-phone-backup.png)
+![Hub backup in Settings › About](screenshots/103-settings-backup.png)
+![Hub backup on the phone](screenshots/104-phone-backup.png)
 
 ### Settings
 

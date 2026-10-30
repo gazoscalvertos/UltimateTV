@@ -15,7 +15,7 @@ Gary asked for the whole app to be built before testing on the real hardware, so
 | 3. Unified films and TV | Built. Jellyfin playback has run on the box. |
 | 4. AIOStreams, TorBox, NAS pipeline, phone remote | Built. The phone remote is in daily use; TorBox and Save to NAS are untested. |
 | 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates, nightly Hub backup, a screen for when the Hub is down). Automatic rollback and the WAF test remain. |
-| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, button hints and help, sleep timer, alerts, Save for later, advert skip, seasonal clips, projected clip packs: built, mostly untested. |
+| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, button hints and help, sleep timer, alerts, Save for later, advert skip, seasonal clips, projected clip packs, weather: built, mostly untested. |
 
 ## Tested or untested, feature by feature
 
@@ -54,6 +54,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Games: RetroArch, Moonlight, Steam Link, GeForce NOW | #60 | Untested |
 | Seasonal clips, projected clip packs, community list | #60, #61 | Untested |
 | Nightly Hub backup, box screen when the Hub is down | #63 | Untested |
+| Weather | #64 | Untested |
 
 ### What has run on real hardware
 
@@ -83,6 +84,8 @@ First bring the box and the Hub up to date: run `tools/hub/update.sh`, then reru
 - **Pop-ups from Home Assistant** (existing commands need the `X-Api-Key` header).
 - **Play queue, screensavers, Halloween and jump scares, Download to box, and a trip** with `travel.sh`.
 - **Cast and games:** AirPlay, a laptop's screen share (trust the Hub's certificate first), links from the phone, RetroArch, Moonlight, Steam Link and GeForce NOW. The sleep timer's CEC standby needs the Pulse-Eight.
+- **Weather:** the forecast reaching the Hub from Open-Meteo, and your postcode found.
+
 - **Hub backup and the Hub-down screen:** a backup lands on the NAS overnight, a restore from the phone, and the box's own screen when the Hub's container is stopped (`docker stop ultimatetv-hub`).
 - **Advert skip** on real UK recordings (comskip's settings may need tuning), and alerts reaching Home Assistant or ntfy.
 - **Themes, Save to NAS, projected clip packs:** the seasonal theme on its dates, a TorBox film saved and showing in Jellyfin, a starter pack over a 4K film (smooth on the N150?), and a pack sent from the phone.
@@ -115,7 +118,7 @@ The [gap list](https://claude.ai/artifact/PSEpcgrMkhKp4Se1Gp51gK) ranks these ag
 6. **Skip intro for the whole library**: install Jellyfin's Intro Skipper plugin. The app already reads Jellyfin's intro markers, so no code.
 7. **Home Assistant both ways**: the TV as a media player, and "film started" / "paused" events for lights.
 8. **Kids time limits and a bedtime.**
-9. Later: a local AI on the box, a Freeview HDHomeRun backup, radio and podcasts, weather, multiview, Trakt, audio description.
+9. Later: a local AI on the box, a Freeview HDHomeRun backup, radio and podcasts, multiview, Trakt, audio description.
 
 Left over from PR #58, which was closed in favour of #60, and could be brought across: advert marks on the seek bar, a black-frame and silence fallback when comskip finds nothing, Save for later showing when a title is next on TV, and a Save for later tab on the phone.
 

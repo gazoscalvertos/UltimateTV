@@ -1,14 +1,15 @@
-// The newer Settings pages: alerts, advert skipping on recordings, seasonal clips, and casting.
+// The newer Settings pages: alerts, advert skipping on recordings, seasonal clips, casting and the weather.
 // Typing an address on the TV is slow, so the alert URLs can be set from the phone too.
 
 import { createResource, For, Show } from "solid-js";
-import type { AlertSettings, ProjectionSettings, SeasonId } from "@ultimatetv/shared";
+import type { AlertSettings, ProjectionSettings, SeasonId, WeatherSettings } from "@ultimatetv/shared";
 import { daysFromNow, formatBytes, SEASONS } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { canCast, castSettings, castState, refreshCast, saveCastSettings, setAirplay, shareUrl } from "../cast";
-import { askText } from "../components/Dialog";
+import { askText, choose } from "../components/Dialog";
 import { cycle, Row, Status } from "../components/SettingRow";
 import { onHubEvent } from "../events";
+import { setWeatherState, weather, weatherLine } from "../weather";
 import { errorToast, nav, toast } from "../store";
 import { onCleanup } from "solid-js";
 
@@ -177,6 +178,60 @@ export function CastSection() {
       <Row label="Laptops can share their screen" hint={shareUrl() ? `From a browser at ${shareUrl()}` : "From a browser on the same network"} value={onOff(castSettings().screenShare)} onSelect={() => save({ screenShare: !castSettings().screenShare })} />
       <Row label="Phones can send links and photos" value={onOff(castSettings().links)} onSelect={() => save({ links: !castSettings().links })} />
       <Row label="Games on the Kids profile" hint="Retro games, Moonlight and the rest open from the Kids profile too" value={onOff(castSettings().gamesForKids)} onSelect={() => save({ gamesForKids: !castSettings().gamesForKids })} />
+    </>
+  );
+}
+
+/** Where the household lives and how the weather shows. Typing a postcode is quicker on the phone's Settings page. */
+export function WeatherSection() {
+  const st = weather;
+  const save = async (patch: Partial<WeatherSettings>) => {
+    try {
+      setWeatherState(await hub.saveWeather(patch));
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  const pickPlace = async () => {
+    const q = await askText("Town or postcode", "");
+    if (!q) return;
+    try {
+      const { places } = await hub.weatherPlaces(q);
+      if (!places.length) return toast(`Couldn't find “${q}”. Try the nearest town, or a postcode.`, "bad");
+      const place = places.length === 1 ? places[0] : await choose({ title: "Which one?", options: places.map((p) => ({ label: p.name, value: p, ...(p.detail ? { detail: p.detail } : {}) })) });
+      if (place) {
+        await save({ place });
+        toast(`The weather is for ${place.name} now`, "good");
+      }
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  return (
+    <>
+      <h2>Weather</h2>
+      <p class="hint">Today's weather on Home, the temperature along the top and on the screensaver, and the week ahead when you choose the temperature. From Open-Meteo, free and with no account.</p>
+      <Show when={st()} fallback={<div class="spinner" />}>
+        {(s) => (
+          <>
+            <Row label="Where" icon="edit" value={s().settings.place?.name ?? <Status ok={false} text="Not set" />} hint={s().settings.place?.detail ?? "A town or a postcode (the phone's Settings page takes a latitude and longitude too)"} onSelect={() => void pickPlace()} />
+            <Show when={s().report}>
+              <Row label="Now" value={weatherLine(s())} hint={s().error ?? "Opens the forecast"} icon="info" onSelect={() => nav.push({ name: "weather" })} />
+            </Show>
+            <Show when={!s().report && s().error}>
+              <Row label="The forecast" value={<Status ok={false} text="Not reaching Open-Meteo" />} hint={s().error!} icon="restart" onSelect={() => void hub.refreshWeather().then(setWeatherState, errorToast)} />
+            </Show>
+            <Row label="Temperature in" value={s().settings.temperature === "c" ? "°C" : "°F"} onSelect={() => void save({ temperature: s().settings.temperature === "c" ? "f" : "c" })} />
+            <Row label="Wind in" value={s().settings.wind === "mph" ? "mph" : "km/h"} onSelect={() => void save({ wind: s().settings.wind === "mph" ? "kmh" : "mph" })} />
+            <Row label="On Home" hint="Today's weather in the top corner" value={onOff(s().settings.onHome)} onSelect={() => void save({ onHome: !s().settings.onHome })} />
+            <Row label="Along the top" hint="The temperature next to the clock; choose it for the week ahead" value={onOff(s().settings.inTopBar)} onSelect={() => void save({ inTopBar: !s().settings.inTopBar })} />
+            <Row label="On the screensaver" hint="Under the clock" value={onOff(s().settings.onScreensaver)} onSelect={() => void save({ onScreensaver: !s().settings.onScreensaver })} />
+            <Show when={s().settings.place}>
+              <Row label="Forget where we live" icon="trash" onSelect={() => void save({ place: null })} />
+            </Show>
+          </>
+        )}
+      </Show>
     </>
   );
 }

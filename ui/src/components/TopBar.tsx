@@ -1,12 +1,14 @@
 // The menu along the top of every main screen, with the clock and who's watching.
 
 import { For, Show } from "solid-js";
-import { clockTime } from "@ultimatetv/shared";
+import { clockTime, formatTemp } from "@ultimatetv/shared";
 import { castSettings } from "../cast";
 import { visibleDownloads } from "../downloads";
 import { sleep } from "../sleep";
 import { appName, isKids, nav, now, profile, type Route } from "../store";
+import { weather } from "../weather";
 import { Icon } from "./Icon";
+import { WeatherIcon } from "./WeatherIcon";
 
 type Tab = { label: string; route: Route; match: Route["name"]; adults?: boolean; when?: () => boolean };
 
@@ -55,6 +57,14 @@ export function TopBar() {
         </Show>
       </nav>
       <div class="topbar-right">
+        <Show when={weather()?.settings.inTopBar ? weather()!.report : undefined}>
+          {(r) => (
+            <button class="tab weather-chip" classList={{ active: nav.current().name === "weather" }} data-focus aria-label="The weather" onClick={() => nav.current().name !== "weather" && nav.push({ name: "weather" })}>
+              <WeatherIcon code={r().now.code} isDay={r().now.isDay} />
+              {formatTemp(r().now.tempC, weather()!.settings.temperature)}
+            </button>
+          )}
+        </Show>
         <Show when={sleep().at}>
           <span class="sleep-badge" title={`Sleep timer: ${sleep().label}`}>
             <Icon name="moon" />
