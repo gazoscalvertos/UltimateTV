@@ -99,6 +99,16 @@ controller pairing).
 - [ ] A recording from an ad-funded channel shows Skip adverts in its breaks (give comskip a few minutes after it finishes).
 - [ ] Settings › Seasonal clips › Try one now shows a projection; download one from Shared by others.
 
+## 8d. Themes, queue, screensavers and projected clips
+
+These have no checks elsewhere in this run.
+
+- [ ] Settings › Theme: moving over a tile previews it; pick Cyberpunk and the phone remote follows. Turn Seasonal on and check the right theme on its dates ([themes.md](themes.md)).
+- [ ] Play queue: add a film and a recording from the TV and one from the phone; they play in order, and the queue survives a box restart.
+- [ ] Screensaver › Try it now, then leave the TV idle: it dims at 10 minutes and the screensaver starts at 20. A NAS photo folder shows your photos.
+- [ ] Projected clips: put on a starter pack (Christmas) over a 4K film; the animation stays smooth and its sound plays over the film. Send a `.utvpack` from the phone and add it from the QR code. Loop mode runs for an evening ([projected-clips.md](projected-clips.md#not-tested-on-the-box-yet)).
+- [ ] A trip: `travel.sh away` on the box, then `travel.sh home` sends the changes back ([travel.md](travel.md)).
+
 ## 8e. Hub backup and the box without the Hub
 
 See [backup.md](backup.md). Update the Hub and the box first.
