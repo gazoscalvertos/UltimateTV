@@ -26,6 +26,13 @@ pop up what's new after an update. So:
 
 ## 2026-10-30
 
+- **Home Assistant both ways** ([docs/notifications.md](docs/notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)):
+  Home Assistant can add the TV as a media player that shows what's on (title, picture, position,
+  channel, profile) and can play, pause, stop, change channel, set the box's volume and put the TV
+  in standby, all with the Hub's API key. A new playback events webhook is told when a film or
+  programme starts, pauses, resumes, stops or reaches the credits, the channel changes or someone
+  switches profile, so the lights can dim for a film. The docs have the Home Assistant set-up and
+  example automations. Update the Hub and the box to get it. (#PR)
 - **What's new** ([CHANGELOG.md](CHANGELOG.md)): this list is now in the apps. The TV has Settings ›
   What's new, the setup page a What's new section, and after an update the TV's Home, the phone
   remote and the Android app (0.3.0, Settings › What's new) show what has changed since they last

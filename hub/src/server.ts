@@ -13,6 +13,7 @@ import { registerQueue } from "./queue.js";
 import { registerScares } from "./scares.js";
 import { AdSkipper, registerAdSkip } from "./adskip.js";
 import { Alerts, registerAlerts } from "./alerts.js";
+import { HomeAssistant, registerHomeAssistant } from "./homeassistant.js";
 import { registerWeather, Weather } from "./weather.js";
 import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
@@ -188,6 +189,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/cast/share/:id/end", "tv"],
     ["POST /api/cast/link", "paired"],
     ["POST /api/tv/sleep", "script"],
+    ["GET /api/ha/state", "script"],
+    ["POST /api/ha/command", "script"],
+    ["POST /api/ha/state", "tv"],
+    ["GET /api/ha/settings", "paired"],
+    ["POST /api/ha/test", "paired"],
     ["PATCH /api/scares/clips/:id", "script"],
     ["PUT /api/projections", "script"],
     ["POST /api/projections/now", "script"],
@@ -249,6 +255,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/mix-channels/:id/videos/:videoId",
     "GET /api/screensaver/nas",
     "PUT /api/alerts/settings",
+    "PUT /api/ha/settings",
     "PUT /api/weather/settings",
 
     "POST /api/backup",
@@ -777,21 +784,24 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
   const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "tvApps", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay"]);
+  /** Asks the TV app something and waits for its answer (12 s at most). */
+  const callTv = (method: TvMethod, args: unknown) =>
+    new Promise<{ result?: unknown; error?: string }>((resolve) => {
+      const id = `c${Date.now().toString(36)}${(tvCallSeq++).toString(36)}`;
+      const timer = setTimeout(() => {
+        tvCalls.delete(id);
+        resolve({ error: "The TV didn't answer. Its app may need updating (Settings › Updates › Box)." });
+      }, 12_000);
+      tvCalls.set(id, { resolve, timer });
+      ctx.events.emit({ type: "tv.call", id, method, args: args ?? null });
+    });
   const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
   let tvCallSeq = 0;
   app.post("/api/tv/call/:method", async (req: Req<{ method: string }, Record<string, string>, unknown>, reply) => {
     const method = req.params.method as TvMethod;
     if (!TV_METHODS.has(method)) return reply.code(404).send({ error: "Unknown TV call" });
     if (tvSockets === 0) return reply.code(409).send({ error: "The TV app isn't connected. Is the box on?", code: "tv-off" });
-    const id = `c${Date.now().toString(36)}${(tvCallSeq++).toString(36)}`;
-    const answer = await new Promise<{ result?: unknown; error?: string }>((resolve) => {
-      const timer = setTimeout(() => {
-        tvCalls.delete(id);
-        resolve({ error: "The TV didn't answer. Its app may need updating (Settings › Updates › Box)." });
-      }, 12_000);
-      tvCalls.set(id, { resolve, timer });
-      ctx.events.emit({ type: "tv.call", id, method, args: req.body ?? null });
-    });
+    const answer = await callTv(method, req.body);
     if (answer.error !== undefined) return reply.code(502).send({ error: answer.error });
     return answer.result ?? null;
   });
@@ -804,6 +814,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     }
     return { ok: true };
   });
+  // Home Assistant both ways: the TV as a media player, and playback events to a webhook (see homeassistant.ts).
+  const homeAssistant = new HomeAssistant(ctx, () => tvSockets > 0);
+  registerHomeAssistant(app, homeAssistant, { callTv, tvConnected: () => tvSockets > 0, hubBase });
 
   // -------------------------------------------------------------------------
   // Software: the Hub updates through a helper on the Docker LXC; the box through the TV app.

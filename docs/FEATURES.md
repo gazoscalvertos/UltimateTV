@@ -84,6 +84,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 - **App name**: call it GazosTV or anything else; it shows everywhere, including Spotify's device list.
 - **Button hints and help** ([everyday-extras.md](everyday-extras.md)): a strip along the bottom says what the colour keys do on each screen; Info opens a help screen with the remote drawn. On Home the colour keys are shortcuts.
 - **Sleep timer**: 15 minutes to 2 hours or the end of the programme, from Options, the phone or voice. "Still watching?" a minute before, then the sound fades, playback stops and the TV goes to standby over CEC.
+- **Home Assistant both ways** ([notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)): the TV as a media player in Home Assistant (what's on, play, pause, stop, channels, volume, standby) and a webhook told when a film starts, pauses, resumes, stops or reaches the credits, the channel changes or the profile switches, so the lights can follow.
 - **Alerts**: IPTV or TorBox expiry, the guide not updating, failed recordings, a full NAS and live TV failing go to a Home Assistant webhook or ntfy, and to a card on the TV for grown-ups.
 - **Save for later**: Red on a title saves it to that profile's list; saves from the phone or by voice ("save Dune for later") go to a household list every profile sees. Shown as a row on Home.
 - **Advert skip**: comskip in the Hub's image finds the breaks in recordings; playback offers Skip adverts or skips them itself.

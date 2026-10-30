@@ -57,6 +57,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Weather | #64 | Untested |
 | TV apps button, trailers and scores, More like this, OpenSubtitles | #65 | Untested (TV apps needs the Pulse-Eight) |
 | What's new (change log in every app) | #112 | Untested |
+| Home Assistant both ways (media player, playback events) | #PR | Untested |
 
 ### What has run on real hardware
 
@@ -83,7 +84,7 @@ First bring the box and the Hub up to date: run `tools/hub/update.sh`, then reru
 - **TorBox / AIOStreams** playback and Save to NAS.
 - **Profiles and the Kids lock**, and pairing (an unpaired phone is refused).
 - **Spotify and Deezer** on the box (neither has been tried against the real services).
-- **Pop-ups from Home Assistant** (existing commands need the `X-Api-Key` header).
+- **Pop-ups from Home Assistant** (existing commands need the `X-Api-Key` header), and the TV as a Home Assistant media player with playback events dimming the lights.
 - **Play queue, screensavers, Halloween and jump scares, Download to box, and a trip** with `travel.sh`.
 - **Cast and games:** AirPlay, a laptop's screen share (trust the Hub's certificate first), links from the phone, RetroArch, Moonlight, Steam Link and GeForce NOW. The sleep timer's CEC standby needs the Pulse-Eight.
 - **Trailers, scores and subtitles:** a trailer through yt-dlp on the box, OMDb scores, and OpenSubtitles files lining up with TorBox and IPTV copies.
@@ -118,7 +119,7 @@ The [gap list](https://claude.ai/artifact/PSEpcgrMkhKp4Se1Gp51gK) ranks these ag
 4. **More like this** on the details page and a Home row. The Hub already has a TMDB recommendations call that nothing uses.
 5. **Subtitles**: fetch missing ones from OpenSubtitles, a default per profile, size and background settings.
 6. **Skip intro for the whole library**: install Jellyfin's Intro Skipper plugin. The app already reads Jellyfin's intro markers, so no code.
-7. **Home Assistant both ways**: the TV as a media player, and "film started" / "paused" events for lights.
+7. ~~Home Assistant both ways~~: built in #PR ([notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)).
 8. **Kids time limits and a bedtime.**
 9. Later: a local AI on the box, a Freeview HDHomeRun backup, radio and podcasts, multiview, Trakt, audio description.
 
