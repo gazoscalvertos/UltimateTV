@@ -9,7 +9,7 @@ pop up what's new after an update. So:
 
 - Add each change at the top, under a `## YYYY-MM-DD` heading for the day it merges (start one if
   today's isn't there).
-- One bullet per change: `- **Short title**: what it does, in plain words. (#PR)`. The bold title
+- One bullet per change: `- **Short title**: what it does, in plain words. (#113)`. The bold title
   is what the pop-up lists; the rest shows underneath. A `([docs/…](docs/…))` link after the title
   is kept for GitHub and left out on the TV.
 - Sections that aren't a date or a version (like Updating) are left out of the apps.
@@ -26,6 +26,13 @@ pop up what's new after an update. So:
 
 ## 2026-10-30
 
+- **Home Assistant both ways** ([docs/notifications.md](docs/notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)):
+  Home Assistant can add the TV as a media player that shows what's on (title, picture, position,
+  channel, profile) and can play, pause, stop, change channel, set the box's volume and put the TV
+  in standby, all with the Hub's API key. A new playback events webhook is told when a film or
+  programme starts, pauses, resumes, stops or reaches the credits, the channel changes or someone
+  switches profile, so the lights can dim for a film. The docs have the Home Assistant set-up and
+  example automations. Update the Hub and the box to get it. (#113)
 - **What's new** ([CHANGELOG.md](CHANGELOG.md)): this list is now in the apps. The TV has Settings ›
   What's new, the setup page a What's new section, and after an update the TV's Home, the phone
   remote and the Android app (0.3.0, Settings › What's new) show what has changed since they last

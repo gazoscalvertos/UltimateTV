@@ -9,6 +9,7 @@ import { agent, agentHas } from "./agent";
 import { hub } from "./api";
 import { choose } from "./components/Dialog";
 import { onHubEvent } from "./events";
+import { markTvOff } from "./homeassistant";
 import { pauseAllMusic } from "./music";
 import { liveChannelId, nowPlaying, playerState, stopPlayback } from "./player";
 import { toast } from "./store";
@@ -68,7 +69,10 @@ async function goToSleep(): Promise<void> {
     }
     await stopPlayback();
     await pauseAllMusic();
-    if (agentHas("tvStandby")) await agent.tvStandby().catch(() => undefined);
+    if (agentHas("tvStandby")) {
+      await agent.tvStandby().catch(() => undefined);
+      markTvOff();
+    }
   } finally {
     fading = false;
     setSleepSignal(OFF);

@@ -51,6 +51,7 @@ export function AlertsSection() {
             </Show>
             <For each={st().expiries}>{(x) => <Row label={x.name} value={daysFromNow(x.at, Date.now())} hint="When the subscription runs out" />}</For>
             <Row label="Home Assistant webhook" hint={st().settings.webhookUrl || "A webhook URL from a Home Assistant automation (or anything taking a JSON POST). Easier to paste from the phone's Settings page"} value={st().settings.webhookUrl ? "Set" : "Not set"} icon="link" onSelect={() => void askUrl("Webhook URL", "webhookUrl")} />
+            <HaRows />
             <Row label="Phone notifications (ntfy)" hint={st().settings.ntfyUrl || "An ntfy topic address, such as https://ntfy.sh/your-own-topic, for alerts on a phone without Home Assistant"} value={st().settings.ntfyUrl ? "Set" : "Not set"} icon="phone" onSelect={() => void askUrl("ntfy topic URL", "ntfyUrl")} />
             <Row label="Warn before a subscription runs out" value={`${st().settings.expiryDays} days`} onSelect={() => void save({ expiryDays: cycle([3, 7, 14, 30], st().settings.expiryDays) })} />
             <Row label="Warn when the NAS has less than" value={`${st().settings.diskFreeGb} GB free`} onSelect={() => void save({ diskFreeGb: cycle([10, 20, 50, 100, 250], st().settings.diskFreeGb) })} />
@@ -63,6 +64,33 @@ export function AlertsSection() {
         )}
       </Show>
     </>
+  );
+}
+
+/** Home Assistant's playback events: lights that dim when a film starts. */
+function HaRows() {
+  const [ha, { mutate }] = createResource(() => hub.haSettings().catch(() => null));
+  const ask = async () => {
+    const v = await askText("Playback events webhook", ha()?.settings.webhookUrl ?? "");
+    if (v !== undefined) await hub.saveHa({ webhookUrl: v.trim() }).then(mutate, errorToast);
+  };
+  return (
+    <Show when={ha()}>
+      {(h) => (
+        <>
+          <Row
+            label="Playback events for Home Assistant"
+            hint={h().settings.webhookUrl || "A second webhook, told when a film starts, pauses, stops or reaches the credits, so the lights can follow. Easier to paste from the phone's Settings page"}
+            value={h().settings.webhookUrl ? "Set" : "Not set"}
+            icon="link"
+            onSelect={() => void ask()}
+          />
+          <Show when={h().settings.webhookUrl}>
+            <Row label="Send a test playback event" icon="bell" onSelect={() => void hub.testHa().then(() => toast("Test event sent", "good"), errorToast)} />
+          </Show>
+        </>
+      )}
+    </Show>
   );
 }
 

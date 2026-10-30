@@ -140,6 +140,19 @@ See [backup.md](backup.md). Update the Hub and the box first.
 - [ ] Reboot the box with the Hub stopped: it goes straight to the box's screen, not a blank one.
 - [ ] On Kids, stop the Hub: only Kids' downloads show, and no games.
 
+## 8f. Home Assistant both ways
+
+See [notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player). Update the Hub and the box first.
+
+- [ ] `curl -H "X-Api-Key: $UTV_KEY" http://192.168.0.19:8095/api/ha/state` with a film playing: `"state":"playing"`, the film's title, `media_position` close to where it is. Pause it on the TV: within 2 seconds the answer says `paused`. Without the key it's 401.
+- [ ] Add the `rest`, `rest_command` and `media_player` blocks to Home Assistant: `media_player.ultimatetv` shows the title, picture and position on a media card, and its play, pause, stop, next/previous (channel up/down) and volume buttons work the TV.
+- [ ] `rest_command.tv_command` with `command: select_source`, `value: "101"` (or a channel name) changes to that channel.
+- [ ] Make the webhook automation, paste its address into ⚙ Settings › Phones and remotes › Playback events webhook on the phone, and press Send a test event: the automation's trace shows a `started` film called Test film.
+- [ ] Start a film: the lights dim within a second or two. Pause: they come up a little; carry on: they dim again. Let it reach the credits (or skip to the last few minutes): they come up. The setup page shows the last event as sent.
+- [ ] Change channel on live TV: one `channel_changed` event, not a stop and a start. Switch profile: `profile_switched`.
+- [ ] Ring the doorbell (or turn the sensor on by hand) with a film playing: it pauses and the doorbell pop-up shows.
+- [ ] With the Pulse-Eight: `media_player.turn_off` puts the TV in standby and the state says `off`; `turn_on` wakes it.
+
 ## 9. The WAF test
 
 Hand over the remote with no instructions and ask for: watch BBC One; find tonight's film and record it; set a series link; carry on the film from yesterday; find a 4K comedy.
