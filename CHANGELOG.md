@@ -30,7 +30,7 @@ pop up what's new after an update. So:
   What's new, the setup page a What's new section, and after an update the TV's Home, the phone
   remote and the Android app (0.3.0, Settings › What's new) show what has changed since they last
   looked, once. Kids profiles don't get the pop-up. API: `GET /api/changelog?seen=<id>`. Update the
-  Hub to get it. (#CL)
+  Hub to get it. (#112)
 - **The phone remote sideways** ([docs/phone-remote.md](docs/phone-remote.md)): the remote turns to
   landscape in the browser, the installed web app and the Android app (0.6.0, which follows the
   phone's rotation lock). Sideways the d-pad sits in the middle with keys either side, the tabs move
