@@ -162,6 +162,15 @@
     </div>
   </section>
 
+  <section id="backup">
+    <h2>Hub backup <span class="pill" id="backup-pill">…</span></h2>
+    <p class="hint" id="backup-hint">Every night the Hub copies its settings, profiles, logins, series links and watch history to the NAS.</p>
+    <ul class="list" id="backup-list"></ul>
+    <div class="actions">
+      <button class="secondary small" type="button" id="backup-now">Back up now</button>
+    </div>
+  </section>
+
   <section id="theme">
     <h2>Theme <span class="pill" id="theme-pill"></span></h2>
     <p class="hint">The look of the TV, this remote and these pages. Tap one to try it: the TV changes straight away too.</p>
@@ -784,6 +793,45 @@ async function checkBox() {
   setTimeout(() => loadSoftware(false).catch(() => {}), 4000);
   setTimeout(() => loadSoftware(false).catch(() => {}), 12000);
 }
+// ---------------------------------------------------------------------------
+// The nightly backup (hub/src/backup.ts)
+
+const kb = (n) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+async function loadBackup(state) {
+  const b = state || (await api("/api/backup"));
+  if (b.running) pill("#backup-pill", "Backing up…", "warn");
+  else if (b.error) pill("#backup-pill", "Last one failed", "bad");
+  else if (!b.enabled) pill("#backup-pill", "Off");
+  else if (b.last) pill("#backup-pill", when(b.last.at), "ok");
+  else pill("#backup-pill", "None yet", "warn");
+  $("#backup-hint").textContent = [
+    b.error ? `The last try failed: ${b.error.message}.` : "",
+    b.enabled ? `Every night at ${b.time} the Hub copies its settings, profiles, logins, series links and watch history` : "Nightly backups are off (BACKUP=off on the Hub)",
+    b.onNas ? ` to the NAS (${b.dir}), keeping the last ${b.keep}.` : `, but the NAS isn't mounted in the Hub, so they're beside the Hub's own data (${b.dir}). Mount the NAS (docker-compose.override.yml) or set BACKUP_DIR.`,
+  ].join(" ").trim();
+  const list = $("#backup-list");
+  list.innerHTML = "";
+  for (const f of b.backups.slice(0, 7)) {
+    const restore = button("Restore", "secondary", async () => {
+      if (!confirm(`Put the Hub back to how it was on ${when(f.at)}? Anything changed since (new recordings planned, settings, watch history) goes back too. The Hub restarts, and keeps what it replaces in case you change your mind.`)) return;
+      try {
+        await api("/api/backup/restore", { method: "POST", body: { name: f.name } });
+        toast("Restoring. The Hub restarts and this page reloads in a minute.");
+        setTimeout(() => location.reload(), 30_000);
+      } catch (e) { toast(e.message, true); }
+    });
+    list.append(el("li", {}, el("span", {}, when(f.at), el("small", {}, `${kb(f.bytes)} · ${f.name}`)), restore));
+  }
+  if (b.backups.length > 7) list.append(el("li", {}, el("small", {}, `and ${b.backups.length - 7} older`)));
+  $("#backup-now").disabled = b.running;
+}
+$("#backup-now").onclick = async () => {
+  $("#backup-now").disabled = true;
+  pill("#backup-pill", "Backing up…", "warn");
+  try { await loadBackup(await api("/api/backup", { method: "POST" })); toast("The Hub is backed up."); }
+  catch (e) { toast(e.message, true); loadBackup().catch(() => {}); }
+};
+
 $("#sw-check").onclick = () => loadSoftware(true).then(checkBox).catch((e) => toast(e.message, true));
 $("#hub-update").onclick = async () => {
   if (!confirm("Update the Hub now? It restarts at the end, so the TV pauses for a minute while it comes back.")) return;
@@ -970,6 +1018,7 @@ async function load() {
   loadLists().catch(() => {});
   loadProfiles().catch(() => {});
   loadMix().catch(() => {});
+  loadBackup().catch(() => pill("#backup-pill", "Couldn't check"));
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);
   showAppName(s.appName);
   showLook(s);

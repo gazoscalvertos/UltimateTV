@@ -54,4 +54,6 @@ if (moved) {
   // Warnings before things break, and advert breaks in new recordings.
   app.jobs.alerts.start();
   app.jobs.adSkipper.start();
+  // A copy of the Hub's data on the NAS every night.
+  app.jobs.backups.start();
 }

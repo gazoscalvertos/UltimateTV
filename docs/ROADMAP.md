@@ -14,7 +14,7 @@ Gary asked for the whole app to be built before testing on the real hardware, so
 | 2. Recording and series link | Built, untested. |
 | 3. Unified films and TV | Built. Jellyfin playback has run on the box. |
 | 4. AIOStreams, TorBox, NAS pipeline, phone remote | Built. The phone remote is in daily use; TorBox and Save to NAS are untested. |
-| 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates). Automatic rollback, backups and the WAF test remain. |
+| 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates, nightly Hub backup, a screen for when the Hub is down). Automatic rollback and the WAF test remain. |
 | Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, sleep timer, alerts, Save for later, advert skip, seasonal clips: built, mostly untested. |
 
 ## What has run on real hardware
@@ -47,6 +47,7 @@ In the order of [TESTING.md](TESTING.md):
 - **Pop-ups from Home Assistant** (existing commands need the `X-Api-Key` header).
 - **Play queue, screensavers, Halloween and jump scares, Download to box, and a trip** with `travel.sh`.
 - **Cast and games:** AirPlay, a laptop's screen share (trust the Hub's certificate first), links from the phone, RetroArch, Moonlight, Steam Link and GeForce NOW. The sleep timer's CEC standby needs the Pulse-Eight.
+- **Hub backup and the Hub-down screen:** a backup lands on the NAS overnight, a restore from the phone, and the box's own screen when the Hub's container is stopped (`docker stop ultimatetv-hub`).
 - **Advert skip** on real UK recordings (comskip's settings may need tuning), and alerts reaching Home Assistant or ntfy.
 - **The WAF test:** watch BBC One, record tonight's film, set a series link, carry on yesterday's film, find a 4K comedy, with no help.
 
@@ -69,8 +70,7 @@ In the order of [TESTING.md](TESTING.md):
 From the plan, or raised along the way:
 
 - **Automatic rollback** when the box fails a health check after an update. Today the update takes a snapper snapshot first, but rolling back is by hand.
-- **Starting without the Hub:** the box loads the UI from the Hub each time and shows "Can't reach the Hub" when it can't; the plan wanted a cached copy.
-- **Backup and restore** of the Hub's data beyond Proxmox's own backups (the trip move-out archive is the nearest thing).
+- **The full TV app without the Hub:** the box now has its own screen for when the Hub is down (downloads, games, AirPlay), but the guide, library and live TV still need the Hub.
 - **A second-box install test**, and the Debian 13 fallback, which has never been tried.
 - **Jellyfin progress from the box's offline downloads** isn't sent back to Jellyfin while away.
 - **The Android app** has no Save to NAS or play queue yet.

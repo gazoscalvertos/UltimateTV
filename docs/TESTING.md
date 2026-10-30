@@ -99,6 +99,19 @@ controller pairing).
 - [ ] A recording from an ad-funded channel shows Skip adverts in its breaks (give comskip a few minutes after it finishes).
 - [ ] Settings › Seasonal clips › Try one now shows a projection; download one from Shared by others.
 
+## 8e. Hub backup and the box without the Hub
+
+See [backup.md](backup.md). Update the Hub and the box first.
+
+- [ ] Ten minutes after the Hub starts, `/mnt/nas/.ultimatetv-backups` (on the Docker LXC: `/mnt/nas/video/.ultimatetv-backups`) has an `ultimatetv-hub-….tar.gz`. Settings › About › Hub backup on the TV and ⚙ Settings › Hub backup on the phone show it, "on the NAS".
+- [ ] Back up now on the phone adds another; the next morning there's one from 03:30.
+- [ ] `bash tools/hub/update.sh` prints "Backed up to …" before it rebuilds.
+- [ ] Change something small (rename the app), then Restore the earlier backup from the phone: the Hub restarts within a minute and the old name is back. `bash tools/hub/restore.sh` lists the same files.
+- [ ] `docker stop ultimatetv-hub`: within a minute or so (nothing playing) the TV shows the box's own screen with the time, "Can't reach the Hub" and the downloads. Play one with OK; Back stops it.
+- [ ] `docker start ultimatetv-hub`: the TV app comes back by itself.
+- [ ] Reboot the box with the Hub stopped: it goes straight to the box's screen, not a blank one.
+- [ ] On Kids, stop the Hub: only Kids' downloads show, and no games.
+
 ## 9. The WAF test
 
 Hand over the remote with no instructions and ask for: watch BBC One; find tonight's film and record it; set a series link; carry on the film from yesterday; find a 4K comedy.

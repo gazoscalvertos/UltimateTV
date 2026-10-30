@@ -16,6 +16,7 @@ import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { movedAway, registerMove } from "./move.js";
+import { Backups, registerBackups } from "./backup.js";
 import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
 import { cleanAppName, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
@@ -60,7 +61,7 @@ export const HUB_BUILD = { commit: process.env.GIT_COMMIT || undefined, date: pr
 
 type Req<P = Record<string, string>, Q = Record<string, string | undefined>, B = unknown> = FastifyRequest<{ Params: P; Querystring: Q; Body: B }>;
 
-export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Promise<FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper } }> {
+export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Promise<FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper; backups: Backups } }> {
   // With a log ring the logger runs at LOG_LEVEL (debug by default): the rolling file in
   // data/logs gets everything, docker logs info and up.
   const app = Fastify({ logger: deps.logger ? (deps.logRing ? { level: deps.env?.LOG_LEVEL ?? "debug", stream: deps.logRing.stream } : true) : false, bodyLimit: 2 * 1024 * 1024 });
@@ -166,6 +167,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/screensaver/photos/:id", "paired"],
     ["POST /api/watchlist", "paired"],
     ["DELETE /api/watchlist/:id", "paired"],
+    ["GET /api/backup", "paired"],
     ["GET /api/alerts", "paired"],
     ["POST /api/alerts/check", "paired"],
     ["POST /api/alerts/test", "paired"],
@@ -234,6 +236,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/mix-channels/:id/videos/:videoId",
     "GET /api/screensaver/nas",
     "PUT /api/alerts/settings",
+    "POST /api/backup",
+    "POST /api/backup/restore",
     "PUT /api/adskip",
     "PUT /api/cast/settings",
   ]);
@@ -553,6 +557,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ctx.events.emit({ type: "sleep", choice });
     return { ok: true, tvConnected: tvSockets > 0 };
   });
+  const restartHub = deps.restart ?? (() => setTimeout(() => process.exit(0), 500));
+  // The nightly backup to the NAS (see backup.ts); it starts with the Hub's other jobs.
+  const backups = new Backups({ db: ctx.db, dataDir: config.dataDir, mediaRoot: config.mediaRoot, log, env: deps.env ?? {} });
+  registerBackups(app, backups, restartHub);
+  alerts.backups = () => backups.health();
   await registerMove(app, {
     db: ctx.db,
     dataDir: config.dataDir,
@@ -561,7 +570,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     pairingEnforced: pairing.enforced,
     travelFiles: () => ctx.mix.travelFiles(),
     mediaRoot: config.mediaRoot,
-    restart: deps.restart ?? (() => setTimeout(() => process.exit(0), 500)),
+    restart: restartHub,
   });
   /** A QR code for a web address the TV shows, such as Spotify's sign-in page. */
   app.get("/api/qr.svg", async (req: Req<Record<string, string>, { text?: string }>, reply) => {
@@ -1381,12 +1390,12 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   }
 
   app.decorate("hub", ctx);
-  app.decorate("jobs", { alerts, adSkipper });
+  app.decorate("jobs", { alerts, adSkipper, backups });
   app.addHook("onClose", async () => {
     alerts.stop();
     adSkipper.stop();
   });
-  return app as unknown as FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper } };
+  return app as unknown as FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper; backups: Backups } };
 }
 
 function marksFor(ctx: HubContext, from: number, to: number): Record<string, ProgrammeMark> {

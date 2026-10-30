@@ -30,9 +30,9 @@ import { nasRoots } from "./nasvideos.js";
 import { sendFile } from "./streaming.js";
 
 /** What travels with the Hub besides the database. Logs, caches and temp files stay behind. */
-const MOVED_DIRS = ["scare-clips", "notify-media", "probe-reports"];
+export const MOVED_DIRS = ["scare-clips", "notify-media", "probe-reports"];
 const DB_FILES = ["hub.db", "hub.db-wal", "hub.db-shm"];
-const RESTORE_FILE = "restore.tar.gz";
+export const RESTORE_FILE = "restore.tar.gz";
 const FRESH_PAIRING_MS = 15 * 60_000;
 const KV = "hub-moved";
 

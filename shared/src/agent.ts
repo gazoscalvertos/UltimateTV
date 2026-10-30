@@ -269,6 +269,18 @@ export interface BoxAgent {
   tvStandby(): Promise<void>;
   /** The player's volume, 0–100 (for fading out). */
   setVolume(percent: number): Promise<void>;
+
+  // The screen the box shows when the Hub is down (box/offline). Older box shells lack this.
+  /** Who's watching, so that screen only offers what this profile may see. */
+  offlineProfile(p: OfflineProfile): Promise<void>;
+}
+
+/** What the box's Hub-down screen may show: it follows the profile last used on the TV. */
+export interface OfflineProfile {
+  name: string;
+  kids: boolean;
+  /** For a Kids profile, the downloads it may watch. */
+  allowedDownloads?: string[];
 }
 
 declare global {

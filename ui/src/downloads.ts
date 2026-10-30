@@ -32,6 +32,15 @@ export function startDownloads(): void {
       () => setAllowedIds(new Set<string>()),
     );
   });
+  // The box's Hub-down screen offers the downloads this profile may watch.
+  if (agentHas("offlineProfile")) {
+    createEffect(() => {
+      const p = profile();
+      const allowed = allowedIds();
+      if (!p || (p.kind === "kids" && !allowed)) return;
+      void agent.offlineProfile({ name: p.name, kids: p.kind === "kids", ...(p.kind === "kids" ? { allowedDownloads: [...allowed!] } : {}) }).catch(() => undefined);
+    });
+  }
 }
 
 /** The downloads this profile may see, newest first. */
