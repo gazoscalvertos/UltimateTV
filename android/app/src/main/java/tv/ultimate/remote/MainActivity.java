@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -29,6 +30,7 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.OutputStream;
@@ -81,7 +83,9 @@ public class MainActivity extends Activity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setBackgroundColor(BG);
         int pad = dp(28);
-        box.setPadding(pad, dp(80), pad, pad);
+        // Less room above in landscape, and it scrolls, so Connect stays reachable with the keyboard up.
+        boolean landscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+        box.setPadding(pad, dp(landscape ? 24 : 80), pad, pad);
 
         TextView title = new TextView(this);
         title.setText("Connect to your Hub");
@@ -150,7 +154,11 @@ public class MainActivity extends Activity {
             go.onClick(v);
             return true;
         });
-        setContentView(box);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setBackgroundColor(BG);
+        scroll.setFillViewport(true);
+        scroll.addView(box);
+        setContentView(scroll);
     }
 
     private void showRemote() {

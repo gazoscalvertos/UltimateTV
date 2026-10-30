@@ -28,6 +28,19 @@ top. Moving from 0.1 or 0.2 to 0.3 needs the old app uninstalled first, once.
 
 To point it at a different Hub later, use **Change Hub** at the bottom of the remote.
 
+## Sideways
+
+Turn the phone on its side and the remote turns with it (the web app and the Android app from
+0.6.0; the Android app follows the phone's rotation lock). The d-pad sits in the middle with Home,
+Guide, Voice, Info, Back, 123 and Options on the left and the colour, play, channel and typing keys
+on the right, so a thumb on either side reaches its half. The tabs move to a rail down the right
+edge and Now Playing becomes a strip along the top. Everything fits without scrolling down to
+640 × 360; the screenshot run checks that.
+
+![The remote sideways](screenshots/110-phone-remote-landscape.png)
+![Sideways with the numbers open](screenshots/111-phone-remote-landscape-numbers.png)
+![The guide sideways](screenshots/112-phone-guide-landscape.png)
+
 ## Now playing
 
 When the TV is playing something, a card at the top of the remote shows it: the title, the

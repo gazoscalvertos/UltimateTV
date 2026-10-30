@@ -73,6 +73,7 @@
   .heard { min-height: 1.3em; text-align: center; color: var(--muted); font-size: 13px; margin: -4px 0 0; }
   .heard b { color: var(--fg); font-weight: 600; }
   [hidden] { display: none !important; }
+  .side { display: contents; }
   main { overflow-y: auto; }
   body { padding-bottom: calc(env(safe-area-inset-bottom) + 76px); }
   .np { display: grid; grid-template-columns: 64px 1fr; gap: 6px 12px; padding: 12px; margin-bottom: 10px; border-radius: 18px; background: linear-gradient(135deg, var(--panel-2), var(--panel)); border: 1px solid rgb(var(--hi) / .07); max-width: 420px; width: 100%; margin-left: auto; margin-right: auto; }
@@ -224,6 +225,61 @@
   .share-out { text-align: center; margin-top: 12px; }
   .share-out img { width: 200px; height: 200px; border-radius: 12px; background: #fff; }
   .btn-like { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 16px; border-radius: 12px; background: var(--panel-2); color: var(--fg); text-decoration: none; flex: 1; }
+  /* Landscape on a phone: the tab bar becomes a rail down the right, Now Playing a single strip,
+     and the remote three columns with the d-pad in the middle, so nothing needs scrolling to reach. */
+  @media (orientation: landscape) and (max-height: 540px) {
+    body { padding: 0 calc(env(safe-area-inset-right) + 84px) 8px calc(env(safe-area-inset-left) + 16px); }
+    header { height: 44px; flex: none; }
+    .tabbar { top: 0; left: auto; flex-direction: column; justify-content: center; width: calc(env(safe-area-inset-right) + 76px); padding: 8px calc(env(safe-area-inset-right) + 6px) 8px 6px; border-top: 0; border-left: 1px solid rgb(var(--hi) / .07); overflow-y: auto; }
+    .tabbar button, .tabbar a { flex: 1 1 0; max-height: 52px; min-height: 38px; height: auto; font-size: 10px; border-radius: 12px; }
+    .tabbar button svg, .tabbar a svg { width: 20px; height: 20px; }
+    .ptoast { bottom: 16px; }
+    .np { flex: none; max-width: none; grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1.2fr); grid-template-rows: auto auto; gap: 2px 12px; padding: 8px 10px; margin-bottom: 8px; }
+    .np-art { width: 44px; height: 44px; border-radius: 10px; }
+    .np-progress { grid-column: 2; }
+    .np-progress input { height: 18px; }
+    .np-controls { grid-column: 3; grid-row: 1 / span 2; align-self: center; gap: 6px; }
+    .np-controls button { height: 40px; }
+    main { max-width: 980px; }
+    #tab-remote { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; align-content: center; gap: 8px 22px; }
+    #tab-remote[hidden] { display: none; }
+    #install, #app-banner, #heard { grid-column: 1 / -1; }
+    #heard { margin: 0; min-height: 0; }
+    #heard:empty { display: none; }
+    .side { display: flex; flex-direction: column; gap: 12px; }
+    #pad { width: min(60vh, 250px); }
+    #numbers { grid-template-columns: repeat(5, 1fr); gap: 8px; }
+    #numbers span { display: none; }
+    #numbers button { height: 40px; font-size: 18px; }
+    .colours button { height: 34px; }
+    .r3 button, .r4 button, .media button, .rocker button { height: 48px; }
+    .text { grid-area: text; } .text input, .text button { height: 46px; }
+    #tab-remote > .hint { display: none; }
+    .browse { max-width: 760px; }
+    .sheet-body { max-width: 640px; margin: 0 auto; max-height: 92vh; }
+    .side button { min-width: 0; padding: 0; }
+  }
+  /* Small phones on their side: everything a notch smaller so it still fits without scrolling. */
+  @media (orientation: landscape) and (max-height: 380px) {
+    body { padding-right: calc(env(safe-area-inset-right) + 70px); padding-left: calc(env(safe-area-inset-left) + 10px); }
+    header { height: 38px; }
+    .tabbar { width: calc(env(safe-area-inset-right) + 64px); padding-left: 4px; padding-right: calc(env(safe-area-inset-right) + 4px); }
+    .tabbar button, .tabbar a { min-height: 34px; gap: 0; }
+    .np { grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1.2fr); padding: 6px 8px; margin-bottom: 4px; }
+    .np-art { width: 36px; height: 36px; }
+    #np-quality { display: none; }
+    .np-controls button { height: 36px; }
+    #tab-remote { gap: 6px 14px; }
+    .side { gap: 8px; }
+    #pad { width: min(58vh, 210px); }
+    .r3 button, .r4 button, .media button, .rocker button { height: 40px; }
+    .r3 button svg, .r4 button svg, .media svg { width: 20px; height: 20px; }
+    .row, .ch { gap: 8px; }
+    .colours button { height: 28px; }
+    .text input, .text button { height: 40px; }
+    .text button { width: 54px; }
+    #numbers button { height: 34px; }
+  }
 </style>
 <script src="/remote/pair.js"></script>
 </head>
@@ -255,6 +311,7 @@
   <a class="banner" id="app-banner" href="/api/remote/app.apk" hidden><span id="app-banner-text"></span><button class="x" id="app-banner-x" aria-label="Not now">×</button></a>
   <p class="heard" id="heard"></p>
 
+  <div class="side" id="side-left">
   <div class="row r4">
     <button data-key="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg>Home</button>
     <button data-key="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 10v9"/></svg>Guide</button>
@@ -262,13 +319,6 @@
     <button data-key="info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>Info</button>
   </div>
 
-  <div class="pad" id="pad">
-    <button class="up" data-key="up" data-repeat aria-label="Up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
-    <button class="left" data-key="left" data-repeat aria-label="Left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
-    <button class="ok" data-key="ok">OK</button>
-    <button class="right" data-key="right" data-repeat aria-label="Right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
-    <button class="down" data-key="down" data-repeat aria-label="Down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
-  </div>
 
   <div class="row r3">
     <button data-key="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>Back</button>
@@ -282,7 +332,17 @@
     <button data-key="digit7">7</button><button data-key="digit8">8</button><button data-key="digit9">9</button>
     <span></span><button data-key="digit0">0</button><span></span>
   </div>
+  </div>
 
+  <div class="pad" id="pad">
+    <button class="up" data-key="up" data-repeat aria-label="Up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
+    <button class="left" data-key="left" data-repeat aria-label="Left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <button class="ok" data-key="ok">OK</button>
+    <button class="right" data-key="right" data-repeat aria-label="Right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <button class="down" data-key="down" data-repeat aria-label="Down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+  </div>
+
+  <div class="side" id="side-right">
   <div class="row r4 colours">
     <button class="c-red" data-key="red" aria-label="Red"></button>
     <button class="c-green" data-key="green" aria-label="Green"></button>
@@ -307,6 +367,7 @@
     <input id="text-input" placeholder="Type to search on the TV" autocomplete="off" enterkeyhint="search">
     <button type="submit">Send</button>
   </form>
+  </div>
   <p class="hint">Hold an arrow to keep moving. Tap Voice and say “watch BBC One”, “search for Dune”, “pause” or “down three times”.</p>
 </main>
 <main class="browse" id="tab-browse" hidden>

@@ -14,8 +14,8 @@
   };
 
   const css = `
-    .utv-pair { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 24px; background: #070b14; color: #f3f6fb; font: 16px/1.4 Inter, "Noto Sans", Roboto, system-ui, sans-serif; user-select: text; -webkit-user-select: text; }
-    .utv-pair > div { width: 100%; max-width: 380px; }
+    .utv-pair { position: fixed; inset: 0; z-index: 9999; display: flex; padding: 24px; overflow-y: auto; background: #070b14; color: #f3f6fb; font: 16px/1.4 Inter, "Noto Sans", Roboto, system-ui, sans-serif; user-select: text; -webkit-user-select: text; }
+    .utv-pair > div { width: 100%; max-width: 380px; margin: auto; }
     .utv-pair h2 { margin: 0 0 8px; font-size: 24px; }
     .utv-pair p { margin: 0 0 18px; color: #9aa6bd; }
     .utv-pair input { box-sizing: border-box; width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #24324d; background: #0d1526; color: #f3f6fb; font: 700 24px/1 ui-monospace, Menlo, monospace; letter-spacing: 4px; text-align: center; text-transform: uppercase; }

@@ -765,6 +765,35 @@ try {
   await phone.waitForTimeout(500);
   await phone.screenshot({ path: path.join(out, "85-phone-sleep-timer.png") });
   console.log("  85-phone-sleep-timer.png");
+  // The remote turned sideways: d-pad in the middle, the tab bar down the side.
+  await phone.setViewportSize({ width: 915, height: 412 });
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
+  await phone.screenshot({ path: path.join(out, "110-phone-remote-landscape.png") });
+  console.log("  110-phone-remote-landscape.png");
+  await phone.click("#num-toggle");
+  await phone.waitForTimeout(300);
+  await phone.screenshot({ path: path.join(out, "111-phone-remote-landscape-numbers.png") });
+  console.log("  111-phone-remote-landscape-numbers.png");
+  await phone.click('[data-tab="browse"]');
+  await phone.waitForTimeout(1500);
+  await phone.screenshot({ path: path.join(out, "112-phone-guide-landscape.png") });
+  console.log("  112-phone-guide-landscape.png");
+  // Every remote button has to be on screen sideways, on big and small phones alike, numbers open or not.
+  for (const [width, height] of [[915, 412], [844, 390], [640, 360]]) {
+    await phone.setViewportSize({ width, height });
+    await phone.goto(`${base}/remote/`);
+    await phone.waitForTimeout(600);
+    for (const numbers of [false, true]) {
+      if (numbers) await phone.click("#num-toggle");
+      const off = await phone.evaluate(() => [...document.querySelectorAll("#tab-remote button, #tab-remote input, .tabbar > *")]
+        .filter((el) => el.offsetParent)
+        .filter((el) => { const r = el.getBoundingClientRect(); return r.top < 0 || r.left < 0 || r.bottom > innerHeight + 0.5 || r.right > innerWidth + 0.5; })
+        .map((el) => el.getAttribute("aria-label") || el.dataset.key || el.textContent.trim() || el.id));
+      if (off.length) errors.push(`phone ${width}x${height}${numbers ? " with numbers" : ""}: off screen: ${off.join(", ")}`);
+    }
+  }
+  await phone.setViewportSize({ width: 412, height: 915 });
   // The laptop's screen-share page.
   await phone.setViewportSize({ width: 1280, height: 800 });
   await phone.goto(`${base}/cast/`);
