@@ -9,7 +9,7 @@ import { idleMode, screensaverConfig } from "../idle";
 import { activeMusic, spotify, webApp } from "../music";
 import { artwork, landscape, svgUrl } from "../screensavers/pictures";
 import { SCENES } from "../screensavers/scenes";
-import { appName, now } from "../store";
+import { appName, now, reducedMotion } from "../store";
 import { weather } from "../weather";
 import { WeatherIcon } from "./WeatherIcon";
 
@@ -37,7 +37,10 @@ function SceneCanvas(props: { id: string }) {
       raf = requestAnimationFrame(tick);
     };
     frame(0, 0);
-    raf = requestAnimationFrame(tick);
+    // Reduce motion (Settings › Accessibility): the scene as a still picture, a few seconds in so
+    // whatever drifts in has arrived.
+    if (reducedMotion()) for (let t = 0.05; t <= 5; t += 0.05) frame(t, 0.05);
+    else raf = requestAnimationFrame(tick);
     onCleanup(() => cancelAnimationFrame(raf));
   });
   return <canvas class="saver-canvas" ref={canvas} />;

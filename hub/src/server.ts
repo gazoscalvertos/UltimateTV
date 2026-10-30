@@ -21,7 +21,7 @@ import { registerSubtitles } from "./subtitles.js";
 import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
 import { ChangelogFile, registerChangelog } from "./changelog.js";
-import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
+import type { AccessibilitySettings, BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
 import { cleanAppName, cleanSubtitleStyle, TV_APPS_METHODS, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
@@ -1285,7 +1285,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.patch(
     "/api/profiles/:id",
-    async (req: Req<{ id: string }, Record<string, string>, { name?: string; colour?: string; maxCertification?: Certification; channelCategories?: ChannelCategory[]; allowedChannels?: string[]; subtitles?: SubtitleMode; pin?: string | null }>, reply) => {
+    async (req: Req<{ id: string }, Record<string, string>, { name?: string; colour?: string; maxCertification?: Certification; channelCategories?: ChannelCategory[]; allowedChannels?: string[]; subtitles?: SubtitleMode; accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }>, reply) => {
       const p = ctx.profiles.update(req.params.id, req.body ?? {});
       if (!p) return reply.code(404).send({ error: "No such profile" });
       ctx.events.emit({ type: "profiles.changed" });

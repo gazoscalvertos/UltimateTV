@@ -4,10 +4,11 @@
 // rail lands where you left it, as on Sky and Netflix. A group with `data-focus-only="up"` (the
 // top menu) is only entered by pressing that direction.
 
+import { reducedMotion } from "./store";
+
 export type Direction = "up" | "down" | "left" | "right";
 
 const lastInGroup = new WeakMap<Element, HTMLElement>();
-const reduceMotion = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** The topmost layer: the last open dialog, else the current screen. */
 export function activeLayer(): HTMLElement {
@@ -99,7 +100,7 @@ document.addEventListener("focusin", (e) => {
 
 /** Scrolls rails sideways and pages up and down so the focused item is on screen. */
 export function reveal(el: HTMLElement): void {
-  const behavior: ScrollBehavior = reduceMotion ? "auto" : "smooth";
+  const behavior: ScrollBehavior = reducedMotion() ? "auto" : "smooth";
   const row = el.closest<HTMLElement>("[data-scroll-x]");
   if (row) {
     const pad = Number(row.dataset.scrollX) || 0;

@@ -2,8 +2,8 @@
 // rated up to its limit, can't change settings or delete recordings, and leaving it needs a PIN.
 
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import type { Certification, Channel, ChannelCategory, Profile, Programme, TitleDetails, TitleRef } from "@ultimatetv/shared";
-import { CERTIFICATIONS, SUBTITLE_MODES } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Certification, Channel, ChannelCategory, Profile, Programme, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import { CERTIFICATIONS, cleanAccessibility, DEFAULT_ACCESSIBILITY, isDefaultAccessibility, SUBTITLE_MODES } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 import { newId } from "./db.js";
 
@@ -96,7 +96,7 @@ export class ProfileStore {
     return this.pub(p);
   }
 
-  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles">> & { pin?: string | null }): Profile | undefined {
+  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }): Profile | undefined {
     const list = this.all();
     const p = list.find((x) => x.id === id);
     if (!p) return undefined;
@@ -112,6 +112,12 @@ export class ProfileStore {
     if (patch.subtitles !== undefined) {
       if (SUBTITLE_MODES.includes(patch.subtitles)) p.subtitles = patch.subtitles;
       else delete p.subtitles;
+    }
+    if (patch.accessibility !== undefined) {
+      // A partial change (one toggle from the phone) keeps the rest; null or all off clears it.
+      const a = patch.accessibility === null ? DEFAULT_ACCESSIBILITY : cleanAccessibility(patch.accessibility, p.accessibility ?? DEFAULT_ACCESSIBILITY);
+      if (isDefaultAccessibility(a)) delete p.accessibility;
+      else p.accessibility = a;
     }
     if (patch.pin === null) {
       delete p.pinHash;

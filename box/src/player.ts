@@ -2,6 +2,7 @@
 // PlayerState for the UI, and puts the TV in the right picture mode for each video.
 
 import type { AudioTrack, PlaybackSample, PlaybackStats, PlayerState, PlayOptions, SubtitleMode, SubtitleStyle, SubTrack, VideoLayout } from "@ultimatetv/shared";
+import { isAudioDescription } from "@ultimatetv/shared";
 import type { Display } from "./display.js";
 import type { Mpv } from "./mpv.js";
 
@@ -14,6 +15,8 @@ type MpvTrack = {
   "demux-channel-count"?: number;
   selected?: boolean;
   external?: boolean;
+  /** mpv 0.37+: the stream's "visual impaired" disposition (audio description). */
+  "visual-impaired"?: boolean;
 };
 
 type VideoParams = { w?: number; h?: number; gamma?: string; primaries?: string; colormatrix?: string; pixelformat?: string; "hw-pixelformat"?: string } | null;
@@ -36,6 +39,7 @@ export function tracksFrom(list: MpvTrack[]): { audio: AudioTrack[]; subs: SubTr
       if (t.title) a.title = t.title;
       if (t.codec) a.codec = t.codec;
       if (t["demux-channel-count"]) a.channels = t["demux-channel-count"];
+      if (isAudioDescription({ ...(t.title ? { title: t.title } : {}), visualImpaired: Boolean(t["visual-impaired"]) })) a.audioDescription = true;
       audio.push(a);
     } else if (t.type === "sub") {
       const s: SubTrack = { id: t.id, external: Boolean(t.external), selected: Boolean(t.selected) };

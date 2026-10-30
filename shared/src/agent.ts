@@ -12,6 +12,8 @@ export interface AudioTrack {
   title?: string;
   codec?: string;
   channels?: number;
+  /** The audio description track: a narrator describing what's on screen. */
+  audioDescription?: boolean;
   selected: boolean;
 }
 

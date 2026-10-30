@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { Changelog, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Changelog, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
 import type { AdSkipSettings, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -89,7 +89,7 @@ export const hub = {
   profiles: () => api<{ profiles: Profile[]; locked: boolean; current: string | null; admin: boolean }>("/api/profiles"),
   unlock: (id: string, pin?: string) => api<{ token: string; profile: Profile }>(`/api/profiles/${enc(id)}/unlock`, { method: "POST", body: { pin } }),
   createProfile: (name: string, kind: Profile["kind"]) => api<Profile>("/api/profiles", { method: "POST", body: { name, kind } }),
-  updateProfile: (id: string, patch: Partial<Profile> & { pin?: string | null }) => api<Profile>(`/api/profiles/${enc(id)}`, { method: "PATCH", body: patch }),
+  updateProfile: (id: string, patch: Partial<Omit<Profile, "accessibility">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }) => api<Profile>(`/api/profiles/${enc(id)}`, { method: "PATCH", body: patch }),
   deleteProfile: (id: string) => api<{ ok: true }>(`/api/profiles/${enc(id)}`, { method: "DELETE" }),
 
   home: () => api<HomeScreen>("/api/home"),

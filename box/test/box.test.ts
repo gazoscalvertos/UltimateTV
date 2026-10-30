@@ -94,6 +94,15 @@ describe("mpv", () => {
     expect(subs).toEqual([{ id: 1, lang: "eng", external: true, selected: false }]);
   });
 
+  it("marks the audio description track, by mpv's flag or its name", () => {
+    const { audio } = tracksFrom([
+      { id: 1, type: "audio", lang: "eng", selected: true },
+      { id: 2, type: "audio", lang: "eng", "visual-impaired": true },
+      { id: 3, type: "audio", lang: "eng", title: "English (Audio Description)" },
+    ]);
+    expect(audio.map((a) => a.audioDescription ?? false)).toEqual([false, true, true]);
+  });
+
   it("puts the video in the guide's preview window", () => {
     expect(marginsFor({ mode: "fullscreen" }, { width: 1920, height: 1080 })).toEqual([0, 0, 0, 0]);
     expect(marginsFor({ mode: "window", x: 96, y: 108, width: 480, height: 270 }, { width: 1920, height: 1080 })).toEqual([0.05, 0.7, 0.1, 0.65]);

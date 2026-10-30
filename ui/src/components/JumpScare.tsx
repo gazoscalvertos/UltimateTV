@@ -13,7 +13,7 @@ import { hub } from "../api";
 import { onHubEvent } from "../events";
 import { addOverlayKeys } from "../keys";
 import { isLive, playerState } from "../player";
-import { isKids } from "../store";
+import { isKids, reducedMotion } from "../store";
 
 /** How often the TV asks itself whether it's time for a scare. */
 const TICK_MS = 60_000;
@@ -120,7 +120,8 @@ export function JumpScare() {
   };
 
   const show = (scare: Scare) => {
-    if (isKids() || document.hidden) return;
+    // Reduce motion (Settings › Accessibility): no frights at all, even ones sent from a phone.
+    if (isKids() || document.hidden || reducedMotion()) return;
     lastAt = Date.now();
     setShowing(scare);
     // A sound of its own plays from the page; otherwise a Halloween picture (or nothing at all) screeches.
@@ -132,7 +133,7 @@ export function JumpScare() {
   /** True when a random scare would be welcome right now. */
   const dueNow = (): boolean => {
     const s = settings();
-    if (!s.enabled || isKids() || showing() || document.hidden || state().looping) return false;
+    if (!s.enabled || isKids() || reducedMotion() || showing() || document.hidden || state().looping) return false;
     if (Date.now() - lastAt < s.minGapMinutes * 60_000) return false;
     const playing = playerState().status === "playing";
     if (s.whilePlayingOnly && !playing) return false;
@@ -143,7 +144,7 @@ export function JumpScare() {
   builtClips = {
     count: (theme) => state().mixes.filter((m) => mixTheme(m) === theme).length,
     show: (theme) => {
-      if (isKids() || showing() || state().looping) return false;
+      if (isKids() || reducedMotion() || showing() || state().looping) return false;
       const mixes = state().mixes.filter((m) => mixTheme(m) === theme);
       const pick = mixes[Math.floor(Math.random() * mixes.length)];
       const scare = pick && scareFrom(state(), { mixId: pick.id }, false);

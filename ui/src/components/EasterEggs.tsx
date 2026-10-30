@@ -11,7 +11,7 @@
 import { createSignal, For, onCleanup } from "solid-js";
 import type { Action } from "@ultimatetv/shared";
 import { useKeys } from "../keys";
-import { isKids, setTheme, theme, toast } from "../store";
+import { isKids, reducedMotion, setTheme, theme, toast } from "../store";
 import { Ghost } from "./Halloween";
 
 const KONAMI: Action[] = ["up", "up", "down", "down", "left", "right", "left", "right"];
@@ -65,7 +65,8 @@ export function EasterEggs() {
 
   const booGhosts = () => {
     wail();
-    for (let i = 0; i < 3; i++) {
+    // Reduce motion: the wail without the ghosts flying up the screen.
+    for (let i = 0; i < (reducedMotion() ? 0 : 3); i++) {
       const ghost = { id: next++, from: 15 + i * 30 + Math.random() * 10 };
       later(() => {
         setGhosts((list) => [...list, ghost]);

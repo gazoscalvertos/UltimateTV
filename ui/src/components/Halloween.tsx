@@ -6,7 +6,7 @@
 
 import { createSignal, For, onCleanup, Show } from "solid-js";
 import { nowPlaying } from "../player";
-import { isKids, theme } from "../store";
+import { isKids, reducedMotion, theme } from "../store";
 
 /** A bat, every half a minute or so, crossing the screen at a height of its own. */
 interface Bat {
@@ -44,7 +44,7 @@ export function Halloween() {
   const [bats, setBats] = createSignal<Bat[]>([]);
   let next = 1;
   // Bats only come out on the menus: nobody wants one flapping across the film.
-  const on = () => theme() === "halloween" && !nowPlaying();
+  const on = () => theme() === "halloween" && !nowPlaying() && !reducedMotion();
 
   const timer = window.setInterval(() => {
     if (!on() || bats().length > 2) return;

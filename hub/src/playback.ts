@@ -3,7 +3,7 @@
 
 import { randomBytes } from "node:crypto";
 import type { Channel, PlaybackInfo, PlaybackRequest, StreamCandidate, TitleRef } from "@ultimatetv/shared";
-import { episodeLabel } from "@ultimatetv/shared";
+import { episodeLabel, skipMarkersFrom } from "@ultimatetv/shared";
 import { adSkipSettings } from "./adskip.js";
 import { catchupUrl } from "./catchup.js";
 import type { HubContext } from "./context.js";
@@ -291,9 +291,7 @@ export class Playback {
           if (s.Type === "Subtitle" && s.IsExternal && src) info.externalSubtitles.push({ url: jf.subtitleUrl(itemId, src.Id, s.Index, s.Codec), lang: s.Language ?? "und", label: s.DisplayTitle ?? s.Language ?? "Subtitles" });
         }
         const segments = await jf.segments(itemId);
-        info.skip = segments
-          .filter((s) => /intro|recap|outro|credits/i.test(s.Type))
-          .map((s) => ({ kind: /intro/i.test(s.Type) ? "intro" : /recap/i.test(s.Type) ? "recap" : "credits", startMs: ticksToMs(s.StartTicks), endMs: ticksToMs(s.EndTicks) }));
+        info.skip = skipMarkersFrom(segments);
         info.progressKey = `jellyfin:${itemId}`;
         if (pc.smaller) {
           info.url = jf.hlsUrl(itemId, src?.Id, randomBytes(8).toString("hex"));

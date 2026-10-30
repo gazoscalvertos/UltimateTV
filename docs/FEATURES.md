@@ -29,6 +29,8 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 - Discovery titles only show when an addon can play them.
 - Home: a hero, your play queue, live now, continue watching, recently recorded, films on TV tonight, trending and recently added.
 - Player: seek bar, skip intro, audio and subtitle tracks (Yellow), resume and Start again, Up Next with a countdown.
+- **Skip intro everywhere** ([watching-extras.md](watching-extras.md#skip-intro-everywhere)): Jellyfin's Intro Skipper plugin marks intros, recaps and credits across the library (`tools/jellyfin/intro-skipper.mjs` installs and checks it); marked credits bring Up Next in 15 seconds after they start.
+- **Accessibility** ([accessibility.md](accessibility.md)): per profile, the audio description track when there is one, text at 125% or 150%, a bold yellow focus ring and reduced motion (no sliding screens, projected clips, jump scares or moving screensavers). Also on the phone's setup page.
 - **Trailers and review scores** ([watching-extras.md](watching-extras.md)): a Trailer button (TMDB's official trailer, played by mpv through yt-dlp) and TMDB, IMDb, Rotten Tomatoes and Metacritic scores (OMDb key) on every film and series page.
 - **More like this** under each title and a **Because you watched** rail on Home, from TMDB's recommendations, kept to what a source can play and what the profile may see.
 - **Subtitles** ([watching-extras.md](watching-extras.md)): on, off or only for other languages per profile; missing ones fetched from OpenSubtitles by themselves or picked from Options › Find more online; size, a dark box, yellow and a raised position for an 85" screen.

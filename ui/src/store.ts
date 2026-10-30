@@ -1,7 +1,7 @@
 // App-wide state: where we are, who's watching, toasts and dialogs.
 
 import { createSignal, type JSX } from "solid-js";
-import { DEFAULT_APP_NAME, isThemeName, themeInfo, type MusicItem, type Profile, type ThemeName } from "@ultimatetv/shared";
+import { cleanAccessibility, DEFAULT_APP_NAME, isThemeName, themeInfo, type AccessibilitySettings, type MusicItem, type Profile, type ThemeName } from "@ultimatetv/shared";
 
 export type Route =
   | { name: "profiles" }
@@ -113,8 +113,44 @@ export function previewTheme(name: ThemeName | null): void {
   wear(next);
 }
 
-export const [profile, setProfile] = createSignal<Profile | null>(null);
+const [profile, setProfileSignal] = createSignal<Profile | null>(null);
+export { profile };
 export const isKids = () => profile()?.kind === "kids";
+
+// Accessibility (Settings › Accessibility) belongs to the profile watching. The last one worn is
+// remembered, so the profile picker and the offline screen keep the bigger text.
+function readAccessibility(): AccessibilitySettings {
+  try {
+    return cleanAccessibility(JSON.parse(localStorage.getItem("utv-a11y") ?? "null"));
+  } catch {
+    return cleanAccessibility(null);
+  }
+}
+const [accessibility, setAccessibilitySignal] = createSignal<AccessibilitySettings>(readAccessibility());
+export { accessibility };
+const systemReducedMotion = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** Nothing moving that doesn't have to: the profile asked, or the system did. */
+export const reducedMotion = () => accessibility().reducedMotion || systemReducedMotion;
+/** Puts the text size, focus ring and motion on the page. */
+export function wearAccessibility(a: AccessibilitySettings): void {
+  setAccessibilitySignal(a);
+  const root = document.documentElement;
+  root.style.setProperty("--ts", String(a.textScale / 100));
+  root.dataset.textScale = String(a.textScale);
+  root.classList.toggle("high-contrast", a.highContrast);
+  root.classList.toggle("reduce-motion", a.reducedMotion);
+  try {
+    localStorage.setItem("utv-a11y", JSON.stringify(a));
+  } catch {
+    // Nothing to remember it with: the profile brings it back.
+  }
+}
+wearAccessibility(accessibility());
+/** Who's watching, and their accessibility settings with them. */
+export function setProfile(p: Profile | null): void {
+  setProfileSignal(p);
+  if (p) wearAccessibility(cleanAccessibility(p.accessibility));
+}
 
 // ---------------------------------------------------------------------------
 // Toasts
