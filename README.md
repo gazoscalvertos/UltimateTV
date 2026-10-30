@@ -50,8 +50,9 @@ Guides for each feature are linked from the steps below.
 10. **Halloween:** the theme, Spooky TV's ghosts and ghostly sounds, hidden easter eggs and jump scares cut into whatever is on ([docs/halloween.md](docs/halloween.md)). Out of season, the same clips become **projected clips** for Christmas, Easter, Valentine's, birthdays and fireworks, with starter packs and shareable packs ([docs/projected-clips.md](docs/projected-clips.md)).
 11. **Trips:** take the box away and the Hub goes with it for a while, then comes home with what changed ([docs/travel.md](docs/travel.md)). Download films and episodes onto the box first ([docs/downloads.md](docs/downloads.md)).
 12. **Other screens and games:** AirPlay from an iPhone or Mac, a laptop's screen from its browser, links and photos from a phone, and RetroArch, Moonlight, Steam Link and GeForce NOW ([docs/casting-and-games.md](docs/casting-and-games.md)).
-13. **Everyday extras:** button hints, the sleep timer, alerts before things break, Save for later, advert skipping and seasonal clips ([docs/everyday-extras.md](docs/everyday-extras.md)).
-14. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
+13. **TV apps, trailers and subtitles:** Netflix and the TV's other apps one press away, trailers, review scores, More like this, and subtitles from OpenSubtitles that are big enough to read ([docs/watching-extras.md](docs/watching-extras.md)).
+14. **Everyday extras:** button hints, the sleep timer, alerts before things break, Save for later, advert skipping and seasonal clips ([docs/everyday-extras.md](docs/everyday-extras.md)).
+15. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 
 ## Development
 

@@ -41,6 +41,8 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 3. Something from AIOStreams/TorBox plays. **Save to NAS** downloads it, it appears in Recordings › Downloads, then in Jellyfin.
    Also try Red in Versions, Options › Keep a copy while it plays, an episode's Save to NAS and the phone's Save button. The TV should say "saved and in Jellyfin" (see [save-to-nas.md](save-to-nas.md)).
 4. A series: seasons and episodes, Up Next at the end of an episode.
+5. With an OMDb key on the setup page: a film's page shows TMDB, IMDb and Rotten Tomatoes scores. **Trailer** plays the trailer in mpv; Back stops it. **More like this** lists only titles that can play, and Home has **Because you watched** after playing something ([watching-extras.md](watching-extras.md)).
+6. With an OpenSubtitles key: a TorBox or IPTV film with no subtitles, on a profile with Subtitles On, gets subtitles a few seconds in ("Subtitles added from OpenSubtitles"). Yellow › Subtitles › Find more online lists others; pick one and check the timing. Settings › Picture and sound › Subtitle size, Dark box and Raised change them while the film plays.
 
 ## 6. Profiles
 
@@ -66,6 +68,7 @@ Update the box first (Settings › About › Update the box): the update builds 
 1. Plug it in between the box and the TV, turn on CEC on the TV.
 2. Every button: arrows, OK, Back, Home, the colour keys, numbers, channel up and down, play/pause, rewind and fast forward, Guide and Info. Note any that do nothing.
 3. Turn the TV off: playback stops. Turn it on: the TV switches to the box.
+4. **TV apps** along the top: after the note, the TV leaves for its own Home (Netflix and the rest). Input › UltimateTV comes back to Home. If the TV stays put, try the other ways in Settings › Picture and sound › TV apps button, and note which one the Hisense needs ([watching-extras.md](watching-extras.md)).
 
 ## 8. Music video channels
 

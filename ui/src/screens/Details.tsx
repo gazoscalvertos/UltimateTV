@@ -1,19 +1,19 @@
-// A film or series: artwork, the best version ready to play, every other version (library,
-// IPTV, TorBox via AIOStreams), seasons and episodes, Add to queue, Save to NAS (kept for good and
-// added to Jellyfin; Red in Versions saves that exact version), and Download to box (onto the
-// box's own disk, to watch away from home).
+// A film or series: artwork, review scores, the trailer, the best version ready to play, every
+// other version (library, IPTV, TorBox via AIOStreams), seasons and episodes, More like this, Add
+// to queue, Save to NAS (kept for good and added to Jellyfin; Red in Versions saves that exact
+// version), and Download to box (onto the box's own disk, to watch away from home).
 
 import { createEffect, createResource, createSignal, For, Show } from "solid-js";
-import type { Episode, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import type { Episode, TitleDetails, TitleRef, TitleScore } from "@ultimatetv/shared";
 import { durationLabel, episodeLabel, formatBytes } from "@ultimatetv/shared";
 import { hub, type StreamRow } from "../api";
 import { choose, DialogFrame } from "../components/Dialog";
 import { Icon } from "../components/Icon";
-import { Progress } from "../components/Rail";
+import { Progress, RailRow } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { useHints } from "../hints";
 import { useKeys } from "../keys";
-import { play } from "../player";
+import { play, playLink } from "../player";
 import { addToQueue } from "../queue";
 import { allEpisodes, canDownload, downloadLabel, downloadOf, downloadToBox, episodeRequest, episodesOf, filmRequest } from "../downloads";
 import { canSave, saveEpisodes, saveToNas } from "../save";
@@ -91,8 +91,17 @@ export function chooseVersion(title: TitleDetails, episodeId?: string): Promise<
   });
 }
 
+/** A score's colour: green when it's good, amber in the middle, red when it isn't. */
+const scoreTone = (s: TitleScore) => (s.pct >= 70 ? "good" : s.pct >= 50 ? "mid" : "low");
+
 export function Details(props: { id: string }) {
   const [d] = createResource(() => props.id, (id) => hub.title(id));
+  // The trailer, scores and More like this come after the page, as they can take a moment.
+  const [extras] = createResource(() => props.id, (id) => hub.extras(id).catch(() => null));
+  const playTrailer = () => {
+    const t = extras()?.trailer;
+    if (t) void playLink(t.url, t.name);
+  };
   const [streams] = createResource(
     () => (d()?.kind === "movie" ? d()!.id : null),
     (id) => hub.streams(id).catch(() => ({ streams: [] as StreamRow[] })),
@@ -285,12 +294,23 @@ export function Details(props: { id: string }) {
                   <For each={[t().year, t().certification, t().runtimeMin ? durationLabel(t().runtimeMin! * 60_000) : null, t().kind === "series" && t().seasons?.some((s) => s.season > 0) ? `${t().seasons!.filter((s) => s.season > 0).length} series` : null, t().genres.slice(0, 3).join(", ")].filter(Boolean)}>
                     {(m) => <span>{m}</span>}
                   </For>
-                  <Show when={t().rating}>
+                  <Show when={t().rating && !extras()?.scores.length}>
                     <span class="rating">
                       <Icon name="star" /> {t().rating}
                     </span>
                   </Show>
                 </p>
+                <Show when={extras()?.scores.length}>
+                  <p class="details-scores">
+                    <For each={extras()!.scores}>
+                      {(sc) => (
+                        <span class={`score score-${sc.source} score-${scoreTone(sc)}`}>
+                          <b>{sc.label}</b> {sc.value}
+                        </span>
+                      )}
+                    </For>
+                  </p>
+                </Show>
                 <p class="details-badges">
                   <Show when={primary()}>
                     {(p) => (
@@ -325,6 +345,11 @@ export function Details(props: { id: string }) {
                   <Show when={t().resumeMs}>
                     <button class="btn btn-large" data-focus onClick={() => playMain(true)}>
                       <Icon name="restart" /> Start again
+                    </button>
+                  </Show>
+                  <Show when={extras()?.trailer}>
+                    <button class="btn btn-large" data-focus onClick={playTrailer}>
+                      <Icon name="trailer" /> Trailer
                     </button>
                   </Show>
                   <Show when={t().kind === "movie"}>
@@ -420,6 +445,10 @@ export function Details(props: { id: string }) {
                     </Show>
                   </div>
                 </section>
+              </Show>
+
+              <Show when={extras()?.similar.length}>
+                <RailRow rail={{ id: "similar", title: "More like this", kind: "titles", items: extras()!.similar }} />
               </Show>
             </div>
           </>

@@ -5,8 +5,8 @@ How UltimateTV fits together as of 2026-10-29 (main at PR #60). [PLAN.md](PLAN.m
 ## The pieces
 
 ```
-                 Internet: IPTV (M3U / Xtream + XMLTV), TMDB, AIOStreams / Stremio addons,
-                 TorBox, YouTube (yt-dlp), GitHub (update checks), Spotify, Deezer
+                 Internet: IPTV (M3U / Xtream + XMLTV), TMDB, OMDb, OpenSubtitles, AIOStreams /
+                 Stremio addons, TorBox, YouTube (yt-dlp), GitHub (update checks), Spotify, Deezer
                                               │
 ┌────────────────────────────── Home network ─┼────────────────────────────────────────────────┐
 │                                             ▼                                                │
@@ -56,7 +56,8 @@ One Node process owns everything that has to be always on or has to be shared. I
 | Sources | `ingest/m3u.ts`, `ingest/xtream.ts`, `ingest/xmltv.ts`, `channels.ts`, `epg.ts` | Read playlists and XMLTV (streamed with `sax`), merge duplicate channels into one channel with ranked feeds, normalise names, map EPG ids, quality badges |
 | Live TV | `connections.ts`, `relay.ts`, `streaming.ts`, `catchup.ts` | The **connection guard** leases the provider's stream slots (one on Gary's plan) across viewing, recording, catch-up and VOD. The relay opens one upstream per channel and fans it out to the box and the recorder, falling back to the next feed when one drops |
 | Recording | `scheduler.ts`, `recorder.ts`, `serieslink.ts`, `recordings.ts` | Timers, series links matched on series keys, clash handling against the connection limit, ffmpeg stream copy to the NAS, Jellyfin rescans |
-| Films & TV | `library.ts`, `services/jellyfin.ts`, `services/stremio.ts`, `services/torbox.ts`, `services/tmdb.ts`, `shared/src/ranking.ts` | One title however many places it lives, home rails, search, and the ranked Versions list (library first) |
+| Films & TV | `library.ts`, `services/jellyfin.ts`, `services/stremio.ts`, `services/torbox.ts`, `services/tmdb.ts`, `services/omdb.ts`, `shared/src/ranking.ts` | One title however many places it lives, home rails, search, the ranked Versions list (library first), and each title's trailer, scores and More like this (`/api/titles/:id/extras`) |
+| Subtitles | `subtitles.ts`, `services/opensubtitles.ts` | Searches OpenSubtitles by IMDb or TMDB id, downloads a file once and serves it to mpv |
 | Downloads | `services/downloads.ts`, `/api/offline` | Save to NAS (TorBox/AIOStreams to Jellyfin naming, then a Jellyfin rescan), the SMB/SFTP Inbox tidy, and offline copies for the Android app and the box |
 | People | `profiles.ts`, `pairing.ts`, `progress.ts`, `queue.ts`, `guides.ts` | Profiles with PINs and the Kids filter, paired devices and the API key, resume points, the household play queue, custom guides |
 | Music channels | `mixchannels.ts`, `ytdlp.ts`, `mixseeds.ts`, `cropdetect.ts`, `nasvideos.ts` | Made-up live channels of music videos downloaded with yt-dlp (or linked from the NAS), shuffled schedules, black-bar detection |
@@ -73,7 +74,7 @@ The box holds no household state, so a new one only needs the installer and the 
 - **Two windows, one picture:** mpv draws video in its own full-screen window underneath; the Electron window is transparent and the UI cuts a hole where the video shows (`box/src/main.ts`, `mpv.ts`, `player.ts`).
 - **Display:** `display.ts` sets the refresh rate per title with `kscreen-doctor` (adding a reduced-blanking custom mode at a whole multiple of 24p when the screen has none), switches HDR for HDR video, and keeps the output at scale ×1.
 - **Sound:** `audio.ts` moves the sound card to the connected HDMI output; mpv passes Dolby and DTS through (`--audio-spdif`).
-- **Remote:** the Pulse-Eight adapter is attached by `inputattach` (a udev rule and `ultimatetv-cec-attach@.service`); the kernel turns its keys into key presses with `cec-keymap.toml`, and `cec.ts` registers the box, wakes the TV and watches for standby.
+- **Remote:** the Pulse-Eight adapter is attached by `inputattach` (a udev rule and `ultimatetv-cec-attach@.service`); the kernel turns its keys into key presses with `cec-keymap.toml`, and `cec.ts` registers the box, wakes the TV, watches for standby and hands the screen back to the TV's own apps (TV apps).
 - **Hub down:** the shell shows a "Can't reach the Hub" page and keeps retrying. The UI is loaded from the Hub each time, not cached.
 - **Extras:** `downloads.ts` (Download to box), `spotify.ts` (go-librespot as a Spotify Connect speaker), `webapp.ts` (Deezer's web player in a view over the UI with arrow-key focus), `diagnostics.ts` (log and playback samples to the Hub), `updates.ts` (version checks and Settings › About › Update the box).
 - **Updates:** a weekly systemd timer (Monday 4 am) takes a snapper snapshot when the root is btrfs, upgrades the OS, pulls the app and reruns the installer.

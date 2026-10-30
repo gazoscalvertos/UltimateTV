@@ -27,6 +27,8 @@ import { DownloadManager } from "./services/downloads.js";
 import { JellyfinClient, type JellyfinAuth } from "./services/jellyfin.js";
 import { AddonClient } from "./services/stremio.js";
 import { TmdbClient } from "./services/tmdb.js";
+import { OmdbClient } from "./services/omdb.js";
+import { OpenSubtitlesClient } from "./services/opensubtitles.js";
 import { TorboxClient } from "./services/torbox.js";
 import { defaultSettings, SettingsStore, settingsFromEnv } from "./settings.js";
 import { StreamProxy } from "./streaming.js";
@@ -78,6 +80,8 @@ export class HubContext {
 
   private jf: JellyfinClient | null = null;
   private tm: TmdbClient | null = null;
+  private om: OmdbClient | null = null;
+  private os: OpenSubtitlesClient | null = null;
   private tb: TorboxClient | null = null;
   private addonClients: AddonClient[] = [];
 
@@ -166,6 +170,8 @@ export class HubContext {
   private rebuildClients(s: Settings): void {
     this.jf = s.jellyfin ? new JellyfinClient(s.jellyfin, this.fetchImpl) : null;
     this.tm = s.tmdbApiKey ? new TmdbClient(s.tmdbApiKey, this.db, this.fetchImpl) : null;
+    this.om = s.omdbApiKey ? new OmdbClient(s.omdbApiKey, this.db, this.fetchImpl) : null;
+    this.os = s.openSubtitles?.apiKey ? new OpenSubtitlesClient(s.openSubtitles, this.db, this.fetchImpl, this.log) : null;
     this.tb = s.torboxApiKey ? new TorboxClient(s.torboxApiKey, this.fetchImpl) : null;
     this.addonClients = s.addonUrls.map((u) => new AddonClient(u, this.fetchImpl));
   }
@@ -176,6 +182,14 @@ export class HubContext {
 
   tmdb(): TmdbClient | null {
     return this.tm;
+  }
+
+  omdb(): OmdbClient | null {
+    return this.om;
+  }
+
+  openSubtitles(): OpenSubtitlesClient | null {
+    return this.os;
   }
 
   torbox(): TorboxClient | null {

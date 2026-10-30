@@ -15,8 +15,9 @@ import { Alerts, registerAlerts } from "./alerts.js";
 import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
+import { registerSubtitles } from "./subtitles.js";
 import { movedAway, registerMove } from "./move.js";
-import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
+import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
 import { cleanAppName, cleanSubtitleStyle, TV_APPS_METHODS, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
@@ -165,6 +166,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/screensaver/photos", "paired"],
     ["GET /api/screensaver/photos/:id", "paired"],
     ["POST /api/watchlist", "paired"],
+    ["POST /api/subtitles/download", "paired"],
     ["DELETE /api/watchlist/:id", "paired"],
     ["GET /api/alerts", "paired"],
     ["POST /api/alerts/check", "paired"],
@@ -405,6 +407,15 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (body.addonUrls) patch.addonUrls = body.addonUrls.map((u) => u.trim()).filter(Boolean);
     if (body.tmdbApiKey !== undefined) patch.tmdbApiKey = body.tmdbApiKey.trim();
     if (body.torboxApiKey !== undefined) patch.torboxApiKey = body.torboxApiKey.trim();
+    if (body.omdbApiKey !== undefined) patch.omdbApiKey = body.omdbApiKey.trim();
+    if (body.openSubtitles !== undefined) {
+      // The setup page sends what was typed: a blank key leaves the old one, a blank username signs out.
+      const o = body.openSubtitles ?? { apiKey: "" };
+      const apiKey = String(o.apiKey ?? "").trim() || s.openSubtitles?.apiKey || "";
+      const username = o.username !== undefined ? String(o.username).trim() : s.openSubtitles?.username;
+      const password = o.password ? String(o.password) : username ? s.openSubtitles?.password : undefined;
+      patch.openSubtitles = { apiKey, ...(username && password ? { username, password } : {}) };
+    }
     if (body.library) patch.library = { ...s.library, ...body.library };
     if (body.recording) patch.recording = { ...s.recording, ...body.recording };
     if (body.playback) {
@@ -995,6 +1006,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // The play queue: what plays after this, ahead of the next episode.
   registerQueue(app, ctx, filterOf);
+  registerSubtitles(app, ctx, (id, f) => library.details(id, f), filterOf, hubBase);
   registerWatchlist(
     app,
     watchlist,
@@ -1205,7 +1217,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.patch(
     "/api/profiles/:id",
-    async (req: Req<{ id: string }, Record<string, string>, { name?: string; colour?: string; maxCertification?: Certification; channelCategories?: ChannelCategory[]; allowedChannels?: string[]; pin?: string | null }>, reply) => {
+    async (req: Req<{ id: string }, Record<string, string>, { name?: string; colour?: string; maxCertification?: Certification; channelCategories?: ChannelCategory[]; allowedChannels?: string[]; subtitles?: SubtitleMode; pin?: string | null }>, reply) => {
       const p = ctx.profiles.update(req.params.id, req.body ?? {});
       if (!p) return reply.code(404).send({ error: "No such profile" });
       ctx.events.emit({ type: "profiles.changed" });
@@ -1244,6 +1256,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   app.get("/api/browse/:kind", async (req: Req<{ kind: "movie" | "series" }>) => ({ rails: await library.browse(req.params.kind === "series" ? "series" : "movie", filterOf(req)) }));
   app.get("/api/titles/:id", async (req: Req<{ id: string }>) => library.details(req.params.id, filterOf(req)));
+  app.get("/api/titles/:id/extras", async (req: Req<{ id: string }>) => library.extras(req.params.id, filterOf(req)));
   app.get("/api/titles/:id/season/:n", async (req: Req<{ id: string; n: string }>, reply) => {
     const season = await library.season(req.params.id, Number(req.params.n), filterOf(req));
     if (!season) return reply.code(404).send({ error: "No such season" });

@@ -1,6 +1,6 @@
 // TMDB client for artwork, discovery rails and metadata. Responses are cached in SQLite.
 
-import type { Episode, Season, TitleDetails, TitleKind, TitleRef } from "@ultimatetv/shared";
+import type { Episode, Season, TitleDetails, TitleKind, TitleRef, Trailer } from "@ultimatetv/shared";
 import type { Db } from "../db.js";
 import { fetchJson, type Fetch } from "../http.js";
 
@@ -34,6 +34,26 @@ interface TmdbDetails extends TmdbResult {
   images?: { logos?: { file_path: string; iso_639_1: string | null }[] };
   release_dates?: { results: { iso_3166_1: string; release_dates: { certification: string }[] }[] };
   content_ratings?: { results: { iso_3166_1: string; rating: string }[] };
+}
+
+export interface TmdbVideo {
+  key: string;
+  name: string;
+  site: string;
+  type: string;
+  official?: boolean;
+  iso_639_1?: string | null;
+  size?: number;
+  published_at?: string;
+}
+
+/** The trailer to offer: an official English YouTube trailer if there is one, then teasers, biggest first. */
+export function pickTrailer(videos: TmdbVideo[]): Trailer | undefined {
+  const score = (v: TmdbVideo) => (v.type === "Trailer" ? 8 : v.type === "Teaser" ? 4 : 0) + (v.official ? 2 : 0) + (!v.iso_639_1 || v.iso_639_1 === "en" ? 1 : 0);
+  const best = videos
+    .filter((v) => v.site === "YouTube" && /^[\w-]{6,20}$/.test(v.key) && (v.type === "Trailer" || v.type === "Teaser"))
+    .sort((a, b) => score(b) - score(a) || (b.size ?? 0) - (a.size ?? 0) || (b.published_at ?? "").localeCompare(a.published_at ?? ""))[0];
+  return best ? { name: best.name || "Trailer", url: `https://www.youtube.com/watch?v=${best.key}` } : undefined;
 }
 
 export const GENRES: Record<string, { movie: number; tv: number }> = {
@@ -129,6 +149,11 @@ export class TmdbClient {
   async recommendations(kind: TitleKind, id: number, limit = 20): Promise<TitleRef[]> {
     const r = await this.get<{ results: TmdbResult[] }>(`/${kind === "movie" ? "movie" : "tv"}/${id}/recommendations`);
     return r.results.map((x) => this.toRef(x, kind)).filter((x): x is TitleRef => x !== null).slice(0, limit);
+  }
+
+  async trailer(kind: TitleKind, id: number): Promise<Trailer | undefined> {
+    const r = await this.get<{ results: TmdbVideo[] }>(`/${kind === "movie" ? "movie" : "tv"}/${id}/videos`, { include_video_language: "en,null" }, 7 * DAY);
+    return pickTrailer(r.results ?? []);
   }
 
   async search(query: string, limit = 20): Promise<TitleRef[]> {

@@ -21,7 +21,9 @@ const backHint = () => `To come back, press Input on the TV remote and choose ${
  */
 export async function openTvApps(ask = true): Promise<boolean> {
   const method: TvAppsMethod = (await hub.settings().catch(() => null))?.playback.tvAppsMethod ?? "both";
-  if (agentHas("tvApps")) {
+  // Only with the USB-CEC adapter plugged in; otherwise straight to which button to press.
+  const cec = agentHas("tvApps") && Boolean((await agent.info().catch(() => null))?.cec?.connected);
+  if (cec) {
     toast(`Over to the TV's apps. ${backHint()}`);
     await stopPlayback();
     await pauseAllMusic();
@@ -32,7 +34,7 @@ export async function openTvApps(ask = true): Promise<boolean> {
   if (!ask) return false;
   await choose({
     title: "TV apps",
-    message: `${TV_APPS.slice(0, 4).join(", ")} and the rest are on the TV's own Home: press the Home button (the house) on the TV remote. ${backHint()}${agentHas("tvApps") ? " The box can do this for you once its USB-CEC adapter is plugged in." : " Update the box (Settings › About) and it can do this for you."}`,
+    message: `${TV_APPS.slice(0, 4).join(", ")} and the rest are on the TV's own Home: press the Home button (the house) on the TV remote. ${backHint()}${cec ? "" : agentHas("tvApps") ? " The box can do this for you once its USB-CEC adapter is plugged in." : " Update the box (Settings › About) and it can do this for you."}`,
     options: [{ label: "OK", value: "ok" }],
   });
   return false;

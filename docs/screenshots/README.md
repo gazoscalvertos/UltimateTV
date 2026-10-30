@@ -61,3 +61,6 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 91–93 | The phone's Clips tab at Christmas, its packs, and browsing the starter and community packs |
 | 94 | Building a clip on the phone: a snowman walking along the bottom for Christmas |
 | 95, 96 | Sharing built clips as a pack with a link and QR code, and the page the link opens |
+| 97 | More like this at the bottom of a film's page (10 shows its scores and Trailer button) |
+| 98 | TV apps without the CEC adapter: which buttons on the TV remote to press |
+| 99 | Settings › Picture and sound: subtitles, their size, background, colour and position, and the TV apps button |

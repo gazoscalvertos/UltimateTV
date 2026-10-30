@@ -3,7 +3,7 @@
 
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { Certification, Channel, ChannelCategory, Profile, Programme, TitleDetails, TitleRef } from "@ultimatetv/shared";
-import { CERTIFICATIONS } from "@ultimatetv/shared";
+import { CERTIFICATIONS, SUBTITLE_MODES } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 import { newId } from "./db.js";
 
@@ -96,7 +96,7 @@ export class ProfileStore {
     return this.pub(p);
   }
 
-  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide">> & { pin?: string | null }): Profile | undefined {
+  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles">> & { pin?: string | null }): Profile | undefined {
     const list = this.all();
     const p = list.find((x) => x.id === id);
     if (!p) return undefined;
@@ -108,6 +108,10 @@ export class ProfileStore {
     if (patch.defaultGuide !== undefined) {
       if (patch.defaultGuide) p.defaultGuide = String(patch.defaultGuide);
       else delete p.defaultGuide;
+    }
+    if (patch.subtitles !== undefined) {
+      if (SUBTITLE_MODES.includes(patch.subtitles)) p.subtitles = patch.subtitles;
+      else delete p.subtitles;
     }
     if (patch.pin === null) {
       delete p.pinHash;

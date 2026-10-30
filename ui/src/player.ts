@@ -7,6 +7,7 @@ import { agent, agentHas, onBox } from "./agent";
 import { ApiError, hub } from "./api";
 import { choose } from "./components/Dialog";
 import { startedPlaying } from "./queue";
+import { autoSubtitles, subtitleModeFor } from "./subtitles";
 import { errorToast, nav } from "./store";
 
 export interface NowPlaying {
@@ -134,7 +135,8 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
   // Start again: ignore the resume point (seeking after loading races the player opening the file).
   if (opts.fromStart && !info.live) info = { ...info, startMs: 0 };
   await report("stop");
-  const s = (await hub.settings().catch(() => null))?.playback;
+  const settings = await hub.settings().catch(() => null);
+  const s = settings?.playback;
   await agent.play({
     url: info.url,
     live: info.live,
@@ -147,12 +149,15 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
     ...(info.queue?.length ? { queue: info.queue } : {}),
     ...(info.fill ? { fill: true } : {}),
     ...(info.crops ? { crops: info.crops } : {}),
-    ...(s ? { preferredAudioLang: s.preferredAudioLang, preferredSubtitleLang: s.preferredSubtitleLang, subtitlesByDefault: s.subtitlesByDefault } : {}),
+    ...(s ? { preferredAudioLang: s.preferredAudioLang, preferredSubtitleLang: s.preferredSubtitleLang, subtitlesByDefault: subtitleModeFor(s) !== "off", subtitleMode: subtitleModeFor(s) } : {}),
+    ...(s?.subtitleStyle ? { subtitleStyle: s.subtitleStyle } : {}),
   });
   const downloadId = (info as { downloadId?: string }).downloadId;
   setNowPlaying({ req, info, since, ...(opts.title ? { title: opts.title } : {}), ...(opts.quiet ? { quiet: true } : {}), ...(downloadId ? { downloadId } : {}) });
   if (req.kind === "channel") setLiveChannelId(req.id);
   startedPlaying(req);
+  const np = nowPlaying();
+  if (np) void autoSubtitles(np, settings);
   void report("start");
   clearInterval(reportTimer);
   if (!info.live) reportTimer = window.setInterval(() => void report("progress"), 10_000);

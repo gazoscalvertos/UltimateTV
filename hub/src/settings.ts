@@ -59,6 +59,11 @@ export function settingsFromEnv(env: NodeJS.ProcessEnv, base: Settings): Setting
   if (env.XMLTV_URLS) s.xmltvUrls = [...new Set([...s.xmltvUrls, ...env.XMLTV_URLS.split(/[\s,]+/).filter(Boolean)])];
   if (env.TMDB_API_KEY) s.tmdbApiKey = env.TMDB_API_KEY;
   if (env.TORBOX_API_KEY) s.torboxApiKey = env.TORBOX_API_KEY;
+  if (env.OMDB_API_KEY) s.omdbApiKey = env.OMDB_API_KEY;
+  if (env.OPENSUBTITLES_API_KEY && !s.openSubtitles) {
+    s.openSubtitles = { apiKey: env.OPENSUBTITLES_API_KEY };
+    if (env.OPENSUBTITLES_USERNAME && env.OPENSUBTITLES_PASSWORD) Object.assign(s.openSubtitles, { username: env.OPENSUBTITLES_USERNAME, password: env.OPENSUBTITLES_PASSWORD });
+  }
   if (env.ADDON_URLS) s.addonUrls = [...new Set([...s.addonUrls, ...env.ADDON_URLS.split(/[\s,]+/).filter(Boolean)])];
   if (env.MOVIES_PATH) s.library.moviesPath = env.MOVIES_PATH;
   if (env.TV_PATH) s.library.tvPath = env.TV_PATH;
@@ -158,6 +163,8 @@ export function publicSettings(s: Settings, setupUrl: string, statusOf?: (source
     }),
     xmltvCount: s.xmltvUrls.length,
     tmdb: Boolean(s.tmdbApiKey),
+    omdb: Boolean(s.omdbApiKey),
+    openSubtitles: { configured: Boolean(s.openSubtitles?.apiKey), signedIn: Boolean(s.openSubtitles?.username && s.openSubtitles.password) },
     addons: s.addonUrls.map((url) => ({ url: redactAddonUrl(url), name: addonName(url) })),
     torbox: Boolean(s.torboxApiKey),
     recording: s.recording,

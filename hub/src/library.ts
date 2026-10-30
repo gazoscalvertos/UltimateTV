@@ -11,8 +11,10 @@ import type {
   StreamCandidate,
   StreamQuality,
   TitleDetails,
+  TitleExtras,
   TitleKind,
   TitleRef,
+  TitleScore,
 } from "@ultimatetv/shared";
 import { episodeLabel, normaliseTitle, parseQuality, qualityBadges, rankStreams, startOfDay } from "@ultimatetv/shared";
 import type { HubContext } from "./context.js";
@@ -112,6 +114,8 @@ export class Library {
     const allowed = new Set(channels.map((c) => c.id));
     const recent = this.ctx.recordings.withStatus("completed").filter((r) => !r.watched && allowed.has(r.channelId)).sort((a, b) => b.programme.start - a.programme.start).slice(0, 16);
     if (recent.length) rails.push({ id: "recordings", title: "Recently recorded", kind: "recordings", items: [], recordings: recent });
+    const because = await this.becauseYouWatched(f).catch(() => null);
+    if (because) rails.push(because);
     const nextUpRefs = nextUp.map((i) => ({ ...jf!.toTitleRef(i), id: `jellyfin:${i.SeriesId}` })).filter((t) => f.ref(t));
     if (nextUpRefs.length) rails.push({ id: "nextup", title: "Next up", kind: "titles", items: nextUpRefs });
     if (kidsFilms.length) rails.push({ id: "kids-films", title: "Family films", kind: "titles", items: kidsFilms.filter((t) => f.ref(t)) });
@@ -148,6 +152,85 @@ export class Library {
       if (meta) home.hero.subtitle = meta;
     }
     return home;
+  }
+
+  /**
+   * "Because you watched …": TMDB's picks for the latest film or series played on this Hub, kept
+   * to what can play here. Needs TMDB; skipped when nothing recent has a TMDB id.
+   */
+  private async becauseYouWatched(f: ContentFilter): Promise<Rail | null> {
+    for (const p of this.ctx.progress.recent(3)) {
+      const demo = p.title!.id.startsWith("demo:");
+      if (!demo && !this.ctx.tmdb()) return null;
+      const d = await this.details(p.title!.id, f).catch(() => null);
+      if (!d || (!demo && !d.tmdbId)) continue;
+      const items = demo ? this.demoExtras(d.id, d, f).similar : await this.similarTo(d, f);
+      if (items.length >= 4) return { id: "because", title: `Because you watched ${d.name}`, kind: "titles", items };
+    }
+    return null;
+  }
+
+  /** TMDB's recommendations for a title the profile may see, kept to what a source can play. */
+  private async similarTo(d: TitleDetails, f: ContentFilter): Promise<TitleRef[]> {
+    const tmdb = this.ctx.tmdb();
+    if (!tmdb || !d.tmdbId) return [];
+    const refs = (await tmdb.recommendations(d.kind, d.tmdbId, 20)).filter((r) => r.id !== d.id && f.ref(r));
+    return this.playable(refs);
+  }
+
+  /**
+   * With an addon (AIOStreams) almost anything plays. Without one, only what's in Jellyfin or the
+   * IPTV catalogue, marked so the card says where.
+   */
+  private async playable(refs: TitleRef[]): Promise<TitleRef[]> {
+    if (this.ctx.addons().length) return refs;
+    const jf = this.ctx.jellyfin();
+    const out: TitleRef[] = [];
+    for (const r of refs) {
+      const tmdbId = Number(/^tmdb:(?:movie|series):(\d+)$/.exec(r.id)?.[1]) || undefined;
+      if (jf && tmdbId && (await jf.hasProviderId("tmdb", String(tmdbId), r.kind === "movie" ? "Movie" : "Series").catch(() => false))) out.push({ ...r, badges: ["In your library"] });
+      else if (this.vodMatches(r.kind, r.name, r.year, tmdbId).length) out.push({ ...r, badges: ["IPTV"] });
+    }
+    return out;
+  }
+
+  /**
+   * The details page's slower half: a trailer, review scores and More like this. Each part fails
+   * on its own, so a missing OMDb key or a TMDB hiccup only leaves that part out.
+   */
+  async extras(id: string, f: ContentFilter = NO_FILTER): Promise<TitleExtras> {
+    const d = await this.details(id, f);
+    if (id.startsWith("demo:")) return this.demoExtras(id, d, f);
+    const tmdb = this.ctx.tmdb();
+    const omdb = this.ctx.omdb();
+    const [trailer, omdbScores, similar] = await Promise.all([
+      tmdb && d.tmdbId ? tmdb.trailer(d.kind, d.tmdbId).catch(() => undefined) : undefined,
+      omdb && d.imdbId ? omdb.scores(d.imdbId).catch((e: Error) => (this.ctx.log.warn({ err: e.message }, "OMDb scores failed"), [])) : [],
+      this.similarTo(d, f).catch(() => []),
+    ]);
+    const scores: TitleScore[] = [];
+    if (d.rating) scores.push({ source: "tmdb", label: d.id.startsWith("jellyfin:") ? "Rating" : "TMDB", value: d.rating.toFixed(1), pct: Math.round(d.rating * 10) });
+    scores.push(...omdbScores);
+    return { ...(trailer ? { trailer } : {}), scores, similar };
+  }
+
+  /** The demo Hub's titles: their own clip as the trailer, made-up scores from their rating, and others of the same kind, closest genres first. */
+  private demoExtras(id: string, d: TitleDetails, f: ContentFilter): TitleExtras {
+    const e = this.vodById(id);
+    const r = d.rating ?? 7;
+    const scores: TitleScore[] = [
+      { source: "tmdb", label: "TMDB", value: r.toFixed(1), pct: Math.round(r * 10) },
+      { source: "imdb", label: "IMDb", value: Math.min(9.6, r + 0.2).toFixed(1), pct: Math.round(Math.min(9.6, r + 0.2) * 10) },
+      { source: "rotten-tomatoes", label: "Rotten Tomatoes", value: `${Math.min(99, Math.round(r * 12 - 4))}%`, pct: Math.min(99, Math.round(r * 12 - 4)) },
+    ];
+    const others = this.ctx.db.json<VodEntry>("SELECT data FROM vod WHERE source_id = 'demo'").filter((x) => x.id !== id && x.kind === d.kind);
+    const shared = (x: VodEntry) => (x.genres ?? []).filter((g) => d.genres.includes(g)).length;
+    const similar = others
+      .sort((a, b) => shared(b) - shared(a))
+      .map((x) => this.vodRef(x))
+      .filter((t) => f.ref(t))
+      .slice(0, 8);
+    return { ...(e?.url ? { trailer: { name: `${d.name}: trailer`, url: e.url } } : {}), scores, similar };
   }
 
   /** Films or TV landing page: library first, then discovery by genre. */
