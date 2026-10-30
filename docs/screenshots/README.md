@@ -72,3 +72,4 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 108, 109 | A music channel that follows a YouTube playlist, on the TV and on the phone's settings page: download progress, what was skipped and the video that failed |
 | 113, 114 | What's new: the pop-up on Home after an update, and Settings › What's new with every change |
 | 115–117 | What's new on the phone: the remote's banner after an update, the list it opens, and the settings page's section |
+| kids-time-settings, kids-time-up, kids-time-phone | Kids TV time and bedtime: the settings on the TV, asking for more time at Who's watching? once it's bedtime, and the same settings with today's time and the more-time buttons on the phone's settings page |

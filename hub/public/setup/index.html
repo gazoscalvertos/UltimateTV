@@ -70,6 +70,8 @@
   .opt input[type=checkbox]:checked::after { left: 24px; }
   .profile { padding: 12px 0; border-top: 1px solid var(--line); }
   .profile:first-child { border-top: 0; }
+  .kids-limits { display: grid; gap: 8px; margin-top: 10px; }
+  .kids-limits > label:not(.opt) { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   .profile .name { display: flex; align-items: center; gap: 10px; font-weight: 600; }
   .profile .name small { color: var(--muted); font-weight: 400; }
   .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--c, var(--accent)); }
@@ -485,8 +487,57 @@ const askPin = (title) => {
   return pin.trim();
 };
 
+// A Kids profile's TV time and bedtimes (the Hub enforces them), and more time today.
+const ALLOWANCES = [null, 30, 45, 60, 90, 120, 150, 180, 240];
+const BEDTIMES = ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"];
+const hoursLabel = (m) => (m < 60 ? `${m} min` : m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} h`);
+function kidsLimitsBox(p, status) {
+  const l = p.limits || { dailyMinutes: null, weekdayBedtime: null, weekendBedtime: null, alert: false };
+  const box = document.createElement("div");
+  box.className = "kids-limits";
+  const pick = (label, options, value, key) => {
+    const wrap = document.createElement("label");
+    wrap.textContent = label + " ";
+    const sel = document.createElement("select");
+    for (const [text, v] of options) sel.add(new Option(text, v === null ? "" : String(v), false, v === value));
+    sel.onchange = () => patchProfile(p, { limits: { ...l, [key]: sel.value === "" ? null : key === "dailyMinutes" ? Number(sel.value) : sel.value } }, "Saved");
+    wrap.append(sel);
+    return wrap;
+  };
+  const bedOptions = [["None", null], ...BEDTIMES.map((b) => [b, b])];
+  box.append(
+    pick("TV time each day", ALLOWANCES.map((m) => [m === null ? "No limit" : hoursLabel(m), m]), l.dailyMinutes, "dailyMinutes"),
+    pick("Bedtime Sun–Thu", bedOptions, l.weekdayBedtime, "weekdayBedtime"),
+    pick("Bedtime Fri–Sat", bedOptions, l.weekendBedtime, "weekendBedtime"),
+  );
+  const alert = document.createElement("label");
+  alert.className = "opt";
+  alert.innerHTML = `<span>Tell me when time's up<small>Sent where Settings › Alerts sends (Home Assistant or ntfy)</small></span><input type="checkbox">`;
+  const cb = alert.querySelector("input");
+  cb.checked = Boolean(l.alert);
+  cb.onchange = () => patchProfile(p, { limits: { ...l, alert: cb.checked } }, "Saved");
+  box.append(alert);
+  if (status && status.limited) {
+    const today = document.createElement("p");
+    today.className = "hint";
+    const left = status.unlockedUntil ? "no limits until the morning" : status.state === "finishing" || status.state === "stopped" ? (status.reason === "bedtime" ? "it's bedtime" : "time's up") : status.minutesLeft !== null ? `${hoursLabel(status.minutesLeft)} left` : "";
+    today.textContent = `Today: ${hoursLabel(status.usedMinutes)} watched${left ? `, ${left}` : ""}.`;
+    box.append(today);
+    const more = document.createElement("div");
+    more.className = "actions";
+    for (const [text, minutes] of [["+15 min", 15], ["+30 min", 30], ["+1 hour", 60], ["No limits until morning", 0]]) {
+      more.append(button(text, "secondary", async () => {
+        try { await api(`/api/kids-time/${encodeURIComponent(p.id)}/extra`, { method: "POST", body: { minutes } }); toast(minutes ? `${text} for ${p.name}` : `No limits for ${p.name} until the morning`); loadProfiles(); } catch (e) { toast(e.message, true); }
+      }));
+    }
+    box.append(more);
+  }
+  return box;
+}
+
 async function loadProfiles() {
   const { profiles, locked } = await api("/api/profiles");
+  const times = (await api("/api/kids-time").catch(() => ({ profiles: [] }))).profiles || [];
   $("#profiles-pill").textContent = locked ? "PIN on" : "No PIN";
   $("#profiles-pill").className = "pill" + (locked ? " ok" : "");
   const list = $("#profiles-list");
@@ -522,6 +573,7 @@ async function loadProfiles() {
       try { await api(`/api/profiles/${encodeURIComponent(p.id)}`, { method: "DELETE" }); toast(`${p.name} deleted`); loadProfiles(); } catch (e) { toast(e.message, true); }
     }));
     row.append(name, actions);
+    if (p.kind === "kids") row.append(kidsLimitsBox(p, times.find((t) => t.profileId === p.id)));
     list.append(row);
   }
 }

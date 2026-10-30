@@ -51,6 +51,17 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 2. Try to switch back to Family: it asks for the PIN.
 3. Turn the TV off and on: it goes to the profile picker.
 
+### TV time and bedtime ([profiles.md](profiles.md#tv-time-and-bedtime))
+
+- [ ] Settings › Profiles and PIN › Kids › TV time and bedtime: set 30 minutes a day and tonight's bedtime 30 minutes from now. The Kids row shows them; the phone's setup page shows the same under Kids.
+- [ ] On Kids, play something. After 25 minutes a card says "5 more minutes", then "2 more minutes". Paused time doesn't count (setup page: Today: N min watched).
+- [ ] At the limit a card says this can finish. Try another channel or the next episode: it goes back to Who's watching?. Otherwise it stops by itself at the end of the programme or after 30 minutes, with the sound fading.
+- [ ] Pick Kids again: it asks for more time. A wrong PIN is refused; the adult PIN with 15 minutes lets Kids back in, and the warnings come again.
+- [ ] Phone setup page: +30 min under Kids works, and "No limits until morning" lifts bedtime too.
+- [ ] At bedtime, with time left in the day: same as the limit, the card says it's bedtime. After midnight it's still bedtime; after 6 am Kids works again and the day's count is back to 0.
+- [ ] Android app on Kids: the warnings show as messages; at the limit nothing new plays, and once the 30 minutes are up the player closes.
+- [ ] With "Tell my phone when time's up" on and ntfy set in Settings › Alerts, one message arrives when time runs out.
+
 ## 6b. Music
 
 Update the box first (Settings › About › Update the box): the update builds the Spotify receiver. See [music.md](music.md).

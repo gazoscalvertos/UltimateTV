@@ -26,6 +26,13 @@ pop up what's new after an update. So:
 
 ## 2026-10-30
 
+- **Kids TV time and bedtime** ([docs/profiles.md](docs/profiles.md#tv-time-and-bedtime)): each Kids
+  profile can have a daily allowance (30 minutes to 4 hours, counted only while something plays,
+  back to zero at midnight) and a bedtime for school nights and for Friday and Saturday. Warnings
+  at 5 and 2 minutes; when time's up what's on can finish (30 minutes at most), then the TV goes
+  back to Who's watching?, where a grown-up's PIN gives 15, 30 or 60 minutes more or no limits
+  until the morning. The Hub enforces it, so the Android app (0.3.1) and a browser can't get round
+  it, and it can tell Home Assistant or ntfy. Set it on the TV or the phone's settings page. (#114)
 - **Home Assistant both ways** ([docs/notifications.md](docs/notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)):
   Home Assistant can add the TV as a media player that shows what's on (title, picture, position,
   channel, profile) and can play, pause, stop, change channel, set the box's volume and put the TV

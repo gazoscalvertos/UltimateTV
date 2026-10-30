@@ -26,7 +26,7 @@ let fading = false;
 const clock = (t: number) => new Date(t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 /** When what's on ends: the programme on the live channel, or the film or episode. */
-async function endOfThis(): Promise<{ at: number; name: string } | null> {
+export async function endOfThis(): Promise<{ at: number; name: string } | null> {
   const np = nowPlaying();
   if (!np) return null;
   if (np.info.live) {
