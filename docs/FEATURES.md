@@ -62,6 +62,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 - **(tested, in daily use)** Works in any phone browser at `/remote/`, or as a small Android app served by the Hub at `/api/remote/app.apk` (with an update banner). TV Settings › Android apps and the phone's settings show QR codes and links for both apps.
 - Pairing by scanning the TV's code; only paired phones can control anything ([pairing.md](pairing.md)).
 - Arrows, OK, Back, colour keys, numbers and typing into Search; volume keys change channel in the Android app.
+- **(untested)** Portrait or landscape: sideways it puts the d-pad in the middle, keys either side and the tabs down the edge.
 - Now Playing card with progress, skip, live and track buttons; a Watch tab to start anything on the TV (guide, films, TV, recordings, Spotify, search, queue); On the box tab for box downloads.
 - Voice: "watch BBC One", "search for Dune", "pause", "down three times".
 - Settings page (`/setup/`) covering everything the TV's Settings does, plus updating the Hub and the box, reloading the TV app and refreshing the guide.

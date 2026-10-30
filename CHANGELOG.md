@@ -15,6 +15,12 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **The phone remote sideways** ([docs/phone-remote.md](docs/phone-remote.md)): the remote turns
+  to landscape in the browser, the installed web app and the Android app (0.6.0, which follows the
+  phone's rotation lock). Sideways the d-pad sits in the middle with keys either side, the tabs
+  move to a rail down the edge and Now Playing shrinks to a strip. The pairing screen and the
+  Android app's Hub screen scroll when they don't fit.
+
 - **YouTube playlists on music channels** ([docs/music-channels.md](docs/music-channels.md)): a
   channel can follow a YouTube playlist. Every video in it is downloaded to the NAS and played
   offline like the rest; the Hub reads the playlist again every six hours, fetching videos added
