@@ -69,3 +69,4 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 105 | More like this at the bottom of a film's page (10 shows its scores and Trailer button) |
 | 106 | TV apps without the CEC adapter: which buttons on the TV remote to press |
 | 107 | Settings › Picture and sound: subtitles, their size, background, colour and position, and the TV apps button |
+| 108, 109 | A music channel that follows a YouTube playlist, on the TV and on the phone's settings page: download progress, what was skipped and the video that failed |

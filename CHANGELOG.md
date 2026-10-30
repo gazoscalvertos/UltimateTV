@@ -15,6 +15,13 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **YouTube playlists on music channels** ([docs/music-channels.md](docs/music-channels.md)): a
+  channel can follow a YouTube playlist. Every video in it is downloaded to the NAS and played
+  offline like the rest; the Hub reads the playlist again every six hours, fetching videos added
+  since and taking off ones removed from it. The TV (channel › Add a YouTube playlist) and the
+  phone's settings page show progress, what was skipped and any video that failed, with Check now,
+  Stop following and Remove. API: `POST/DELETE /api/mix-channels/:id/playlists`.
+
 - **TV apps, trailers, scores and subtitles** ([docs/watching-extras.md](docs/watching-extras.md)):
   a **TV apps** button along the top (and on the phone's Cast sheet) hands the screen to the TV's
   own Home over HDMI-CEC for Netflix, Prime Video and Disney+; Input on the TV remote comes back.

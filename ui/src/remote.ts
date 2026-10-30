@@ -6,6 +6,7 @@ import type { Action } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
 import { hub } from "./api";
 import { onHubEvent } from "./events";
+import { takeRemoteText } from "./components/Dialog";
 import { dispatch } from "./keys";
 import { sendWebAppKey, sendWebAppText, webAppTakesRemote } from "./music";
 import { play } from "./player";
@@ -59,6 +60,8 @@ export function startRemoteBridge(): void {
     }
     if (e.type === "remote.text") {
       if (webAppTakesRemote()) return sendWebAppText(e.text);
+      // A text dialog is open (a channel name, a playlist link): the text goes in it.
+      if (takeRemoteText(e.text)) return;
       const el = document.activeElement;
       if (el instanceof HTMLInputElement) {
         el.value = e.text;

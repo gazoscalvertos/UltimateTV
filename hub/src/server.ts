@@ -240,6 +240,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "POST /api/mix-channels/:id/shuffle",
     "POST /api/mix-channels/:id/videos",
     "POST /api/mix-channels/:id/files",
+    "POST /api/mix-channels/:id/playlists",
+    "POST /api/mix-channels/:id/playlists/:listId/sync",
+    "DELETE /api/mix-channels/:id/playlists/:listId",
     "GET /api/mix/nas",
     "DELETE /api/mix-channels/:id/videos/:videoId",
     "GET /api/screensaver/nas",
@@ -1168,6 +1171,23 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.post("/api/mix-channels/:id/videos", async (req: Req<{ id: string }, Record<string, string>, { url?: string; id?: string; origin?: string }>, reply) =>
     reply.code(201).send(await ctx.mix.addVideo(req.params.id, req.body ?? {})),
   );
+
+  /** Follows a YouTube playlist: every video in it is downloaded, and it's read again every six hours. */
+  app.post("/api/mix-channels/:id/playlists", async (req: Req<{ id: string }, Record<string, string>, { url?: string }>, reply) =>
+    reply.code(201).send(ctx.mix.followPlaylist(req.params.id, String(req.body?.url ?? ""))),
+  );
+
+  /** Reads a playlist again now (videos that failed get another go). */
+  app.post("/api/mix-channels/:id/playlists/:listId/sync", async (req: Req<{ id: string; listId: string }>) => {
+    ctx.mix.syncSoon(req.params.id, req.params.listId);
+    return { ok: true };
+  });
+
+  /** Stops following a playlist; `?keep=1` leaves its videos on the channel. */
+  app.delete("/api/mix-channels/:id/playlists/:listId", async (req: Req<{ id: string; listId: string }, { keep?: string }>) => {
+    await ctx.mix.unfollowPlaylist(req.params.id, req.params.listId, req.query.keep === "1" || req.query.keep === "true");
+    return { ok: true };
+  });
 
   /** Video files already on the NAS: `paths` are files, or folders whose videos all go on. */
   app.post("/api/mix-channels/:id/files", async (req: Req<{ id: string }, Record<string, string>, { paths?: string[]; path?: string }>) => {

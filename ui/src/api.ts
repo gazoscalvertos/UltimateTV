@@ -2,7 +2,7 @@
 
 import type { SubtitleResult, TitleExtras } from "@ultimatetv/shared";
 import type { AdSkipSettings, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
-import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
+import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
 const store = {
   get(key: string): string | null {
@@ -141,6 +141,9 @@ export const hub = {
   shuffleMix: (id: string) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}/shuffle`, { method: "POST" }),
   browseNas: (dir?: string) => api<NasListing>(`/api/mix/nas${q({ dir })}`),
   addMixFiles: (id: string, paths: string[]) => api<{ added: number; skipped: string[] }>(`/api/mix-channels/${enc(id)}/files`, { method: "POST", body: { paths } }),
+  followMixPlaylist: (id: string, url: string) => api<MixPlaylist>(`/api/mix-channels/${enc(id)}/playlists`, { method: "POST", body: { url } }),
+  syncMixPlaylist: (id: string, listId: string) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}/playlists/${enc(listId)}/sync`, { method: "POST" }),
+  unfollowMixPlaylist: (id: string, listId: string, keep: boolean) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}/playlists/${enc(listId)}${keep ? "?keep=1" : ""}`, { method: "DELETE" }),
   removeMixVideo: (id: string, videoId: string) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}/videos/${enc(videoId)}`, { method: "DELETE" }),
 
   settings: () => api<PublicSettings>("/api/settings"),

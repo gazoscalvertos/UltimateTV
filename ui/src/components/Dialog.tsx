@@ -1,7 +1,7 @@
 // Dialogs: a modal layer that owns the remote while it's open. `choose` is the everyday one
 // (pick an option); `askPin` shows a number pad that works with the remote's digit keys too.
 
-import { createSignal, For, onMount, Show, type JSX } from "solid-js";
+import { createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js";
 import type { Action } from "@ultimatetv/shared";
 import { digitOf } from "@ultimatetv/shared";
 import { current, focusFirst, move } from "../focus";
@@ -135,13 +135,29 @@ export function askPin(title: string, check: (pin: string) => Promise<string | n
 
 const KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890".split("");
 
-/** Asks for a short piece of text (a profile name) with an on-screen keyboard. */
-export function askText(title: string, initial = ""): Promise<string | undefined> {
+/** The open text dialog, which takes text typed on the phone remote (a link is easier pasted there). */
+let remoteText: ((text: string) => void) | null = null;
+
+/** Puts text from the phone remote into the open text dialog. False when none is open. */
+export function takeRemoteText(text: string): boolean {
+  if (!remoteText) return false;
+  remoteText(text);
+  return true;
+}
+
+/** Asks for a short piece of text (a profile name) with an on-screen keyboard, or typed on the phone remote. */
+export function askText(title: string, initial = "", hint?: string): Promise<string | undefined> {
   return openDialog<string>((close) => {
     const [text, setText] = createSignal(initial);
+    const take = (t: string) => setText(t);
+    remoteText = take;
+    onCleanup(() => {
+      if (remoteText === take) remoteText = null;
+    });
     return (
       <DialogFrame close={() => close()} class="text-dialog">
         <h2>{title}</h2>
+        {hint ? <p class="hint">{hint}</p> : null}
         <div class="text-value">{text() || " "}</div>
         <div class="keyboard keyboard-compact">
           <For each={KEYS}>

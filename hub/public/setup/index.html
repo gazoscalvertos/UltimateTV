@@ -253,6 +253,7 @@
       <label>New channel's name</label><input name="name" autocomplete="off" placeholder="90s Dance">
       <label>What it should play</label><input name="brief" autocomplete="off" placeholder="90s eurodance and club classics">
       <label>Songs to include<small> one per line, Artist - Title (optional)</small></label><textarea name="picks" placeholder="Cascada - Everytime We Touch"></textarea>
+      <label>Or a YouTube playlist<small> every video in it is downloaded (optional)</small></label><input name="playlist" autocomplete="off" placeholder="https://www.youtube.com/playlist?list=…">
       <button>Add channel</button>
     </form>
   </section>
@@ -585,10 +586,17 @@ async function loadMix() {
     name.querySelector(".avatar").textContent = String(c.number);
     name.querySelector(".pname").textContent = c.name;
     const n = c.counts;
-    name.querySelector("small").textContent = [`${n.ready} of ${c.target} videos downloaded (${size(c.readyBytes || 0)})`, n.downloading + n.queued ? `${n.downloading + n.queued} downloading` : "", n.failed ? `${n.failed} failed` : "", c.enabled ? "" : "off"].filter(Boolean).join(" · ");
+    name.querySelector("small").textContent = [`${n.ready} of ${c.goal ?? c.target} videos downloaded (${size(c.readyBytes || 0)})`, n.downloading + n.queued ? `${n.downloading + n.queued} downloading` : "", n.failed ? `${n.failed} failed` : "", c.enabled ? "" : "off"].filter(Boolean).join(" · ");
     row.append(name);
     if (c.brief) { const b = document.createElement("p"); b.className = "hint"; b.style.margin = "4px 0 0"; b.textContent = c.brief; row.append(b); }
     if (c.error) { const e = document.createElement("p"); e.className = "mix-err"; e.textContent = c.error; row.append(e); }
+    for (const p of c.playlists || []) {
+      const e = document.createElement("p");
+      e.className = p.error ? "mix-err" : "hint";
+      e.style.margin = "4px 0 0";
+      e.textContent = `▶ ${p.title}: ${playlistStatus(p)}`;
+      row.append(e);
+    }
     const actions = document.createElement("div");
     actions.className = "actions";
     const edit = document.createElement("form");
@@ -637,16 +645,76 @@ async function loadMix() {
     list.append(row);
   }
   if (!o.channels.length) list.innerHTML = `<p class="hint">No music channels yet.</p>`;
+  // While videos download or a playlist is being read, keep the counts moving (not while typing here).
+  clearTimeout(mixRefresh);
+  const busy = o.channels.some((c) => c.counts.queued + c.counts.downloading || (c.playlists || []).some((p) => p.syncing));
+  if (busy) mixRefresh = setTimeout(refreshMix, 10_000);
+}
+let mixRefresh;
+function refreshMix() {
+  const a = document.activeElement;
+  const typing = a && $("#music").contains(a) && a.matches("input, textarea, select");
+  if (document.hidden || typing) mixRefresh = setTimeout(refreshMix, 10_000);
+  else loadMix().catch(() => {});
+}
+// A link that's only a playlist (a watch link with &list= is a video in one).
+const isPlaylistLink = (u) => /[?&]list=[\w-]{8,}/.test(u) && !/[?&]v=|youtu\.be\/[\w-]/.test(u);
+/** "12 of 15 downloaded · downloading 40% · 2 couldn't download". */
+function playlistStatus(p) {
+  if (p.syncing && !p.syncedAt) return "reading the playlist…";
+  const n = p.counts;
+  const all = n.ready + n.queued + n.downloading + n.failed;
+  return [
+    p.error ? `couldn't read it: ${p.error}` : "",
+    all ? `${n.ready} of ${all - n.failed} downloaded` : p.syncedAt ? "no videos it can use" : "",
+    n.downloading ? `downloading${p.progress ? ` ${Math.round(p.progress * 100)}%` : ""}` : "",
+    n.queued ? `${n.queued} waiting` : "",
+    n.failed ? `${n.failed} couldn't download` : "",
+    p.skipped && p.skipped.length ? `skipped ${p.skipped.join(", ")}` : "",
+    p.syncing ? "reading it again now" : "",
+  ].filter(Boolean).join(" · ");
 }
 async function loadMixVideos(c, el) {
   el.innerHTML = `<p class="hint">Loading…</p>`;
-  const { videos } = await api(mixPath(c)).catch((e) => (toast(e.message, true), { videos: [] }));
-  el.innerHTML = `<form class="mix-add-video"><label>Add a video<small> paste a YouTube link</small></label><div class="row"><input name="url" placeholder="https://youtu.be/…" autocomplete="off"><button class="small" style="margin:0">Add</button></div></form><ul></ul>`;
-  el.querySelector("form").onsubmit = (e) => {
+  const { channel, videos } = await api(mixPath(c)).catch((e) => (toast(e.message, true), { videos: [] }));
+  el.innerHTML = `<form class="mix-add-video"><label>Add a video<small> paste a YouTube link</small></label><div class="row"><input name="url" placeholder="https://youtu.be/…" autocomplete="off"><button class="small" style="margin:0">Add</button></div></form>`
+    + `<form class="mix-add-video"><label>Add a YouTube playlist<small> every video in it downloads; new ones are fetched every six hours, and ones taken out of it come off</small></label><div class="row"><input name="url" placeholder="https://www.youtube.com/playlist?list=…" autocomplete="off"><button class="small" style="margin:0">Add</button></div></form>`
+    + `<div class="mix-playlists"></div><ul></ul>`;
+  const [videoForm, playlistForm] = el.querySelectorAll("form");
+  const follow = (url) => mixDo(mixPath(c, "/playlists"), { method: "POST", body: { url } }, "Added. The Hub is reading the playlist; its videos download one after another.");
+  videoForm.onsubmit = (e) => {
     e.preventDefault();
     const url = e.target.url.value.trim();
-    if (url) mixDo(mixPath(c, "/videos"), { method: "POST", body: { url } }, "Added. It downloads in a minute or two.");
+    if (!url) return;
+    if (isPlaylistLink(url)) return follow(url);
+    mixDo(mixPath(c, "/videos"), { method: "POST", body: { url } }, "Added. It downloads in a minute or two.");
   };
+  playlistForm.onsubmit = (e) => {
+    e.preventDefault();
+    const url = e.target.url.value.trim();
+    if (url) follow(url);
+  };
+  const lists = el.querySelector(".mix-playlists");
+  for (const p of (channel && channel.playlists) || []) {
+    const box = document.createElement("div");
+    box.className = "mix-add-video";
+    box.innerHTML = `<label></label><p class="hint" style="margin:2px 0 6px"></p><ul class="fails"></ul><div class="actions"></div>`;
+    box.querySelector("label").textContent = `▶ ${p.title}`;
+    box.querySelector("p").textContent = playlistStatus(p);
+    if (p.error) box.querySelector("p").className = "mix-err";
+    for (const f of p.failures) {
+      const li = document.createElement("li");
+      li.textContent = `${f.title}: ${f.error}`;
+      box.querySelector(".fails").append(li);
+    }
+    const pl = mixPath(c, `/playlists/${encodeURIComponent(p.id)}`);
+    box.querySelector(".actions").append(
+      button("Check now", "secondary", () => mixDo(pl + "/sync", { method: "POST" }, "Checking the playlist now (and trying failed videos again)")),
+      button("Stop following", "secondary", () => mixDo(pl + "?keep=1", { method: "DELETE" }, "No longer following it. Its videos stay.")),
+      button("Remove with its videos", "secondary danger", () => { if (confirm(`Take ${p.title} and its videos off ${c.name}?`)) mixDo(pl, { method: "DELETE" }, "Removed"); }),
+    );
+    lists.append(box);
+  }
   // Files already on the NAS: type a path, or browse to it.
   const nas = document.createElement("form");
   nas.className = "mix-add-video";
@@ -677,7 +745,7 @@ async function loadMixVideos(c, el) {
     if (!l.folders.length && !l.files.length) item("Nothing here", () => {});
   };
   nas.querySelector("button[type=button]").onclick = () => browse("");
-  const ul = el.querySelector("ul");
+  const ul = el.querySelector(":scope > ul");
   el.insertBefore(nas, ul);
   for (const { video: v, origin } of videos) {
     const li = document.createElement("li");
@@ -697,7 +765,7 @@ $("#mix-add").onsubmit = async (e) => {
   const name = f.name.value.trim();
   if (!name) return toast("Give the channel a name.", true);
   try {
-    const c = await api("/api/mix-channels", { method: "POST", body: { name, brief: f.brief.value.trim(), picks: lines(f.picks.value), queries: f.brief.value.trim() ? [`${f.brief.value.trim()} official music video`] : [] } });
+    const c = await api("/api/mix-channels", { method: "POST", body: { name, brief: f.brief.value.trim(), picks: lines(f.picks.value), queries: f.brief.value.trim() ? [`${f.brief.value.trim()} official music video`] : [], playlist: f.playlist.value.trim() || undefined } });
     f.reset();
     toast(`${c.name} is on ${c.number}. Videos arrive over the next hour.`);
     loadMix();
