@@ -59,6 +59,10 @@ contextBridge.exposeInMainWorld("ultimatetv", {
   addSubtitle: call("addSubtitle"),
   setSubtitleStyle: call("setSubtitleStyle"),
   setVolume: call("setVolume"),
+  offlineProfile: call("offlineProfile"),
+  // Only the box's own Hub-down screen (box/offline) uses these.
+  hubStatus: call("hubStatus"),
+  retryHub: call("retryHub"),
   onCast: (listener: (s: unknown) => void) => subscribe("agent:cast", listener),
   onDownloads: (listener: (d: unknown) => void) => subscribe("agent:downloads", listener),
   onSpotify: (listener: (s: unknown) => void) => subscribe("agent:spotify", listener),

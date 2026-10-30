@@ -11,6 +11,7 @@ export type VoiceCommand =
   | { kind: "reload"; say: string }
   | { kind: "save"; name: string; say: string }
   | { kind: "sleep"; minutes: number | "end" | "off"; say: string }
+  | { kind: "weather"; say: string }
   | { kind: "none"; say: string };
 
 const NUMBER_WORDS: Record<string, number> = {
@@ -118,6 +119,10 @@ export function parseVoice(said: string, channels: Channel[]): VoiceCommand {
   // "save Dune for later", "add The Bear to my list", "put Dune on the watchlist"
   const save = /^(?:save|add|put|remember)\s+(.+?)\s+(?:for later|to (?:my |the )?(?:list|watch ?list)|on (?:my |the )?(?:list|watch ?list))$/.exec(text) ?? /^(?:save for later|watch later)\s+(.+)$/.exec(text);
   if (save) return { kind: "save", name: save[1]!, say: `Saved “${save[1]}” for later` };
+
+  // "what's the weather like", "weather forecast", "will it rain tomorrow", "is it cold out"
+  if (/^(?:(?:what'?s|what is|how'?s|show(?: me)?|open|check)\s+)?(?:the\s+)?(?:weather|forecast)(?:\s+forecast)?(?:\s+(?:like|today|tomorrow|this week|for (?:today|tomorrow|the week)))*$|^(?:is it|will it)\s+(?:going to\s+)?(?:be\s+)?(?:rain|raining|snow|snowing|cold|warm|hot|sunny|windy)\b/.test(text))
+    return { kind: "weather", say: "Here's the weather" };
 
   // "sleep in 30 minutes", "sleep timer an hour", "turn off at the end of this", "cancel the sleep timer"
   if (/^(cancel|stop|turn off) (the )?sleep( timer)?$|^sleep( timer)? off$/.test(text)) return { kind: "sleep", minutes: "off", say: "Sleep timer off" };

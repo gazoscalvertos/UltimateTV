@@ -43,7 +43,7 @@ const GHOST_PICTURE = `<body style="margin:0;background:transparent"><svg xmlns=
 async function startHub() {
   const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-shots-"));
   const hub = spawn(process.execPath, [path.join(root, "hub/dist/index.js")], {
-    env: { ...process.env, DEMO: "1", PORT: String(port), HOST: "127.0.0.1", DATA_DIR: path.join(tmp, "data"), CLIPS_DIR: path.join(tmp, "clips"), MEDIA_ROOT: path.join(tmp, "media") },
+    env: { ...process.env, DEMO: "1", PORT: String(port), HOST: "127.0.0.1", DATA_DIR: path.join(tmp, "data"), CLIPS_DIR: path.join(tmp, "clips"), MEDIA_ROOT: path.join(tmp, "media"), BACKUP_DIR: path.join(tmp, "nas-backups") },
     stdio: ["ignore", "ignore", "inherit"],
   });
   for (let i = 0; i < 100; i++) {
@@ -522,21 +522,21 @@ try {
   // More like this, at the bottom of the same page.
   await page.locator(".details .rail .card").first().focus();
   await wait(1200);
-  await shot("97-more-like-this");
+  await shot("105-more-like-this");
   // TV apps: in a browser there's no CEC, so it says which button on the TV remote to press.
   await page.goto(`${base}/app/?demo-cast`);
   await wait(1500);
   await page.locator(".tab-apps").first().focus();
   await key("Enter");
   await wait(600);
-  await shot("98-tv-apps");
+  await shot("106-tv-apps");
   await key("Escape");
   // The subtitle rows in Settings › Picture and sound.
   await tab("Settings");
   await wait(1200);
   await key("ArrowDown");
   await wait(1000);
-  await shot("99-settings-subtitles");
+  await shot("107-settings-subtitles");
   await page.goto(`${base}/app/?demo-cast`);
   await wait(1500);
   await key("F4");
@@ -598,6 +598,28 @@ try {
     await wait(1500);
     await shot(name);
   }
+  // The weather (demo mode makes it up for Leeds): Home's corner, the forecast, a day ahead, its settings.
+  await page.goto(`${base}/app/`);
+  await wait(1800);
+  await shot("97-home-weather");
+  await page.locator(".weather-chip").focus();
+  await key("Enter");
+  await wait(1200);
+  await shot("98-weather");
+  await key("ArrowDown", 2);
+  await shot("99-weather-day");
+  await key("Escape");
+  await tab("Settings");
+  await key("ArrowDown");
+  await page.locator(".settings-nav-item", { hasText: "Weather" }).first().focus();
+  await wait(1200);
+  await shot("100-settings-weather");
+
+  // The Hub's nightly backup in Settings › About, after a couple of backups.
+  for (let i = 0; i < 2; i++) await fetch(`${base}/api/backup`, { method: "POST", headers: asTv });
+  await page.locator(".settings-nav-item", { hasText: "About" }).first().focus();
+  await wait(1500);
+  await shot("103-settings-backup");
   await page.goto(`${base}/app/`);
   await wait(1500);
 
@@ -782,6 +804,18 @@ try {
   await phone.waitForTimeout(1500);
   await phone.screenshot({ path: path.join(out, "96-clip-share-page.png") });
   console.log("  96-clip-share-page.png");
+  // The weather on the phone: the Watch tab's Weather, and where it's set.
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForTimeout(800);
+  await phone.click('[data-tab="browse"]');
+  await phone.click('[data-browse="weather"]');
+  await phone.waitForTimeout(1200);
+  await phone.screenshot({ path: path.join(out, "101-phone-weather.png") });
+  console.log("  101-phone-weather.png");
+  await phone.goto(`${base}/setup/#weather`);
+  await phone.waitForTimeout(1500);
+  await phone.locator("#weather").screenshot({ path: path.join(out, "102-phone-setup-weather.png") });
+  console.log("  102-phone-setup-weather.png");
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.click("#settings");
@@ -790,6 +824,8 @@ try {
   console.log("  23-phone-setup.png");
   await phone.locator("#apps").screenshot({ path: path.join(out, "64-phone-android-apps.png") });
   console.log("  64-phone-android-apps.png");
+  await phone.locator("#backup").screenshot({ path: path.join(out, "104-phone-backup.png") });
+  console.log("  104-phone-backup.png");
   // Guide lists, custom guides and channels on the phone settings page.
   await phone.goto(`${base}/setup/#lists`);
   await phone.waitForTimeout(1500);

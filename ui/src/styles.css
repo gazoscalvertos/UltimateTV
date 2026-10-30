@@ -4516,3 +4516,314 @@ html.mirroring #app > :not(.mirroring-layer):not(.toasts) {
 }
 /* The words over a full-screen picture are always light, whatever the theme. */
 .notices-full .notice-body { --fg: #f3f6fb; --fg-2: #d5dbe7; color: var(--fg); }
+
+/* ---------------------------------------------------------------------------
+   Weather: the icons, the top bar chip, Home's corner card, the forecast page */
+
+.wx-icon {
+  width: 1.6em;
+  height: 1.6em;
+  flex: none;
+  overflow: visible;
+}
+.wx-sun circle {
+  fill: #ffc83d;
+  stroke: #f5a623;
+}
+.wx-sun path {
+  stroke: #ffc83d;
+}
+.wx-moon {
+  fill: #f1e6b8;
+  stroke: #d9c98a;
+}
+.wx-cloud {
+  fill: rgb(var(--hi) / 0.22);
+  stroke: currentColor;
+}
+.wx-rain {
+  stroke: #4ea8ff;
+  stroke-width: 1.8;
+}
+.wx-snow,
+.wx-mist {
+  stroke: currentColor;
+  opacity: 0.85;
+}
+.wx-bolt {
+  fill: #ffc83d;
+  stroke: #f5a623;
+  stroke-width: 0.8;
+}
+.wx-huge {
+  width: 9rem;
+  height: 9rem;
+}
+
+.weather-chip {
+  gap: 0.4rem;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.weather-chip .wx-icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.home-weather {
+  position: absolute;
+  top: 2rem;
+  right: 6rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  max-width: 30rem;
+  padding: 1.1rem 1.6rem 1.1rem 1.2rem;
+  border-radius: 1.2rem;
+  background: rgb(var(--panel-rgb) / 0.6);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.25);
+}
+.home-weather-icon {
+  width: 4.6rem;
+  height: 4.6rem;
+}
+.home-weather-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.home-weather-top {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+}
+.home-weather-top b {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.home-weather-top span {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.home-weather small {
+  font-size: 1.05rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-weather .home-weather-headline {
+  color: var(--fg-2);
+}
+
+.saver-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.5rem;
+  opacity: 0.9;
+  margin-top: 0.6rem;
+}
+.saver-weather .wx-icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+}
+
+.weather-page {
+  padding: 1.5rem 6rem 6rem;
+}
+.weather-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46rem;
+  gap: 4rem;
+  align-items: start;
+}
+.wx-place {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--fg-2);
+}
+.wx-place small {
+  margin-left: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.wx-now-main {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin: 1.2rem 0 0.6rem;
+}
+.wx-temp {
+  font-size: 8rem;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.wx-now-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 1.3rem;
+  color: var(--muted);
+}
+.wx-now-text b {
+  font-size: 2rem;
+  color: var(--fg);
+}
+.wx-headline {
+  display: inline-block;
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 1.2rem;
+  border-radius: 2rem;
+  background: rgb(var(--hi) / 0.08);
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+.wx-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 3rem;
+  margin: 2rem 0 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+.wx-facts span {
+  display: flex;
+  flex-direction: column;
+}
+.wx-facts small {
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.wx-section-title {
+  margin: 3rem 0 1rem;
+  font-size: 1.4rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.wx-hours {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.wx-hour {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1rem 0.2rem;
+  border-radius: 0.9rem;
+  background: rgb(var(--hi) / 0.04);
+  font-variant-numeric: tabular-nums;
+}
+.wx-hour.wet {
+  background: rgb(78 168 255 / 0.12);
+}
+.wx-hour-time {
+  font-size: 1rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.wx-hour .wx-icon {
+  width: 2.8rem;
+  height: 2.8rem;
+}
+.wx-hour b {
+  font-size: 1.4rem;
+}
+.wx-hour small {
+  font-size: 0.95rem;
+  color: #4ea8ff;
+  font-weight: 700;
+}
+.wx-updated {
+  margin-top: 1.6rem;
+  font-size: 1rem;
+  color: var(--dim);
+}
+.wx-week {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+.wx-day {
+  display: grid;
+  grid-template-columns: 10rem 3rem 4rem 3.6rem 1fr 3.6rem;
+  align-items: center;
+  gap: 1rem;
+  min-height: 5.6rem;
+  padding: 0.4rem 1.4rem;
+  border-radius: 0.9rem;
+  background: rgb(var(--hi) / 0.04);
+  font-size: 1.35rem;
+  font-weight: 600;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.12s, transform 0.12s var(--ease);
+}
+.wx-day.active {
+  background: rgb(var(--hi) / 0.09);
+}
+.wx-day:focus {
+  background: var(--sel);
+  color: var(--on-sel);
+  transform: scale(1.02);
+}
+.wx-day .wx-icon {
+  width: 2.8rem;
+  height: 2.8rem;
+}
+.wx-day-rain {
+  font-size: 1.05rem;
+  color: #4ea8ff;
+}
+.wx-day-lo {
+  color: var(--muted);
+  text-align: right;
+}
+.wx-day:focus .wx-day-lo {
+  color: var(--on-sel-muted);
+}
+.wx-range {
+  position: relative;
+  height: 0.5rem;
+  border-radius: 1rem;
+  background: rgb(var(--hi) / 0.1);
+}
+.wx-range i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #4ea8ff, #ffc83d 60%, #ff7a45);
+}
+.weather-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  margin: 8rem auto 0;
+  max-width: 50rem;
+}
+.weather-empty h1 {
+  margin: 1rem 0 0;
+  font-size: 2.6rem;
+}
+.weather-empty p {
+  color: var(--muted);
+  font-size: 1.4rem;
+  margin: 0 0 1.4rem;
+}

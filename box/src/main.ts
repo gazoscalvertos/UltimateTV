@@ -18,13 +18,14 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "electron";
 import os from "node:os";
 import path from "node:path";
-import type { BoxInfo, CastState, PlayerState, SpotifyState, WebAppState } from "@ultimatetv/shared";
+import type { BoxInfo, CastState, OfflineProfile, PlayerState, SpotifyState, WebAppState } from "@ultimatetv/shared";
 import { Audio } from "./audio.js";
 import { Cast } from "./cast.js";
 import { Cec } from "./cec.js";
 import { Diagnostics } from "./diagnostics.js";
 import { Display } from "./display.js";
 import { Downloads } from "./downloads.js";
+import { hubAnswers, HubWatch } from "./hubwatch.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
 import { renameSpotifyDevice, Spotify } from "./spotify.js";
@@ -80,12 +81,25 @@ let appName = (() => {
     return "UltimateTV";
   }
 })();
-const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
-const offlinePage = (reason: string) =>
-  `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html><html><body style="margin:0;height:100vh;display:grid;place-items:center;background:#0a0f1a;color:#e8edf5;font:32px system-ui,sans-serif;text-align:center">
-<div><div style="font-size:64px;font-weight:700;margin-bottom:24px">${escapeHtml(appName)}</div>Can't reach the Hub at ${HUB_URL}<br><span style="opacity:.6;font-size:24px">${escapeHtml(reason)} · trying again</span></div>
-<script>setTimeout(()=>location.replace(${JSON.stringify(`${HUB_URL}/app/`)}),5000)</script></body></html>`)}`;
+// The box's own screen for when the Hub is down (box/offline, see hubwatch.ts), and the profile it
+// follows: the one last used on the TV, so Kids only get their own downloads.
+const OFFLINE_PAGE = path.join(__dirname, "../offline/index.html");
+const PROFILE_FILE = path.join(app.getPath("userData"), "offline-profile.json");
+let offlineReason = "";
+let offlineProfile: OfflineProfile | null = (() => {
+  try {
+    return JSON.parse(readFileSync(PROFILE_FILE, "utf8")) as OfflineProfile;
+  } catch {
+    // Not known yet: the screen treats whoever's watching as Kids.
+    return null;
+  }
+})();
+const boxAddresses = () =>
+  Object.values(os.networkInterfaces())
+    .flat()
+    .filter((a) => a && a.family === "IPv4" && !a.internal)
+    .map((a) => a!.address);
 
 async function main(): Promise<void> {
   await app.whenReady();
@@ -102,6 +116,19 @@ async function main(): Promise<void> {
   const spotify = new Spotify((process.env.SPOTIFY_API ?? "http://127.0.0.1:3678").replace(/\/$/, ""), log);
   const webApps = new WebApps(() => win, log);
   const downloads = new Downloads(HUB_URL, log);
+  let castForeground = false;
+  const watch = new HubWatch({
+    probe: () => hubAnswers(HUB_URL),
+    showOffline: (reason) => showOffline(reason),
+    showApp: () => void win?.loadURL(`${HUB_URL}/app/`),
+    busy: () => castForeground || (lastStatus !== undefined && lastStatus !== "idle" && lastStatus !== "ended" && lastStatus !== "error"),
+    log,
+  });
+  const showOffline = (reason: string) => {
+    offlineReason = reason;
+    watch.wentOffline();
+    void win?.loadFile(OFFLINE_PAGE).catch((e: Error) => log(`Couldn't show the box's own screen: ${e.message}`));
+  };
 
   // Sound to the TV before mpv opens its output; again before each play, in case the TV moved.
   const audio = new Audio(log);
@@ -172,6 +199,7 @@ async function main(): Promise<void> {
     log,
     extraUxplayArgs: (process.env.UXPLAY_ARGS ?? "").split(/\s+/).filter(Boolean),
     onForeground: (kind) => {
+      castForeground = Boolean(kind);
       if (kind) {
         if (lastStatus === "playing") void player.pause(true);
         void pauseMusic();
@@ -256,6 +284,20 @@ async function main(): Promise<void> {
     addSubtitle: (sub: never) => player.addSubtitle(sub),
     setSubtitleStyle: (style: never) => player.setSubtitleStyle(style),
     setVolume: (pct: never) => player.setVolume(pct),
+    offlineProfile: async (p: never) => {
+      const next = p as OfflineProfile;
+      if (!next || typeof next.name !== "string" || typeof next.kids !== "boolean") return;
+      if (JSON.stringify(next) === JSON.stringify(offlineProfile)) return;
+      offlineProfile = { name: next.name.slice(0, 40), kids: next.kids, ...(next.kids ? { allowedDownloads: (next.allowedDownloads ?? []).filter((id) => typeof id === "string") } : {}) };
+      try {
+        writeFileSync(PROFILE_FILE, JSON.stringify(offlineProfile));
+      } catch (e) {
+        log(`Couldn't save the profile for the Hub-down screen: ${(e as Error).message}`);
+      }
+    },
+    // The box's Hub-down screen.
+    hubStatus: async () => ({ hubUrl: HUB_URL, appName, reason: offlineReason, since: watch.since, addresses: boxAddresses(), profile: offlineProfile }),
+    retryHub: async () => void watch.check(),
   };
   diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!() });
 
@@ -311,7 +353,7 @@ async function main(): Promise<void> {
   win.webContents.on("did-fail-load", (_e, code, desc, url) => {
     if (url.startsWith(HUB_URL) && code !== -3) {
       log(`UI didn't load (${desc})`);
-      void win?.loadURL(offlinePage(desc));
+      showOffline(`The TV app didn't load (${desc})`);
     }
   });
   // An error page from the Hub (an old Hub without the TV app gives 404) would be invisible in the
@@ -319,13 +361,14 @@ async function main(): Promise<void> {
   win.webContents.on("did-navigate", (_e, url, code) => {
     if (url.startsWith(HUB_URL) && code >= 400) {
       log(`UI didn't load (HTTP ${code} from ${url})`);
-      void win?.loadURL(offlinePage(`The Hub answered ${code}; update it`));
-    }
+      showOffline(`The Hub answered ${code}: it may need updating`);
+    } else if (url.startsWith(HUB_URL)) watch.wentToApp();
   });
   win.webContents.on("render-process-gone", (_e, details) => {
     log(`UI crashed (${details.reason}); reloading`);
     void player.stop();
-    void win?.loadURL(`${HUB_URL}/app/`);
+    if (watch.mode === "offline") void win?.loadFile(OFFLINE_PAGE);
+    else void win?.loadURL(`${HUB_URL}/app/`);
   });
   win.webContents.on("unresponsive", () => {
     log("UI unresponsive; reloading");
@@ -334,11 +377,18 @@ async function main(): Promise<void> {
   // The cursor never shows on the TV.
   win.webContents.on("dom-ready", () => void win?.webContents.insertCSS("*{cursor:none!important}"));
   await carryPairing();
-  await win.loadURL(`${HUB_URL}/app/`).catch(() => undefined);
+  // Straight to the box's own screen when the Hub's down, rather than waiting on a dead address.
+  if (await hubAnswers(HUB_URL)) await win.loadURL(`${HUB_URL}/app/`).catch(() => undefined);
+  else {
+    log(`The Hub at ${HUB_URL} didn't answer: showing the box's own screen`);
+    showOffline("The Hub didn't answer when the box started");
+  }
+  watch.start();
 
   app.on("window-all-closed", () => app.quit());
   app.on("before-quit", () => {
     diagnostics.stop();
+    watch.stop();
     cec.stop();
     spotify.stop();
     webApps.stop();

@@ -24,6 +24,9 @@ app.log.info({ clipsDir: config.clipsDir, dataDir: config.dataDir, demo: config.
 // The same Hub over HTTPS, for laptops sharing their screen (browsers insist on a secure page).
 if (config.httpsPort) void startHttps(app, config.dataDir, config.httpsPort, config.publicUrl ? [new URL(config.publicUrl).hostname] : []);
 
+// The forecast refreshes every half hour wherever the Hub is (it needs no sources).
+app.jobs.weather.start();
+
 const moved = movedAway(ctx.db);
 if (moved) {
   // The Hub's data went with the TV box (tools/hub/travel.sh): stand by, so this Hub doesn't record
@@ -54,4 +57,6 @@ if (moved) {
   // Warnings before things break, and advert breaks in new recordings.
   app.jobs.alerts.start();
   app.jobs.adSkipper.start();
+  // A copy of the Hub's data on the NAS every night.
+  app.jobs.backups.start();
 }

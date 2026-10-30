@@ -45,6 +45,7 @@ The **Watch** tab at the bottom chooses what the TV plays, without using the TV'
   again, or pick a season and episode.
 - **Recordings**: newest first.
 - **Music**: your Spotify playlists, albums and artists. Play, shuffle, or start at a song.
+- **Weather**: now, hour by hour and the week, with Show on the TV ([weather.md](weather.md)).
 - **Search**: films, series, channels, programmes and recordings.
 
 ![Guide on the phone](screenshots/37-phone-guide.png)
@@ -109,6 +110,7 @@ Tap **Voice** and speak. The Hub works out what you meant:
 | "go home", "guide", "back", "OK", "info", "next channel" | the remote's keys |
 | "down three times", "right" | arrows (up to 20) |
 | "show stats", "stats off", "reload the app" | the TV app |
+| "what's the weather like", "will it rain tomorrow" | the forecast on the TV ([weather.md](weather.md)) |
 
 Anything else is searched for. What was heard, and what it did, shows above the buttons and on the TV.
 

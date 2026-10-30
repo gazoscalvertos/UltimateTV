@@ -18,7 +18,7 @@ The same button is on the phone remote's **Cast** sheet (Go to the TV's apps).
 
 Kids profiles see the button too. The TV remote's own Home and Netflix buttons get there anyway, so the lock that matters is a Kids profile in Netflix, Prime Video and Disney+ themselves.
 
-![TV apps without CEC](screenshots/98-tv-apps.png)
+![TV apps without CEC](screenshots/106-tv-apps.png)
 
 **Needs the Pulse-Eight USB-CEC adapter.** Without it (or on a box that hasn't been updated) the button explains instead: press the Home button on the TV remote, and Input to come back.
 
@@ -47,7 +47,7 @@ A film or series page shows its scores under the title, and a **Trailer** button
 
 At the bottom of every film and series page, **More like this** lists TMDB's recommendations. With AIOStreams set up almost anything plays, so the whole list shows. Without it, only titles in Jellyfin or the IPTV catalogue are kept, with a badge saying which.
 
-![More like this](screenshots/97-more-like-this.png)
+![More like this](screenshots/105-more-like-this.png)
 
 Home gets a **Because you watched …** rail from the latest film or series played (watched to the end or at least five minutes in). Kids profiles only see what their rating allows in both.
 
@@ -88,7 +88,7 @@ Settings › Picture and sound (or the phone's setup page) sets the look for eve
 
 A change applies straight away to whatever is playing. The dark box needs mpv 0.38 or newer (Arch has it).
 
-![Subtitle settings](screenshots/99-settings-subtitles.png)
+![Subtitle settings](screenshots/107-settings-subtitles.png)
 
 ## For developers
 

@@ -318,6 +318,18 @@ export interface BoxAgent {
   /** Adds a subtitle file (one fetched from OpenSubtitles) to what's playing, and shows it. */
   addSubtitle(sub: { url: string; lang: string; label: string }): Promise<void>;
   setSubtitleStyle(style: SubtitleStyle): Promise<void>;
+
+  // The screen the box shows when the Hub is down (box/offline). Older box shells lack this.
+  /** Who's watching, so that screen only offers what this profile may see. */
+  offlineProfile(p: OfflineProfile): Promise<void>;
+}
+
+/** What the box's Hub-down screen may show: it follows the profile last used on the TV. */
+export interface OfflineProfile {
+  name: string;
+  kids: boolean;
+  /** For a Kids profile, the downloads it may watch. */
+  allowedDownloads?: string[];
 }
 
 declare global {

@@ -677,7 +677,11 @@ export type HubEvent =
   /** The seasonal clip settings or clips changed. */
   | { type: "projections.changed" }
   /** Set or cancel the TV's sleep timer (voice, or the phone). */
-  | { type: "sleep"; choice: SleepChoice };
+  | { type: "sleep"; choice: SleepChoice }
+  /** A new forecast, or the weather settings changed: fetch /api/weather again. */
+  | { type: "weather.changed" }
+  /** Open the forecast on the TV (asked for by voice, or from the phone). */
+  | { type: "weather.show" };
 
 /** The Hub's own software, for the phone's settings page. */
 export interface HubSoftware {

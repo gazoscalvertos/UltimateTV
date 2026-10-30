@@ -130,7 +130,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -159,6 +159,15 @@
       <button class="secondary small" type="button" id="box-reload">Reload the TV app</button>
       <button class="secondary small" type="button" id="refresh">Refresh channels and guide</button>
       <button class="secondary small" type="button" id="sw-check">Check again</button>
+    </div>
+  </section>
+
+  <section id="backup">
+    <h2>Hub backup <span class="pill" id="backup-pill">…</span></h2>
+    <p class="hint" id="backup-hint">Every night the Hub copies its settings, profiles, logins, series links and watch history to the NAS.</p>
+    <ul class="list" id="backup-list"></ul>
+    <div class="actions">
+      <button class="secondary small" type="button" id="backup-now">Back up now</button>
     </div>
   </section>
 
@@ -211,6 +220,21 @@
       <button type="button" class="small secondary" style="margin:6px 0 0" id="ss-browse">Browse the NAS</button>
       <div class="nas-browse" id="ss-nas"></div>
     </form>
+  </section>
+
+  <section id="weather">
+    <h2>Weather <span class="pill" id="wx-pill">Not set</span></h2>
+    <p class="hint">Today's weather on the TV's Home, the temperature along the top and on the screensaver, and the week ahead (on the phone remote's Watch tab too). From Open-Meteo: free, no account.</p>
+    <form id="wx-form">
+      <label>Where you live<small id="wx-where"> a town, a UK postcode, or a latitude and longitude such as 53.8, -1.55</small></label>
+      <div class="row" style="grid-template-columns:1fr auto"><input name="q" placeholder="Leeds, LS6 2AB or 53.8, -1.55" autocomplete="off" enterkeyhint="search"><button class="small" style="margin:0">Find</button></div>
+      <div class="nas-browse" id="wx-results"></div>
+    </form>
+    <label class="opt"><span>Temperature in</span><select data-wx="temperature"><option value="c">°C</option><option value="f">°F</option></select></label>
+    <label class="opt"><span>Wind in</span><select data-wx="wind"><option value="mph">mph</option><option value="kmh">km/h</option></select></label>
+    <label class="opt"><span>On Home<small>Today's weather in the top corner</small></span><input type="checkbox" data-wx="onHome"></label>
+    <label class="opt"><span>Along the top<small>The temperature next to the clock; choose it for the week ahead</small></span><input type="checkbox" data-wx="inTopBar"></label>
+    <label class="opt"><span>On the screensaver<small>Under the clock</small></span><input type="checkbox" data-wx="onScreensaver"></label>
   </section>
 
   <section id="recording">
@@ -752,6 +776,36 @@ async function browsePhotos(dir) {
 }
 $("#ss-browse").onclick = () => browsePhotos($("#ss-folder").path.value.trim());
 
+// The weather: where the household lives (looked up by name, postcode or latitude and longitude) and where it shows.
+function showWeather(st) {
+  const p = st.settings.place;
+  for (const el of document.querySelectorAll("[data-wx]")) setValue(el, st.settings[el.dataset.wx]);
+  $("#wx-where").textContent = p ? ` ${p.name}${p.detail ? `, ${p.detail}` : ""}` : " a town, a UK postcode, or a latitude and longitude such as 53.8, -1.55";
+  const now = st.report?.now;
+  pill("#wx-pill", now ? `${p.name} ${Math.round(st.settings.temperature === "f" ? (now.tempC * 9) / 5 + 32 : now.tempC)}°` : p ? p.name : "Not set", p ? "ok" : "");
+}
+const loadWeather = () => api("/api/weather").then(showWeather);
+const saveWeather = (patch, done) => api("/api/weather/settings", { method: "PUT", body: patch }).then((st) => { if (done) toast(done); showWeather(st); }).catch((e) => { toast(e.message, true); loadWeather().catch(() => {}); });
+for (const el of document.querySelectorAll("[data-wx]")) el.addEventListener("change", () => saveWeather({ [el.dataset.wx]: valueOf(el) }, "Saved"));
+$("#wx-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const q = e.target.q.value.trim();
+  if (!q) return;
+  const box = $("#wx-results");
+  let places;
+  try { ({ places } = await api(`/api/weather/places?q=${encodeURIComponent(q)}`)); } catch (err) { return toast(err.message, true); }
+  box.innerHTML = `<ul class="list"></ul>`;
+  const items = box.querySelector("ul");
+  if (!places.length) { box.innerHTML = `<p class="hint" style="margin:8px 0">Nothing called that. Try the nearest town, or a postcode.</p>`; return; }
+  for (const p of places) {
+    const li = document.createElement("li");
+    const t = document.createElement("span");
+    t.textContent = `${p.name}${p.detail ? ` · ${p.detail}` : ""}`;
+    li.append(t, button("Use", "", () => saveWeather({ place: p }, `The weather is for ${p.name} now`).then(() => { box.innerHTML = ""; e.target.q.value = ""; })));
+    items.append(li);
+  }
+};
+
 // Updates and the TV.
 const shortSha = (c) => (c ? c.slice(0, 7) : "unknown");
 const when = (iso) => new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -810,6 +864,45 @@ async function checkBox() {
   setTimeout(() => loadSoftware(false).catch(() => {}), 4000);
   setTimeout(() => loadSoftware(false).catch(() => {}), 12000);
 }
+// ---------------------------------------------------------------------------
+// The nightly backup (hub/src/backup.ts)
+
+const kb = (n) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+async function loadBackup(state) {
+  const b = state || (await api("/api/backup"));
+  if (b.running) pill("#backup-pill", "Backing up…", "warn");
+  else if (b.error) pill("#backup-pill", "Last one failed", "bad");
+  else if (!b.enabled) pill("#backup-pill", "Off");
+  else if (b.last) pill("#backup-pill", when(b.last.at), "ok");
+  else pill("#backup-pill", "None yet", "warn");
+  $("#backup-hint").textContent = [
+    b.error ? `The last try failed: ${b.error.message}.` : "",
+    b.enabled ? `Every night at ${b.time} the Hub copies its settings, profiles, logins, series links and watch history` : "Nightly backups are off (BACKUP=off on the Hub)",
+    b.onNas ? ` to the NAS (${b.dir}), keeping the last ${b.keep}.` : `, but the NAS isn't mounted in the Hub, so they're beside the Hub's own data (${b.dir}). Mount the NAS (docker-compose.override.yml) or set BACKUP_DIR.`,
+  ].join(" ").trim();
+  const list = $("#backup-list");
+  list.innerHTML = "";
+  for (const f of b.backups.slice(0, 7)) {
+    const restore = button("Restore", "secondary", async () => {
+      if (!confirm(`Put the Hub back to how it was on ${when(f.at)}? Anything changed since (new recordings planned, settings, watch history) goes back too. The Hub restarts, and keeps what it replaces in case you change your mind.`)) return;
+      try {
+        await api("/api/backup/restore", { method: "POST", body: { name: f.name } });
+        toast("Restoring. The Hub restarts and this page reloads in a minute.");
+        setTimeout(() => location.reload(), 30_000);
+      } catch (e) { toast(e.message, true); }
+    });
+    list.append(el("li", {}, el("span", {}, when(f.at), el("small", {}, `${kb(f.bytes)} · ${f.name}`)), restore));
+  }
+  if (b.backups.length > 7) list.append(el("li", {}, el("small", {}, `and ${b.backups.length - 7} older`)));
+  $("#backup-now").disabled = b.running;
+}
+$("#backup-now").onclick = async () => {
+  $("#backup-now").disabled = true;
+  pill("#backup-pill", "Backing up…", "warn");
+  try { await loadBackup(await api("/api/backup", { method: "POST" })); toast("The Hub is backed up."); }
+  catch (e) { toast(e.message, true); loadBackup().catch(() => {}); }
+};
+
 $("#sw-check").onclick = () => loadSoftware(true).then(checkBox).catch((e) => toast(e.message, true));
 $("#hub-update").onclick = async () => {
   if (!confirm("Update the Hub now? It restarts at the end, so the TV pauses for a minute while it comes back.")) return;
@@ -996,6 +1089,7 @@ async function load() {
   loadLists().catch(() => {});
   loadProfiles().catch(() => {});
   loadMix().catch(() => {});
+  loadBackup().catch(() => pill("#backup-pill", "Couldn't check"));
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);
   showAppName(s.appName);
   showLook(s);
@@ -1032,6 +1126,7 @@ async function load() {
   for (const el of document.querySelectorAll("[data-sub]")) if (s.playback.subtitleStyle) setValue(el, s.playback.subtitleStyle[el.dataset.sub]);
   for (const el of document.querySelectorAll("[data-rec]")) setValue(el, s.recording[el.dataset.rec]);
   if (s.screensaver) loadScreensaver(s).catch(() => {});
+  loadWeather().catch(() => {});
   for (const [id, on] of [["#tmdb-pill", s.tmdb], ["#torbox-pill", s.torbox], ["#omdb-pill", s.omdb], ["#os-pill", s.openSubtitles?.configured]]) { $(id).textContent = on ? "Set" : "Not set"; $(id).className = "pill" + (on ? " ok" : ""); }
   $("#addon-list").innerHTML = s.addons.map((a) => `<li><span>${a.name}<small>${a.url}</small></span></li>`).join("");
   const lib = $("#lib-form");

@@ -3,13 +3,15 @@
 // with a slow pan. A small clock moves round the corners so nothing sits still for long.
 
 import { createEffect, createMemo, createResource, createSignal, For, Match, on, onCleanup, onMount, Show, Switch } from "solid-js";
-import { shuffleThemes, type ScreensaverPhoto, type ScreensaverThemeId } from "@ultimatetv/shared";
+import { describeWeather, formatTemp, shuffleThemes, type ScreensaverPhoto, type ScreensaverThemeId } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { idleMode, screensaverConfig } from "../idle";
 import { activeMusic, spotify, webApp } from "../music";
 import { artwork, landscape, svgUrl } from "../screensavers/pictures";
 import { SCENES } from "../screensavers/scenes";
 import { appName, now } from "../store";
+import { weather } from "../weather";
+import { WeatherIcon } from "./WeatherIcon";
 
 const SHUFFLE_EVERY_MS = 10 * 60_000;
 
@@ -153,6 +155,14 @@ function Clock() {
     <div class={`saver-clock spot-${spot()}`}>
       <div class="saver-time">{time()}</div>
       <div class="saver-date">{date()}</div>
+      <Show when={weather()?.settings.onScreensaver ? weather()!.report : undefined}>
+        {(r) => (
+          <div class="saver-weather">
+            <WeatherIcon code={r().now.code} isDay={r().now.isDay} />
+            {formatTemp(r().now.tempC, weather()!.settings.temperature)} {describeWeather(r().now.code, r().now.isDay).label}
+          </div>
+        )}
+      </Show>
       <Show when={song()}>
         <div class="saver-song">♪ {song()}</div>
       </Show>

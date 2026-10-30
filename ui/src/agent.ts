@@ -267,6 +267,7 @@ class BrowserAgent implements BoxAgent {
     this.emit({ ...this.state, subtitleTracks: [...this.state.subtitleTracks.map((t) => ({ ...t, selected: false })), { id, lang: sub.lang, title: sub.label, external: true, selected: true }] });
   }
   async setSubtitleStyle(): Promise<void> {}
+  async offlineProfile(): Promise<void> {}
 }
 
 export const agent: BoxAgent = window.ultimatetv ?? new BrowserAgent();

@@ -1,0 +1,86 @@
+<!doctype html>
+<!-- The box's own screen for when the Hub is down (see box/src/hubwatch.ts). It runs from the box's
+     disk with no network: the time, what's wrong, and what still works without the Hub. -->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>UltimateTV</title>
+<style>
+  :root { --bg: #0a0f1a; --panel: #131b2b; --panel-2: #1b2539; --fg: #e8edf5; --muted: #8a97ad; --accent: #4f8cff; --warn: #f2b84b; --bad: #ff6b6b; --ok: #4cd18a; }
+  * { box-sizing: border-box; cursor: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body { background: var(--bg); color: var(--fg); font: 1.25vw/1.4 system-ui, "Segoe UI", sans-serif; }
+  main { padding: 2.2vw 4vw; height: 100%; display: flex; flex-direction: column; gap: 1.6vw; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; }
+  .brand { font-size: 1.6vw; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+  .clock { text-align: right; }
+  .clock b { display: block; font-size: 4vw; font-weight: 300; line-height: 1; }
+  .clock span { color: var(--muted); font-size: 1.4vw; }
+  .status { background: var(--panel); border-radius: 1vw; padding: 1.3vw 2vw; display: grid; grid-template-columns: auto 1fr; gap: .3vw 1.6vw; align-items: center; }
+  .status .dot { grid-row: span 4; align-self: start; margin-top: .6vw; width: 1.4vw; height: 1.4vw; border-radius: 50%; background: var(--warn); box-shadow: 0 0 1.2vw var(--warn); animation: pulse 2s infinite; }
+  .status.nonet .dot { background: var(--bad); box-shadow: 0 0 1.2vw var(--bad); }
+  .status h1 { margin: 0; font-size: 2vw; font-weight: 650; }
+  .status p { margin: 0; color: var(--muted); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  h2 { margin: 0 0 .8vw; font-size: 1.5vw; font-weight: 600; }
+  h2 small { color: var(--muted); font-weight: 400; font-size: 1.1vw; margin-left: .8vw; }
+  .rail { display: flex; gap: 1.2vw; overflow: hidden; padding: .5vw; margin: -.5vw; }
+  .card { flex: 0 0 9.5vw; background: var(--panel-2); border-radius: .8vw; overflow: hidden; outline: .25vw solid transparent; transition: transform .12s, outline-color .12s; }
+  .card .art { height: 11vw; background: #222c40 center/cover no-repeat; display: grid; place-items: center; font-size: 3vw; color: var(--muted); }
+  .card .text { padding: .7vw .9vw; }
+  .card .text b { display: block; font-size: 1.1vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .text small { display: block; color: var(--muted); font-size: .95vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .bar { height: .3vw; background: #ffffff22; }
+  .card .bar i { display: block; height: 100%; background: var(--accent); }
+  .actions { display: flex; gap: 1vw; }
+  .status .actions { margin-top: .9vw; }
+  .button { background: var(--panel-2); border-radius: 99vw; padding: .8vw 1.8vw; font-weight: 600; outline: .25vw solid transparent; }
+  .focus { outline-color: var(--fg) !important; transform: scale(1.04); }
+  .empty { color: var(--muted); margin: 0; }
+  footer { margin-top: auto; color: var(--muted); font-size: 1vw; }
+  /* While a download plays, mpv draws it underneath and this page steps aside. */
+  body.playing { background: transparent; }
+  body.playing main { display: none; }
+  .osd { position: fixed; left: 4vw; right: 4vw; bottom: 3vw; background: #000000b0; border-radius: 1vw; padding: 1.2vw 1.6vw; display: none; }
+  body.playing.osd-on .osd { display: block; }
+  .osd b { font-size: 1.5vw; }
+  .osd .line { display: flex; justify-content: space-between; color: var(--muted); margin-top: .6vw; }
+  .osd .track { height: .4vw; background: #ffffff33; border-radius: 1vw; margin-top: .6vw; }
+  .osd .track i { display: block; height: 100%; background: var(--accent); border-radius: 1vw; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand" id="brand">UltimateTV</div>
+    <div class="clock"><b id="time">--:--</b><span id="date"></span></div>
+  </header>
+  <section class="status" id="status">
+    <div class="dot"></div>
+    <h1 id="headline">Can't reach the Hub</h1>
+    <p id="detail">Trying again every few seconds. The TV app comes back by itself as soon as it answers.</p>
+    <p id="network"></p>
+    <div class="actions" data-row>
+      <div class="button" id="retry" data-focus>Try again now</div>
+      <div class="button" id="standby" data-focus>Turn the TV off</div>
+    </div>
+  </section>
+  <section id="downloads-section">
+    <h2>Downloads on this box <small id="downloads-note"></small></h2>
+    <div class="rail" id="downloads" data-row></div>
+  </section>
+  <section id="games-section" hidden>
+    <h2>Games</h2>
+    <div class="actions" id="games" data-row></div>
+  </section>
+  <footer id="footer"></footer>
+</main>
+<div class="osd" id="osd">
+  <b id="osd-title"></b>
+  <div class="track"><i id="osd-bar" style="width:0"></i></div>
+  <div class="line"><span id="osd-pos"></span><span>OK pauses · ◀ ▶ skip · Back stops</span><span id="osd-dur"></span></div>
+</div>
+<script src="offline.js"></script>
+</body>
+</html>

@@ -115,6 +115,24 @@
   .bar { display: block; height: 3px; border-radius: 2px; background: rgb(var(--hi) / .12); overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--accent); }
   .rail-title { font-size: 15px; margin: 14px 0 8px; }
+  #browse-body .meta { color: var(--muted); font-size: 13px; margin: 6px 0; }
+  .wx-now { display: flex; align-items: center; gap: 14px; margin: 6px 0 4px; }
+  .wx-now .wx-e { font-size: 52px; line-height: 1; }
+  .wx-now .wx-t { font-size: 54px; font-weight: 300; line-height: 1; letter-spacing: -.03em; }
+  .wx-now div { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--muted); }
+  .wx-now div b { font-size: 17px; color: var(--fg); }
+  .wx-head { display: inline-block; margin: 8px 0 4px; padding: 6px 12px; border-radius: 99px; background: var(--panel); font-size: 14px; font-weight: 600; }
+  .wx-hours { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 8px; scrollbar-width: none; }
+  .wx-hours span { flex: none; width: 52px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; border-radius: 12px; background: var(--panel); font-size: 12px; color: var(--muted); }
+  .wx-hours span.wet { background: rgb(78 168 255 / .16); }
+  .wx-hours b { font-size: 14px; color: var(--fg); }
+  .wx-hours i, .wx-day .rain { font-style: normal; font-size: 11px; color: #4ea8ff; font-weight: 700; }
+  .wx-hours .e { font-size: 20px; }
+  .wx-day { display: grid; grid-template-columns: 1fr 30px 40px 34px 34px; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 14px; background: var(--panel); font-size: 14px; }
+  .wx-day .e { font-size: 20px; text-align: center; }
+  .wx-day .lo { color: var(--muted); text-align: right; }
+  .wx-day .hi { font-weight: 700; text-align: right; }
+  .wx-day small { display: block; font-size: 12px; color: var(--muted); }
   .rail { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
   .poster { flex: none; width: 108px; padding: 0; background: transparent; text-align: left; display: flex; flex-direction: column; gap: 4px; }
   .poster img, .poster > span { width: 108px; height: 162px; border-radius: 10px; object-fit: cover; background: var(--panel); display: grid; place-items: center; font-size: 12px; padding: 6px; text-align: center; }
@@ -293,7 +311,7 @@
 </main>
 <main class="browse" id="tab-browse" hidden>
   <div class="chips">
-    <button data-browse="guide" class="on">TV Guide</button><button data-browse="movie">Films</button><button data-browse="series">TV</button><button data-browse="recordings">Recordings</button><button data-browse="queue">Queue</button><button data-browse="downloads">On the box</button><button data-browse="music">Music</button><button data-browse="search">Search</button>
+    <button data-browse="guide" class="on">TV Guide</button><button data-browse="movie">Films</button><button data-browse="series">TV</button><button data-browse="recordings">Recordings</button><button data-browse="queue">Queue</button><button data-browse="downloads">On the box</button><button data-browse="music">Music</button><button data-browse="weather">Weather</button><button data-browse="search">Search</button>
   </div>
   <div id="browse-body"></div>
 </main>
