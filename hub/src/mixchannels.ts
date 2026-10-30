@@ -7,11 +7,16 @@
 // ("Artist - Title") and then its broader searches; an LLM curator can plug in later and only has
 // to return those two lists from the channel's brief. Everything is also reachable over
 // /api/mix-channels, so an outside agent can search, add and remove videos itself.
+//
+// A channel can also follow YouTube playlists: every video in them is downloaded the same way and
+// put on the channel, and each playlist is read again every six hours for videos added since (and
+// ones taken out of it come off). Playlist videos are on top of the channel's target, which is
+// only how many the Hub finds itself.
 
 import { existsSync } from "node:fs";
 import { mkdir, rm, stat, statfs } from "node:fs/promises";
 import path from "node:path";
-import type { Channel, MixCandidate, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixVideo, MixVideoStatus, Programme } from "@ultimatetv/shared";
+import type { Channel, MixCandidate, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, MixPlaylistInfo, MixVideo, MixVideoStatus, Programme } from "@ultimatetv/shared";
 import { normaliseChannelName } from "@ultimatetv/shared";
 import type { ChannelStore } from "./channels.js";
 import { type CropDetect, ffmpegCropDetect } from "./cropdetect.js";
@@ -23,7 +28,7 @@ import type { EventBus } from "./events.js";
 import type { Logger } from "./log.js";
 import { FIRST_SEED_NAMES, MIX_SEEDS, type MixSeed } from "./mixseeds.js";
 import type { SettingsStore } from "./settings.js";
-import { displayTitle, overlap, songKey, toCandidate, type YtDlp, type YtInfo } from "./ytdlp.js";
+import { displayTitle, overlap, playlistId, songKey, toCandidate, type Playlist, type YtDlp, type YtInfo } from "./ytdlp.js";
 
 const HOUR = 3_600_000;
 /** How far ahead the guide is filled, and when it is topped up. */
@@ -38,6 +43,11 @@ const SEARCH_PAGES_PER_PASS = 3;
 /** Leave this much room on the NAS. */
 const MIN_FREE_BYTES = 10 * 1024 ** 3;
 const RECURATE_AFTER = 24 * HOUR;
+/** Playlists are read again this often for new videos. */
+const RESYNC_AFTER = 6 * HOUR - 10 * 60_000;
+/** The most of a playlist a channel takes, so a huge one can't fill the NAS. */
+export const MAX_PLAYLIST = 200;
+const MAX_PLAYLISTS = 20;
 
 const badRequest = (message: string) => Object.assign(new Error(message), { statusCode: 400 });
 const notFound = (message: string) => Object.assign(new Error(message), { statusCode: 404 });
@@ -285,7 +295,14 @@ export interface MixOptions {
   probe?: VideoProbe;
 }
 
-type Job = { kind: "curate"; channelId: string } | { kind: "download"; videoId: string };
+type Job = { kind: "curate"; channelId: string } | { kind: "download"; videoId: string } | { kind: "playlist"; channelId: string; listId: string; retry?: boolean };
+type Lane = "curate" | "download";
+
+const jobKey = (j: Job) => (j.kind === "download" ? `d:${j.videoId}` : j.kind === "curate" ? `c:${j.channelId}` : `p:${j.channelId}:${j.listId}`);
+const laneOf = (j: Job): Lane => (j.kind === "download" ? "download" : "curate");
+
+/** Whether the Hub looks for videos for this channel itself, or it only plays its playlists and files. */
+const searches = (c: MixChannel) => Boolean(c.brief || c.picks.length || c.queries.length);
 
 export class MixManager {
   readonly store: MixStore;
@@ -295,6 +312,8 @@ export class MixManager {
   private jobs: Job[] = [];
   /** What each lane is doing now, for the overview. */
   private busy: { curate?: string; download?: string } = {};
+  /** The playlist being read now (`channel id:list id`). */
+  private syncing?: string;
   private downloader: MixOverview["downloader"] = { ok: false, error: "Not checked yet" };
   private timers: NodeJS.Timeout[] = [];
   private abort: AbortController | null = null;
@@ -336,9 +355,11 @@ export class MixManager {
     this.o.db.setKv("mix-seeded", true);
   }
 
-  create(input: Partial<MixChannel> & { name?: string }, now = Date.now()): MixChannel {
+  create(input: Partial<MixChannel> & { name?: string; playlist?: string }, now = Date.now()): MixChannel {
     const name = String(input.name ?? "").trim().slice(0, 40);
     if (!name) throw badRequest("Give the channel a name");
+    const list = input.playlist?.trim() ? playlistId(input.playlist) : undefined;
+    if (input.playlist?.trim() && !list) throw badRequest("That isn't a YouTube playlist link");
     const id = `mix:${slug(normaliseChannelName(name))}`;
     if (this.store.channel(id)) throw Object.assign(new Error(`There's already a channel called ${name}`), { statusCode: 409 });
     const style: MixChannel["style"] = input.style === "ambience" ? "ambience" : "music";
@@ -363,10 +384,11 @@ export class MixManager {
       colour: /^#[0-9a-f]{6}$/i.test(input.colour ?? "") ? input.colour! : PALETTE[this.store.channels().length % PALETTE.length]!,
       createdAt: now,
     };
-    if (!c.brief && !c.picks.length && !c.queries.length) throw badRequest("Say what the channel should play");
+    if (!searches(c) && !list) throw badRequest("Say what the channel should play, or give it a playlist");
     this.store.saveChannel(c);
     this.syncRow(c.id);
-    this.queue({ kind: "curate", channelId: c.id });
+    if (searches(c)) this.queue({ kind: "curate", channelId: c.id });
+    if (list) return { ...c, playlists: [this.followPlaylist(c.id, input.playlist!, now)] };
     this.changed(c.id);
     return c;
   }
@@ -401,9 +423,10 @@ export class MixManager {
     const videos = this.store.entries(id).map((e) => e.video.id);
     this.store.removeChannel(id);
     this.o.db.run("DELETE FROM kv WHERE key = ?", `mix-bag:${id}`);
+    this.o.db.run("DELETE FROM kv WHERE key LIKE ?", `mix-playlist:${id}:%`);
     this.o.guide.dropFrom(id);
     this.o.channels.removeOwn(id);
-    this.jobs = this.jobs.filter((j) => j.kind !== "curate" || j.channelId !== id);
+    this.jobs = this.jobs.filter((j) => j.kind === "download" || j.channelId !== id);
     for (const v of videos) await this.dropIfOrphan(v);
     this.changed(id);
     this.o.events.emit({ type: "guide.updated" });
@@ -416,7 +439,34 @@ export class MixManager {
       counts[e.video.status]++;
       if (e.video.status === "ready") readyBytes += e.video.sizeBytes ?? 0;
     }
-    return { ...c, counts, readyBytes, channelId: c.id };
+    const { playlists, ...rest } = c;
+    const out: MixChannelInfo = { ...rest, counts, readyBytes, channelId: c.id, goal: this.goal(c) };
+    if (playlists?.length) out.playlists = playlists.map((p) => this.playlistInfo(c.id, p));
+    return out;
+  }
+
+  /** How many videos the channel should end up with: its target (if it searches) plus its playlists' videos. */
+  private goal(c: MixChannel): number {
+    let n = searches(c) ? c.target : 0;
+    for (const id of this.fromPlaylists(c)) if (this.store.video(id)?.status !== "failed") n++;
+    return n;
+  }
+
+  private playlistInfo(channelId: string, p: MixPlaylist): MixPlaylistInfo {
+    const counts: Record<MixVideoStatus, number> = { queued: 0, downloading: 0, ready: 0, failed: 0 };
+    const failures: MixPlaylistInfo["failures"] = [];
+    let progress: number | undefined;
+    for (const id of this.members(channelId, p.id)) {
+      const v = this.store.video(id);
+      if (!v) continue;
+      counts[v.status]++;
+      if (v.status === "downloading") progress = v.progress ?? 0;
+      if (v.status === "failed" && failures.length < 20) failures.push({ title: displayTitle(v), error: v.error ?? "Couldn't download it" });
+    }
+    const key = `${channelId}:${p.id}`;
+    const out: MixPlaylistInfo = { ...p, counts, failures, syncing: this.syncing === key || this.jobs.some((j) => j.kind === "playlist" && `${j.channelId}:${j.listId}` === key) };
+    if (progress !== undefined) out.progress = progress;
+    return out;
   }
 
   async overview(): Promise<MixOverview> {
@@ -456,7 +506,7 @@ export class MixManager {
       hidden: !c.enabled,
       maxHeight: ready.length ? Math.max(...ready.map((e) => e.video.height)) : c.maxHeight,
       catchupDays: 0,
-      mix: { ready: ready.length, target: c.target },
+      mix: { ready: ready.length, target: this.goal(c) },
     };
     this.o.channels.putOwn(row);
   }
@@ -475,6 +525,7 @@ export class MixManager {
     if (!c) throw notFound("That channel has been deleted");
     const url = input.url?.trim() || (input.id ? `https://www.youtube.com/watch?v=${input.id.trim()}` : "");
     if (!/^https?:\/\//.test(url)) throw badRequest("Give a video link or id");
+    if (playlistId(url) && !/[?&]v=|youtu\.be\/[\w-]/.test(url)) throw badRequest("That's a playlist link. Add it as a playlist instead, and every video in it is downloaded");
     const known = input.id ? this.store.video(input.id) : undefined;
     let video = known;
     if (!video) {
@@ -484,6 +535,192 @@ export class MixManager {
     }
     this.addToChannel(c, video, String(input.origin ?? "added by hand").slice(0, 120));
     return { video: this.store.video(video.id)!, origin: input.origin ?? "added by hand", addedAt: Date.now() };
+  }
+
+  // -------------------------------------------------------------------------
+  // Playlists
+
+  /** Video ids a followed playlist put on the channel, in the playlist's order. */
+  private members(channelId: string, listId: string): string[] {
+    return this.o.db.getKv<string[]>(`mix-playlist:${channelId}:${listId}`) ?? [];
+  }
+
+  /** Every video on the channel that came from one of its playlists. */
+  private fromPlaylists(c: MixChannel): Set<string> {
+    return new Set((c.playlists ?? []).flatMap((p) => this.members(c.id, p.id)));
+  }
+
+  /**
+   * Follows a YouTube playlist: it's read straight away (in the background) and every video in it
+   * downloaded, then read again every six hours. A playlist the channel already follows is read
+   * again now, and videos that failed get another go.
+   */
+  followPlaylist(channelId: string, url: string, now = Date.now()): MixPlaylist {
+    const c = this.store.channel(channelId);
+    if (!c) throw notFound("That channel has been deleted");
+    const id = playlistId(url);
+    if (!id) throw badRequest("That isn't a YouTube playlist link (it needs a list= in it)");
+    if (!this.o.ytdlp && !this.o.demo) throw Object.assign(new Error("yt-dlp isn't installed on the Hub"), { statusCode: 503 });
+    let p = c.playlists?.find((x) => x.id === id);
+    if (!p) {
+      if ((c.playlists?.length ?? 0) >= MAX_PLAYLISTS) throw badRequest(`A channel can follow up to ${MAX_PLAYLISTS} playlists`);
+      p = { id, url: `https://www.youtube.com/playlist?list=${id}`, title: "YouTube playlist", addedAt: now };
+      c.playlists = [...(c.playlists ?? []), p];
+      this.store.saveChannel(c);
+    }
+    this.queue({ kind: "playlist", channelId, listId: id, retry: true }, true);
+    this.changed(channelId);
+    return p;
+  }
+
+  /** Stops following a playlist, taking its videos off the channel unless `keepVideos`. */
+  async unfollowPlaylist(channelId: string, listId: string, keepVideos = false): Promise<void> {
+    const c = this.store.channel(channelId);
+    if (!c) throw notFound("That channel has been deleted");
+    if (!c.playlists?.some((p) => p.id === listId)) throw notFound("The channel doesn't follow that playlist");
+    const ids = this.members(channelId, listId);
+    c.playlists = c.playlists.filter((p) => p.id !== listId);
+    if (!c.playlists.length) delete c.playlists;
+    this.store.saveChannel(c);
+    this.o.db.run("DELETE FROM kv WHERE key = ?", `mix-playlist:${channelId}:${listId}`);
+    this.jobs = this.jobs.filter((j) => j.kind !== "playlist" || j.channelId !== channelId || j.listId !== listId);
+    if (!keepVideos) {
+      const others = this.fromPlaylists(c);
+      for (const id of ids) {
+        if (others.has(id)) continue;
+        this.store.removeEntry(channelId, id);
+        await this.dropIfOrphan(id);
+      }
+      this.reshuffle(channelId);
+      this.o.events.emit({ type: "guide.updated" });
+    }
+    this.syncRow(channelId);
+    this.changed(channelId);
+  }
+
+  /** Reads one playlist again now. */
+  syncSoon(channelId: string, listId: string): void {
+    const c = this.store.channel(channelId);
+    if (!c) throw notFound("That channel has been deleted");
+    if (!c.playlists?.some((p) => p.id === listId)) throw notFound("The channel doesn't follow that playlist");
+    this.queue({ kind: "playlist", channelId, listId, retry: true }, true);
+    this.changed(channelId);
+  }
+
+  /** Playlists not read for six hours are read again. */
+  queuePlaylistSyncs(now = Date.now()): void {
+    for (const c of this.store.channels()) {
+      if (!c.enabled) continue;
+      for (const p of c.playlists ?? []) if (!p.syncedAt || now - p.syncedAt > RESYNC_AFTER) this.queue({ kind: "playlist", channelId: c.id, listId: p.id });
+    }
+  }
+
+  /**
+   * Reads a playlist and brings the channel in line with it: new videos are queued to download,
+   * ones taken out of the playlist come off the channel (and off the NAS, unless another channel
+   * has them). `retry` gives videos that failed to download another go.
+   */
+  async syncPlaylist(channelId: string, listId: string, retry = false, now = Date.now()): Promise<{ added: number; removed: number }> {
+    const c = this.store.channel(channelId);
+    const p = c?.playlists?.find((x) => x.id === listId);
+    const yt = this.o.ytdlp;
+    if (!c || !p || !yt) return { added: 0, removed: 0 };
+    this.syncing = `${channelId}:${listId}`;
+    this.busy.curate = `Reading the playlist ${p.title}`;
+    this.changed(channelId);
+    const save = (patch: Partial<MixPlaylist>, drop: (keyof MixPlaylist)[] = []) => {
+      const fresh = this.store.channel(channelId);
+      const i = fresh?.playlists?.findIndex((x) => x.id === listId) ?? -1;
+      if (!fresh || i < 0) return;
+      const next = { ...fresh.playlists![i]!, ...patch };
+      for (const k of drop) delete next[k];
+      fresh.playlists![i] = next;
+      this.store.saveChannel(fresh);
+    };
+    let list: Playlist;
+    try {
+      list = await yt.playlist(p.url, MAX_PLAYLIST);
+    } catch (err) {
+      const message = (err as Error).message;
+      save({ syncedAt: now, error: /private|not exist|unavailable|does not exist/i.test(message) ? `YouTube says: ${message}. Is the playlist public or unlisted?` : message.slice(0, 300) });
+      this.o.log.warn({ channel: channelId, playlist: listId, err: message }, "Couldn't read a music channel playlist");
+      this.syncing = undefined;
+      this.changed(channelId);
+      return { added: 0, removed: 0 };
+    }
+    const before = new Set(this.members(channelId, listId));
+    const blocked = new Set(this.o.db.getKv<string[]>(`mix-blocked:${channelId}`) ?? []);
+    const skipped = new Map<string, number>();
+    const skip = (why: string) => skipped.set(why, (skipped.get(why) ?? 0) + 1);
+    const members: string[] = [];
+    let added = 0;
+    let order = 0;
+    for (const item of list.items) {
+      if (this.stopped) break;
+      if (item.unavailable) {
+        skip(item.unavailable);
+        continue;
+      }
+      if (item.durationS > c.maxMinutes * 60) {
+        skip(`longer than ${c.maxMinutes} min`);
+        continue;
+      }
+      if (blocked.has(item.id)) {
+        skip("taken off by hand");
+        continue;
+      }
+      const onChannel = this.store.channelsOf(item.id).includes(channelId);
+      // On the channel already from a search or by hand: it stays that, so leaving the playlist doesn't take it off.
+      if (onChannel && !before.has(item.id)) {
+        if (retry && this.store.video(item.id)?.status === "failed") this.requeue(item.id);
+        continue;
+      }
+      let v = this.store.video(item.id);
+      if (!v) {
+        v = this.newVideo({ id: item.id, url: item.url, title: item.title, durationS: item.durationS, height: 0, score: 0, rejected: [], ...(item.uploader ? { uploader: item.uploader } : {}) });
+        // Downloads go oldest first, so this keeps them in the playlist's order.
+        v = { ...v, addedAt: now + order++ };
+        this.store.saveVideo(v);
+      }
+      members.push(item.id);
+      if (!onChannel) {
+        this.addToChannel(c, v, `playlist: ${list.title}`);
+        added++;
+      } else if (retry && v.status === "failed") this.requeue(item.id);
+    }
+    this.o.db.setKv(`mix-playlist:${channelId}:${listId}`, members);
+    // Taken out of the playlist on YouTube: off the channel too (unless another playlist has it).
+    let removed = 0;
+    const kept = new Set(members);
+    const fresh = this.store.channel(channelId);
+    const others = new Set((fresh?.playlists ?? []).filter((x) => x.id !== listId).flatMap((x) => this.members(channelId, x.id)));
+    if (!this.stopped) {
+      for (const id of before) {
+        if (kept.has(id) || others.has(id)) continue;
+        this.store.removeEntry(channelId, id);
+        await this.dropIfOrphan(id);
+        removed++;
+      }
+    }
+    save({ title: list.title, syncedAt: now, total: list.items.length, skipped: [...skipped].map(([why, n]) => `${n} ${why}`) }, ["error"]);
+    this.o.log.info({ channel: channelId, playlist: listId, added, removed, total: list.items.length }, "Music channel playlist read");
+    this.syncing = undefined;
+    if (removed) this.reshuffle(channelId);
+    this.syncRow(channelId);
+    this.changed(channelId);
+    if (added || removed) this.o.events.emit({ type: "guide.updated" });
+    return { added, removed };
+  }
+
+  /** A failed video gets another go. */
+  private requeue(videoId: string): void {
+    const v = this.store.video(videoId);
+    if (!v || v.status !== "failed") return;
+    const again: StoredVideo = { ...v, status: "queued" };
+    delete again.error;
+    delete again.stalls;
+    this.store.saveVideo(again);
+    this.queue({ kind: "download", videoId });
   }
 
   /** The NAS shares, or one folder in them, for picking files to link. */
@@ -710,9 +947,15 @@ export class MixManager {
     for (const v of this.store.videosWithStatus("downloading")) this.store.saveVideo({ ...v, status: "queued" });
     this.extendAll();
     this.timers.push(setInterval(() => this.extendAll(), 30 * 60_000));
-    this.timers.push(setInterval(() => this.queueCurations(), 6 * HOUR));
+    this.timers.push(
+      setInterval(() => {
+        this.queueCurations();
+        this.queuePlaylistSyncs();
+      }, 6 * HOUR),
+    );
     // After a restart (an update, say) channels short of videos look again straight away.
     this.queueCurations(Date.now(), true);
+    this.queuePlaylistSyncs();
     this.running = true;
     // Two lanes, so a long curation (or a restart part-way through one) never holds up the
     // downloads of the videos already chosen: one search and one download at a time.
@@ -783,8 +1026,9 @@ export class MixManager {
   /** Channels short of videos, and not looked at for a day (or at all, with `any`), get curated. */
   queueCurations(now = Date.now(), any = false): void {
     for (const c of this.store.channels()) {
-      if (!c.enabled) continue;
-      const have = this.store.entries(c.id).filter((e) => e.video.status !== "failed").length;
+      if (!c.enabled || !searches(c)) continue;
+      const listed = this.fromPlaylists(c);
+      const have = this.store.entries(c.id).filter((e) => e.video.status !== "failed" && !listed.has(e.video.id)).length;
       if (have < c.target && (any || !c.curatedAt || now - c.curatedAt > RECURATE_AFTER)) this.queue({ kind: "curate", channelId: c.id });
     }
   }
@@ -796,8 +1040,16 @@ export class MixManager {
   }
 
   private queue(job: Job, first = false): void {
-    const same = (j: Job) => j.kind === job.kind && (j.kind === "curate" ? j.channelId === (job as { channelId: string }).channelId : j.videoId === (job as { videoId: string }).videoId);
-    if (!this.jobs.some(same)) first ? this.jobs.unshift(job) : this.jobs.push(job);
+    const i = this.jobs.findIndex((j) => jobKey(j) === jobKey(job));
+    if (i >= 0) {
+      // Asked for again: keep the stronger request (a retry), and move it up when asked to.
+      const had = this.jobs[i]!;
+      if (job.kind === "playlist" && had.kind === "playlist" && job.retry) had.retry = true;
+      if (!first) return this.wakeAll();
+      this.jobs.splice(i, 1);
+      job = had;
+    }
+    first ? this.jobs.unshift(job) : this.jobs.push(job);
     this.wakeAll();
   }
 
@@ -805,9 +1057,10 @@ export class MixManager {
     for (const w of [...this.wakers]) w();
   }
 
-  private nextJob(kind: Job["kind"]): Job | undefined {
+  private nextJob(kind: Lane): Job | undefined {
     if (kind === "curate") {
-      const curate = this.jobs.findIndex((j) => j.kind === "curate");
+      // Playlists and curations share a lane: both read YouTube's listings, one at a time.
+      const curate = this.jobs.findIndex((j) => laneOf(j) === "curate");
       return curate >= 0 ? this.jobs.splice(curate, 1)[0] : undefined;
     }
     // Downloads, oldest first, straight from the store (so none is lost to a restart).
@@ -816,7 +1069,7 @@ export class MixManager {
     return queued[0] ? { kind: "download", videoId: queued[0].id } : undefined;
   }
 
-  private async loop(kind: Job["kind"]): Promise<void> {
+  private async loop(kind: Lane): Promise<void> {
     while (this.running) {
       const job = this.downloader.ok ? this.nextJob(kind) : undefined;
       if (!job) {
@@ -838,6 +1091,7 @@ export class MixManager {
         this.o.log.warn({ job, err: String(err) }, "Music channel job failed");
       } finally {
         this.busy[kind] = undefined;
+        if (kind === "curate") this.syncing = undefined;
       }
       await new Promise((r) => setTimeout(r, this.o.pauseMs ?? 4000));
     }
@@ -846,6 +1100,7 @@ export class MixManager {
   /** Runs one job now. Public so tests (and the API) can drive it without the loop. */
   async run(job: Job): Promise<void> {
     if (job.kind === "curate") await this.curate(job.channelId);
+    else if (job.kind === "playlist") await this.syncPlaylist(job.channelId, job.listId, job.retry);
     else await this.download(job.videoId);
   }
 
@@ -853,9 +1108,11 @@ export class MixManager {
   async curate(channelId: string, now = Date.now()): Promise<number> {
     const c = this.store.channel(channelId);
     const yt = this.o.ytdlp;
-    if (!c || !yt) return 0;
+    if (!c || !yt || !searches(c)) return 0;
     const entries = this.store.entries(channelId);
-    let need = c.target - entries.filter((e) => e.video.status !== "failed").length;
+    // Playlist videos come on top of the target.
+    const listed = this.fromPlaylists(c);
+    let need = c.target - entries.filter((e) => e.video.status !== "failed" && !listed.has(e.video.id)).length;
     if (need <= 0) return 0;
     this.busy.curate = `Choosing videos for ${c.name}`;
     const plan = await this.curators[c.curator].plan(c, entries);

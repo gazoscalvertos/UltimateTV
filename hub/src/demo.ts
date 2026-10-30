@@ -394,6 +394,17 @@ function seedDemoMix(ctx: HubContext, clipUrl: string, now: number): void {
     });
     const fresh = mix.store.channel(c.id)!;
     fresh.curatedAt = now - 3_600_000;
+    // Halloween TV also follows a YouTube playlist, part way through downloading, with one that failed.
+    if (c.id === "mix:halloween-tv") {
+      const list = "PLdemoHalloweenParty";
+      const ids = c.picks.slice(14, 24).map((pick) => `demo${hash(pick)}`);
+      const failed = { id: "demoFailedPlaylistVideo", url: "https://www.youtube.com/watch?v=demoFailed", title: "Ghost Town DJs - My Boo (Official Video)", artist: "Ghost Town DJs", track: "My Boo", durationS: 230, height: 0, status: "failed" as const, error: "No version at 720p or better", addedAt: now - 86_400_000 };
+      mix.store.saveVideo(failed);
+      mix.store.addEntry(c.id, failed.id, "playlist: Halloween Party 2026", now - 86_400_000);
+      for (const id of ids) ctx.db.run("UPDATE mix_entries SET origin = ? WHERE channel_id = ? AND video_id = ?", "playlist: Halloween Party 2026", c.id, id);
+      ctx.db.setKv(`mix-playlist:${c.id}:${list}`, [...ids, failed.id]);
+      fresh.playlists = [{ id: list, url: `https://www.youtube.com/playlist?list=${list}`, title: "Halloween Party 2026", addedAt: now - 86_400_000, syncedAt: now - 2 * 3_600_000, total: 13, skipped: ["1 private or deleted", "1 longer than 10 min"] }];
+    }
     mix.store.saveChannel(fresh);
     mix.syncRow(c.id);
     ctx.guide.dropFrom(c.id);

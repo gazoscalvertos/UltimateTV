@@ -858,6 +858,39 @@ export interface MixChannel {
   curatedAt?: number;
   /** Why the last curation stopped short. */
   error?: string;
+  /**
+   * YouTube playlists the channel follows. Every video in them is downloaded and put on the
+   * channel, and the Hub reads them again every six hours for videos added since.
+   */
+  playlists?: MixPlaylist[];
+}
+
+/** A YouTube playlist a music channel follows. */
+export interface MixPlaylist {
+  /** YouTube's playlist id (the `list=` in the link). */
+  id: Id;
+  url: string;
+  title: string;
+  addedAt: number;
+  /** When the Hub last read the playlist. */
+  syncedAt?: number;
+  /** Videos in the playlist when it was last read. */
+  total?: number;
+  /** Why videos in it were left out ("2 private or deleted", "1 longer than 10 min"). */
+  skipped?: string[];
+  /** Why the playlist couldn't be read last time (private, deleted, yt-dlp broken). */
+  error?: string;
+}
+
+/** A followed playlist, with how its videos are getting on. */
+export interface MixPlaylistInfo extends MixPlaylist {
+  counts: Record<MixVideoStatus, number>;
+  /** The one downloading now, 0 to 1. */
+  progress?: number;
+  /** Videos that couldn't be downloaded, and why. */
+  failures: { title: string; error: string }[];
+  /** The Hub is reading it now (or will soon). */
+  syncing: boolean;
 }
 
 export type MixStyle = "music" | "ambience";
@@ -909,6 +942,9 @@ export interface MixChannelInfo extends MixChannel {
   readyBytes: number;
   /** The guide channel's id (mix:…). */
   channelId: Id;
+  /** How many videos it should end up with: the target (when the Hub searches for it) plus its playlists' videos. */
+  goal: number;
+  playlists?: MixPlaylistInfo[];
 }
 
 /** A search result, with whether it would be accepted and why not. */

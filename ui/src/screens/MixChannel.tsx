@@ -2,7 +2,7 @@
 // has, where OK on one offers to take it out (the Hub won't pick it again).
 
 import { createResource, For, onCleanup, Show } from "solid-js";
-import type { MixChannel, MixEntry, MixVideo } from "@ultimatetv/shared";
+import type { MixChannel, MixEntry, MixPlaylistInfo, MixVideo } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { askText, choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
@@ -24,6 +24,24 @@ function statusOf(v: MixVideo): string {
   if (v.status === "downloading") return `Downloading${v.progress ? ` ${Math.round(v.progress * 100)}%` : ""}`;
   if (v.status === "queued") return "Waiting to download";
   return `Couldn't download${v.error ? `: ${v.error}` : ""}`;
+}
+
+/** How a followed playlist is getting on: "12 of 15 downloaded · downloading 40% · 2 couldn't download". */
+export function playlistStatus(p: MixPlaylistInfo): string {
+  if (p.syncing && !p.syncedAt) return "Reading the playlist…";
+  const n = p.counts;
+  const all = n.ready + n.queued + n.downloading + n.failed;
+  return [
+    p.error ? `Couldn't read it: ${p.error}` : "",
+    all ? `${n.ready} of ${all - n.failed} downloaded` : p.syncedAt ? "No videos it can use" : "",
+    n.downloading ? `downloading${p.progress ? ` ${Math.round(p.progress * 100)}%` : ""}` : "",
+    n.queued ? `${n.queued} waiting` : "",
+    n.failed ? `${n.failed} couldn't download` : "",
+    p.skipped?.length ? `skipped ${p.skipped.join(", ")}` : "",
+    p.syncing ? "reading it again now" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /**
@@ -81,6 +99,30 @@ export function MixChannelScreen(props: { id: string }) {
     if (!text) return;
     const add = splitAdditions(text, ch.style);
     await act(() => hub.updateMix(ch.id, { picks: [...add.picks, ...ch.picks], queries: [...add.queries, ...ch.queries], target: ch.target + add.picks.length }), "Added. The Hub is looking for them now.");
+  };
+  /** A playlist link is far easier typed (or pasted) on the phone remote, which fills in the dialog. */
+  const addPlaylist = async () => {
+    const ch = c();
+    if (!ch) return;
+    const url = await askText("YouTube playlist link", "", "Paste the link on the phone remote's keyboard (it fills in here), then Done. Every video in it downloads, and new ones are fetched every six hours.");
+    if (!url) return;
+    await act(() => hub.followMixPlaylist(ch.id, url), "Added. The Hub is reading the playlist now.");
+  };
+  const playlistMenu = async (p: MixPlaylistInfo) => {
+    const ch = c();
+    if (!ch) return;
+    const pick = await choose({
+      title: p.title,
+      message: [playlistStatus(p), ...p.failures.slice(0, 5).map((f) => `${f.title}: ${f.error}`)].filter(Boolean).join(". "),
+      options: [
+        { label: "Check for new videos now", value: "sync", icon: "search", detail: p.counts.failed ? "And try the ones that failed again" : "Otherwise it's checked every six hours" },
+        { label: "Stop following, keep its videos", value: "keep" },
+        { label: "Remove it and its videos", value: "remove", icon: "trash", tone: "danger" as const, detail: "Downloaded files are deleted unless another channel has them" },
+      ],
+    });
+    if (pick === "sync") await act(() => hub.syncMixPlaylist(ch.id, p.id), "Checking the playlist now");
+    if (pick === "keep") await act(() => hub.unfollowMixPlaylist(ch.id, p.id, true), "No longer following it. Its videos stay.");
+    if (pick === "remove" && (await confirm(`Remove ${p.title}?`, "Its videos come off the channel.", "Remove", true))) await act(() => hub.unfollowMixPlaylist(ch.id, p.id, false), "Removed");
   };
   /** Folder by folder through the NAS: OK on a file adds it, or add a whole folder at once. */
   const fromNas = async () => {
@@ -212,6 +254,9 @@ export function MixChannelScreen(props: { id: string }) {
           <button class="settings-nav-item mix-action" data-focus onClick={() => void addMore()}>
             <Icon name="plus" /> {c()?.style === "ambience" ? "Add scenes to look for" : "Add artists or songs"}
           </button>
+          <button class="settings-nav-item mix-action" data-focus onClick={() => void addPlaylist()}>
+            <Icon name="list" /> Add a YouTube playlist
+          </button>
           <button class="settings-nav-item mix-action" data-focus onClick={() => void fromNas()}>
             <Icon name="download" /> Add videos from the NAS
           </button>
@@ -236,13 +281,28 @@ export function MixChannelScreen(props: { id: string }) {
                       {d().channel.number} {d().channel.name}
                     </h2>
                     <p class="hint">
-                      {d().channel.counts.ready} of {d().channel.target} videos ready
+                      {d().channel.counts.ready} of {d().channel.goal ?? d().channel.target} videos ready
                       {d().channel.counts.queued + d().channel.counts.downloading ? `, ${d().channel.counts.queued + d().channel.counts.downloading} to download` : ""}
                       {d().channel.enabled ? "" : ". Turned off"}
                       {d().channel.error ? `. ${d().channel.error}` : ""}
                     </p>
                   </div>
                 </div>
+                <Show when={d().channel.playlists?.length}>
+                  <h3 class="mix-subhead">Playlists it follows</h3>
+                  <For each={d().channel.playlists}>
+                    {(p) => (
+                      <button class="setting-row mix-playlist" classList={{ failed: Boolean(p.error) }} data-focus onClick={() => void playlistMenu(p)}>
+                        <span class="setting-label">
+                          {p.title}
+                          <small>{playlistStatus(p)}</small>
+                        </span>
+                        <span class="setting-value">{p.counts.downloading || p.counts.queued ? "Downloading" : p.error ? "Problem" : `${p.counts.ready} videos`}</span>
+                      </button>
+                    )}
+                  </For>
+                  <h3 class="mix-subhead">Videos</h3>
+                </Show>
                 <Show when={d().videos.length} fallback={<p class="hint">No videos yet. The Hub is looking for some; they appear here as they're found.</p>}>
                   <For each={[...d().videos].sort((a, b) => order[a.video.status] - order[b.video.status] || videoName(a.video).localeCompare(videoName(b.video)))}>
                     {(e) => (

@@ -658,7 +658,7 @@ export function Settings(props: { section?: string }) {
                           <Row
                             label={`${c.number}  ${c.name}`}
                             icon="music"
-                            hint={[`${c.counts.ready} of ${c.target} videos downloaded (${formatBytes(c.readyBytes)})`, waiting ? `${waiting} to download` : "", c.enabled ? "" : "turned off", c.error ?? ""].filter(Boolean).join(" · ")}
+                            hint={[`${c.counts.ready} of ${c.goal ?? c.target} videos downloaded (${formatBytes(c.readyBytes)})`, waiting ? `${waiting} to download` : "", c.enabled ? "" : "turned off", c.error ?? ""].filter(Boolean).join(" · ")}
                             value={<Status ok={c.enabled && c.counts.ready > 0} text={c.counts.ready ? "On air" : waiting ? "Filling up" : "No videos"} />}
                             onSelect={() => openMix(c)}
                           />

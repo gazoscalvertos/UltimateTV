@@ -206,6 +206,42 @@ export function displayTitle(v: { title: string; artist?: string; track?: string
   return cleanVideoTitle(v.title).replace(/\s+-\s+/, " – ");
 }
 
+/**
+ * The playlist id in a YouTube link ("https://www.youtube.com/playlist?list=PL…", a watch link
+ * with `&list=`, YouTube Music), or a bare playlist id. Undefined for anything else.
+ */
+export function playlistId(input: string): string | undefined {
+  const text = input.trim();
+  if (/^(PL|OL|UU|FL|LL|RD|OLAK5uy_)[\w-]{8,}$/.test(text)) return text;
+  let u: URL;
+  try {
+    u = new URL(text);
+  } catch {
+    return undefined;
+  }
+  if (!/(^|\.)(youtube\.com|youtu\.be)$/i.test(u.hostname)) return undefined;
+  const list = u.searchParams.get("list");
+  return list && /^[\w-]{8,}$/.test(list) ? list : undefined;
+}
+
+/** A video as a playlist lists it (no picture size: that's only known when it downloads). */
+export interface PlaylistItem {
+  id: string;
+  title: string;
+  url: string;
+  durationS: number;
+  uploader?: string;
+  /** Why it can't be downloaded: "private or deleted", "a live stream". */
+  unavailable?: string;
+}
+
+export interface Playlist {
+  id: string;
+  title: string;
+  uploader?: string;
+  items: PlaylistItem[];
+}
+
 export interface Downloaded {
   path: string;
   height: number;
@@ -266,6 +302,27 @@ export class YtDlp {
     const line = r.stdout.split("\n").find((l) => l.trim().startsWith("{"));
     if (r.code !== 0 || !line) throw new Error(lastError(r.stderr) || "yt-dlp couldn't read that video");
     return JSON.parse(line) as YtInfo;
+  }
+
+  /** The videos in a playlist, in its order, up to `max` of them (a quick listing, no downloads). */
+  async playlist(url: string, max = 200): Promise<Playlist> {
+    const r = await this.run(this.args(["--flat-playlist", "--yes-playlist", "--dump-single-json", "--ignore-errors", "--playlist-end", String(max), url]), { timeoutMs: 300_000 });
+    const line = r.stdout.split("\n").find((l) => l.trim().startsWith("{"));
+    if (!line) throw new Error(lastError(r.stderr) || "yt-dlp couldn't read that playlist");
+    const info = JSON.parse(line) as { id?: string; title?: string; uploader?: string; channel?: string; entries?: (YtInfo & { url?: string; availability?: string } | null)[] };
+    if (!info.entries) throw new Error("That link isn't a playlist");
+    const items: PlaylistItem[] = [];
+    for (const e of info.entries) {
+      if (!e?.id) continue;
+      const item: PlaylistItem = { id: e.id, title: e.title ?? e.id, url: e.webpage_url ?? (e.url?.startsWith("http") ? e.url : `https://www.youtube.com/watch?v=${e.id}`), durationS: Math.round(e.duration ?? 0) };
+      if (e.uploader ?? e.channel) item.uploader = (e.uploader ?? e.channel)!;
+      if (/^\[(private|deleted)( video)?\]$/i.test(item.title) || /private|needs_auth|premium_only|subscriber_only/.test(e.availability ?? "")) item.unavailable = "private or deleted";
+      else if (e.is_live || e.live_status === "is_live" || e.live_status === "is_upcoming") item.unavailable = "a live stream";
+      items.push(item);
+    }
+    const out: Playlist = { id: info.id ?? "", title: info.title?.trim() || "YouTube playlist", items };
+    if (info.uploader ?? info.channel) out.uploader = (info.uploader ?? info.channel)!;
+    return out;
   }
 
   /** Downloads the best version between minHeight and maxHeight to `<dir>/<id>.<ext>`, with a jpg thumbnail beside it. */

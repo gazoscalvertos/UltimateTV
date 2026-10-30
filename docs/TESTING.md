@@ -77,6 +77,19 @@ Update the box first (Settings › About › Update the box): the update builds 
 3. Watch for a while: no video repeats until all the channel's videos have played.
 4. Create a channel ("Oasis, Blur, Pulp"); within a few minutes it has videos. Take one off (OK on it): it disappears from the guide and another replaces it.
 
+### YouTube playlists on a channel
+
+Update the Hub first. Use a short public playlist of 4 or 5 music videos.
+
+1. TV: Settings › Music channels › a channel › **Add a YouTube playlist**. Open the phone remote's keyboard, paste the link and Send: it appears in the dialog; Done. A toast says the Hub is reading it.
+2. The channel screen gets a **Playlists it follows** row showing the playlist's name and "N of M downloaded · downloading 40% · K waiting". Its videos list as "playlist: <name>" and go Waiting, Downloading, then HD or 4K.
+3. When they're done, tune the channel in: playlist videos play and the caption shows them. Pull the NAS cable or stop the Hub's internet: they still play.
+4. Phone settings page › Music channels › Videos: the same playlist shows with Check now, Stop following and Remove. Paste a playlist link into "Add a video": it is taken as a playlist.
+5. Add a video to the YouTube playlist, then press **Check now**: the new video downloads. Remove one from it: **Check now** takes it off the channel.
+6. Try a private playlist link: the playlist row says it couldn't be read and why, and the channel keeps playing.
+7. **Remove** the playlist: its videos leave the channel and `Music Videos` on the NAS. **Stop following** instead keeps them.
+8. Leave the Hub overnight: the playlist is read again by itself (the Hub log says "Music channel playlist read").
+
 ## 8b. Downloads to the box
 
 1. Update the Hub and the box. On a film's page, **Download to box**: a toast says how much room is free, and a **Downloaded** tab appears on the top menu with the film counting up.

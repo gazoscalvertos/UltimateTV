@@ -59,6 +59,9 @@ even when the channel is deleted; the Hub only reads their length and picture si
 takes a still for the guide. API: `GET /api/mix/nas?dir=…` and
 `POST /api/mix-channels/:id/files {"paths": [...]}`.
 
+**Add a YouTube playlist** (on a channel) takes a playlist link: type it, or type it on the phone
+remote's keyboard while the box is open and it fills in. See [YouTube playlists](#youtube-playlists).
+
 **Create a channel** asks for a name and what it should play ("Oasis, Blur, Pulp, 90s Britpop").
 Each part between commas becomes a search for official videos.
 Each pass reads a search 25 results at a time, up to three pages, and the next pass carries on
@@ -68,6 +71,32 @@ again when the Hub restarts.
 
 A download that gets nothing from YouTube for five minutes is stopped and tried once more, so one
 hung video can't hold up the rest.
+
+## YouTube playlists
+
+A channel can follow one or more YouTube playlists (a public or unlisted one; a private one can't
+be read). Give the link in the TV's channel screen (**Add a YouTube playlist**), on the phone's
+settings page (channel › Videos › Add a YouTube playlist, or paste a playlist link in "Add a
+video"), when creating a channel on the phone (the playlist box), or over the API:
+`POST /api/mix-channels/:id/playlists {"url": "…"}`. A channel can be made from a playlist alone.
+
+- Every video is downloaded to the NAS like any other (HD or better, at the channel's picture
+  settings) and plays offline. They download oldest first, in the playlist's order.
+- The Hub reads the playlist when it's added, again every six hours and when it restarts. Videos
+  added to the playlist since are downloaded; videos taken out of it come off the channel (and
+  the NAS, unless another channel has them). A video you took off the channel by hand stays off.
+- Up to 200 videos are read from a playlist, and a channel can follow 20. Playlist videos come
+  on top of the channel's own *number of videos*; that number still only counts what the Hub
+  finds by searching, so a playlist-only channel never goes searching.
+- Videos that are private or deleted, live streams and ones longer than the channel's limit
+  are skipped and listed ("skipped 1 private or deleted"). The lyric-video and title rules
+  don't apply: you chose these videos yourself.
+- Progress and problems show on the playlist: "6 of 10 downloaded · downloading 62% · 3 waiting ·
+  1 couldn't download". Failed videos are listed with the reason; **Check now** reads the playlist
+  again and tries them again. If the playlist can't be read at all (private, deleted, yt-dlp
+  broken) the reason is shown and the videos already downloaded keep playing.
+- **Stop following** keeps the videos on the channel (they become ordinary ones); **Remove**
+  takes them off too. `DELETE /api/mix-channels/:id/playlists/:listId` (add `?keep=1` to keep them).
 
 ## What the Hub accepts
 
@@ -113,6 +142,9 @@ An outside agent (Claude, or a local LLM on the box) can also drive it over HTTP
 | `GET /api/mix/search?q=…&channel=…` | YouTube results judged against a channel's rules: `score` and `rejected` reasons |
 | `POST /api/mix-channels/:id/videos` | Add a video: `{ url }` or `{ id }`, with `origin` ("llm: upbeat opener") |
 | `DELETE /api/mix-channels/:id/videos/:videoId` | Take one off (it won't be picked again) |
+| `POST /api/mix-channels/:id/playlists` | Follow a YouTube playlist: `{ url }` (its videos are downloaded and kept in step) |
+| `POST /api/mix-channels/:id/playlists/:listId/sync` | Read it again now, retrying failed videos |
+| `DELETE /api/mix-channels/:id/playlists/:listId` | Stop following (`?keep=1` keeps its videos) |
 | `POST /api/mix-channels/:id/curate` | Fill up to the target now |
 | `POST /api/mix-channels/:id/shuffle` | Reshuffle after the video on now |
 

@@ -2556,6 +2556,15 @@ kbd.key-blue {
 .mix-video.failed .setting-label {
   color: var(--muted);
 }
+.mix-subhead {
+  margin: 1.6rem 0 0.6rem;
+  font-size: 1.1rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.mix-playlist.failed .setting-value {
+  color: var(--amber);
+}
 
 /* Music: now playing, Spotify's library, Deezer */
 

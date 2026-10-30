@@ -224,6 +224,18 @@ try {
   await key("Enter");
   await wait(1500);
   await shot("33-music-channel");
+  // Halloween TV also follows a YouTube playlist that's still downloading.
+  await key("Escape");
+  await wait(1200);
+  await page.locator(".setting-row", { hasText: "Halloween TV" }).first().focus();
+  await key("Enter");
+  await wait(1500);
+  await shot("108-music-playlist");
+  await key("Escape");
+  await wait(1200);
+  await page.locator(".setting-row", { hasText: "Clubland TV" }).first().focus();
+  await key("Enter");
+  await wait(1500);
   await key("Enter");
   await wait(2000);
   await shot("34-music-live");
@@ -826,6 +838,13 @@ try {
   console.log("  64-phone-android-apps.png");
   await phone.locator("#backup").screenshot({ path: path.join(out, "104-phone-backup.png") });
   console.log("  104-phone-backup.png");
+  // A music channel's videos on the phone: the playlist it follows, with its progress and the one that failed.
+  const halloween = phone.locator("#mix-list .profile", { hasText: "Halloween TV" });
+  await halloween.locator("button", { hasText: "Videos" }).click();
+  await phone.waitForTimeout(1200);
+  const box = await halloween.boundingBox();
+  await phone.screenshot({ path: path.join(out, "109-phone-music-playlist.png"), fullPage: true, clip: { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, 860) } });
+  console.log("  109-phone-music-playlist.png");
   // Guide lists, custom guides and channels on the phone settings page.
   await phone.goto(`${base}/setup/#lists`);
   await phone.waitForTimeout(1500);

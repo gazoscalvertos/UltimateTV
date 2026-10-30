@@ -10,7 +10,7 @@ import { cropFromLog } from "../src/cropdetect.js";
 import { titleFromFile } from "../src/nasvideos.js";
 import { nextLoop, planSlots } from "../src/mixchannels.js";
 import { buildServer } from "../src/server.js";
-import { cleanVideoTitle, displayTitle, judge, songKey, YtDlp, type Run, type YtInfo } from "../src/ytdlp.js";
+import { cleanVideoTitle, displayTitle, judge, playlistId, songKey, YtDlp, type Run, type YtInfo } from "../src/ytdlp.js";
 import { channel, pairAsTv } from "./helpers.js";
 
 const silent = { info() {}, warn() {}, error() {}, debug() {}, child() { return silent; } } as never;
@@ -343,6 +343,176 @@ describe("searching deeper and hung downloads", () => {
   });
 });
 
+describe("YouTube playlists on a channel", () => {
+  it("finds the playlist in a link", () => {
+    expect(playlistId("https://www.youtube.com/playlist?list=PLabcdefghijkl")).toBe("PLabcdefghijkl");
+    expect(playlistId("https://youtube.com/watch?v=dQw4w9WgXcQ&list=PLabcdefghijkl&index=2")).toBe("PLabcdefghijkl");
+    expect(playlistId("https://music.youtube.com/playlist?list=OLAK5uy_abcdefghij")).toBe("OLAK5uy_abcdefghij");
+    expect(playlistId("PLabcdefghijkl")).toBe("PLabcdefghijkl");
+    expect(playlistId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBeUndefined();
+    expect(playlistId("https://example.com/playlist?list=PLabcdefghijkl")).toBeUndefined();
+    expect(playlistId("not a link")).toBeUndefined();
+  });
+
+  /** A pretend yt-dlp whose playlist holds whatever `items` holds when it's read. */
+  function playlistYtDlp() {
+    const state = {
+      title: "Gary's Party",
+      items: [] as Record<string, unknown>[],
+      broken: "",
+      failDownload: new Set<string>(),
+      reads: 0,
+    };
+    const run: Run = async (args) => {
+      if (args[0] === "--version") return { code: 0, stdout: "2026.10.01\n", stderr: "" };
+      if (args.includes("--flat-playlist")) {
+        state.reads++;
+        expect(args).toContain("--playlist-end");
+        if (state.broken) return { code: 1, stdout: "", stderr: `ERROR: [youtube:tab] PLparty12345: ${state.broken}` };
+        return { code: 0, stdout: JSON.stringify({ id: "PLparty12345", title: state.title, _type: "playlist", entries: state.items }) + "\n", stderr: "" };
+      }
+      if (args.includes("--print")) {
+        const url = args[args.length - 1]!;
+        const id = url.split("v=")[1]!;
+        if (state.failDownload.has(id)) return { code: 1, stdout: "", stderr: "ERROR: [youtube] x: Requested format is not available" };
+        const out = args[args.indexOf("-o") + 1]!.replace("%(ext)s", "mkv");
+        await writeFile(out, "video");
+        return { code: 0, stdout: `DONE\t${out}\t1080\t25\t210\n`, stderr: "" };
+      }
+      return { code: 1, stdout: "", stderr: "ERROR: unexpected" };
+    };
+    const item = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: `Artist ${id} - Song ${id}`, url: `https://www.youtube.com/watch?v=${id}`, duration: 210, ...extra });
+    return { run, state, item };
+  }
+
+  it("downloads every video in a playlist, keeps up with changes to it and lets go of it", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-playlist-"));
+    const yt = playlistYtDlp();
+    const ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: yt.run, mixPauseMs: 0, mixMinFreeBytes: 0, mixCropDetect: async () => "" });
+    try {
+      yt.state.items = [yt.item("aaa"), yt.item("bbb"), yt.item("ccc"), { id: "ddd", title: "[Private video]", url: "https://www.youtube.com/watch?v=ddd" }, yt.item("eee", { duration: 3600 }), yt.item("fff", { live_status: "is_live" })];
+      // A channel made from nothing but a playlist.
+      expect(() => ctx.mix.create({ name: "Bad", playlist: "https://example.com/x" })).toThrow(/playlist link/);
+      const c = ctx.mix.create({ name: "Party TV", playlist: "https://www.youtube.com/watch?v=aaa&list=PLparty12345" });
+      expect(ctx.mix.store.channel(c.id)?.playlists?.map((p) => p.id)).toEqual(["PLparty12345"]);
+      expect(ctx.mix.info(ctx.mix.store.channel(c.id)!).playlists![0]!.syncing).toBe(true);
+
+      expect(await ctx.mix.syncPlaylist(c.id, "PLparty12345")).toEqual({ added: 3, removed: 0 });
+      let info = ctx.mix.info(ctx.mix.store.channel(c.id)!);
+      const pl = info.playlists![0]!;
+      expect(pl.title).toBe("Gary's Party");
+      expect(pl.total).toBe(6);
+      expect(pl.skipped).toEqual(["1 private or deleted", "1 longer than 10 min", "1 a live stream"]);
+      expect(pl.counts).toEqual({ queued: 3, downloading: 0, ready: 0, failed: 0 });
+      expect(info.goal).toBe(3);
+      // Queued in the playlist's order.
+      const queued = ctx.mix.store.entries(c.id).map((e) => e.video);
+      expect([...queued].sort((a, b) => a.addedAt - b.addedAt).map((v) => v.id)).toEqual(["aaa", "bbb", "ccc"]);
+      expect(ctx.mix.store.entries(c.id)[0]!.origin).toBe("playlist: Gary's Party");
+      // A playlist-only channel doesn't search YouTube for more.
+      expect(await ctx.mix.curate(c.id)).toBe(0);
+
+      yt.state.failDownload.add("ccc");
+      for (const id of ["aaa", "bbb", "ccc"]) await ctx.mix.download(id);
+      info = ctx.mix.info(ctx.mix.store.channel(c.id)!);
+      expect(info.playlists![0]!.counts).toEqual({ queued: 0, downloading: 0, ready: 2, failed: 1 });
+      expect(info.playlists![0]!.failures).toEqual([{ title: "Artist ccc – Song ccc", error: "No version at 720p or better" }]);
+      expect(ctx.mix.tuneIn(c.id)).not.toBeNull();
+      expect(ctx.channels.get(c.id)?.mix).toEqual({ ready: 2, target: 2 });
+
+      // Later: a video added to the playlist and one taken out of it. Reading it again with
+      // `retry` (Sync now) gives the failed one another go.
+      yt.state.items = [yt.item("bbb"), yt.item("ccc"), yt.item("ggg")];
+      yt.state.failDownload.clear();
+      const aaaFile = ctx.mix.filePath("aaa")!;
+      expect(await ctx.mix.syncPlaylist(c.id, "PLparty12345", true)).toEqual({ added: 1, removed: 1 });
+      expect(ctx.mix.store.entries(c.id).map((e) => e.video.id).sort()).toEqual(["bbb", "ccc", "ggg"]);
+      expect(existsSync(aaaFile)).toBe(false);
+      expect(ctx.mix.store.video("ccc")?.status).toBe("queued");
+      expect(ctx.guide.onChannel(c.id, Date.now(), 50).some((p) => p.videoId === "aaa")).toBe(false);
+
+      // A video taken off by hand isn't put back by the next read.
+      await ctx.mix.removeVideo(c.id, "ggg");
+      await ctx.mix.syncPlaylist(c.id, "PLparty12345");
+      expect(ctx.mix.store.entries(c.id).map((e) => e.video.id)).not.toContain("ggg");
+      expect(ctx.mix.info(ctx.mix.store.channel(c.id)!).playlists![0]!.skipped).toEqual(["1 taken off by hand"]);
+
+      // A playlist that's gone private says so, and its videos stay.
+      yt.state.broken = "This playlist is private";
+      await ctx.mix.syncPlaylist(c.id, "PLparty12345");
+      expect(ctx.mix.store.channel(c.id)!.playlists![0]!.error).toMatch(/private.*public or unlisted/);
+      expect(ctx.mix.store.entries(c.id)).toHaveLength(2);
+      yt.state.broken = "";
+      await ctx.mix.syncPlaylist(c.id, "PLparty12345");
+      expect(ctx.mix.store.channel(c.id)!.playlists![0]!.error).toBeUndefined();
+
+      // Followed again: no second copy, just another read.
+      ctx.mix.followPlaylist(c.id, "https://www.youtube.com/playlist?list=PLparty12345");
+      expect(ctx.mix.store.channel(c.id)!.playlists).toHaveLength(1);
+      await expect(ctx.mix.addVideo(c.id, { url: "https://www.youtube.com/playlist?list=PLparty12345" })).rejects.toThrow(/playlist link/);
+
+      // Letting go takes its videos (and their files) away.
+      for (const id of ["bbb", "ccc"]) await ctx.mix.download(id);
+      const bbbFile = ctx.mix.filePath("bbb")!;
+      expect(existsSync(bbbFile)).toBe(true);
+      await ctx.mix.unfollowPlaylist(c.id, "PLparty12345");
+      expect(ctx.mix.store.entries(c.id)).toEqual([]);
+      expect(ctx.mix.store.channel(c.id)!.playlists).toBeUndefined();
+      expect(existsSync(bbbFile)).toBe(false);
+    } finally {
+      ctx.close();
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("puts playlist videos on top of a searching channel's target, and can keep them when unfollowed", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-playlist2-"));
+    const yt = playlistYtDlp();
+    const fake = fakeYtDlp();
+    const run: Run = (args, opts) => (args.includes("--flat-playlist") || args.includes("--print") ? yt.run(args, opts) : fake.run(args, opts));
+    const ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: run, mixPauseMs: 0, mixMinFreeBytes: 0, mixCropDetect: async () => "" });
+    try {
+      yt.state.items = [yt.item("p1"), yt.item("p2")];
+      const c = ctx.mix.create({ name: "Mixed TV", brief: "x", picks: ["Alpha - One", "Beta - Two"], target: 2 });
+      ctx.mix.followPlaylist(c.id, "PLparty12345");
+      await ctx.mix.syncPlaylist(c.id, "PLparty12345");
+      // The playlist doesn't fill the target: the Hub still finds its two.
+      expect(await ctx.mix.curate(c.id)).toBe(2);
+      expect(ctx.mix.store.entries(c.id)).toHaveLength(4);
+      // The target (at least 5) plus the playlist's two.
+      expect(ctx.mix.info(ctx.mix.store.channel(c.id)!).goal).toBe(7);
+      await ctx.mix.unfollowPlaylist(c.id, "PLparty12345", true);
+      expect(ctx.mix.store.entries(c.id)).toHaveLength(4);
+      expect(ctx.mix.store.video("p1")).toBeDefined();
+    } finally {
+      ctx.close();
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("reads a followed playlist from the work loop when it's added", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-playlist3-"));
+    const yt = playlistYtDlp();
+    yt.state.items = [yt.item("x1"), yt.item("x2")];
+    const ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: yt.run, mixPauseMs: 0, mixMinFreeBytes: 0, mixCropDetect: async () => "" });
+    try {
+      await ctx.mix.start();
+      const c = ctx.mix.create({ name: "Loop TV", playlist: "PLparty12345" });
+      for (let i = 0; i < 200 && ctx.mix.store.entries(c.id).filter((e) => e.video.status === "ready").length < 2; i++) await new Promise((r) => setTimeout(r, 20));
+      expect(ctx.mix.store.entries(c.id).map((e) => e.video.status)).toEqual(["ready", "ready"]);
+      expect(yt.state.reads).toBe(1);
+      // Read again once six hours have gone by, not before.
+      ctx.mix.queuePlaylistSyncs(Date.now() + 60_000);
+      ctx.mix.queuePlaylistSyncs(Date.now() + 7 * 3_600_000);
+      for (let i = 0; i < 100 && yt.state.reads < 2; i++) await new Promise((r) => setTimeout(r, 20));
+      expect(yt.state.reads).toBe(2);
+    } finally {
+      ctx.close();
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("music video channels over the API", () => {
   let tmp: string;
   let app: Awaited<ReturnType<typeof buildServer>>;
@@ -399,5 +569,21 @@ describe("music video channels over the API", () => {
     const rec = await app.inject({ method: "POST", url: "/api/recordings", headers: family, payload: { programmeId: prog.id } });
     expect(rec.statusCode).toBe(422);
     expect((await app.inject({ method: "DELETE", url: "/api/mix-channels/mix:90s-rock", headers: family })).statusCode).toBe(200);
+  });
+
+  it("follows and lets go of a playlist over the API", async () => {
+    const id = encodeURIComponent("mix:house-tv");
+    const bad = await app.inject({ method: "POST", url: `/api/mix-channels/${id}/playlists`, headers: family, payload: { url: "https://www.youtube.com/watch?v=abc" } });
+    expect(bad.statusCode).toBe(400);
+    const kids = await app.inject({ method: "POST", url: `/api/mix-channels/${id}/playlists`, headers: { "x-profile": "kids" }, payload: { url: "PLabcdefghijkl" } });
+    expect(kids.statusCode).toBe(403);
+    const res = await app.inject({ method: "POST", url: `/api/mix-channels/${id}/playlists`, headers: family, payload: { url: "https://www.youtube.com/playlist?list=PLabcdefghijkl" } });
+    expect(res.statusCode).toBe(201);
+    expect(res.json<{ id: string }>().id).toBe("PLabcdefghijkl");
+    const one = (await app.inject({ url: `/api/mix-channels/${id}`, headers: family })).json<{ channel: { playlists?: { id: string; counts: unknown }[] } }>();
+    expect(one.channel.playlists?.map((p) => p.id)).toEqual(["PLabcdefghijkl"]);
+    expect((await app.inject({ method: "POST", url: `/api/mix-channels/${id}/playlists/PLabcdefghijkl/sync`, headers: family })).statusCode).toBe(200);
+    expect((await app.inject({ method: "DELETE", url: `/api/mix-channels/${id}/playlists/PLabcdefghijkl?keep=1`, headers: family })).statusCode).toBe(200);
+    expect((await app.inject({ method: "DELETE", url: `/api/mix-channels/${id}/playlists/PLabcdefghijkl`, headers: family })).statusCode).toBe(404);
   });
 });
