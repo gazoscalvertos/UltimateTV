@@ -15,7 +15,7 @@ Gary asked for the whole app to be built before testing on the real hardware, so
 | 3. Unified films and TV | Built. Jellyfin playback has run on the box. |
 | 4. AIOStreams, TorBox, NAS pipeline, phone remote | Built. The phone remote is in daily use; TorBox and Save to NAS are untested. |
 | 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates, nightly Hub backup, a screen for when the Hub is down). Automatic rollback is built but untested on the box; the WAF test remains. |
-| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, button hints and help, sleep timer, alerts, Save for later, advert skip, seasonal clips, projected clip packs, weather, TV apps, trailers and scores, More like this, OpenSubtitles: built, mostly untested. |
+| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, button hints and help, sleep timer, alerts, Save for later, advert skip, seasonal clips, projected clip packs, weather, TV apps, trailers and scores, More like this, OpenSubtitles, Skip intro everywhere, accessibility: built, mostly untested. |
 
 ## Tested or untested, feature by feature
 
@@ -59,6 +59,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | What's new (change log in every app) | #112 | Untested |
 | Home Assistant both ways (media player, playback events) | #113 | Untested |
 | Kids TV time and bedtime | #114 | Untested |
+| Skip intro everywhere (Intro Skipper), accessibility settings | #116 | Untested (the plugin isn't on the Jellyfin LXC yet) |
 
 ### What has run on real hardware
 
@@ -119,10 +120,10 @@ The [gap list](https://claude.ai/artifact/PSEpcgrMkhKp4Se1Gp51gK) ranks these ag
 3. **Trailers and review scores** on the details page (TMDB trailers through yt-dlp, IMDb and Rotten Tomatoes from OMDb).
 4. **More like this** on the details page and a Home row. The Hub already has a TMDB recommendations call that nothing uses.
 5. **Subtitles**: fetch missing ones from OpenSubtitles, a default per profile, size and background settings.
-6. **Skip intro for the whole library**: install Jellyfin's Intro Skipper plugin. The app already reads Jellyfin's intro markers, so no code.
+6. ~~Skip intro for the whole library~~: install script, docs and credits-driven Up Next in #116 ([watching-extras.md](watching-extras.md#skip-intro-everywhere)). The plugin still has to go on the Jellyfin LXC.
 7. ~~Home Assistant both ways~~: built in #113 ([notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)).
 8. ~~Kids time limits and a bedtime~~: built in #114 ([profiles.md](profiles.md#tv-time-and-bedtime)).
-9. Later: a local AI on the box, a Freeview HDHomeRun backup, radio and podcasts, multiview, Trakt, audio description.
+9. Later: a local AI on the box, a Freeview HDHomeRun backup, radio and podcasts, multiview, Trakt. (Audio description and accessibility settings: built in #116, [accessibility.md](accessibility.md).)
 
 Left over from PR #58, which was closed in favour of #60, and could be brought across: advert marks on the seek bar, a black-frame and silence fallback when comskip finds nothing, Save for later showing when a title is next on TV, and a Save for later tab on the phone.
 

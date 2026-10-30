@@ -90,6 +90,52 @@ A change applies straight away to whatever is playing. The dark box needs mpv 0.
 
 ![Subtitle settings](screenshots/107-settings-subtitles.png)
 
+## Skip intro everywhere
+
+Skip intro, Skip recap and Skip credits show up wherever Jellyfin knows where they are. Jellyfin
+only knows that for some files out of the box; the **Intro Skipper** plugin listens to each series
+and fills them in for the whole library, recordings that land in Jellyfin included.
+
+- Plugin: [github.com/intro-skipper/intro-skipper](https://github.com/intro-skipper/intro-skipper),
+  repository URL `https://intro-skipper.org/manifest.json` (it serves the right build for your
+  Jellyfin version). It needs Jellyfin's own ffmpeg (`jellyfin-ffmpeg`, already in the Jellyfin
+  LXC's packages).
+- Install it from any computer on the home network with an admin API key (Jellyfin › Dashboard ›
+  API Keys):
+
+  ```sh
+  export JELLYFIN_URL=http://192.168.0.23:8096 JELLYFIN_API_KEY=…
+  node tools/jellyfin/intro-skipper.mjs install   # adds the repository, installs, restarts Jellyfin
+  node tools/jellyfin/intro-skipper.mjs scan      # starts detection now rather than tonight
+  node tools/jellyfin/intro-skipper.mjs check     # 20 random episodes and the markers found
+  node tools/jellyfin/intro-skipper.mjs check --series "Harbour Lights"
+  ```
+
+  Or by hand: Dashboard › Plugins › Repositories › add the URL above, Catalog › Intro Skipper ›
+  Install, restart Jellyfin.
+- Settings used: the plugin's defaults, which detect intros and credits (and recaps and previews) and
+  run every night. In Dashboard › Plugins › Intro Skipper leave **Automatically skip** off: the TV has
+  its own button, and the plugin's auto skip only works in Jellyfin's own apps. The first run over a
+  big library takes hours; a series needs at least two episodes in a season before its intro is
+  found.
+
+On the TV:
+
+- **Skip intro** (OK) appears for the length of the intro and jumps to its end. The same for recaps.
+- **Skip credits**: when the credits are marked, the Up Next card appears as they start and counts
+  down 15 seconds, then the next episode plays (with **Play the next episode automatically** on, or
+  when something is queued). Back hides it and the credits carry on, so a scene after the credits
+  isn't missed. Without credits markers it's the last 30 seconds as before.
+- Jellyfin's "Commercial" segments (from a commercial-detection plugin) show as **Skip adverts**,
+  like recordings with their adverts found ([everyday-extras.md](everyday-extras.md)).
+
+Recordings the Hub plays itself (rather than through Jellyfin) don't get intro markers: only the
+copies Jellyfin has in its library do.
+
+Not tested yet: the plugin hasn't been installed on the Jellyfin LXC, so the markers, the Skip
+intro jump and the credits hand-over have only run against the demo Hub. Check with
+[TESTING.md](TESTING.md#8f-skip-intro-and-accessibility).
+
 ## For developers
 
 | Part | Where |
@@ -100,5 +146,7 @@ A change applies straight away to whatever is playing. The dark box needs mpv 0.
 | More like this, Because you watched | `hub/src/library.ts` (`extras`, `similarTo`, `playable`, `becauseYouWatched`), `GET /api/titles/:id/extras` |
 | OpenSubtitles | `hub/src/services/opensubtitles.ts`, `hub/src/subtitles.ts` (`GET /api/subtitles`, `POST /api/subtitles/download`, `GET /api/subtitles/files/:id.srt`), `ui/src/subtitles.tsx` |
 | Subtitle look and mode in mpv | `box/src/player.ts` (`subtitleProps`, `subtitleModeProps`, `addSubtitle`) |
+| Skip markers, Up Next in the credits | `shared/src/segments.ts` (`skipMarkersFrom`, `creditsHandover`), `hub/src/services/jellyfin.ts` (`segments`), `ui/src/screens/Player.tsx` |
+| Intro Skipper install and check | `tools/jellyfin/intro-skipper.mjs` |
 
 The TV app checks for the box's new methods (`tvApps`, `addSubtitle`, `setSubtitleStyle`) before using them, so an older box keeps working until it updates: TV apps explains which button to press, and fetched subtitles and the style wait for the update.

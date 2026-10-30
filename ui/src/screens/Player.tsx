@@ -5,7 +5,7 @@
 
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import type { NowNext, PlaybackRequest, PlaybackStats, TitleRef } from "@ultimatetv/shared";
-import { clockTime, digitOf } from "@ultimatetv/shared";
+import { clockTime, creditsHandover, digitOf } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { DialogFrame } from "../components/Dialog";
@@ -130,19 +130,31 @@ export function Player() {
   const [showNext, setShowNext] = createSignal(false);
   const [digits, setDigits] = createSignal("");
   // Up Next: a small card in the corner during the credits (or the last 30 s), then the next
-  // episode, already looked up, starts as this one ends. Back hides the card and stops there.
+  // episode, already looked up, starts as this one ends, or 15 s into the credits when they're
+  // marked (Intro Skipper). Back hides the card and stops there.
   const [nextHidden, setNextHidden] = createSignal(false);
   createEffect(on(nowPlaying, () => setNextHidden(false)));
   const [playSettings] = createResource(() => hub.settings().then((s) => s.playback).catch(() => null));
   const autoplay = () => playSettings()?.autoplayNext ?? true;
+  const handover = createMemo(() => {
+    const np = nowPlaying();
+    return np && !np.info.live ? creditsHandover(np.info.skip, playerState().durationMs ?? np.info.durationMs) : undefined;
+  });
+  const inCredits = () => {
+    const h = handover();
+    const pos = playerState().positionMs;
+    return Boolean(h && pos >= h.startMs && pos < h.atMs + 1000);
+  };
   const remainingS = () => {
     const st = playerState();
+    const h = handover();
+    if (h && inCredits()) return Math.max(0, Math.ceil((h.atMs - st.positionMs) / 1000));
     return st.durationMs ? Math.max(0, Math.ceil((st.durationMs - st.positionMs) / 1000)) : null;
   };
   const showNextCard = () => {
     if (!upNext() || nextHidden() || !played()) return false;
     const left = remainingS();
-    return skip()?.kind === "credits" || playerState().status === "ended" || (left !== null && left <= 30);
+    return skip()?.kind === "credits" || inCredits() || playerState().status === "ended" || (left !== null && left <= 30);
   };
   // The next episode carries straight on; something else from the queue gets its "starting" card.
   const playNext = () => {
@@ -155,6 +167,20 @@ export function Player() {
     const counting = (next?.queued || autoplay()) && remainingS() !== null && playerState().status !== "ended";
     return counting ? `${what} in ${remainingS()} s` : what;
   };
+  // Marked credits: the next episode takes over when the countdown runs out, without waiting
+  // for the end of the file.
+  let handedOver = "";
+  createEffect(() => {
+    const h = handover();
+    const np = nowPlaying();
+    const st = playerState();
+    if (!h || !np || st.status !== "playing" || st.positionMs < h.atMs || !inCredits()) return;
+    const next = upNext();
+    const key = `${np.since}`;
+    if (!next || nextHidden() || handedOver === key || !(next.queued || autoplay())) return;
+    handedOver = key;
+    playNext();
+  });
   let hideTimer: number | undefined;
   let digitTimer: number | undefined;
 
@@ -278,7 +304,7 @@ export function Player() {
             <For each={st.audioTracks}>
               {(t) => (
                 <button class="option" classList={{ selected: t.selected }} data-focus onClick={() => void agent.setAudioTrack(t.id).then(() => close())}>
-                  {[t.title ?? t.lang ?? `Track ${t.id}`, t.codec?.toUpperCase(), t.channels ? `${t.channels > 2 ? `${t.channels - 1}.1` : "Stereo"}` : ""].filter(Boolean).join(" · ")}
+                  {[t.title ?? t.lang ?? `Track ${t.id}`, t.audioDescription && !/descri/i.test(t.title ?? "") ? "Audio description" : "", t.codec?.toUpperCase(), t.channels ? `${t.channels > 2 ? `${t.channels - 1}.1` : "Stereo"}` : ""].filter(Boolean).join(" · ")}
                 </button>
               )}
             </For>

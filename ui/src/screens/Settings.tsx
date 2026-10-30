@@ -1,9 +1,9 @@
 // Settings on the TV: profiles and the PIN, picture and sound, recording, and the state of each
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
-import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { BoxUpdateHealth, Certification, SubtitleMode, SubtitleStyle, TvAppsMethod, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
-import { CERTIFICATIONS, cleanKidsLimits, KIDS_ALLOWANCES, KIDS_BEDTIMES, kidsLimitsLabel, NO_KIDS_LIMITS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, TV_APPS_METHODS, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
+import { createEffect, createResource, createSignal, For, Show, type JSX } from "solid-js";
+import type { AccessibilitySettings, BoxUpdateHealth, Certification, SubtitleMode, SubtitleStyle, TvAppsMethod, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
+import { cleanAccessibility, TEXT_SCALES, CERTIFICATIONS, cleanKidsLimits, KIDS_ALLOWANCES, KIDS_BEDTIMES, kidsLimitsLabel, NO_KIDS_LIMITS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, TV_APPS_METHODS, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -12,7 +12,7 @@ import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
 import { previewScreensaver } from "../idle";
 import { pairStamp } from "../pairing";
-import { appName, errorToast, setAppName, nav, previewTheme, setShowStats, setTheme, showStats, toast } from "../store";
+import { appName, errorToast, setAppName, nav, previewTheme, profile, setProfile, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 import { Row, Status } from "../components/SettingRow";
 import { AdvertRows, AlertsSection, CastSection, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
@@ -45,6 +45,26 @@ export function Settings(props: { section?: string }) {
   const [status] = createResource(() => hub.status());
   const [box] = createResource(() => agent.info());
   const [section, setSection] = createSignal(props.section ?? "profiles");
+  // Accessibility edits the profile watching, or one picked from Profiles and PIN.
+  const [a11yFor, setA11yFor] = createSignal<string | null>(null);
+  createEffect(() => section() !== "accessibility" && setA11yFor(null));
+  const a11yProfile = () => {
+    const list = profiles()?.profiles ?? [];
+    return list.find((p) => p.id === (a11yFor() ?? profile()?.id)) ?? null;
+  };
+  const a11y = () => cleanAccessibility(a11yProfile()?.accessibility);
+  const saveA11y = async (patch: Partial<AccessibilitySettings>) => {
+    const p = a11yProfile();
+    if (!p) return;
+    try {
+      const updated = await hub.updateProfile(p.id, { accessibility: patch });
+      // The profile watching sees the change straight away.
+      if (updated.id === profile()?.id) setProfile(updated);
+      await refetchProfiles();
+    } catch (err) {
+      errorToast(err);
+    }
+  };
   const [mix, { refetch: refetchMix }] = createResource(
     () => section() === "music" || section() === "about",
     (open) => (open ? hub.mixChannels().catch(() => null) : Promise.resolve(null)),
@@ -470,6 +490,7 @@ export function Settings(props: { section?: string }) {
         ...(p.kind === "kids" ? [{ label: `Ratings allowed: up to ${p.maxCertification}`, value: "cert", icon: "lock" }] : []),
         ...(p.kind === "kids" ? [{ label: "TV time and bedtime", value: "limits", icon: "moon", detail: kidsLimitsLabel(p.limits) }] : []),
         { label: `Subtitles: ${p.subtitles ? MODE_LABELS[p.subtitles] : `as the household (${settings()?.playback.subtitlesByDefault ? "on" : "off"})`}`, value: "subtitles", icon: "subtitles" },
+        { label: "Accessibility", value: "a11y", icon: "eye", detail: "Audio description, bigger text, bold focus, less movement" },
         { label: p.hasPin ? "Change PIN" : "Set a PIN", value: "pin", icon: "lock" },
         ...(p.hasPin ? [{ label: "Remove PIN", value: "nopin" }] : []),
         { label: "Delete profile", value: "delete", icon: "trash", tone: "danger" as const },
@@ -496,6 +517,10 @@ export function Settings(props: { section?: string }) {
           ],
         });
         if (mode) await hub.updateProfile(p.id, { subtitles: mode === "household" ? null : mode } as Partial<Profile>);
+      }
+      if (pick === "a11y") {
+        setA11yFor(p.id);
+        setSection("accessibility");
       }
       if (pick === "limits") await limitsMenu(p);
       if (pick === "pin") await pinFor(p);
@@ -533,6 +558,7 @@ export function Settings(props: { section?: string }) {
   const SECTIONS = [
     { id: "profiles", label: "Profiles and PIN" },
     { id: "playback", label: "Picture and sound" },
+    { id: "accessibility", label: "Accessibility" },
     { id: "theme", label: "Theme" },
     { id: "screensaver", label: "Screensaver" },
     { id: "weather", label: "Weather" },
@@ -611,6 +637,24 @@ export function Settings(props: { section?: string }) {
                 onSelect={() => void save({ playback: { ...playback(), tvAppsMethod: cycle(TV_APPS_METHODS, playback().tvAppsMethod ?? "both") } })}
               />
               <Row label="Largest file to stream" hint="Bigger versions are moved down the list" value={`${playback().maxSizeGb} GB`} onSelect={() => void save({ playback: { ...playback(), maxSizeGb: cycle([20, 40, 60, 100], playback().maxSizeGb) } })} />
+            </Show>
+
+            <Show when={section() === "accessibility"}>
+              <h2>Accessibility</h2>
+              <Show when={a11yProfile()} fallback={<p class="hint">Choose a profile first (Profiles and PIN).</p>}>
+                {(p) => (
+                  <>
+                    <p class="hint">
+                      For {p().name}: each profile keeps its own. Other profiles: Profiles and PIN › a profile › Accessibility. The phone's setup page has these too.
+                    </p>
+                    <Row label="Audio description" hint="A narrator describes what's happening on screen, when the film or channel has that soundtrack" value={a11y().audioDescription ? "On" : "Off"} onSelect={() => void saveA11y({ audioDescription: !a11y().audioDescription })} />
+                    <Row label="Text size" hint="Bigger writing on every screen, for reading from the sofa" value={`${a11y().textScale}%`} onSelect={() => void saveA11y({ textScale: cycle(TEXT_SCALES, a11y().textScale) })} />
+                    <Row label="Bold focus" hint="A thick yellow ring around whatever is picked, so it's easy to follow" value={a11y().highContrast ? "On" : "Off"} onSelect={() => void saveA11y({ highContrast: !a11y().highContrast })} />
+                    <Row label="Reduce motion" hint="No sliding screens, drifting decorations, projected clips, jump scares or moving screensavers" value={a11y().reducedMotion ? "On" : "Off"} onSelect={() => void saveA11y({ reducedMotion: !a11y().reducedMotion })} />
+                    <Row label="Subtitles" hint="Subtitle size, background and colour are in Picture and sound" value="" onSelect={() => setSection("playback")} />
+                  </>
+                )}
+              </Show>
             </Show>
 
             <Show when={section() === "theme"}>

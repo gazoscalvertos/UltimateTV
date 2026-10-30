@@ -77,6 +77,9 @@
   .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--c, var(--accent)); }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .actions select { width: auto; padding: 8px 10px; font-size: 14px; }
+  .a11y { margin-top: 10px; }
+  .a11y summary { cursor: pointer; color: var(--fg); font-size: 15px; padding: 6px 0; }
+  .a11y summary small { color: var(--muted); margin-left: 6px; }
   button.danger { border-color: color-mix(in srgb, var(--bad) 50%, transparent); color: var(--bad); }
   button:disabled { opacity: .45; cursor: default; }
   .mix-edit, .mix-videos { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
@@ -576,8 +579,33 @@ async function loadProfiles() {
     }));
     row.append(name, actions);
     if (p.kind === "kids") row.append(kidsLimitsBox(p, times.find((t) => t.profileId === p.id)));
+    row.append(accessibilityFor(p));
     list.append(row);
   }
+}
+// Each profile's accessibility, the same as the TV's Settings › Accessibility. Stays open while
+// the list redraws after each change.
+const openA11y = new Set();
+function accessibilityFor(p) {
+  const a = { audioDescription: false, highContrast: false, textScale: 100, reducedMotion: false, ...(p.accessibility || {}) };
+  const on = [a.audioDescription && "audio description", a.textScale !== 100 && `text ${a.textScale}%`, a.highContrast && "bold focus", a.reducedMotion && "less motion"].filter(Boolean);
+  const box = document.createElement("details");
+  box.className = "a11y";
+  box.innerHTML = `<summary>Accessibility <small></small></summary>
+    <label class="opt"><span>Audio description<small>A narrator describes what's on screen, when there's that soundtrack</small></span><input type="checkbox" data-a11y="audioDescription"></label>
+    <label class="opt"><span>Text size<small>Bigger writing on every TV screen</small></span><select data-a11y="textScale"><option value="100">100%</option><option value="125">125%</option><option value="150">150%</option></select></label>
+    <label class="opt"><span>Bold focus<small>A thick yellow ring around whatever is picked</small></span><input type="checkbox" data-a11y="highContrast"></label>
+    <label class="opt"><span>Reduce motion<small>No sliding screens, projected clips, jump scares or moving screensavers</small></span><input type="checkbox" data-a11y="reducedMotion"></label>`;
+  box.querySelector("summary small").textContent = on.length ? on.join(", ") : "all off";
+  box.open = openA11y.has(p.id);
+  box.ontoggle = () => (box.open ? openA11y.add(p.id) : openA11y.delete(p.id));
+  for (const input of box.querySelectorAll("[data-a11y]")) {
+    const key = input.dataset.a11y;
+    if (input.type === "checkbox") input.checked = Boolean(a[key]);
+    else input.value = String(a[key]);
+    input.onchange = () => patchProfile(p, { accessibility: { [key]: input.type === "checkbox" ? input.checked : Number(input.value) } }, `Saved for ${p.name}`);
+  }
+  return box;
 }
 $("#profile-add").onsubmit = async (e) => {
   e.preventDefault();

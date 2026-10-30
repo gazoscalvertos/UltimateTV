@@ -20,6 +20,17 @@ describe("ProfileStore", () => {
     expect(store.resolve(undefined, undefined).admin).toBe(true);
   });
 
+  it("keeps each profile's accessibility, one change at a time", () => {
+    const store = new ProfileStore(new Db(":memory:"));
+    expect(store.update("family", { accessibility: { textScale: 150 } })?.accessibility).toEqual({ audioDescription: false, highContrast: false, textScale: 150, reducedMotion: false });
+    expect(store.update("family", { accessibility: { reducedMotion: true } })?.accessibility).toMatchObject({ textScale: 150, reducedMotion: true });
+    expect(store.get("kids")?.accessibility).toBeUndefined();
+    // All off again, or null: nothing kept.
+    expect(store.update("family", { accessibility: { textScale: 100, reducedMotion: false } })?.accessibility).toBeUndefined();
+    store.update("family", { accessibility: { highContrast: true } });
+    expect(store.update("family", { accessibility: null })?.accessibility).toBeUndefined();
+  });
+
   it("locks every adult profile once one has a PIN", () => {
     const store = new ProfileStore(new Db(":memory:"));
     const dad = store.create({ name: "Dad", kind: "adult" });

@@ -15,7 +15,7 @@ import { builtClipCount, showBuiltClip } from "./JumpScare";
 import { onHubEvent } from "../events";
 import { addOverlayKeys } from "../keys";
 import { isLive, playerState } from "../player";
-import { isKids } from "../store";
+import { isKids, reducedMotion } from "../store";
 
 const TICK_MS = 60_000;
 
@@ -139,7 +139,8 @@ export function ProjectionLayer() {
     setShowing(null);
   };
   const show = (p: Projection) => {
-    if (document.hidden || (isKids() && !state().settings.kids && !p.byHand)) return;
+    // Reduce motion (Settings › Accessibility) stops them all, except one picked by hand to watch.
+    if (document.hidden || (isKids() && !state().settings.kids && !p.byHand) || (reducedMotion() && !p.byHand)) return;
     lastAt = Date.now();
     setShowing(p);
     window.clearTimeout(hideTimer);
@@ -149,7 +150,7 @@ export function ProjectionLayer() {
   const dueNow = (): boolean => {
     const st = state();
     const s = st.settings;
-    if (!s.enabled || !st.season || showing() || document.hidden) return false;
+    if (!s.enabled || !st.season || showing() || document.hidden || reducedMotion()) return false;
     if (isKids() && !s.kids) return false;
     if (Date.now() - lastAt < s.minGapMinutes * 60_000) return false;
     const playing = playerState().status === "playing";

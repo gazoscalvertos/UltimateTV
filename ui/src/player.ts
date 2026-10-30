@@ -9,6 +9,7 @@ import { choose } from "./components/Dialog";
 import { playRefused } from "./kidstime";
 import { startedPlaying } from "./queue";
 import { autoSubtitles, subtitleModeFor } from "./subtitles";
+import { autoAudioDescription } from "./accessibility";
 import { errorToast, nav } from "./store";
 
 export interface NowPlaying {
@@ -160,6 +161,7 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
   startedPlaying(req);
   const np = nowPlaying();
   if (np) void autoSubtitles(np, settings);
+  if (np) void autoAudioDescription(np, s?.preferredAudioLang);
   void report("start");
   clearInterval(reportTimer);
   if (!info.live) reportTimer = window.setInterval(() => void report("progress"), 10_000);

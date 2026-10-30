@@ -641,6 +641,36 @@ try {
   await page.locator(".settings-nav-item", { hasText: "What's new" }).first().focus();
   await wait(1500);
   await shot("114-settings-whats-new");
+
+  // Accessibility for the Family profile: 150% text and the bold focus ring, on Settings, Home,
+  // the guide and a film's page (the screens most likely to break with bigger text).
+  await json("/api/profiles/family", { accessibility: { textScale: 150, highContrast: true, reducedMotion: true } }, "PATCH");
+  await page.goto(`${base}/app/`);
+  await wait(1500);
+  if ((await page.evaluate(() => document.documentElement.dataset.textScale)) !== "150") errors.push("The profile's text size wasn't put on");
+  await tab("Settings");
+  await key("ArrowDown");
+  await page.locator(".settings-nav-item", { hasText: "Accessibility" }).first().focus();
+  await wait(1200);
+  await key("ArrowRight");
+  await key("ArrowDown");
+  await shot("118-settings-accessibility");
+  await page.goto(`${base}/app/`);
+  await wait(1500);
+  await shot("119-home-large-text");
+  await tab("TV Guide");
+  await wait(1500);
+  await key("ArrowRight");
+  await shot("120-guide-large-text");
+  await page.goto(`${base}/app/`);
+  await wait(1500);
+  await tab("Films");
+  await wait(1200);
+  await page.locator(".card", { hasText: "Copper Sky" }).first().focus();
+  await key("Enter");
+  await wait(1500);
+  await shot("121-details-large-text");
+  await json("/api/profiles/family", { accessibility: null }, "PATCH");
   await page.goto(`${base}/app/`);
   await wait(1500);
 
@@ -888,6 +918,15 @@ try {
   console.log("  104-phone-backup.png");
   await phone.locator("#whatsnew").screenshot({ path: path.join(out, "117-phone-setup-whats-new.png") });
   console.log("  117-phone-setup-whats-new.png");
+  // A profile's accessibility on the phone's setup page.
+  await fetch(`${base}/api/profiles/family`, { method: "PATCH", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ accessibility: { audioDescription: true, textScale: 125 } }) });
+  await phone.reload();
+  await phone.waitForTimeout(1500);
+  await phone.locator("#profiles-list .a11y summary").first().click();
+  await phone.waitForTimeout(400);
+  await phone.locator("#profiles").screenshot({ path: path.join(out, "122-phone-setup-accessibility.png") });
+  console.log("  122-phone-setup-accessibility.png");
+  await fetch(`${base}/api/profiles/family`, { method: "PATCH", headers: { ...asTv, "Content-Type": "application/json" }, body: JSON.stringify({ accessibility: null }) });
   // A music channel's videos on the phone: the playlist it follows, with its progress and the one that failed.
   const halloween = phone.locator("#mix-list .profile", { hasText: "Halloween TV" });
   await halloween.locator("button", { hasText: "Videos" }).click();

@@ -9,6 +9,7 @@ import type { AdBreak, Alert, SleepChoice, SleepState } from "./household.js";
 import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
 import { seasonOn } from "./seasons.js";
 import type { ThemeChoice, ThemeName } from "./themes.js";
+import type { AccessibilitySettings } from "./accessibility.js";
 
 export type Id = string;
 
@@ -482,6 +483,8 @@ export interface Profile {
   defaultGuide?: string;
   /** When subtitles come on for this profile; missing follows Settings › Picture and sound. */
   subtitles?: SubtitleMode;
+  /** Audio description, focus ring, text size and reduced motion; missing is all off. */
+  accessibility?: AccessibilitySettings;
   /** Kids: a daily allowance and a bedtime (see hub/src/kidstime.ts). Missing = no limits. */
   limits?: KidsLimits;
 }

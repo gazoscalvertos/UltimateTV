@@ -27,6 +27,15 @@ pop up what's new after an update. So:
 
 ## 2026-10-30
 
+- **Accessibility** ([docs/accessibility.md](docs/accessibility.md)): each profile has Settings ›
+  Accessibility, also on the phone's setup page. Audio description plays the described soundtrack
+  when a film or channel has one, text can be 125% or 150% on every screen, Bold focus puts a thick
+  yellow ring round whatever is picked, and Reduce motion stops sliding screens, projected clips,
+  jump scares and moving screensavers. (#116)
+- **Skip intro everywhere** ([docs/watching-extras.md](docs/watching-extras.md#skip-intro-everywhere)):
+  with Jellyfin's Intro Skipper plugin (a script installs and checks it), Skip intro and Skip credits
+  show on every series, recordings in Jellyfin included. When the credits are marked, the next
+  episode starts 15 seconds into them instead of at the very end. (#116)
 - **The box undoes a bad update by itself** ([docs/box-install.md](docs/box-install.md#updates-and-rolling-back)):
   after each update the box checks, within 5 minutes, that the TV app starts, reaches the Hub, plays a
   test clip and still sees the CEC adapter. If not, it goes back to the snapshot from before the

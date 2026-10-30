@@ -181,6 +181,23 @@ See [box-install.md](box-install.md#updates-and-rolling-back). Built without a b
 - [ ] With `AUTO_ROLLBACK=0` in `/etc/ultimatetv/box.env`, the broken build is left in place and the alert says "failed its check"; roll it back from the phone (the TV is blank).
 - [ ] After a roll back that went back past a kernel update, the box still boots (the old kernel is copied back into /boot).
 
+## 8h. Skip intro and accessibility
+
+Skip intro: see [watching-extras.md](watching-extras.md#skip-intro-everywhere). Update the Hub and the box first.
+
+- [ ] `node tools/jellyfin/intro-skipper.mjs install`, then `scan`; when Dashboard › Scheduled Tasks shows it finished, `check` lists intro markers on most episodes, and `check --series "<a recorded series>"` on a recorded one.
+- [ ] Play one of those episodes: **Skip intro** shows during the titles and OK lands just after them.
+- [ ] Near the end of an episode with credits marked: Up Next shows as the credits start, counts down from 15, and the next episode plays. Back hides it and the credits carry on.
+- [ ] An episode without markers still gets Up Next in the last 30 seconds.
+
+Accessibility: see [accessibility.md](accessibility.md).
+
+- [ ] Settings › Accessibility › Text size 150%: Home, the guide, a film's page, Settings, Music, Recordings and Cast and games have no cut-off or overlapping writing. Readable from the sofa?
+- [ ] Bold focus: the yellow ring is easy to follow on the dark and light themes, and in the guide it's round the programme.
+- [ ] Reduce motion: screens don't slide, a seasonal clip sent from the phone doesn't appear, and the drawn screensaver (Aurora) is still.
+- [ ] Audio description on: a BBC channel or a film known to have a described track switches to it a few seconds after starting, and says so. Yellow › Audio shows it as "Audio description". Off again: the plain track plays.
+- [ ] Switch to the Kids profile and back: each keeps its own settings. The phone's setup page shows and changes the same ones.
+
 ## 9. The WAF test
 
 Hand over the remote with no instructions and ask for: watch BBC One; find tonight's film and record it; set a series link; carry on the film from yesterday; find a 4K comedy.

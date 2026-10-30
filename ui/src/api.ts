@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { Changelog, HaEvent, HaSettings, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
 import type { AdSkipSettings, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -93,7 +93,7 @@ export const hub = {
   kidsTimeOf: (id: string) => api<KidsTimeStatus>(`/api/kids-time/${enc(id)}`),
   kidsReport: (playing: boolean) => api<{ status: KidsTimeStatus | null }>("/api/kids-time/report", { method: "POST", body: { playing } }),
   kidsExtra: (id: string, minutes: number, pin?: string) => api<{ status: KidsTimeStatus }>(`/api/kids-time/${enc(id)}/extra`, { method: "POST", body: { minutes, ...(pin ? { pin } : {}) } }),
-  updateProfile: (id: string, patch: Omit<Partial<Profile>, "limits"> & { pin?: string | null; limits?: Profile["limits"] | null }) => api<Profile>(`/api/profiles/${enc(id)}`, { method: "PATCH", body: patch }),
+  updateProfile: (id: string, patch: Partial<Omit<Profile, "accessibility" | "limits">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null; limits?: Profile["limits"] | null }) => api<Profile>(`/api/profiles/${enc(id)}`, { method: "PATCH", body: patch }),
   deleteProfile: (id: string) => api<{ ok: true }>(`/api/profiles/${enc(id)}`, { method: "DELETE" }),
 
   home: () => api<HomeScreen>("/api/home"),
