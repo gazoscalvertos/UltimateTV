@@ -150,6 +150,15 @@ class Hub(private val prefs: Prefs) {
         prefs.deviceToken = r["token"] as String
     }
 
+    /**
+     * The address of a Hub page (the setup page) to open in the phone's browser. The browser has
+     * no key of its own, so it would ask to pair again: the Hub hands it one with a one-time code.
+     */
+    suspend fun browserUrl(path: String): String {
+        val code = runCatching { post<Map<String, Any?>>("/api/pair/handoff", null)["code"] as? String }.getOrNull()
+        return if (code.isNullOrEmpty()) base + path else "$base/api/pair/open?code=${enc(code)}&to=${enc(path)}"
+    }
+
     suspend fun progress(key: String, positionMs: Long, durationMs: Long?, event: String, paused: Boolean, title: TitleRef?) {
         val body = mutableMapOf<String, Any>("key" to key, "positionMs" to positionMs, "event" to event, "paused" to paused)
         if (durationMs != null && durationMs > 0) body["durationMs"] = durationMs

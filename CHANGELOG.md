@@ -29,6 +29,12 @@ the commit they were built from in Settings › About, so you can tell exactly w
   nights. When the Hub is down the box shows its own screen instead of a blank one: the time, what's
   wrong, downloads on the box (Kids only see theirs), games and AirPlay, and it goes back to the TV
   app when the Hub answers. Update the Hub and the box.
+- **Android client 0.2.1: Hub setup page opens straight away.** Settings › Hub setup page in the
+  Android app used to land on "Pair with your TV", because Chrome doesn't share the app's key. The
+  app now asks the Hub for a one-time code (`POST /api/pair/handoff`) and opens
+  `/api/pair/open?code=…`, which gives Chrome a key of its own (listed as "<phone> (browser)" in
+  Phones and remotes) and goes on to the page. The same goes for "Phone remote for the TV" when
+  the remote app isn't installed.
 - **Cast and games** ([docs/casting-and-games.md](docs/casting-and-games.md)): a new screen (Blue
   on Home) for putting other screens on the TV. iPhones, iPads and Macs mirror over **AirPlay**
   (UxPlay on the box). Any laptop shares its screen from Chrome, Edge or Firefox at
