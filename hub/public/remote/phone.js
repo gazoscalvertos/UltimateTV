@@ -1087,6 +1087,7 @@
       if (what === "queue") await showQueue();
       if (what === "downloads") await showDownloads();
       if (what === "music") await showMusic("playlists");
+      if (what === "weather") await showWeather();
       if (what === "search") showSearch();
     } catch (e) {
       failed(e);
@@ -1213,6 +1214,47 @@
       $("s-season").value = String(Math.max(0, first));
       void pick();
     }
+  }
+
+  // The weather the TV shows: now, the next day hour by hour, and the week. The Hub sends the
+  // words with it, so this page needn't know what each weather code means.
+  const WX_EMOJI = { sun: "☀️", moon: "🌙", partly: "⛅", "partly-night": "☁️", cloud: "☁️", fog: "🌫️", drizzle: "🌦️", rain: "🌧️", "heavy-rain": "🌧️", sleet: "🌨️", snow: "❄️", thunder: "⛈️" };
+  async function showWeather() {
+    const st = await get("/api/weather?words=1");
+    if (current !== "weather") return;
+    const r = st.report;
+    if (!r) {
+      body.innerHTML = `<p class="empty">${st.settings.place ? esc(st.error || "The forecast is on its way.") : "Say where you live first: your town or postcode."}</p><div class="actions"><button id="wx-setup">Weather settings</button></div>`;
+      $("wx-setup").onclick = () => (location.href = "/setup/#weather");
+      return;
+    }
+    const s = st.settings;
+    const word = (code, isDay) => st.words?.codes[`${code}-${isDay ? 1 : 0}`] ?? { label: "", icon: "cloud" };
+    const e = (code, isDay) => WX_EMOJI[word(code, isDay).icon] ?? "☁️";
+    const temp = (c) => `${Math.round(s.temperature === "f" ? (c * 9) / 5 + 32 : c)}°`;
+    const wind = (k) => `${Math.round(s.wind === "mph" ? k / 1.609344 : k)} ${s.wind === "mph" ? "mph" : "km/h"}`;
+    const compass = (d) => ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round((((d % 360) + 360) % 360) / 45) % 8];
+    const from = Math.floor(Date.now() / 3600_000) * 3600_000;
+    const hours = r.hours.filter((h) => h.at >= from).slice(0, 24);
+    const today = new Date().setHours(0, 0, 0, 0);
+    const dayName = (t) => {
+      const n = Math.round((new Date(t).setHours(0, 0, 0, 0) - today) / 86_400_000);
+      return n === 0 ? "Today" : n === 1 ? "Tomorrow" : new Date(t).toLocaleDateString([], { weekday: "long" });
+    };
+    const hh = (t) => new Date(t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    const d0 = r.days[0];
+    body.innerHTML = `<p class="meta">${esc(r.place.name)}${r.place.detail ? ` · ${esc(r.place.detail)}` : ""}</p>
+      <div class="wx-now"><span class="wx-e">${e(r.now.code, r.now.isDay)}</span><span class="wx-t">${temp(r.now.tempC)}</span>
+      <div><b>${esc(word(r.now.code, r.now.isDay).label)}</b><span>Feels like ${temp(r.now.feelsC)}</span>${d0 ? `<span>High ${temp(d0.maxC)} · Low ${temp(d0.minC)}</span>` : ""}</div></div>
+      ${st.words?.headline ? `<span class="wx-head">${esc(st.words.headline)}</span>` : ""}
+      <p class="meta">Wind ${wind(r.now.windKmh)} ${compass(r.now.windDeg)}, gusts ${wind(r.now.gustKmh)} · humidity ${Math.round(r.now.humidity)}%${d0 ? ` · sunset ${hh(d0.sunset)}` : ""}</p>
+      <h3 class="rail-title">Hour by hour</h3>
+      <div class="wx-hours">${hours.map((h, i) => `<span class="${h.rainChance >= 40 ? "wet" : ""}">${i ? hh(h.at) : "Now"}<em class="e" style="font-style:normal">${e(h.code, h.isDay)}</em><b>${temp(h.tempC)}</b><i>${h.rainChance >= 10 ? `${h.rainChance}%` : "&nbsp;"}</i></span>`).join("")}</div>
+      <h3 class="rail-title">The week</h3>
+      <div class="list">${r.days.map((d) => `<div class="wx-day"><span>${esc(dayName(d.date))}<small>${esc(word(d.code, true).label)}</small></span><span class="e">${e(d.code, true)}</span><span class="rain">${d.rainChance >= 20 ? `${d.rainChance}%` : ""}</span><span class="lo">${temp(d.minC)}</span><span class="hi">${temp(d.maxC)}</span></div>`).join("")}</div>
+      <div class="actions"><button id="wx-tv">Show on the TV</button></div>
+      <p class="meta">From Open-Meteo, updated ${clock(r.fetchedAt)}${st.error ? ` · ${esc(st.error)}` : ""}</p>`;
+    $("wx-tv").onclick = () => post("/api/weather/show", {}).then(() => toast("On the TV"), (err) => toast(err.message, true));
   }
 
   // The queue: tap to play now, ↑ to play next, ✕ to take off.

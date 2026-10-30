@@ -15,7 +15,7 @@ Gary asked for the whole app to be built before testing on the real hardware, so
 | 3. Unified films and TV | Built. Jellyfin playback has run on the box. |
 | 4. AIOStreams, TorBox, NAS pipeline, phone remote | Built. The phone remote is in daily use; TorBox and Save to NAS are untested. |
 | 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates). Automatic rollback, backups and the WAF test remain. |
-| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, sleep timer, alerts, Save for later, advert skip, seasonal clips: built, mostly untested. |
+| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, sleep timer, alerts, Save for later, advert skip, seasonal clips, weather: built, mostly untested. |
 
 ## What has run on real hardware
 
@@ -47,6 +47,7 @@ In the order of [TESTING.md](TESTING.md):
 - **Pop-ups from Home Assistant** (existing commands need the `X-Api-Key` header).
 - **Play queue, screensavers, Halloween and jump scares, Download to box, and a trip** with `travel.sh`.
 - **Cast and games:** AirPlay, a laptop's screen share (trust the Hub's certificate first), links from the phone, RetroArch, Moonlight, Steam Link and GeForce NOW. The sleep timer's CEC standby needs the Pulse-Eight.
+- **Weather:** the forecast reaching the Hub from Open-Meteo, and your postcode found.
 - **Advert skip** on real UK recordings (comskip's settings may need tuning), and alerts reaching Home Assistant or ntfy.
 - **The WAF test:** watch BBC One, record tonight's film, set a series link, carry on yesterday's film, find a 4K comedy, with no help.
 

@@ -33,6 +33,8 @@ import { Player } from "./screens/Player";
 import { Profiles } from "./screens/Profiles";
 import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
+import { Weather } from "./screens/Weather";
+import { startWeather } from "./weather";
 import { closeTopDialog, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
@@ -182,6 +184,7 @@ export function App() {
     startCast();
     startSleep();
     startSaveNotices();
+    startWeather();
     void startMusic();
     void restoreSession();
     const loadLook = () =>
@@ -283,6 +286,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "cast"}>
             <CastScreen />
+          </Match>
+          <Match when={nav.current().name === "weather"}>
+            <Weather />
           </Match>
           <Match when={(() => { const r = nav.current(); return r.name === "music-list" ? r : null; })()}>
             {(r) => <MusicList item={r().item} />}

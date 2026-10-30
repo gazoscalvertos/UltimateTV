@@ -61,3 +61,7 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 91–93 | The phone's Clips tab at Christmas, its packs, and browsing the starter and community packs |
 | 94 | Building a clip on the phone: a snowman walking along the bottom for Christmas |
 | 95, 96 | Sharing built clips as a pack with a link and QR code, and the page the link opens |
+| 97 | Home with today's weather in the corner and the temperature by the clock |
+| 98, 99 | The forecast: now, the next 12 hours and the week; and a day ahead with its hours |
+| 100 | Settings › Weather |
+| 101, 102 | The weather on the phone remote's Watch tab, and where it's set on the phone's settings page |

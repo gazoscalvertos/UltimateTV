@@ -15,6 +15,11 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Weather** ([docs/weather.md](docs/weather.md)): today's weather on Home ("Rain from 4pm"), the
+  temperature next to the clock, a forecast page with the next hours and the week, and the weather
+  under the screensaver's clock. Set your town or postcode in Settings › Weather on the TV or the
+  phone; the forecast is Open-Meteo's (free, no key). "What's the weather like" by voice, and Watch ›
+  Weather on the phone remote.
 - **Cast and games** ([docs/casting-and-games.md](docs/casting-and-games.md)): a new screen (Blue
   on Home) for putting other screens on the TV. iPhones, iPads and Macs mirror over **AirPlay**
   (UxPlay on the box). Any laptop shares its screen from Chrome, Edge or Firefox at

@@ -98,6 +98,7 @@ controller pairing).
 - [ ] Red on a film saves it; it's on Home under Saved for later; "save Dune for later" by voice adds it too.
 - [ ] A recording from an ad-funded channel shows Skip adverts in its breaks (give comskip a few minutes after it finishes).
 - [ ] Settings › Seasonal clips › Try one now shows a projection; download one from Shared by others.
+- [ ] Weather: on the phone's Settings › Weather, find your postcode and Use it. Home shows today's weather in the corner and the temperature by the clock; OK on the temperature opens the forecast, and the days show their hours. "What's the weather like" by voice opens it. The screensaver shows it under the clock.
 
 ## 9. The WAF test
 

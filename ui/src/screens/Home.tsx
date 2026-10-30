@@ -13,6 +13,7 @@ import { useKeys } from "../keys";
 import { play } from "../player";
 import { isKids, nav } from "../store";
 import { castSettings } from "../cast";
+import { HomeWeather } from "../components/HomeWeather";
 
 export function Home() {
   const [home, { refetch }] = createResource(() => hub.home());
@@ -42,6 +43,7 @@ export function Home() {
       </Show>
       <TopBar />
       <div class="page" data-scroll-y="120">
+        <HomeWeather />
         <Show when={home()} fallback={<div class="spinner" />}>
           <Show when={home()!.hero}>
             {(hero) => (

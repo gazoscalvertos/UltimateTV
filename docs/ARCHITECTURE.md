@@ -41,7 +41,7 @@ How UltimateTV fits together as of 2026-10-29 (main at PR #60). [PLAN.md](PLAN.m
 | Hub | `hub/` | Docker on the Proxmox Docker LXC (or on the box during a trip) | Node, TypeScript, Fastify 5, `@fastify/websocket`, `node:sqlite`, ffmpeg, yt-dlp |
 | TV UI | `ui/` | Inside the box's Electron window, served by the Hub at `/app/` | SolidJS, Vite, spatial focus (`focus.ts`) |
 | Box shell | `box/` | The TV box, as the `tv` user in a KWin kiosk session | Electron 44, mpv JSON IPC, `kscreen-doctor`, `cec-ctl`, WirePlumber |
-| Shared code | `shared/` | Imported by all three above | Domain types, key map, stream ranking, themes, music and screensaver helpers |
+| Shared code | `shared/` | Imported by all three above | Domain types, key map, stream ranking, themes, music, screensaver and weather helpers |
 | Phone remote | `hub/public/remote/`, `android/app/` | Any phone browser; the Android app wraps it in a WebView | Plain HTML/JS PWA; Java WebView shell with speech and code scanning |
 | Setup page | `hub/public/setup/` | Any browser on the home network | Plain HTML/JS |
 | Android app | `android/client/` | Android phones and tablets | Kotlin, Jetpack Compose, Media3 ExoPlayer (+ Jellyfin ffmpeg audio decoder) |
@@ -60,7 +60,7 @@ One Node process owns everything that has to be always on or has to be shared. I
 | Downloads | `services/downloads.ts`, `/api/offline` | Save to NAS (TorBox/AIOStreams to Jellyfin naming, then a Jellyfin rescan), the SMB/SFTP Inbox tidy, and offline copies for the Android app and the box |
 | People | `profiles.ts`, `pairing.ts`, `progress.ts`, `queue.ts`, `guides.ts` | Profiles with PINs and the Kids filter, paired devices and the API key, resume points, the household play queue, custom guides |
 | Music channels | `mixchannels.ts`, `ytdlp.ts`, `mixseeds.ts`, `cropdetect.ts`, `nasvideos.ts` | Made-up live channels of music videos downloaded with yt-dlp (or linked from the NAS), shuffled schedules, black-bar detection |
-| On-screen extras | `notify.ts`, `scares.ts`, `screensaver.ts`, `voice.ts`, `musiclogin.ts` | Pop-ups and breaking news, jump scares, screensaver photos, voice commands, the Deezer phone login hand-off |
+| On-screen extras | `notify.ts`, `scares.ts`, `screensaver.ts`, `voice.ts`, `musiclogin.ts`, `weather.ts` | Pop-ups and breaking news, jump scares, screensaver photos, voice commands, the Deezer phone login hand-off, the Open-Meteo forecast |
 | Running it | `diagnostics.ts`, `log.ts`, `stats.ts`, `system.ts`, `selfupdate.ts`, `move.ts`, `lan.ts`, `reports.ts` | Box and Hub logs and playback samples, the stats page, update checks against GitHub, updates from the phone, taking the Hub on a trip |
 
 `hub/src/server.ts` holds the routes. Control routes are listed in its `NEEDS` table (a paired screen, any paired device, or the API key) and `ADMIN_ROUTES` (anything that changes the setup or deletes things, which also needs an adult profile and its PIN).

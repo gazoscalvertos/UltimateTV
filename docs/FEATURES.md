@@ -75,6 +75,7 @@ Everything UltimateTV does as of 2026-10-29: what's on main (up to PR #60). Almo
 - **Screen dimming and screensavers** ([screensaver.md](screensaver.md)): twelve live scenes, generated landscapes and modern art, NAS photos and videos, black, or shuffle.
 - **Halloween** ([halloween.md](halloween.md)): an automatic theme from 25 October to 1 November, three hidden easter eggs, and jump scares (your own clips, or ones built from a picture or video plus a sound), never on Kids.
 - **Themes** ([themes.md](themes.md)): Dark, Light, Slick, Cyberpunk, Ocean, Forest and Sunset, plus seasonal Halloween, Christmas, Easter and Valentine's themes that come out on their days, on the TV, the phone remote and the web pages.
+- **Weather** ([weather.md](weather.md)): today's weather on Home with the one thing worth knowing ("Rain from 4pm"), the temperature next to the clock, a forecast page with the next hours and the week, the weather on the screensaver, voice ("what's the weather like") and the phone. Open-Meteo, free and keyless; a town, UK postcode or latitude and longitude.
 - **App name**: call it GazosTV or anything else; it shows everywhere, including Spotify's device list.
 
 - **Button hints and help** ([everyday-extras.md](everyday-extras.md)): a strip along the bottom says what the colour keys do on each screen; Info opens a help screen with the remote drawn. On Home the colour keys are shortcuts.
