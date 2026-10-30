@@ -57,7 +57,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Weather | #64 | Untested |
 | TV apps button, trailers and scores, More like this, OpenSubtitles | #65 | Untested (TV apps needs the Pulse-Eight) |
 | What's new (change log in every app) | #112 | Untested |
-| Home Assistant both ways (media player, playback events) | #PR | Untested |
+| Home Assistant both ways (media player, playback events) | #113 | Untested |
 
 ### What has run on real hardware
 
@@ -119,7 +119,7 @@ The [gap list](https://claude.ai/artifact/PSEpcgrMkhKp4Se1Gp51gK) ranks these ag
 4. **More like this** on the details page and a Home row. The Hub already has a TMDB recommendations call that nothing uses.
 5. **Subtitles**: fetch missing ones from OpenSubtitles, a default per profile, size and background settings.
 6. **Skip intro for the whole library**: install Jellyfin's Intro Skipper plugin. The app already reads Jellyfin's intro markers, so no code.
-7. ~~Home Assistant both ways~~: built in #PR ([notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)).
+7. ~~Home Assistant both ways~~: built in #113 ([notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)).
 8. **Kids time limits and a bedtime.**
 9. Later: a local AI on the box, a Freeview HDHomeRun backup, radio and podcasts, multiview, Trakt, audio description.
 
