@@ -168,6 +168,32 @@ describe("pairing phones and screens", () => {
     expect(await closed).toBe(4401);
   });
 
+  it("lets the Android app open the setup page in the phone's browser without pairing again", async () => {
+    const tv = await pairTv();
+    const phone = await pairPhone(tv);
+    expect((await app.inject({ method: "POST", url: "/api/pair/handoff" })).statusCode).toBe(401);
+    const { code } = (await app.inject({ method: "POST", url: "/api/pair/handoff", headers: as(phone) })).json();
+    expect(code).toEqual(expect.any(String));
+
+    const open = await app.inject(`/api/pair/open?code=${encodeURIComponent(code)}&to=${encodeURIComponent("/setup/")}`);
+    expect(open.statusCode).toBe(302);
+    expect(open.headers.location).toBe("/setup/");
+    const cookie = String(open.headers["set-cookie"]);
+    expect(cookie).toMatch(/^utv_device=.+HttpOnly; SameSite=Strict/);
+    const browser = decodeURIComponent(/^utv_device=([^;]+)/.exec(cookie)![1]!);
+    expect((await app.inject({ url: "/api/pair", headers: { cookie: `utv_device=${encodeURIComponent(browser)}` } })).json()).toMatchObject({ paired: true, device: { name: "Gary's phone (browser)", kind: "phone" } });
+    expect(browser).not.toBe(phone);
+
+    // Once only, and only to pages on the Hub.
+    const again = await app.inject(`/api/pair/open?code=${encodeURIComponent(code)}&to=/setup/`);
+    expect(again.statusCode).toBe(302);
+    expect(again.headers["set-cookie"]).toBeUndefined();
+    const { code: next } = (await app.inject({ method: "POST", url: "/api/pair/handoff", headers: as(phone) })).json();
+    for (const to of ["//evil.example/", "https://evil.example/", "/\\evil.example"]) {
+      expect((await app.inject(`/api/pair/open?code=${encodeURIComponent(next)}&to=${encodeURIComponent(to)}`)).headers.location).toBe("/setup/");
+    }
+  });
+
   it("can be turned off with PAIRING=off", async () => {
     await app.close();
     await start(false);

@@ -238,9 +238,9 @@ fun SettingsScreen(nav: NavHostController) {
             Text("More", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
             OutlinedButton(onClick = {
                 val remote = context.packageManager.getLaunchIntentForPackage("tv.ultimate.remote")
-                if (remote != null) context.startActivity(remote) else browse("${prefs.hub}/remote/")
+                if (remote != null) context.startActivity(remote) else scope.launch { browse(app.hub.browserUrl("/remote/")) }
             }, modifier = Modifier.fillMaxWidth()) { Text("Phone remote for the TV") }
-            OutlinedButton(onClick = { browse("${prefs.hub}/setup/") }, modifier = Modifier.fillMaxWidth()) { Text("Hub setup page") }
+            OutlinedButton(onClick = { scope.launch { browse(app.hub.browserUrl("/setup/")) } }, modifier = Modifier.fillMaxWidth()) { Text("Hub setup page") }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${ui.appName} for Android ${BuildConfig.VERSION_NAME}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = {
