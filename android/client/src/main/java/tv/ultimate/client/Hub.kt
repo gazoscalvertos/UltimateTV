@@ -170,6 +170,10 @@ class Hub(private val prefs: Prefs) {
         raw("/api/progress", "POST", body, 8000)
     }
 
+    /** Kids time limits: "still playing" every half minute; the answer says how long is left (hub/src/kidstime.ts). */
+    suspend fun kidsReport(playing: Boolean): Map<String, Any?>? =
+        post<Map<String, Any?>>("/api/kids-time/report", mapOf("playing" to playing), timeoutMs = 8000)["status"] as? Map<String, Any?>
+
     suspend fun appName(): String? = (get<Map<String, Any?>>("/api/settings", 5000)["appName"] as? String)?.takeIf { it.isNotBlank() }
 
     /** With `seen` (the newest entry shown last time, "" for none), also what's new since. */

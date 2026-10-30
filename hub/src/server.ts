@@ -46,6 +46,7 @@ import { sendFile } from "./streaming.js";
 import { systemReport, type SystemReport } from "./system.js";
 import { HostMonitor } from "@ultimatetv/shared/host";
 import { parseVoice } from "./voice.js";
+import { KidsTime, LimitError, registerKidsTime } from "./kidstime.js";
 
 export interface ServerDeps {
   /** Overridable in tests so they don't shell out to ffmpeg/vainfo. */
@@ -273,6 +274,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (err instanceof PlaybackError) return reply.code(err.code === "busy" ? 409 : err.code === "not-found" ? 404 : 422).send({ error: err.message, code: err.code, recordings: err.recordings });
     if (err instanceof ConnectionBusyError) return reply.code(409).send({ error: err.message, code: "busy", recordings: err.blockingRecordings });
     if (err instanceof NotAllowedError) return reply.code(403).send({ error: err.message, code: "profile" });
+    if (err instanceof LimitError) return reply.code(403).send({ error: err.message, code: "limit", status: err.status });
     if (err instanceof PairingError) return reply.code(err.statusCode).send({ error: err.message, code: "pair" });
     const status = (err as { statusCode?: number }).statusCode ?? 500;
     if (status >= 500) log.error({ err: String(err) }, "Request failed");
@@ -567,6 +569,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // Warnings before things break (see alerts.ts); checks start with the Hub's other jobs.
   const alerts = new Alerts(ctx);
   registerAlerts(app, ctx, alerts);
+  // Kids profiles' daily allowance and bedtime (see kidstime.ts).
+  const kidsTime = new KidsTime({ db: ctx.db, profiles: ctx.profiles, alertSettings: () => alerts.settings(), appName: () => ctx.settings.get().appName || "UltimateTV", fetchImpl: ctx.fetchImpl, warn: (msg, err) => ctx.log.warn({ err: String(err) }, msg) });
+  registerKidsTime(app, kidsTime, ctx.profiles, viewer);
   // The forecast for Home, the top bar and the screensaver (see weather.ts).
   const weather = new Weather(ctx, config.demo);
   registerWeather(app, ctx, weather);
@@ -1075,14 +1080,19 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   app.post("/api/play", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest & { force?: boolean }>) => {
     const holder = deviceOf(req);
-    return playback.resolve(req.body, hubBase(req), filterOf(req), holder ? { holder } : {});
+    const who = viewer(req);
+    // Time's up on a Kids profile: nothing new starts (what's on may finish).
+    kidsTime.check(who.profile);
+    return playback.resolve(req.body, hubBase(req), who.filter, holder ? { holder } : {});
   });
   /** What the Android client downloads for offline viewing: like /api/play, but never live TV. */
   app.post("/api/offline", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest & { smaller?: boolean }>, reply) => {
     const { smaller, ...request } = req.body ?? ({} as PlaybackRequest);
     if (request.kind === "channel") return reply.code(422).send({ error: "Live TV can't be downloaded. Record it, then download the recording." });
     const holder = deviceOf(req);
-    const info = await playback.resolve(request, hubBase(req), filterOf(req), { download: true, smaller: Boolean(smaller), ...(holder ? { holder } : {}) });
+    const who = viewer(req);
+    kidsTime.check(who.profile);
+    const info = await playback.resolve(request, hubBase(req), who.filter, { download: true, smaller: Boolean(smaller), ...(holder ? { holder } : {}) });
     if (info.live) return reply.code(422).send({ error: "This is still recording. Download it once it has finished." });
     return info;
   });

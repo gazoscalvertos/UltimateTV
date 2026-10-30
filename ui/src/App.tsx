@@ -49,7 +49,8 @@ import { startCast } from "./cast";
 import { startSleep } from "./sleep";
 import { CastScreen } from "./screens/Cast";
 import { KeyHints, openHelp } from "./components/KeyHints";
-import { AlertCard, MirroringLayer, ScreenShareLayer, SleepWarning } from "./components/Overlays";
+import { AlertCard, KidsTimeCard, MirroringLayer, ScreenShareLayer, SleepWarning } from "./components/Overlays";
+import { startKidsTime } from "./kidstime";
 import { ProjectionLayer } from "./components/Projection";
 
 function ScreenError(props: { error: unknown; reset: () => void }) {
@@ -184,6 +185,7 @@ export function App() {
     startDownloads();
     startCast();
     startSleep();
+    startKidsTime();
     startSaveNotices();
     startWeather();
     startWhatsNew();
@@ -322,6 +324,7 @@ export function App() {
       <MirroringLayer />
       <AlertCard />
       <SleepWarning />
+      <KidsTimeCard />
       <DialogHost />
       <div class="toasts">
         <For each={toasts()}>{(t) => <div class={`toast toast-${t.tone}`}>{t.message}</div>}</For>

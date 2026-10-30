@@ -57,6 +57,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Weather | #64 | Untested |
 | TV apps button, trailers and scores, More like this, OpenSubtitles | #65 | Untested (TV apps needs the Pulse-Eight) |
 | What's new (change log in every app) | #112 | Untested |
+| Kids TV time and bedtime | #PR | Untested |
 
 ### What has run on real hardware
 
@@ -119,7 +120,7 @@ The [gap list](https://claude.ai/artifact/PSEpcgrMkhKp4Se1Gp51gK) ranks these ag
 5. **Subtitles**: fetch missing ones from OpenSubtitles, a default per profile, size and background settings.
 6. **Skip intro for the whole library**: install Jellyfin's Intro Skipper plugin. The app already reads Jellyfin's intro markers, so no code.
 7. **Home Assistant both ways**: the TV as a media player, and "film started" / "paused" events for lights.
-8. **Kids time limits and a bedtime.**
+8. ~~Kids time limits and a bedtime~~: built in #PR ([profiles.md](profiles.md#tv-time-and-bedtime)).
 9. Later: a local AI on the box, a Freeview HDHomeRun backup, radio and podcasts, multiview, Trakt, audio description.
 
 Left over from PR #58, which was closed in favour of #60, and could be brought across: advert marks on the seek bar, a black-frame and silence fallback when comskip finds nothing, Save for later showing when a title is next on TV, and a Save for later tab on the phone.

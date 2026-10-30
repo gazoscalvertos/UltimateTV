@@ -50,6 +50,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 
 - "Who's watching?" profiles with optional PINs; it returns to the picker when the TV turns on.
 - A locked-down **Kids** profile: kids' channels only, films and series up to PG, no Settings, Music, scares or downloads it isn't allowed. ([profiles.md](profiles.md))
+- **TV time and bedtime** for Kids ([profiles.md](profiles.md#tv-time-and-bedtime)): a daily allowance (30 minutes to 4 hours, counted only while playing, reset at midnight) and school-night and weekend bedtimes, warnings at 5 and 2 minutes, what's on may finish (30 minutes at most), then back to Who's watching? where an adult PIN gives 15, 30 or 60 minutes more or no limits until morning. Enforced by the Hub; optional alert to Home Assistant or ntfy.
 - Changes to the setup and deletions need an adult profile and its PIN.
 
 ## Music

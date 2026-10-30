@@ -3,7 +3,7 @@
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
 import type { Certification, SubtitleMode, SubtitleStyle, TvAppsMethod, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
-import { CERTIFICATIONS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, TV_APPS_METHODS, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
+import { CERTIFICATIONS, cleanKidsLimits, KIDS_ALLOWANCES, KIDS_BEDTIMES, kidsLimitsLabel, NO_KIDS_LIMITS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, TV_APPS_METHODS, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -402,6 +402,41 @@ export function Settings(props: { section?: string }) {
     }
   };
 
+  /** A Kids profile's daily allowance, bedtimes and alert. The Hub enforces them (hub/src/kidstime.ts). */
+  const limitsMenu = async (p: Profile) => {
+    const hours = (m: number) => (m < 60 ? `${m} minutes` : m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} hour${m === 60 ? "" : "s"}`);
+    for (;;) {
+      const l = p.limits ?? NO_KIDS_LIMITS;
+      const pick = await choose<string>({
+        title: `TV time for ${p.name}`,
+        message: profiles()?.locked
+          ? "Time counts only while something plays and starts again at midnight. When it's up, what's on can finish (up to 30 minutes), then the TV goes back to Who's watching?. An adult PIN gives more time."
+          : "Set a PIN on the adult profiles too, or anyone can switch out of Kids or give more time.",
+        options: [
+          { label: `Each day: ${l.dailyMinutes === null ? "no limit" : hours(l.dailyMinutes)}`, value: "daily", icon: "moon" },
+          { label: `Bedtime, Sunday to Thursday: ${l.weekdayBedtime ?? "none"}`, value: "weekday", icon: "moon" },
+          { label: `Bedtime, Friday and Saturday: ${l.weekendBedtime ?? "none"}`, value: "weekend", icon: "moon" },
+          { label: `Tell my phone when time's up: ${l.alert ? "on" : "off"}`, value: "alert", detail: "Home Assistant or ntfy" },
+        ],
+      });
+      if (!pick) return;
+      let next = l;
+      if (pick === "daily") {
+        const m = await choose<string>({ title: "TV time each day", options: KIDS_ALLOWANCES.map((v) => ({ label: v === null ? "No limit" : hours(v), value: String(v) })) });
+        if (m === undefined) continue;
+        next = { ...l, dailyMinutes: m === "null" ? null : Number(m) };
+      }
+      if (pick === "weekday" || pick === "weekend") {
+        const t = await choose<string>({ title: pick === "weekday" ? "Bedtime on school nights" : "Bedtime on Friday and Saturday", message: "Bedtime lasts until 6 in the morning.", options: [{ label: "No bedtime", value: "" }, ...KIDS_BEDTIMES.map((b) => ({ label: b, value: b }))] });
+        if (t === undefined) continue;
+        next = { ...l, [pick === "weekday" ? "weekdayBedtime" : "weekendBedtime"]: t || null };
+      }
+      if (pick === "alert") next = { ...l, alert: !l.alert };
+      p = await hub.updateProfile(p.id, { limits: cleanKidsLimits(next) });
+      await refetchProfiles();
+    }
+  };
+
   const profileMenu = async (p: Profile) => {
     const pick = await choose({
       title: p.name,
@@ -409,6 +444,7 @@ export function Settings(props: { section?: string }) {
       options: [
         { label: "Rename", value: "rename", icon: "list" },
         ...(p.kind === "kids" ? [{ label: `Ratings allowed: up to ${p.maxCertification}`, value: "cert", icon: "lock" }] : []),
+        ...(p.kind === "kids" ? [{ label: "TV time and bedtime", value: "limits", icon: "moon", detail: kidsLimitsLabel(p.limits) }] : []),
         { label: `Subtitles: ${p.subtitles ? MODE_LABELS[p.subtitles] : `as the household (${settings()?.playback.subtitlesByDefault ? "on" : "off"})`}`, value: "subtitles", icon: "subtitles" },
         { label: p.hasPin ? "Change PIN" : "Set a PIN", value: "pin", icon: "lock" },
         ...(p.hasPin ? [{ label: "Remove PIN", value: "nopin" }] : []),
@@ -437,6 +473,7 @@ export function Settings(props: { section?: string }) {
         });
         if (mode) await hub.updateProfile(p.id, { subtitles: mode === "household" ? null : mode } as Partial<Profile>);
       }
+      if (pick === "limits") await limitsMenu(p);
       if (pick === "pin") await pinFor(p);
       if (pick === "nopin" && (await confirm("Remove the PIN?", "Anyone will be able to use this profile.", "Remove PIN", true))) await hub.updateProfile(p.id, { pin: null });
       if (pick === "delete" && (await confirm(`Delete ${p.name}?`, "Their Continue Watching list goes too. Recordings are kept.", "Delete", true))) await hub.deleteProfile(p.id);
@@ -510,7 +547,7 @@ export function Settings(props: { section?: string }) {
                 {(p) => (
                   <Row
                     label={p.name}
-                    hint={p.kind === "kids" ? `Kids · up to ${p.maxCertification}` : "Adult"}
+                    hint={p.kind === "kids" ? `Kids · up to ${p.maxCertification}${p.limits ? ` · ${kidsLimitsLabel(p.limits)}` : ""}` : "Adult"}
                     value={
                       <>
                         <span class="avatar avatar-small" style={{ "--c": p.colour }}>
