@@ -150,6 +150,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["DELETE /api/devices/:id", "paired"],
     ["POST /api/devices/pending/:id", "paired"],
     ["DELETE /api/devices/pending/:id", "paired"],
+    ["POST /api/pair/handoff", "paired"],
     ["GET /api/pair/api-key", "paired"],
     ["POST /api/pair/api-key", "paired"],
     ["POST /api/tv/reply/:id", "tv"],
@@ -640,6 +641,28 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (r === "waiting") return reply.code(202).send({ waiting: true });
     if (r === "gone") return reply.code(404).send({ error: "That request was turned down or ran out. Ask again.", code: "pair" });
     return keepToken(reply, r.token).send(r);
+  });
+  /**
+   * The Android app opens a Hub page (the setup page) in the phone's browser, which has no key of
+   * its own: the app asks for a one-time code here and opens /api/pair/open with it.
+   */
+  app.post("/api/pair/handoff", async (req) => {
+    const device = deviceAsking(req);
+    return { code: device ? pairing.handoff(device.id) : null };
+  });
+  /** The browser's side: keeps a key of its own as a cookie, then goes on to the page. */
+  app.get("/api/pair/open", async (req: Req<Record<string, string>, { code?: string; to?: string }>, reply) => {
+    // Only pages on this Hub.
+    const to = /^\/[A-Za-z0-9]/.test(req.query.to ?? "") ? (req.query.to as string) : "/setup/";
+    reply.header("Cache-Control", "no-store").header("Referrer-Policy", "no-referrer");
+    if (!deviceAsking(req) && pairing.enforced) {
+      const r = pairing.redeemHandoff(req.query.code, req.ip);
+      if (r) {
+        log.info({ device: r.device.name, ip: req.ip }, "Browser paired from the app");
+        keepToken(reply, r.token);
+      }
+    }
+    return reply.redirect(to);
   });
   /** The code the TV shows under its QR code. */
   app.get("/api/pair/code", async (req) => pairing.currentCode(phoneBase(req)));
