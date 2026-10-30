@@ -482,6 +482,79 @@ export interface Profile {
   defaultGuide?: string;
   /** When subtitles come on for this profile; missing follows Settings › Picture and sound. */
   subtitles?: SubtitleMode;
+  /** Kids: a daily allowance and a bedtime (see hub/src/kidstime.ts). Missing = no limits. */
+  limits?: KidsLimits;
+}
+
+/** A bedtime as "HH:MM" (24-hour), or null for none. */
+export type Bedtime = string | null;
+
+export interface KidsLimits {
+  /** Minutes of watching a day, or null for no allowance. Resets at midnight. */
+  dailyMinutes: number | null;
+  /** Sunday to Thursday nights. */
+  weekdayBedtime: Bedtime;
+  /** Friday and Saturday nights. */
+  weekendBedtime: Bedtime;
+  /** Tell Home Assistant/ntfy (Settings › Alerts) when the time runs out. */
+  alert: boolean;
+}
+
+export const NO_KIDS_LIMITS: KidsLimits = { dailyMinutes: null, weekdayBedtime: null, weekendBedtime: null, alert: false };
+/** The allowances offered in Settings, in minutes (null = off). */
+export const KIDS_ALLOWANCES: (number | null)[] = [null, 30, 45, 60, 90, 120, 150, 180, 240];
+/** The bedtimes offered in Settings. */
+export const KIDS_BEDTIMES: string[] = ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"];
+/** What an adult PIN can give at the limit: minutes, or 0 for no limits until the morning. */
+export const KIDS_EXTRA_TIME = [15, 30, 60, 0] as const;
+
+/** Tidies limits from a request: unknown values fall back to off. */
+export function cleanKidsLimits(input: Partial<KidsLimits> | undefined, base: KidsLimits = NO_KIDS_LIMITS): KidsLimits {
+  const bed = (v: unknown, fallback: Bedtime): Bedtime => (v === undefined ? fallback : typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : null);
+  const mins = input?.dailyMinutes;
+  return {
+    dailyMinutes: mins === undefined ? base.dailyMinutes : typeof mins === "number" && Number.isFinite(mins) && mins >= 15 && mins <= 720 ? Math.round(mins) : null,
+    weekdayBedtime: bed(input?.weekdayBedtime, base.weekdayBedtime),
+    weekendBedtime: bed(input?.weekendBedtime, base.weekendBedtime),
+    alert: input?.alert === undefined ? base.alert : Boolean(input.alert),
+  };
+}
+
+/** "1 h a day · bed 19:30 / 20:30" for Settings, or "Off". */
+export function kidsLimitsLabel(l: KidsLimits | undefined): string {
+  if (!hasKidsLimits(l)) return "Off";
+  const parts: string[] = [];
+  if (l!.dailyMinutes !== null) parts.push(l!.dailyMinutes < 60 ? `${l!.dailyMinutes} min a day` : `${+(l!.dailyMinutes / 60).toFixed(1)} h a day`);
+  if (l!.weekdayBedtime || l!.weekendBedtime) parts.push(`bed ${l!.weekdayBedtime ?? "none"} / ${l!.weekendBedtime ?? "none"}`);
+  return parts.join(" · ");
+}
+
+/** True when any limit is set. */
+export function hasKidsLimits(l: KidsLimits | undefined): boolean {
+  return Boolean(l && (l.dailyMinutes !== null || l.weekdayBedtime || l.weekendBedtime));
+}
+
+/**
+ * Where a Kids profile stands today. "warn" is the last five minutes; "finishing" means time is
+ * up but what's on may finish (nothing new starts) until stopBy; "stopped" means back to the
+ * profile picker until an adult gives more time.
+ */
+export interface KidsTimeStatus {
+  profileId: Id;
+  limited: boolean;
+  state: "ok" | "warn" | "finishing" | "stopped";
+  reason?: "allowance" | "bedtime";
+  usedMinutes: number;
+  /** Today's allowance including any extra time, or null for none. */
+  allowanceMinutes: number | null;
+  /** Tonight's bedtime ("HH:MM"), or null. */
+  bedtime: Bedtime;
+  /** Whole minutes left before the nearer limit, or null with no limits. */
+  minutesLeft: number | null;
+  /** When finishing ends and the TV goes back to the profile picker. */
+  stopBy?: number;
+  /** An adult lifted the limits until this time (the next morning). */
+  unlockedUntil?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -768,7 +841,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "tvApps" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay";
+export type TvMethod = "now" | "play" | "seek" | "track" | "tvApps" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {

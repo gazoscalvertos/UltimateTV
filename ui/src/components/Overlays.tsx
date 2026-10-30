@@ -8,6 +8,7 @@ import { hub } from "../api";
 import { backToTv, castState, endShare, share } from "../cast";
 import { onHubEvent } from "../events";
 import { addOverlayKeys } from "../keys";
+import { kidsCard } from "../kidstime";
 import { setSleep, sleep, sleepWarning, stillWatching } from "../sleep";
 import { isKids } from "../store";
 import { Icon } from "./Icon";
@@ -44,6 +45,23 @@ export function SleepWarning() {
           </p>
         </div>
       </div>
+    </Show>
+  );
+}
+
+/** Kids time limits: "5 more minutes", "it's bedtime". It goes by itself; no keys to press. */
+export function KidsTimeCard() {
+  return (
+    <Show when={kidsCard()}>
+      {(c) => (
+        <div class="sleep-warning kids-time-card" role="alert">
+          <Icon name="moon" />
+          <div>
+            <h3>{c().title}</h3>
+            <p>{c().message}</p>
+          </div>
+        </div>
+      )}
     </Show>
   );
 }

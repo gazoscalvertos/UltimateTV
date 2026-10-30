@@ -6,11 +6,14 @@ import { ApiError, hub, session } from "../api";
 import { askPin } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { useKeys } from "../keys";
+import { askForMoreTime, kidsProfileEntered } from "../kidstime";
 import { loadChannels } from "../player";
 import { errorToast, nav, setProfile } from "../store";
 
 export async function enterProfile(p: Profile): Promise<boolean> {
   try {
+    // Time's up on this Kids profile: an adult's PIN gives more, or it stays on the picker.
+    if (!(await askForMoreTime(p))) return false;
     let token: string | null = null;
     if (p.hasPin) {
       const ok = await askPin(`Enter the PIN for ${p.name}`, async (pin) => {
@@ -29,6 +32,7 @@ export async function enterProfile(p: Profile): Promise<boolean> {
     setProfile(p);
     await loadChannels().catch(() => undefined);
     nav.reset({ name: "home" });
+    if (p.kind === "kids") kidsProfileEntered();
     return true;
   } catch (err) {
     errorToast(err);

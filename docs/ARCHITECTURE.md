@@ -29,7 +29,7 @@ How UltimateTV fits together as of 2026-10-29 (main at PR #60). [PLAN.md](PLAN.m
 │  │  ├ display modes, HDR, audio   │ └─────────────────┘ └─────────────────────────────┘       │
 │  │  ├ CEC (Pulse-Eight), updates  │                                                         │
 │  │  ├ box downloads, diagnostics  │   Home Assistant / scripts ──X-Api-Key──▶ /api/notify    │
-│  │  └ go-librespot, Deezer view   │                                                         │
+│  │  └ go-librespot, Deezer view   │   ↳ and /api/ha/state, /api/ha/command, webhook events   │
 │  └───────────┬────────────────────┘                                                         │
 │              │ HDMI (picture, sound, CEC)                                                    │
 │        Hisense 85U7STUK                                                                      │
@@ -99,7 +99,7 @@ The box holds no household state, so a new one only needs the installer and the 
 ## Security model
 
 - Everything stays on the home network: the Hub is not exposed to the internet, and the Android app only works at home (by choice, see [android-client.md](android-client.md)).
-- Phones and screens pair by scanning a code on the TV ([pairing.md](pairing.md)). Browsers keep an HttpOnly cookie, the Android apps send `X-Device-Token`, and Home Assistant uses `X-Api-Key` for pop-ups, news flashes and keys only.
+- Phones and screens pair by scanning a code on the TV ([pairing.md](pairing.md)). Browsers keep an HttpOnly cookie, the Android apps send `X-Device-Token`, and Home Assistant uses `X-Api-Key` for pop-ups, news flashes, keys and the media player (`/api/ha/state`, `/api/ha/command`) only. The TV reports playback to `/api/ha/state` and the Hub posts playback events to a webhook (`homeassistant.ts`).
 - Adult-only routes (settings, Save to NAS, deleting things) check the profile; Kids never get Settings, Music, scares or downloads they aren't allowed.
 - Logs and diagnostics cut URLs to their host, so IPTV logins and API keys never appear.
 

@@ -51,6 +51,17 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 2. Try to switch back to Family: it asks for the PIN.
 3. Turn the TV off and on: it goes to the profile picker.
 
+### TV time and bedtime ([profiles.md](profiles.md#tv-time-and-bedtime))
+
+- [ ] Settings › Profiles and PIN › Kids › TV time and bedtime: set 30 minutes a day and tonight's bedtime 30 minutes from now. The Kids row shows them; the phone's setup page shows the same under Kids.
+- [ ] On Kids, play something. After 25 minutes a card says "5 more minutes", then "2 more minutes". Paused time doesn't count (setup page: Today: N min watched).
+- [ ] At the limit a card says this can finish. Try another channel or the next episode: it goes back to Who's watching?. Otherwise it stops by itself at the end of the programme or after 30 minutes, with the sound fading.
+- [ ] Pick Kids again: it asks for more time. A wrong PIN is refused; the adult PIN with 15 minutes lets Kids back in, and the warnings come again.
+- [ ] Phone setup page: +30 min under Kids works, and "No limits until morning" lifts bedtime too.
+- [ ] At bedtime, with time left in the day: same as the limit, the card says it's bedtime. After midnight it's still bedtime; after 6 am Kids works again and the day's count is back to 0.
+- [ ] Android app on Kids: the warnings show as messages; at the limit nothing new plays, and once the 30 minutes are up the player closes.
+- [ ] With "Tell my phone when time's up" on and ntfy set in Settings › Alerts, one message arrives when time runs out.
+
 ## 6b. Music
 
 Update the box first (Settings › About › Update the box): the update builds the Spotify receiver. See [music.md](music.md).
@@ -140,6 +151,18 @@ See [backup.md](backup.md). Update the Hub and the box first.
 - [ ] Reboot the box with the Hub stopped: it goes straight to the box's screen, not a blank one.
 - [ ] On Kids, stop the Hub: only Kids' downloads show, and no games.
 
+## 8f. Home Assistant both ways
+
+See [notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player). Update the Hub and the box first.
+
+- [ ] `curl -H "X-Api-Key: $UTV_KEY" http://192.168.0.19:8095/api/ha/state` with a film playing: `"state":"playing"`, the film's title, `media_position` close to where it is. Pause it on the TV: within 2 seconds the answer says `paused`. Without the key it's 401.
+- [ ] Add the `rest`, `rest_command` and `media_player` blocks to Home Assistant: `media_player.ultimatetv` shows the title, picture and position on a media card, and its play, pause, stop, next/previous (channel up/down) and volume buttons work the TV.
+- [ ] `rest_command.tv_command` with `command: select_source`, `value: "101"` (or a channel name) changes to that channel.
+- [ ] Make the webhook automation, paste its address into ⚙ Settings › Phones and remotes › Playback events webhook on the phone, and press Send a test event: the automation's trace shows a `started` film called Test film.
+- [ ] Start a film: the lights dim within a second or two. Pause: they come up a little; carry on: they dim again. Let it reach the credits (or skip to the last few minutes): they come up. The setup page shows the last event as sent.
+- [ ] Change channel on live TV: one `channel_changed` event, not a stop and a start. Switch profile: `profile_switched`.
+- [ ] Ring the doorbell (or turn the sensor on by hand) with a film playing: it pauses and the doorbell pop-up shows.
+- [ ] With the Pulse-Eight: `media_player.turn_off` puts the TV in standby and the state says `off`; `turn_on` wakes it.
 ## 8g. Box updates and automatic roll back
 
 See [box-install.md](box-install.md#updates-and-rolling-back). Built without a box to try it on: none of this has run on real hardware yet. The first update after this lands runs the old update script, so it installs the new scripts but doesn't check itself; the one after that is the first with a health check.

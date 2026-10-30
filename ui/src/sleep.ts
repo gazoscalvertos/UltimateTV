@@ -9,6 +9,7 @@ import { agent, agentHas } from "./agent";
 import { hub } from "./api";
 import { choose } from "./components/Dialog";
 import { onHubEvent } from "./events";
+import { markTvOff } from "./homeassistant";
 import { pauseAllMusic } from "./music";
 import { liveChannelId, nowPlaying, playerState, stopPlayback } from "./player";
 import { toast } from "./store";
@@ -25,7 +26,7 @@ let fading = false;
 const clock = (t: number) => new Date(t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 /** When what's on ends: the programme on the live channel, or the film or episode. */
-async function endOfThis(): Promise<{ at: number; name: string } | null> {
+export async function endOfThis(): Promise<{ at: number; name: string } | null> {
   const np = nowPlaying();
   if (!np) return null;
   if (np.info.live) {
@@ -68,7 +69,10 @@ async function goToSleep(): Promise<void> {
     }
     await stopPlayback();
     await pauseAllMusic();
-    if (agentHas("tvStandby")) await agent.tvStandby().catch(() => undefined);
+    if (agentHas("tvStandby")) {
+      await agent.tvStandby().catch(() => undefined);
+      markTvOff();
+    }
   } finally {
     fading = false;
     setSleepSignal(OFF);

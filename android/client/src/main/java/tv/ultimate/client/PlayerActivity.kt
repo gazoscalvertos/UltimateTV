@@ -74,11 +74,14 @@ class PlayerActivity : ComponentActivity() {
     private val ticker = object : Runnable {
         override fun run() {
             report("progress")
+            reportKidsTime()
             updateAction()
             main.postDelayed(this, 1000)
         }
     }
     private var lastReport = 0L
+    private var lastKidsReport = 0L
+    private var kidsWarned = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -277,6 +280,39 @@ class PlayerActivity : ComponentActivity() {
         scope.launch {
             val ok = runCatching { hub.progress(key, pos, dur, event, paused, title) }.isSuccess
             if (!ok) Offline.savePosition(key, pos, dur, title, sync = true)
+        }
+    }
+
+    /**
+     * Kids profiles: the Hub counts the time from these reports and refuses anything new once it's
+     * up. Here we warn at 5 and 2 minutes, and close the player when the Hub says to stop.
+     */
+    private fun reportKidsTime() {
+        val now = System.currentTimeMillis()
+        if (now - lastKidsReport < 30_000) return
+        lastKidsReport = now
+        val playing = player?.isPlaying == true
+        scope.launch {
+            val st = runCatching { hub.kidsReport(playing) }.getOrNull() ?: return@launch
+            if (st["limited"] != true) return@launch
+            val state = st["state"] as? String
+            val left = (st["minutesLeft"] as? Number)?.toInt()
+            val bedtime = st["reason"] == "bedtime"
+            val key = "$state:${if (left != null && left <= 2) 2 else 5}"
+            when {
+                state == "stopped" -> {
+                    player?.pause()
+                    finishWith(if (bedtime) "It's bedtime. Ask a grown-up for more time." else "That's all the TV for today. Ask a grown-up for more time.")
+                }
+                state == "finishing" && kidsWarned != "finishing" -> {
+                    kidsWarned = "finishing"
+                    Toast.makeText(this@PlayerActivity, if (bedtime) "It's bedtime: this can finish, then that's it." else "Time's up: this can finish, then that's it.", Toast.LENGTH_LONG).show()
+                }
+                state == "warn" && left != null && kidsWarned != key -> {
+                    kidsWarned = key
+                    Toast.makeText(this@PlayerActivity, "$left more minute${if (left == 1) "" else "s"}", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 

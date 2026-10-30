@@ -9,7 +9,7 @@ pop up what's new after an update. So:
 
 - Add each change at the top, under a `## YYYY-MM-DD` heading for the day it merges (start one if
   today's isn't there).
-- One bullet per change: `- **Short title**: what it does, in plain words. (#PR)`. The bold title
+- One bullet per change: `- **Short title**: what it does, in plain words. (#113)`. The bold title
   is what the pop-up lists; the rest shows underneath. A `([docs/…](docs/…))` link after the title
   is kept for GitHub and left out on the TV.
 - Sections that aren't a date or a version (like Updating) are left out of the apps.
@@ -33,6 +33,20 @@ pop up what's new after an update. So:
   update, reboots, and won't install that version again by itself. A card on the TV, Home Assistant
   or ntfy and Settings › About say what happened. There's also Roll back last update in Settings ›
   About and on the phone. Untested on the box so far. (#115)
+- **Kids TV time and bedtime** ([docs/profiles.md](docs/profiles.md#tv-time-and-bedtime)): each Kids
+  profile can have a daily allowance (30 minutes to 4 hours, counted only while something plays,
+  back to zero at midnight) and a bedtime for school nights and for Friday and Saturday. Warnings
+  at 5 and 2 minutes; when time's up what's on can finish (30 minutes at most), then the TV goes
+  back to Who's watching?, where a grown-up's PIN gives 15, 30 or 60 minutes more or no limits
+  until the morning. The Hub enforces it, so the Android app (0.3.1) and a browser can't get round
+  it, and it can tell Home Assistant or ntfy. Set it on the TV or the phone's settings page. (#114)
+- **Home Assistant both ways** ([docs/notifications.md](docs/notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)):
+  Home Assistant can add the TV as a media player that shows what's on (title, picture, position,
+  channel, profile) and can play, pause, stop, change channel, set the box's volume and put the TV
+  in standby, all with the Hub's API key. A new playback events webhook is told when a film or
+  programme starts, pauses, resumes, stops or reaches the credits, the channel changes or someone
+  switches profile, so the lights can dim for a film. The docs have the Home Assistant set-up and
+  example automations. Update the Hub and the box to get it. (#113)
 - **What's new** ([CHANGELOG.md](CHANGELOG.md)): this list is now in the apps. The TV has Settings ›
   What's new, the setup page a What's new section, and after an update the TV's Home, the phone
   remote and the Android app (0.3.0, Settings › What's new) show what has changed since they last
