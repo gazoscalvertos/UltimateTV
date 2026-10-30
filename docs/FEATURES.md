@@ -101,6 +101,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 
 - **Setup page** at `/setup/` for IPTV, Jellyfin, AIOStreams, TorBox, OMDb, OpenSubtitles and every TV setting.
 - **Updates** **(tested)**: the Hub lists what's new on GitHub since the code it runs, and updates with `tools/hub/update.sh` or from the phone (with the helper installed). The box updates weekly at 4 am after a btrfs snapshot, or from Settings › About or the phone. Both show the commit they run.
+- **What's new** ([CHANGELOG.md](../CHANGELOG.md)): the change log, served by the Hub at `/api/changelog`, in the TV's Settings › What's new, on the setup page and in the Android app. After an update the TV's Home, the phone remote and the Android app show what changed since they last looked, once (not on Kids profiles).
 - **Box install** **(tested** over PXE on the GMKtec K7 Plus**)**: one script on Arch (Debian 13 as a fallback), or an unattended network install from the PXE server ([box-install.md](box-install.md), [pxe.md](pxe.md)).
 - **Diagnostics** ([diagnostics.md](diagnostics.md)) **(tested)**: the box sends its log, a playback sample every 10 seconds and the screen's details to the Hub; read them at `/api/diagnostics?format=text`, with rolling 50 MB logs. Logins and keys are cut from addresses.
 - **Nightly Hub backup** ([backup.md](backup.md)): the database and clips to the NAS at 03:30, the last 14 kept, one before each update; status on the TV and phone, restore from the phone or `tools/hub/restore.sh`, an alert when it fails.

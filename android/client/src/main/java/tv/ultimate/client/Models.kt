@@ -220,3 +220,8 @@ data class ProgrammeInfo(
 )
 
 data class AppVersion(val versionCode: Int, val versionName: String?)
+
+/** What's new: the Hub's CHANGELOG.md (GET /api/changelog). */
+data class ChangeEntry(val id: String, val title: String, val text: String?, val prs: List<Int>?)
+data class ChangeRelease(val id: String, val date: String?, val version: String?, val note: String?, val entries: List<ChangeEntry>?)
+data class Changelog(val releases: List<ChangeRelease>?, val latest: String?, val unseen: List<ChangeEntry>?)

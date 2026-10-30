@@ -35,6 +35,7 @@ import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
 import { Weather } from "./screens/Weather";
 import { startWeather } from "./weather";
+import { startWhatsNew } from "./whatsnew";
 import { closeTopDialog, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
@@ -185,6 +186,7 @@ export function App() {
     startSleep();
     startSaveNotices();
     startWeather();
+    startWhatsNew();
     void startMusic();
     void restoreSession();
     const loadLook = () =>

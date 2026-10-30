@@ -56,6 +56,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Nightly Hub backup, box screen when the Hub is down | #63 | Untested |
 | Weather | #64 | Untested |
 | TV apps button, trailers and scores, More like this, OpenSubtitles | #65 | Untested (TV apps needs the Pulse-Eight) |
+| What's new (change log in every app) | #CL | Untested |
 
 ### What has run on real hardware
 

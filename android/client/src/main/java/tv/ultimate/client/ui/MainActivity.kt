@@ -187,6 +187,7 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
                         composable("search") { SearchScreen(nav) }
                         composable("settings") { SettingsScreen(nav) }
                         composable("profiles") { ProfilesScreen(nav) }
+                        composable("whatsnew") { WhatsNewScreen(nav) }
                         composable("details/{id}") { e -> DetailsScreen(nav, e.arguments?.getString("id").orEmpty()) }
                         composable("channel/{id}/{name}") { e -> ChannelScreen(nav, e.arguments?.getString("id").orEmpty(), e.arguments?.getString("name").orEmpty()) }
                     }
@@ -194,6 +195,9 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
             }
         }
     }
+
+    // After an update: what's new since this phone last looked (not over Who's watching).
+    if (route != "profiles") WhatsNewPopup(nav, ui.online)
 
     // The app stopped last time: show why, so it can be sent on.
     var crash by remember { mutableStateOf(app.crashFile.takeIf { it.exists() }?.readText()) }

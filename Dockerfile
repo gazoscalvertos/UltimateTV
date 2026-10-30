@@ -60,6 +60,8 @@ COPY --from=build /app/hub/package.json hub/
 COPY --from=build /app/hub/dist hub/dist
 COPY --from=build /app/hub/public hub/public
 COPY --from=build /app/hub/packs hub/packs
+# What's new in the apps (GET /api/changelog).
+COPY CHANGELOG.md ./
 COPY --from=build /app/ui/dist ui/dist
 COPY --from=build /app/tools/probe/dist tools/probe/dist
 COPY --from=comskip /src/comskip /usr/local/bin/comskip

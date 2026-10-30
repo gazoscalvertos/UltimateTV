@@ -15,7 +15,7 @@ import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, previewTheme, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 import { Row, Status } from "../components/SettingRow";
-import { AdvertRows, AlertsSection, CastSection, SeasonalSection, WeatherSection } from "./SettingsMore";
+import { AdvertRows, AlertsSection, CastSection, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
 
 /** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
 const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
@@ -484,6 +484,7 @@ export function Settings(props: { section?: string }) {
     { id: "sources", label: "Sources" },
     { id: "remote", label: "Phones and remotes" },
     { id: "apps", label: "Android apps" },
+    { id: "whatsnew", label: "What's new" },
     { id: "about", label: "About" },
   ];
 
@@ -811,6 +812,10 @@ export function Settings(props: { section?: string }) {
                   </div>
                 </div>
               </div>
+            </Show>
+
+            <Show when={section() === "whatsnew"}>
+              <WhatsNewSection />
             </Show>
 
             <Show when={section() === "about"}>

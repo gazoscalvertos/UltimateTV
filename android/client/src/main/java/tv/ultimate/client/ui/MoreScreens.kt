@@ -241,6 +241,7 @@ fun SettingsScreen(nav: NavHostController) {
                 if (remote != null) context.startActivity(remote) else scope.launch { browse(app.hub.browserUrl("/remote/")) }
             }, modifier = Modifier.fillMaxWidth()) { Text("Phone remote for the TV") }
             OutlinedButton(onClick = { scope.launch { browse(app.hub.browserUrl("/setup/")) } }, modifier = Modifier.fillMaxWidth()) { Text("Hub setup page") }
+            OutlinedButton(onClick = { nav.navigate("whatsnew") }, enabled = ui.online, modifier = Modifier.fillMaxWidth()) { Text("What's new") }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${ui.appName} for Android ${BuildConfig.VERSION_NAME}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = {

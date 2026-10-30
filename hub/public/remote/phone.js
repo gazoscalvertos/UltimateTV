@@ -270,6 +270,55 @@
   });
 
   // ---------------------------------------------------------------------------
+  // What's new: after an update, a banner with the changes this phone hasn't shown (the Hub works
+  // them out from CHANGELOG.md); tapping it lists them, and "Everything" lists every change.
+
+  const SEEN_KEY = "utv-changelog-seen";
+  const changeHtml = (e) => `<div class="change"><b>${esc(e.title)}</b>${e.text ? `<small>${esc(e.text)}</small>` : ""}</div>`;
+  const dayLabel = (r) => {
+    const when = r.date ? new Date(`${r.date}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "";
+    return r.version ? (when ? `${r.version} · ${when}` : r.version) : when;
+  };
+  function markSeen(latest) {
+    $("news-banner").hidden = true;
+    try {
+      if (latest) localStorage.setItem(SEEN_KEY, latest);
+    } catch {}
+  }
+  async function showAllChanges() {
+    try {
+      const log = await get("/api/changelog");
+      markSeen(log.latest);
+      openSheet(`<h2>What's new</h2>${log.releases.map((r) => `<h3>${esc(dayLabel(r))}</h3>${r.note ? `<p class="meta">${esc(r.note)}</p>` : ""}<div class="changes">${r.entries.map(changeHtml).join("")}</div>`).join("")}<button class="link" data-close>Close</button>`);
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+  (async () => {
+    let seen = "";
+    try {
+      seen = localStorage.getItem(SEEN_KEY) || "";
+    } catch {}
+    const log = await get(`/api/changelog?seen=${encodeURIComponent(seen)}`).catch(() => null);
+    if (!log?.latest) return;
+    const fresh = log.unseen ?? [];
+    if (!fresh.length) return markSeen(log.latest);
+    $("news-banner-text").innerHTML = `<b>What's new</b>: ${esc(fresh.slice(0, 2).map((e) => e.title).join(", "))}${fresh.length > 2 ? ` and ${fresh.length - 2} more` : ""}. Tap to see.`;
+    $("news-banner").hidden = false;
+    $("news-banner").onclick = (ev) => {
+      ev.preventDefault();
+      markSeen(log.latest);
+      openSheet(`<h2>What's new</h2><p class="meta">${fresh.length === 1 ? "One change" : `${fresh.length} changes`} since you last looked.</p><div class="changes">${fresh.map(changeHtml).join("")}</div><div class="actions"><button class="primary" data-close>Got it</button><button id="s-all-changes">Everything</button></div>`);
+      $("s-all-changes").onclick = showAllChanges;
+    };
+    $("news-banner-x").onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      markSeen(log.latest);
+    };
+  })();
+
+  // ---------------------------------------------------------------------------
   // Tabs
 
   const tabs = { remote: $("tab-remote"), browse: $("tab-browse") };
