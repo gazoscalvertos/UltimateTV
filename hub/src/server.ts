@@ -12,7 +12,8 @@ import { registerNotices } from "./notify.js";
 import { registerQueue } from "./queue.js";
 import { registerScares } from "./scares.js";
 import { AdSkipper, registerAdSkip } from "./adskip.js";
-import { Alerts, registerAlerts } from "./alerts.js";
+import { Alerts, BOX_UPDATE_ALERT_MS, boxUpdateAlert, registerAlerts } from "./alerts.js";
+import { HomeAssistant, registerHomeAssistant } from "./homeassistant.js";
 import { registerWeather, Weather } from "./weather.js";
 import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
@@ -46,6 +47,7 @@ import { sendFile } from "./streaming.js";
 import { systemReport, type SystemReport } from "./system.js";
 import { HostMonitor } from "@ultimatetv/shared/host";
 import { parseVoice } from "./voice.js";
+import { KidsTime, LimitError, registerKidsTime } from "./kidstime.js";
 
 export interface ServerDeps {
   /** Overridable in tests so they don't shell out to ffmpeg/vainfo. */
@@ -147,6 +149,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/music/login", "paired"],
     ["POST /api/box/check", "paired"],
     ["POST /api/box/update", "paired"],
+    ["POST /api/box/rollback", "paired"],
     ["POST /api/box/reload", "paired"],
     ["POST /api/box/stats", "paired"],
     ["GET /api/devices", "paired"],
@@ -188,6 +191,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/cast/share/:id/end", "tv"],
     ["POST /api/cast/link", "paired"],
     ["POST /api/tv/sleep", "script"],
+    ["GET /api/ha/state", "script"],
+    ["POST /api/ha/command", "script"],
+    ["POST /api/ha/state", "tv"],
+    ["GET /api/ha/settings", "paired"],
+    ["POST /api/ha/test", "paired"],
     ["PATCH /api/scares/clips/:id", "script"],
     ["PUT /api/projections", "script"],
     ["POST /api/projections/now", "script"],
@@ -235,6 +243,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/downloads/:id",
     "POST /api/software/hub/update",
     "POST /api/box/update",
+    "POST /api/box/rollback",
     "POST /api/mix-channels",
     "PATCH /api/mix-channels/:id",
     "DELETE /api/mix-channels/:id",
@@ -249,6 +258,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/mix-channels/:id/videos/:videoId",
     "GET /api/screensaver/nas",
     "PUT /api/alerts/settings",
+    "PUT /api/ha/settings",
     "PUT /api/weather/settings",
 
     "POST /api/backup",
@@ -273,6 +283,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (err instanceof PlaybackError) return reply.code(err.code === "busy" ? 409 : err.code === "not-found" ? 404 : 422).send({ error: err.message, code: err.code, recordings: err.recordings });
     if (err instanceof ConnectionBusyError) return reply.code(409).send({ error: err.message, code: "busy", recordings: err.blockingRecordings });
     if (err instanceof NotAllowedError) return reply.code(403).send({ error: err.message, code: "profile" });
+    if (err instanceof LimitError) return reply.code(403).send({ error: err.message, code: "limit", status: err.status });
     if (err instanceof PairingError) return reply.code(err.statusCode).send({ error: err.message, code: "pair" });
     const status = (err as { statusCode?: number }).statusCode ?? 500;
     if (status >= 500) log.error({ err: String(err) }, "Request failed");
@@ -567,6 +578,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // Warnings before things break (see alerts.ts); checks start with the Hub's other jobs.
   const alerts = new Alerts(ctx);
   registerAlerts(app, ctx, alerts);
+  // Kids profiles' daily allowance and bedtime (see kidstime.ts).
+  const kidsTime = new KidsTime({ db: ctx.db, profiles: ctx.profiles, alertSettings: () => alerts.settings(), appName: () => ctx.settings.get().appName || "UltimateTV", fetchImpl: ctx.fetchImpl, warn: (msg, err) => ctx.log.warn({ err: String(err) }, msg) });
+  registerKidsTime(app, kidsTime, ctx.profiles, viewer);
   // The forecast for Home, the top bar and the screensaver (see weather.ts).
   const weather = new Weather(ctx, config.demo);
   registerWeather(app, ctx, weather);
@@ -777,21 +791,24 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
   const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "tvApps", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay"]);
+  /** Asks the TV app something and waits for its answer (12 s at most). */
+  const callTv = (method: TvMethod, args: unknown) =>
+    new Promise<{ result?: unknown; error?: string }>((resolve) => {
+      const id = `c${Date.now().toString(36)}${(tvCallSeq++).toString(36)}`;
+      const timer = setTimeout(() => {
+        tvCalls.delete(id);
+        resolve({ error: "The TV didn't answer. Its app may need updating (Settings › Updates › Box)." });
+      }, 12_000);
+      tvCalls.set(id, { resolve, timer });
+      ctx.events.emit({ type: "tv.call", id, method, args: args ?? null });
+    });
   const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
   let tvCallSeq = 0;
   app.post("/api/tv/call/:method", async (req: Req<{ method: string }, Record<string, string>, unknown>, reply) => {
     const method = req.params.method as TvMethod;
     if (!TV_METHODS.has(method)) return reply.code(404).send({ error: "Unknown TV call" });
     if (tvSockets === 0) return reply.code(409).send({ error: "The TV app isn't connected. Is the box on?", code: "tv-off" });
-    const id = `c${Date.now().toString(36)}${(tvCallSeq++).toString(36)}`;
-    const answer = await new Promise<{ result?: unknown; error?: string }>((resolve) => {
-      const timer = setTimeout(() => {
-        tvCalls.delete(id);
-        resolve({ error: "The TV didn't answer. Its app may need updating (Settings › Updates › Box)." });
-      }, 12_000);
-      tvCalls.set(id, { resolve, timer });
-      ctx.events.emit({ type: "tv.call", id, method, args: req.body ?? null });
-    });
+    const answer = await callTv(method, req.body);
     if (answer.error !== undefined) return reply.code(502).send({ error: answer.error });
     return answer.result ?? null;
   });
@@ -804,6 +821,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     }
     return { ok: true };
   });
+  // Home Assistant both ways: the TV as a media player, and playback events to a webhook (see homeassistant.ts).
+  const homeAssistant = new HomeAssistant(ctx, () => tvSockets > 0);
+  registerHomeAssistant(app, homeAssistant, { callTv, tvConnected: () => tvSockets > 0, hubBase });
 
   // -------------------------------------------------------------------------
   // Software: the Hub updates through a helper on the Docker LXC; the box through the TV app.
@@ -834,15 +854,22 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       if (before.checkedAt) software.checkedAt = before.checkedAt;
     }
     boxState = { software, stats: Boolean(req.body?.stats), reportedAt: new Date().toISOString() };
+    // An update gone wrong (rolled back, or a failed check left in place): tell whoever looks after it, once.
+    const told = boxUpdateAlert(software);
+    if (told && ctx.db.getKv<string>("box-update-alerted") !== told.id) {
+      ctx.db.setKv("box-update-alerted", told.id);
+      await alerts.raise(told.alert, BOX_UPDATE_ALERT_MS).catch((err) => ctx.log.warn({ err: String(err) }, "Couldn't raise the box update alert"));
+    }
     return { ok: true };
   });
-  const boxCommand = (command: "update" | "reload" | "report" | "stats", on?: boolean) => {
+  const boxCommand = (command: "update" | "rollback" | "reload" | "report" | "stats", on?: boolean) => {
     if (tvSockets === 0) throw Object.assign(new Error("The TV app isn't connected to the Hub. Is the box on?"), { statusCode: 409 });
     ctx.events.emit(on === undefined ? { type: "box.command", command } : { type: "box.command", command, on });
     return { ok: true };
   };
   app.post("/api/box/check", async () => boxCommand("report"));
   app.post("/api/box/update", async () => boxCommand("update"));
+  app.post("/api/box/rollback", async () => boxCommand("rollback"));
   app.post("/api/box/reload", async () => boxCommand("reload"));
   app.post("/api/box/stats", async (req: Req<Record<string, string>, Record<string, string>, { on?: boolean }>) => boxCommand("stats", Boolean(req.body?.on)));
 
@@ -1075,14 +1102,19 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   app.post("/api/play", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest & { force?: boolean }>) => {
     const holder = deviceOf(req);
-    return playback.resolve(req.body, hubBase(req), filterOf(req), holder ? { holder } : {});
+    const who = viewer(req);
+    // Time's up on a Kids profile: nothing new starts (what's on may finish).
+    kidsTime.check(who.profile);
+    return playback.resolve(req.body, hubBase(req), who.filter, holder ? { holder } : {});
   });
   /** What the Android client downloads for offline viewing: like /api/play, but never live TV. */
   app.post("/api/offline", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest & { smaller?: boolean }>, reply) => {
     const { smaller, ...request } = req.body ?? ({} as PlaybackRequest);
     if (request.kind === "channel") return reply.code(422).send({ error: "Live TV can't be downloaded. Record it, then download the recording." });
     const holder = deviceOf(req);
-    const info = await playback.resolve(request, hubBase(req), filterOf(req), { download: true, smaller: Boolean(smaller), ...(holder ? { holder } : {}) });
+    const who = viewer(req);
+    kidsTime.check(who.profile);
+    const info = await playback.resolve(request, hubBase(req), who.filter, { download: true, smaller: Boolean(smaller), ...(holder ? { holder } : {}) });
     if (info.live) return reply.code(422).send({ error: "This is still recording. Download it once it has finished." });
     return info;
   });

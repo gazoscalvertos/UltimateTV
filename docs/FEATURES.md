@@ -52,6 +52,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 
 - "Who's watching?" profiles with optional PINs; it returns to the picker when the TV turns on.
 - A locked-down **Kids** profile: kids' channels only, films and series up to PG, no Settings, Music, scares or downloads it isn't allowed. ([profiles.md](profiles.md))
+- **TV time and bedtime** for Kids ([profiles.md](profiles.md#tv-time-and-bedtime)): a daily allowance (30 minutes to 4 hours, counted only while playing, reset at midnight) and school-night and weekend bedtimes, warnings at 5 and 2 minutes, what's on may finish (30 minutes at most), then back to Who's watching? where an adult PIN gives 15, 30 or 60 minutes more or no limits until morning. Enforced by the Hub; optional alert to Home Assistant or ntfy.
 - Changes to the setup and deletions need an adult profile and its PIN.
 
 ## Music
@@ -86,6 +87,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 - **App name**: call it GazosTV or anything else; it shows everywhere, including Spotify's device list.
 - **Button hints and help** ([everyday-extras.md](everyday-extras.md)): a strip along the bottom says what the colour keys do on each screen; Info opens a help screen with the remote drawn. On Home the colour keys are shortcuts.
 - **Sleep timer**: 15 minutes to 2 hours or the end of the programme, from Options, the phone or voice. "Still watching?" a minute before, then the sound fades, playback stops and the TV goes to standby over CEC.
+- **Home Assistant both ways** ([notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)): the TV as a media player in Home Assistant (what's on, play, pause, stop, channels, volume, standby) and a webhook told when a film starts, pauses, resumes, stops or reaches the credits, the channel changes or the profile switches, so the lights can follow.
 - **Alerts**: IPTV or TorBox expiry, the guide not updating, failed recordings, a full NAS and live TV failing go to a Home Assistant webhook or ntfy, and to a card on the TV for grown-ups.
 - **Save for later**: Red on a title saves it to that profile's list; saves from the phone or by voice ("save Dune for later") go to a household list every profile sees. Shown as a row on Home.
 - **Advert skip**: comskip in the Hub's image finds the breaks in recordings; playback offers Skip adverts or skips them itself.
@@ -103,6 +105,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 
 - **Setup page** at `/setup/` for IPTV, Jellyfin, AIOStreams, TorBox, OMDb, OpenSubtitles and every TV setting.
 - **Updates** **(tested)**: the Hub lists what's new on GitHub since the code it runs, and updates with `tools/hub/update.sh` or from the phone (with the helper installed). The box updates weekly at 4 am after a btrfs snapshot, or from Settings › About or the phone. Both show the commit they run.
+- **Automatic roll back of a bad box update** **(untested)**: after each update the box checks the app starts, reaches the Hub, plays a test clip and still sees the CEC adapter; if not, it goes back to the snapshot, reboots, skips that commit from then on, and says so on the TV, in HA/ntfy and in Settings › About. Roll back last update by hand in Settings › About or on the phone ([box-install.md](box-install.md#updates-and-rolling-back)).
 - **What's new** ([CHANGELOG.md](../CHANGELOG.md)): the change log, served by the Hub at `/api/changelog`, in the TV's Settings › What's new, on the setup page and in the Android app. After an update the TV's Home, the phone remote and the Android app show what changed since they last looked, once (not on Kids profiles).
 - **Box install** **(tested** over PXE on the GMKtec K7 Plus**)**: one script on Arch (Debian 13 as a fallback), or an unattended network install from the PXE server ([box-install.md](box-install.md), [pxe.md](pxe.md)).
 - **Diagnostics** ([diagnostics.md](diagnostics.md)) **(tested)**: the box sends its log, a playback sample every 10 seconds and the screen's details to the Hub; read them at `/api/diagnostics?format=text`, with rolling 50 MB logs. Logins and keys are cut from addresses.

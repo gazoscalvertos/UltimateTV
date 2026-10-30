@@ -2,8 +2,8 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createEffect, createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { AccessibilitySettings, Certification, SubtitleMode, SubtitleStyle, TvAppsMethod, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
-import { cleanAccessibility, TEXT_SCALES, CERTIFICATIONS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, TV_APPS_METHODS, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
+import type { AccessibilitySettings, BoxUpdateHealth, Certification, SubtitleMode, SubtitleStyle, TvAppsMethod, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
+import { cleanAccessibility, TEXT_SCALES, CERTIFICATIONS, cleanKidsLimits, KIDS_ALLOWANCES, KIDS_BEDTIMES, kidsLimitsLabel, NO_KIDS_LIMITS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, TV_APPS_METHODS, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -175,6 +175,7 @@ export function Settings(props: { section?: string }) {
     const sw = software();
     if (!sw) return software.loading ? "Checking…" : "";
     if (sw.updating) return "Updating now…";
+    if (sw.rollingBack) return "Rolling back…";
     if (!sw.latest) return "Couldn't check";
     return sw.latest === sw.commit ? "Up to date" : "Update available";
   };
@@ -196,6 +197,29 @@ export function Settings(props: { section?: string }) {
       errorToast(err);
     }
   };
+  // Undo the last update (the box reboots): the same as the health check does when an update breaks the box.
+  const rollBack = async () => {
+    const sw = software();
+    if (!sw?.canRollBack || sw.updating || sw.rollingBack) return;
+    const ok = await confirm(
+      "Roll back the last update?",
+      `The box goes back to how it was before it${sw.rollbackTo ? ` (${sw.rollbackTo.slice(0, 7)})` : ""}, then restarts. It takes a minute or two. The weekly update skips the version you rolled back; Update the box still installs it.`,
+      "Roll back",
+      true,
+    );
+    if (!ok) return;
+    try {
+      await agent.rollback();
+      toast("Rolling back. The box restarts by itself when it's done.", "good");
+      window.setTimeout(() => void refetchSoftware(), 3000);
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const healthValue = (h: BoxUpdateHealth) => (h.status === "checking" ? "Checking…" : h.status === "ok" ? "Passed" : "Failed");
+  const healthHint = (h: BoxUpdateHealth) =>
+    [h.at ? when(h.at) : "", h.status === "checking" ? "Within a few minutes of the update: the app, the Hub, a test clip and the CEC adapter" : (h.checks ?? []).map((c) => `${c.ok ? "✓" : "✗"} ${c.detail}`).join(" · ")].filter(Boolean).join(" · ");
   onCleanup(onHubEvent((e) => (e.type === "profiles.changed" ? void refetchProfiles() : undefined)));
 
   // Phones and screens paired with the TV, and the code that pairs another.
@@ -422,6 +446,41 @@ export function Settings(props: { section?: string }) {
     }
   };
 
+  /** A Kids profile's daily allowance, bedtimes and alert. The Hub enforces them (hub/src/kidstime.ts). */
+  const limitsMenu = async (p: Profile) => {
+    const hours = (m: number) => (m < 60 ? `${m} minutes` : m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} hour${m === 60 ? "" : "s"}`);
+    for (;;) {
+      const l = p.limits ?? NO_KIDS_LIMITS;
+      const pick = await choose<string>({
+        title: `TV time for ${p.name}`,
+        message: profiles()?.locked
+          ? "Time counts only while something plays and starts again at midnight. When it's up, what's on can finish (up to 30 minutes), then the TV goes back to Who's watching?. An adult PIN gives more time."
+          : "Set a PIN on the adult profiles too, or anyone can switch out of Kids or give more time.",
+        options: [
+          { label: `Each day: ${l.dailyMinutes === null ? "no limit" : hours(l.dailyMinutes)}`, value: "daily", icon: "moon" },
+          { label: `Bedtime, Sunday to Thursday: ${l.weekdayBedtime ?? "none"}`, value: "weekday", icon: "moon" },
+          { label: `Bedtime, Friday and Saturday: ${l.weekendBedtime ?? "none"}`, value: "weekend", icon: "moon" },
+          { label: `Tell my phone when time's up: ${l.alert ? "on" : "off"}`, value: "alert", detail: "Home Assistant or ntfy" },
+        ],
+      });
+      if (!pick) return;
+      let next = l;
+      if (pick === "daily") {
+        const m = await choose<string>({ title: "TV time each day", options: KIDS_ALLOWANCES.map((v) => ({ label: v === null ? "No limit" : hours(v), value: String(v) })) });
+        if (m === undefined) continue;
+        next = { ...l, dailyMinutes: m === "null" ? null : Number(m) };
+      }
+      if (pick === "weekday" || pick === "weekend") {
+        const t = await choose<string>({ title: pick === "weekday" ? "Bedtime on school nights" : "Bedtime on Friday and Saturday", message: "Bedtime lasts until 6 in the morning.", options: [{ label: "No bedtime", value: "" }, ...KIDS_BEDTIMES.map((b) => ({ label: b, value: b }))] });
+        if (t === undefined) continue;
+        next = { ...l, [pick === "weekday" ? "weekdayBedtime" : "weekendBedtime"]: t || null };
+      }
+      if (pick === "alert") next = { ...l, alert: !l.alert };
+      p = await hub.updateProfile(p.id, { limits: cleanKidsLimits(next) });
+      await refetchProfiles();
+    }
+  };
+
   const profileMenu = async (p: Profile) => {
     const pick = await choose({
       title: p.name,
@@ -429,6 +488,7 @@ export function Settings(props: { section?: string }) {
       options: [
         { label: "Rename", value: "rename", icon: "list" },
         ...(p.kind === "kids" ? [{ label: `Ratings allowed: up to ${p.maxCertification}`, value: "cert", icon: "lock" }] : []),
+        ...(p.kind === "kids" ? [{ label: "TV time and bedtime", value: "limits", icon: "moon", detail: kidsLimitsLabel(p.limits) }] : []),
         { label: `Subtitles: ${p.subtitles ? MODE_LABELS[p.subtitles] : `as the household (${settings()?.playback.subtitlesByDefault ? "on" : "off"})`}`, value: "subtitles", icon: "subtitles" },
         { label: "Accessibility", value: "a11y", icon: "eye", detail: "Audio description, bigger text, bold focus, less movement" },
         { label: p.hasPin ? "Change PIN" : "Set a PIN", value: "pin", icon: "lock" },
@@ -462,6 +522,7 @@ export function Settings(props: { section?: string }) {
         setA11yFor(p.id);
         setSection("accessibility");
       }
+      if (pick === "limits") await limitsMenu(p);
       if (pick === "pin") await pinFor(p);
       if (pick === "nopin" && (await confirm("Remove the PIN?", "Anyone will be able to use this profile.", "Remove PIN", true))) await hub.updateProfile(p.id, { pin: null });
       if (pick === "delete" && (await confirm(`Delete ${p.name}?`, "Their Continue Watching list goes too. Recordings are kept.", "Delete", true))) await hub.deleteProfile(p.id);
@@ -536,7 +597,7 @@ export function Settings(props: { section?: string }) {
                 {(p) => (
                   <Row
                     label={p.name}
-                    hint={p.kind === "kids" ? `Kids · up to ${p.maxCertification}` : "Adult"}
+                    hint={p.kind === "kids" ? `Kids · up to ${p.maxCertification}${p.limits ? ` · ${kidsLimitsLabel(p.limits)}` : ""}` : "Adult"}
                     value={
                       <>
                         <span class="avatar avatar-small" style={{ "--c": p.colour }}>
@@ -889,6 +950,27 @@ export function Settings(props: { section?: string }) {
                       icon="download"
                       onSelect={() => void updateBox()}
                     />
+                    <Show when={sw().health}>
+                      {(h) => <Row label="Check after the last update" value={<Status ok={h().status !== "failed"} text={healthValue(h())} />} hint={healthHint(h())} />}
+                    </Show>
+                    <Show when={sw().rollback}>
+                      {(r) => (
+                        <Row
+                          label="Last roll back"
+                          value={when(r().at)}
+                          hint={`${r().reason}${r().manual ? "" : " (done by itself)"}. ${r().how === "app" ? "The app went back" : "Everything went back"}${r().to ? ` to ${r().to!.slice(0, 7)}` : ""}${r().ok ? "" : ", with errors: see Diagnostics"}${r().from ? `. ${r().from!.slice(0, 7)} won't install by itself again` : ""}`}
+                        />
+                      )}
+                    </Show>
+                    <Show when={sw().canRollBack && agentHas("rollback")}>
+                      <Row
+                        label="Roll back last update"
+                        value={sw().rollingBack ? "Rolling back…" : ""}
+                        hint={`Puts the box back as it was before its last update${sw().rollbackTo ? ` (${sw().rollbackTo!.slice(0, 7)})` : ""}, then restarts it`}
+                        icon="restart"
+                        onSelect={() => void rollBack()}
+                      />
+                    </Show>
                   </>
                 )}
               </Show>

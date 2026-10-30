@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { AccessibilitySettings, Changelog, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
 import type { AdSkipSettings, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -89,7 +89,11 @@ export const hub = {
   profiles: () => api<{ profiles: Profile[]; locked: boolean; current: string | null; admin: boolean }>("/api/profiles"),
   unlock: (id: string, pin?: string) => api<{ token: string; profile: Profile }>(`/api/profiles/${enc(id)}/unlock`, { method: "POST", body: { pin } }),
   createProfile: (name: string, kind: Profile["kind"]) => api<Profile>("/api/profiles", { method: "POST", body: { name, kind } }),
-  updateProfile: (id: string, patch: Partial<Omit<Profile, "accessibility">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }) => api<Profile>(`/api/profiles/${enc(id)}`, { method: "PATCH", body: patch }),
+  kidsTime: () => api<{ current: KidsTimeStatus | null }>("/api/kids-time"),
+  kidsTimeOf: (id: string) => api<KidsTimeStatus>(`/api/kids-time/${enc(id)}`),
+  kidsReport: (playing: boolean) => api<{ status: KidsTimeStatus | null }>("/api/kids-time/report", { method: "POST", body: { playing } }),
+  kidsExtra: (id: string, minutes: number, pin?: string) => api<{ status: KidsTimeStatus }>(`/api/kids-time/${enc(id)}/extra`, { method: "POST", body: { minutes, ...(pin ? { pin } : {}) } }),
+  updateProfile: (id: string, patch: Partial<Omit<Profile, "accessibility" | "limits">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null; limits?: Profile["limits"] | null }) => api<Profile>(`/api/profiles/${enc(id)}`, { method: "PATCH", body: patch }),
   deleteProfile: (id: string) => api<{ ok: true }>(`/api/profiles/${enc(id)}`, { method: "DELETE" }),
 
   home: () => api<HomeScreen>("/api/home"),
@@ -193,6 +197,10 @@ export const hub = {
   saveWeather: (patch: Partial<WeatherSettings>) => api<WeatherState>("/api/weather/settings", { method: "PUT", body: patch }),
   weatherPlaces: (q: string) => api<{ places: WeatherPlace[] }>(`/api/weather/places${q ? `?q=${enc(q)}` : ""}`),
   refreshWeather: () => api<WeatherState>("/api/weather/refresh", { method: "POST" }),
+  // Home Assistant playback events (the webhook; the media player side needs no setting).
+  haSettings: () => api<{ settings: HaSettings; events: HaEvent[] }>("/api/ha/settings"),
+  saveHa: (patch: Partial<HaSettings>) => api<{ settings: HaSettings; events: HaEvent[] }>("/api/ha/settings", { method: "PUT", body: patch }),
+  testHa: () => api<{ ok: true }>("/api/ha/test", { method: "POST" }),
   playbackFailed: (what: string, error?: string) => api<{ told: boolean }>("/api/alerts/playback", { method: "POST", body: { what, ...(error ? { error } : {}) } }),
 
   // Advert skipping on recordings.

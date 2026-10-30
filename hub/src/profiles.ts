@@ -3,7 +3,7 @@
 
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { AccessibilitySettings, Certification, Channel, ChannelCategory, Profile, Programme, TitleDetails, TitleRef } from "@ultimatetv/shared";
-import { CERTIFICATIONS, cleanAccessibility, DEFAULT_ACCESSIBILITY, isDefaultAccessibility, SUBTITLE_MODES } from "@ultimatetv/shared";
+import { CERTIFICATIONS, cleanAccessibility, cleanKidsLimits, DEFAULT_ACCESSIBILITY, hasKidsLimits, isDefaultAccessibility, SUBTITLE_MODES } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 import { newId } from "./db.js";
 
@@ -96,7 +96,7 @@ export class ProfileStore {
     return this.pub(p);
   }
 
-  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }): Profile | undefined {
+  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles" | "limits">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }): Profile | undefined {
     const list = this.all();
     const p = list.find((x) => x.id === id);
     if (!p) return undefined;
@@ -118,6 +118,11 @@ export class ProfileStore {
       const a = patch.accessibility === null ? DEFAULT_ACCESSIBILITY : cleanAccessibility(patch.accessibility, p.accessibility ?? DEFAULT_ACCESSIBILITY);
       if (isDefaultAccessibility(a)) delete p.accessibility;
       else p.accessibility = a;
+    }
+    if (patch.limits !== undefined && p.kind === "kids") {
+      const limits = patch.limits ? cleanKidsLimits(patch.limits, p.limits) : undefined;
+      if (limits && hasKidsLimits(limits)) p.limits = limits;
+      else delete p.limits;
     }
     if (patch.pin === null) {
       delete p.pinHash;
@@ -158,6 +163,11 @@ export class ProfileStore {
 
   private householdPin(pin: string | undefined): StoredProfile | undefined {
     return this.all().find((x) => x.kind === "adult" && pinMatches(x, pin));
+  }
+
+  /** True when the PIN is any adult's. With no adult PIN set, nothing to check, so true. */
+  adultPin(pin: string | undefined): boolean {
+    return !this.locked() || Boolean(this.householdPin(pin));
   }
 
   /** For the phone setup page: any adult PIN unlocks settings. */

@@ -51,6 +51,8 @@ export interface DiagnosticSources {
   sample: () => Promise<PlaybackSample | null>;
   software: () => Promise<unknown>;
   info: () => Promise<unknown>;
+  /** The update, health check and roll back log (tools/box/update.sh). */
+  updateLog?: () => Promise<string[]>;
 }
 
 export class Diagnostics {
@@ -103,13 +105,14 @@ export class Diagnostics {
 
   async report(): Promise<BoxDiagnostics> {
     const sources = this.sources ?? { sample: async () => null, software: async () => null, info: async () => null };
-    const [software, info, kscreenJson, kscreenText, sample, host] = await Promise.all([
+    const [software, info, kscreenJson, kscreenText, sample, host, updateLog] = await Promise.all([
       sources.software().catch((e: Error) => ({ error: e.message })),
       sources.info().catch((e: Error) => ({ error: e.message })),
       run("kscreen-doctor", ["-j"], { timeout: 5000 }).then((r) => summariseKscreen(r.stdout)).catch((e: Error) => ({ error: e.message })),
       run("kscreen-doctor", ["-o"], { timeout: 5000 }).then((r) => r.stdout.replace(/\x1b\[[0-9;]*m/g, "").slice(0, 20_000)).catch((e: Error) => `error: ${e.message}`),
       sources.sample().catch(() => null),
       this.host.stats([{ label: "System", path: "/" }]).catch(() => undefined),
+      (sources.updateLog?.() ?? Promise.resolve([])).catch(() => [] as string[]),
     ]);
     return {
       at: new Date().toISOString(),
@@ -124,6 +127,7 @@ export class Diagnostics {
       samples: this.samples.list(),
       log: this.lines.list(),
       ...(host ? { host } : {}),
+      ...(updateLog.length ? { updateLog: updateLog.map(redact) } : {}),
     };
   }
 }

@@ -12,8 +12,8 @@ android {
         applicationId "tv.ultimate.client"
         minSdk 26
         targetSdk 35
-        versionCode 5
-        versionName "0.3.0"
+        versionCode 6
+        versionName "0.3.1"
     }
 
     // The same key as the remote (see app/build.gradle), so every build installs over the last.

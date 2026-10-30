@@ -6,7 +6,7 @@
 
 import { statfs } from "node:fs/promises";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { cleanAlertSettings, daysFromNow, DEFAULT_ALERT_SETTINGS, type Alert, type AlertLevel, type AlertSettings, type AlertState } from "@ultimatetv/shared";
+import { cleanAlertSettings, daysFromNow, DEFAULT_ALERT_SETTINGS, type Alert, type AlertLevel, type AlertSettings, type AlertState, type BoxSoftware } from "@ultimatetv/shared";
 import type { HubContext } from "./context.js";
 
 const CHECK_MS = 30 * 60_000;
@@ -73,6 +73,54 @@ export function currentAlerts(input: AlertInputs): Omit<Alert, "since">[] {
   }
   out.push(...input.events.map((e) => ({ key: e.key, level: e.level, title: e.title, message: e.message })));
   return out.sort((a, b) => RANK[b.level] - RANK[a.level]);
+}
+
+/** An update gone wrong on the box stays listed this long. */
+export const BOX_UPDATE_ALERT_MS = 3 * 86_400_000;
+
+/**
+ * What a box report says about its last update that's worth telling someone: an automatic roll back
+ * (or one that failed), or a failed check left in place because AUTO_ROLLBACK=0. `id` tells one
+ * event from the next, so each is sent once. A roll back asked for in Settings needs no alert.
+ */
+export function boxUpdateAlert(sw: BoxSoftware | null | undefined): { id: string; alert: Omit<Alert, "since"> } | null {
+  const short = (sha?: string) => (sha ? sha.slice(0, 7) : "");
+  const r = sw?.rollback;
+  const h = sw?.health;
+  const rolledAt = r ? Date.parse(r.at) : NaN;
+  // A failed check newer than the last roll back, with the update left in place.
+  if (h?.status === "failed" && sw?.canRollBack && (!r || !(Date.parse(h.at ?? "") <= rolledAt))) {
+    return {
+      id: `health:${h.at ?? "?"}`,
+      alert: {
+        key: "box-update",
+        level: "bad",
+        title: "The box's update failed its check",
+        message: `${h.summary ?? "Something didn't work after the update"}. Automatic roll back is off (AUTO_ROLLBACK=0), so it's been left: roll it back in Settings › About or on the phone.`,
+      },
+    };
+  }
+  if (!r || r.manual) return null;
+  if (!r.ok) {
+    return {
+      id: `rollback:${r.at}`,
+      alert: {
+        key: "box-update",
+        level: "bad",
+        title: "The box couldn't roll back a bad update",
+        message: `${r.reason}. The roll back didn't finish cleanly, so the box may need looking at over SSH (/var/lib/ultimatetv/update/update.log).`,
+      },
+    };
+  }
+  return {
+    id: `rollback:${r.at}`,
+    alert: {
+      key: "box-update",
+      level: "warn",
+      title: "The box rolled back an update",
+      message: `${r.reason}. It's back on ${r.how === "app" ? "the app's previous version" : "everything from before the update"}${r.to ? ` (${short(r.to)})` : ""}${r.from ? ` and won't install ${short(r.from)} again by itself` : ""}. Settings › About has the details.`,
+    },
+  };
 }
 
 /** Sends one alert to the webhook and/or ntfy. Rejects with the first failure. */

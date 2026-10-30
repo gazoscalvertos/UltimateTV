@@ -14,7 +14,7 @@ Gary asked for the whole app to be built before testing on the real hardware, so
 | 2. Recording and series link | Built, untested. |
 | 3. Unified films and TV | Built. Jellyfin playback has run on the box. |
 | 4. AIOStreams, TorBox, NAS pipeline, phone remote | Built. The phone remote is in daily use; TorBox and Save to NAS are untested. |
-| 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates, nightly Hub backup, a screen for when the Hub is down). Automatic rollback and the WAF test remain. |
+| 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates, nightly Hub backup, a screen for when the Hub is down). Automatic rollback is built but untested on the box; the WAF test remains. |
 | Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, button hints and help, sleep timer, alerts, Save for later, advert skip, seasonal clips, projected clip packs, weather, TV apps, trailers and scores, More like this, OpenSubtitles, Skip intro everywhere, accessibility: built, mostly untested. |
 
 ## Tested or untested, feature by feature
@@ -57,6 +57,8 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Weather | #64 | Untested |
 | TV apps button, trailers and scores, More like this, OpenSubtitles | #65 | Untested (TV apps needs the Pulse-Eight) |
 | What's new (change log in every app) | #112 | Untested |
+| Home Assistant both ways (media player, playback events) | #113 | Untested |
+| Kids TV time and bedtime | #114 | Untested |
 | Skip intro everywhere (Intro Skipper), accessibility settings | #116 | Untested (the plugin isn't on the Jellyfin LXC yet) |
 
 ### What has run on real hardware
@@ -84,7 +86,7 @@ First bring the box and the Hub up to date: run `tools/hub/update.sh`, then reru
 - **TorBox / AIOStreams** playback and Save to NAS.
 - **Profiles and the Kids lock**, and pairing (an unpaired phone is refused).
 - **Spotify and Deezer** on the box (neither has been tried against the real services).
-- **Pop-ups from Home Assistant** (existing commands need the `X-Api-Key` header).
+- **Pop-ups from Home Assistant** (existing commands need the `X-Api-Key` header), and the TV as a Home Assistant media player with playback events dimming the lights.
 - **Play queue, screensavers, Halloween and jump scares, Download to box, and a trip** with `travel.sh`.
 - **Cast and games:** AirPlay, a laptop's screen share (trust the Hub's certificate first), links from the phone, RetroArch, Moonlight, Steam Link and GeForce NOW. The sleep timer's CEC standby needs the Pulse-Eight.
 - **Trailers, scores and subtitles:** a trailer through yt-dlp on the box, OMDb scores, and OpenSubtitles files lining up with TorBox and IPTV copies.
@@ -119,15 +121,15 @@ The [gap list](https://claude.ai/artifact/PSEpcgrMkhKp4Se1Gp51gK) ranks these ag
 4. **More like this** on the details page and a Home row. The Hub already has a TMDB recommendations call that nothing uses.
 5. **Subtitles**: fetch missing ones from OpenSubtitles, a default per profile, size and background settings.
 6. ~~Skip intro for the whole library~~: install script, docs and credits-driven Up Next in #116 ([watching-extras.md](watching-extras.md#skip-intro-everywhere)). The plugin still has to go on the Jellyfin LXC.
-7. **Home Assistant both ways**: the TV as a media player, and "film started" / "paused" events for lights.
-8. **Kids time limits and a bedtime.**
+7. ~~Home Assistant both ways~~: built in #113 ([notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)).
+8. ~~Kids time limits and a bedtime~~: built in #114 ([profiles.md](profiles.md#tv-time-and-bedtime)).
 9. Later: a local AI on the box, a Freeview HDHomeRun backup, radio and podcasts, multiview, Trakt. (Audio description and accessibility settings: built in #116, [accessibility.md](accessibility.md).)
 
 Left over from PR #58, which was closed in favour of #60, and could be brought across: advert marks on the seek bar, a black-frame and silence fallback when comskip finds nothing, Save for later showing when a title is next on TV, and a Save for later tab on the phone.
 
 Also from the plan, or raised along the way:
 
-- **Automatic rollback** when the box fails a health check after an update. Today the update takes a snapper snapshot first, but rolling back is by hand.
+- **Automatic rollback** is built ([box-install.md](box-install.md#updates-and-rolling-back), issue #77) but hasn't been tried with a deliberately broken build on the box yet ([TESTING.md](TESTING.md) 8g).
 - **The full TV app without the Hub:** the box now has its own screen for when the Hub is down (downloads, games, AirPlay), but the guide, library and live TV still need the Hub.
 - **A second-box install test**, and the Debian 13 fallback, which has never been tried.
 - **Jellyfin progress from the box's offline downloads** isn't sent back to Jellyfin while away.

@@ -6,6 +6,7 @@ import type { Channel, PlaybackInfo, PlaybackRequest, PlayerState, TitleRef } fr
 import { agent, agentHas, onBox } from "./agent";
 import { ApiError, hub } from "./api";
 import { choose } from "./components/Dialog";
+import { playRefused } from "./kidstime";
 import { startedPlaying } from "./queue";
 import { autoSubtitles, subtitleModeFor } from "./subtitles";
 import { autoAudioDescription } from "./accessibility";
@@ -129,7 +130,8 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
   try {
     info = opts.info ?? (await resolve(req));
   } catch (err) {
-    if (n === playCount) errorToast(err);
+    // A Kids profile's time is up: back to the profile picker, not a toast.
+    if (n === playCount && !playRefused(err)) errorToast(err);
     return false;
   }
   if (!info || n !== playCount) return false;

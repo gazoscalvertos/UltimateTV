@@ -161,6 +161,8 @@ export interface BoxDiagnostics {
   log: string[];
   /** CPU, GPU, memory, temperatures, disk and network (boxes from before 2026-10-25 don't send it). */
   host?: HostStats;
+  /** The last lines from the box's update, its health check and roll backs (boxes from before 2026-10-30 don't send it). */
+  updateLog?: string[];
 }
 
 /** The box's own software, for Settings › About: what it runs and whether there's an update. */
@@ -177,6 +179,45 @@ export interface BoxSoftware {
   /** An update is running now; the TV app restarts when it finishes. */
   updating: boolean;
   lastUpdate?: { at: string; ok: boolean };
+  /** The check after the last update: still running, passed, or failed (and then usually rolled back). */
+  health?: BoxUpdateHealth;
+  /** The last update can be undone (Settings › About › Roll back last update, and the phone). */
+  canRollBack?: boolean;
+  /** The commit a roll back goes back to. */
+  rollbackTo?: string;
+  /** A roll back is running now; the box reboots when it's done. */
+  rollingBack?: boolean;
+  /** The last roll back, automatic or asked for. */
+  rollback?: BoxRollback;
+}
+
+/** One part of the check after an update: app, hub, mpv or cec. */
+export interface BoxUpdateCheck {
+  name: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface BoxUpdateHealth {
+  status: "checking" | "ok" | "failed";
+  /** When the check finished (ISO). */
+  at?: string;
+  summary?: string;
+  checks?: BoxUpdateCheck[];
+}
+
+export interface BoxRollback {
+  at: string;
+  reason: string;
+  /** The commit that was rolled back (and won't install automatically again). */
+  from?: string;
+  /** The commit the box went back to. */
+  to?: string;
+  /** Asked for in Settings or on the phone, rather than after a failed health check. */
+  manual: boolean;
+  ok: boolean;
+  /** The whole system from a snapshot, or only the app (no btrfs snapshots on this box). */
+  how: "snapshot" | "app";
 }
 
 // ---------------------------------------------------------------------------
@@ -259,6 +300,8 @@ export interface BoxAgent {
   software(check: boolean): Promise<BoxSoftware | null>;
   /** Installs the latest app and OS updates, then restarts the TV app. */
   update(): Promise<void>;
+  /** Undoes the last update, then reboots the box. Older box shells lack it: check with agentHas. */
+  rollback(): Promise<void>;
 
   // Music (see music.ts). Older box shells lack these: check with agentHas first.
   spotify(): Promise<SpotifyState>;

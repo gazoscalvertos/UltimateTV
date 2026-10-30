@@ -70,6 +70,8 @@
   .opt input[type=checkbox]:checked::after { left: 24px; }
   .profile { padding: 12px 0; border-top: 1px solid var(--line); }
   .profile:first-child { border-top: 0; }
+  .kids-limits { display: grid; gap: 8px; margin-top: 10px; }
+  .kids-limits > label:not(.opt) { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   .profile .name { display: flex; align-items: center; gap: 10px; font-weight: 600; }
   .profile .name small { color: var(--muted); font-weight: 400; }
   .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--c, var(--accent)); }
@@ -161,10 +163,12 @@
     <ul class="changes" id="hub-changes" hidden></ul>
     <p class="hint" id="hub-helper" hidden>To update the Hub from the phone, run this once on the server: <code>sudo bash /containers/UltimateTV/tools/hub/update.sh --phone-updates</code></p>
     <div class="sw">
-      <span><b>Box</b> <span class="pill" id="box-pill">…</span><small id="box-version"></small><small id="box-last"></small></span>
+      <span><b>Box</b> <span class="pill" id="box-pill">…</span><small id="box-version"></small><small id="box-last"></small><small id="box-health"></small><small id="box-rolled"></small></span>
       <button class="small" type="button" id="box-update">Update</button>
     </div>
+    <p class="hint">After each update the box checks that the app starts, reaches the Hub, plays a test clip and still sees the TV remote's adapter. If not, it rolls the update back by itself and tells you here and on the TV.</p>
     <div class="actions">
+      <button class="secondary small" type="button" id="box-rollback" hidden>Roll back last update</button>
       <button class="secondary small" type="button" id="box-reload">Reload the TV app</button>
       <button class="secondary small" type="button" id="refresh">Refresh channels and guide</button>
       <button class="secondary small" type="button" id="sw-check">Check again</button>
@@ -294,13 +298,23 @@
     <p class="hint">Only phones and screens paired with the TV can work it. To add a phone, scan the code in Settings › Phones and remotes on the TV. Remove anything you don't recognise.</p>
     <ul class="list" id="devices-list"></ul>
     <h2 style="margin-top:18px">Home Assistant and scripts</h2>
-    <p class="hint">Pop-ups, news flashes and key presses from Home Assistant or a script need this key, sent as the header <code>X-Api-Key</code> (or <code>Authorization: Bearer …</code>). It can't change settings or play things.</p>
+    <p class="hint">Pop-ups, news flashes, key presses and the media player controls (play, pause, stop, volume, channels, standby) from Home Assistant or a script need this key, sent as the header <code>X-Api-Key</code> (or <code>Authorization: Bearer …</code>). It can't change settings. docs/notifications.md has the Home Assistant set-up.</p>
     <div class="actions">
       <button class="secondary small" type="button" id="key-show">Show the key</button>
       <button class="secondary small" type="button" id="key-new">Make a new key</button>
       <button class="secondary small danger" type="button" id="unpair-me">Unpair this phone</button>
     </div>
     <p class="hint" id="key-box" hidden style="margin:12px 0 0"><code id="key-text"></code></p>
+    <form id="ha-form" style="margin-top:14px">
+      <label>Playback events webhook</label>
+      <input name="webhookUrl" type="url" placeholder="http://homeassistant.local:8123/api/webhook/ultimatetv" autocomplete="off">
+      <p class="hint">Told when a film or programme starts, pauses, resumes, stops, reaches the credits, the channel changes or someone switches profile, so Home Assistant can dim the lights. Leave empty to send nothing.</p>
+      <div class="actions">
+        <button class="small">Save</button>
+        <button class="secondary small" type="button" id="ha-test">Send a test event</button>
+      </div>
+      <p class="hint" id="ha-recent" style="margin:8px 0 0"></p>
+    </form>
   </section>
 
   <section id="apps">
@@ -478,8 +492,57 @@ const askPin = (title) => {
   return pin.trim();
 };
 
+// A Kids profile's TV time and bedtimes (the Hub enforces them), and more time today.
+const ALLOWANCES = [null, 30, 45, 60, 90, 120, 150, 180, 240];
+const BEDTIMES = ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"];
+const hoursLabel = (m) => (m < 60 ? `${m} min` : m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} h`);
+function kidsLimitsBox(p, status) {
+  const l = p.limits || { dailyMinutes: null, weekdayBedtime: null, weekendBedtime: null, alert: false };
+  const box = document.createElement("div");
+  box.className = "kids-limits";
+  const pick = (label, options, value, key) => {
+    const wrap = document.createElement("label");
+    wrap.textContent = label + " ";
+    const sel = document.createElement("select");
+    for (const [text, v] of options) sel.add(new Option(text, v === null ? "" : String(v), false, v === value));
+    sel.onchange = () => patchProfile(p, { limits: { ...l, [key]: sel.value === "" ? null : key === "dailyMinutes" ? Number(sel.value) : sel.value } }, "Saved");
+    wrap.append(sel);
+    return wrap;
+  };
+  const bedOptions = [["None", null], ...BEDTIMES.map((b) => [b, b])];
+  box.append(
+    pick("TV time each day", ALLOWANCES.map((m) => [m === null ? "No limit" : hoursLabel(m), m]), l.dailyMinutes, "dailyMinutes"),
+    pick("Bedtime Sun–Thu", bedOptions, l.weekdayBedtime, "weekdayBedtime"),
+    pick("Bedtime Fri–Sat", bedOptions, l.weekendBedtime, "weekendBedtime"),
+  );
+  const alert = document.createElement("label");
+  alert.className = "opt";
+  alert.innerHTML = `<span>Tell me when time's up<small>Sent where Settings › Alerts sends (Home Assistant or ntfy)</small></span><input type="checkbox">`;
+  const cb = alert.querySelector("input");
+  cb.checked = Boolean(l.alert);
+  cb.onchange = () => patchProfile(p, { limits: { ...l, alert: cb.checked } }, "Saved");
+  box.append(alert);
+  if (status && status.limited) {
+    const today = document.createElement("p");
+    today.className = "hint";
+    const left = status.unlockedUntil ? "no limits until the morning" : status.state === "finishing" || status.state === "stopped" ? (status.reason === "bedtime" ? "it's bedtime" : "time's up") : status.minutesLeft !== null ? `${hoursLabel(status.minutesLeft)} left` : "";
+    today.textContent = `Today: ${hoursLabel(status.usedMinutes)} watched${left ? `, ${left}` : ""}.`;
+    box.append(today);
+    const more = document.createElement("div");
+    more.className = "actions";
+    for (const [text, minutes] of [["+15 min", 15], ["+30 min", 30], ["+1 hour", 60], ["No limits until morning", 0]]) {
+      more.append(button(text, "secondary", async () => {
+        try { await api(`/api/kids-time/${encodeURIComponent(p.id)}/extra`, { method: "POST", body: { minutes } }); toast(minutes ? `${text} for ${p.name}` : `No limits for ${p.name} until the morning`); loadProfiles(); } catch (e) { toast(e.message, true); }
+      }));
+    }
+    box.append(more);
+  }
+  return box;
+}
+
 async function loadProfiles() {
   const { profiles, locked } = await api("/api/profiles");
+  const times = (await api("/api/kids-time").catch(() => ({ profiles: [] }))).profiles || [];
   $("#profiles-pill").textContent = locked ? "PIN on" : "No PIN";
   $("#profiles-pill").className = "pill" + (locked ? " ok" : "");
   const list = $("#profiles-list");
@@ -514,7 +577,9 @@ async function loadProfiles() {
       if (!confirm(`Delete ${p.name}? Their Continue Watching list goes too. Recordings are kept.`)) return;
       try { await api(`/api/profiles/${encodeURIComponent(p.id)}`, { method: "DELETE" }); toast(`${p.name} deleted`); loadProfiles(); } catch (e) { toast(e.message, true); }
     }));
-    row.append(name, actions, accessibilityFor(p));
+    row.append(name, actions);
+    if (p.kind === "kids") row.append(kidsLimitsBox(p, times.find((t) => t.profileId === p.id)));
+    row.append(accessibilityFor(p));
     list.append(row);
   }
 }
@@ -596,6 +661,18 @@ $("#key-new").onclick = () => {
   if (!confirm("Make a new key? Anything using the old one (Home Assistant, scripts) stops working until you give it the new one.")) return;
   api("/api/pair/api-key", { method: "POST" }).then((r) => { showKey(r.key); toast("New key made"); }).catch((e) => toast(e.message, true));
 };
+// Home Assistant playback events (see docs/notifications.md).
+const showHa = (r) => {
+  $("#ha-form").webhookUrl.value = r.settings.webhookUrl;
+  const last = r.events[0];
+  $("#ha-recent").textContent = last ? `Last event: ${last.type}${last.title ? ` (${last.title})` : ""} at ${new Date(last.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}, ${last.error ? `not sent: ${last.error}` : last.sent ? "sent" : "no webhook set"}` : "";
+};
+async function loadHa() { showHa(await api("/api/ha/settings")); }
+$("#ha-form").onsubmit = (e) => {
+  e.preventDefault();
+  api("/api/ha/settings", { method: "PUT", body: { webhookUrl: $("#ha-form").webhookUrl.value.trim() } }).then((r) => { showHa(r); toast("Saved"); }).catch((e) => toast(e.message, true));
+};
+$("#ha-test").onclick = () => api("/api/ha/test", { method: "POST" }).then(() => toast("Test event sent")).catch((e) => toast(e.message, true));
 $("#unpair-me").onclick = () => {
   if (!confirm("Unpair this phone? It will have to scan the TV's code again to work the TV.")) return;
   fetch("/api/pair/forget", { method: "POST" }).then(() => location.reload());
@@ -958,8 +1035,15 @@ async function loadSoftware(check) {
   $("#stats").checked = Boolean(box?.stats);
   $("#box-version").textContent = sw ? `${shortSha(sw.commit)}${sw.date ? " · " + when(sw.date) : ""}${sw.branch && sw.branch !== "main" ? " · " + sw.branch : ""}${checked(sw.checkedAt)}` : tvConnected ? "Asking the box…" : "The TV app isn't connected. Is the box on?";
   $("#box-last").textContent = sw?.lastUpdate ? `Last update ${when(sw.lastUpdate.at)}${sw.lastUpdate.ok ? "" : " (it failed)"}` : "";
+  const h = sw?.health;
+  $("#box-health").textContent = h ? (h.status === "checking" ? "Checking the update…" : h.status === "ok" ? `Update check passed${h.at ? " " + when(h.at) : ""}` : `Update check failed${h.at ? " " + when(h.at) : ""}: ${(h.checks || []).filter((c) => !c.ok).map((c) => c.detail).join("; ") || h.summary || ""}`) : "";
+  const rb = sw?.rollback;
+  $("#box-rolled").textContent = rb ? `Rolled back ${when(rb.at)}${rb.manual ? "" : " by itself"}: ${rb.reason}${rb.ok ? "" : " (with errors)"}` : "";
+  $("#box-rollback").hidden = !sw?.canRollBack;
+  $("#box-rollback").disabled = !tvConnected || !sw || sw.updating || sw.rollingBack;
   if (!tvConnected) pill("#box-pill", "Off");
   else if (!sw) pill("#box-pill", "…");
+  else if (sw.rollingBack) pill("#box-pill", "Rolling back…", "warn");
   else if (sw.updating) pill("#box-pill", "Updating…", "warn");
   else if (!sw.latest) pill("#box-pill", "Couldn't check");
   else if (sw.latest === sw.commit) pill("#box-pill", "Up to date", "ok");
@@ -1070,6 +1154,11 @@ $("#hub-update").onclick = async () => {
 $("#box-update").onclick = async () => {
   if (!confirm("Update the box now? It takes a few minutes. The TV goes blank for a moment at the end while the app restarts.")) return;
   try { await api("/api/box/update", { method: "POST" }); toast("Updating the box. The TV app restarts by itself when it's done."); pill("#box-pill", "Updating…", "warn"); setTimeout(checkBox, 8000); } catch (e) { toast(e.message, true); }
+};
+$("#box-rollback").onclick = async () => {
+  const to = software?.box?.software?.rollbackTo;
+  if (!confirm(`Roll back the box's last update? It goes back to how it was before${to ? " (" + to.slice(0, 7) + ")" : ""} and restarts, which takes a minute or two. The weekly update won't install that version again by itself.`)) return;
+  try { await api("/api/box/rollback", { method: "POST" }); toast("Rolling back. The box restarts by itself when it's done."); pill("#box-pill", "Rolling back…", "warn"); } catch (e) { toast(e.message, true); }
 };
 $("#box-reload").onclick = () => api("/api/box/reload", { method: "POST" }).then(() => toast("Reloading the TV app")).catch((e) => toast(e.message, true));
 $("#refresh").onclick = () => api("/api/refresh", { method: "POST" }).then(() => toast("Refreshing. This takes a minute or two.")).catch((e) => toast(e.message, true));
@@ -1413,6 +1502,7 @@ for (const [file, id] of [["/setup/client-app.json", "#client-app-version"], ["/
 
 load().catch((err) => toast(err.message, true));
 loadDevices().catch(() => {});
+loadHa().catch(() => {});
 loadSoftware(true).then(checkBox).catch(() => {});
 loadNews(false).catch(() => { $("#news-list").innerHTML = '<p class="hint">Couldn\'t ask the Hub.</p>'; });
 // Keep checking GitHub while the page is open (the Hub asks it at most every 5 minutes).
