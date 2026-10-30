@@ -1,6 +1,6 @@
 // Warnings before things break, so nobody finds out from a blank screen: the IPTV subscription
 // or TorBox running out, the guide not refreshing, a channel load failing, a recording failing,
-// the NAS filling up, live TV not starting. The Hub checks every half hour and sends each new
+// the NAS filling up, live TV not starting, the nightly backup failing. The Hub checks every half hour and sends each new
 // problem once to a Home Assistant webhook and/or an ntfy topic (both reach a phone), lists them
 // in Settings › Alerts, and (when asked) pops them up on the TV for adult profiles.
 
@@ -26,9 +26,14 @@ export interface AlertInputs {
   epgUpdatedAt?: number;
   /** Free space where recordings go, when the NAS could be read. */
   diskFreeBytes?: number;
+  /** The nightly backup (backup.ts): when the last good one was, and why the latest failed. */
+  backup?: { enabled: boolean; lastOkAt?: number; error?: string; since: number };
   /** Problems reported by events, still in force. */
   events: Alert[];
 }
+
+/** Two missed nights before a quiet backup is worth a word. */
+const BACKUP_STALE_MS = 50 * 3600_000;
 
 /** What's wrong right now, worst first. Pure, for the tests. */
 export function currentAlerts(input: AlertInputs): Omit<Alert, "since">[] {
@@ -57,6 +62,14 @@ export function currentAlerts(input: AlertInputs): Omit<Alert, "since">[] {
   if (input.diskFreeBytes !== undefined && input.diskFreeBytes < settings.diskFreeGb * 1024 ** 3) {
     const gb = Math.round(input.diskFreeBytes / 1024 ** 3);
     out.push({ key: "disk-full", level: gb < 10 ? "bad" : "warn", title: "The NAS is nearly full", message: `${gb} GB left where recordings go. Recordings stop when it fills up.` });
+  }
+  const b = input.backup;
+  if (b?.enabled) {
+    if (b.error) out.push({ key: "backup-failed", level: "warn", title: "The Hub's backup failed", message: `${b.error}. The Hub tries again tonight; Settings › About shows how it went.` });
+    else if (now - (b.lastOkAt ?? b.since) > BACKUP_STALE_MS && b.since) {
+      const days = Math.floor((now - (b.lastOkAt ?? b.since)) / 86_400_000);
+      out.push({ key: "backup-stale", level: "warn", title: "The Hub hasn't backed up", message: b.lastOkAt ? `The last backup was ${days} days ago.` : `There's been no backup in ${days} days of running.` });
+    }
   }
   out.push(...input.events.map((e) => ({ key: e.key, level: e.level, title: e.title, message: e.message })));
   return out.sort((a, b) => RANK[b.level] - RANK[a.level]);
@@ -97,6 +110,8 @@ export class Alerts {
   private first: NodeJS.Timeout | undefined;
   private checkedAt: number | undefined;
   private torbox: { at: number; expires?: number } | null = null;
+  /** The nightly backup's health, set by the server once backups exist. */
+  backups?: () => NonNullable<AlertInputs["backup"]>;
 
   constructor(private readonly ctx: HubContext) {}
 
@@ -182,6 +197,7 @@ export class Alerts {
       ...(torboxExpires ? { torboxExpires } : {}),
       ...(epg ? { epgUpdatedAt: epg } : {}),
       ...(diskFreeBytes !== undefined ? { diskFreeBytes } : {}),
+      ...(this.backups ? { backup: this.backups() } : {}),
       events: this.events(now),
     };
     const before = new Map(this.list().map((a) => [a.key, a]));

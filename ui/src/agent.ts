@@ -258,6 +258,7 @@ class BrowserAgent implements BoxAgent {
   }
   async tvStandby(): Promise<void> {}
   async setVolume(): Promise<void> {}
+  async offlineProfile(): Promise<void> {}
 }
 
 export const agent: BoxAgent = window.ultimatetv ?? new BrowserAgent();

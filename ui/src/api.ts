@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { AdSkipSettings, AlertSettings, AlertState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
+import type { AdSkipSettings, AlertSettings, BackupState, AlertState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
 const store = {
@@ -158,6 +158,9 @@ export const hub = {
   /** The Hub's own version, checked against GitHub's main. */
   hubSoftware: () => api<{ hub: HubSoftware }>("/api/software?check=1").then((r) => r.hub),
   updateHub: () => api<{ ok: true }>("/api/software/hub/update", { method: "POST" }),
+  /** The nightly backup of the Hub's data to the NAS. */
+  backup: () => api<BackupState>("/api/backup"),
+  backupNow: () => api<BackupState>("/api/backup", { method: "POST" }),
 
   /** Phones and screens paired with the TV, and the code that pairs another. */
   devices: () => api<DeviceList>("/api/devices"),

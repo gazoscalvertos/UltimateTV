@@ -26,6 +26,13 @@ const ago = (t: number) => {
   if (mins < 24 * 60) return `${Math.round(mins / 60)} hours ago`;
   return new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 };
+/** "Today 03:30", "Yesterday 03:30", "28 Oct 03:30". */
+const whenAgo = (at: number) => {
+  const d = new Date(at);
+  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 86_400_000);
+  return days === 0 ? `Today ${time}` : days === 1 ? `Yesterday ${time}` : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
+};
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const cycle = <T,>(list: readonly T[], value: T): T => list[(list.indexOf(value) + 1) % list.length]!;
 
@@ -88,6 +95,35 @@ export function Settings(props: { section?: string }) {
     if (!sw.latest) return "Couldn't check";
     if (sw.commit && sw.latest.startsWith(sw.commit)) return "Up to date";
     return sw.behind ? `${sw.behind} change${sw.behind === 1 ? "" : "s"} to get` : "Update available";
+  };
+  // The Hub's nightly backup, read when About is opened.
+  const [backup, { mutate: setBackup }] = createResource(
+    () => section() === "about",
+    (open) => (open ? hub.backup().catch(() => null) : Promise.resolve(null)),
+  );
+  const backupState = () => {
+    const b = backup();
+    if (!b) return backup.loading ? "Checking…" : "Couldn't check";
+    if (b.running) return "Backing up now…";
+    if (b.error) return <Status ok={false} text="Last one failed" />;
+    if (!b.enabled) return "Turned off";
+    return b.last ? `${whenAgo(b.last.at)} · ${formatBytes(b.last.bytes)}` : "None yet";
+  };
+  const backupHint = () => {
+    const b = backup();
+    if (!b) return "A copy of the Hub's settings, profiles and recordings list, every night";
+    const parts = [b.error ? b.error.message : "", `${b.backups.length} kept${b.onNas ? " on the NAS" : " beside the Hub (the NAS isn't mounted in the Hub)"}`, b.enabled ? `every night at ${b.time}` : ""];
+    return `${parts.filter(Boolean).join(" · ")}. Select to back up now; restore from the phone or tools/hub/restore.sh`;
+  };
+  const backupNow = async () => {
+    if (backup()?.running) return;
+    toast("Backing up the Hub…");
+    try {
+      setBackup(await hub.backupNow());
+      toast("The Hub is backed up", "good");
+    } catch (err) {
+      errorToast(err);
+    }
   };
   const hubChanges = () => (hubSw()?.changes ?? []).slice(0, 3).map((c) => c.title).join(" · ");
   const updateHub = async () => {
@@ -740,6 +776,7 @@ export function Settings(props: { section?: string }) {
               <Row label="App name" value={appName()} hint="Rename the app on the TV, the phone remote and Spotify" icon="edit" onSelect={() => void rename()} />
               <Row label="Hub" value={`${appName()} ${status()?.version ?? ""}${status()?.commit ? ` · ${status()!.commit}` : ""}${status()?.builtAt ? ` · ${shortDate(status()!.builtAt!)}` : ""}${status()?.demo ? " · demo mode" : ""}`} />
               <Row label="Update the Hub" value={hubState()} hint={hubChanges() || "Checks GitHub for the latest code"} icon="download" onSelect={() => void updateHub()} />
+              <Row label="Hub backup" value={backupState()} hint={backupHint()} icon="download" onSelect={() => void backupNow()} />
               <Row label="Box" value={box() ? `${box()!.hostname ?? box()!.kind} · ${box()!.version}` : ""} />
               <Show when={box()?.kind === "box" && !agentHas("software")}>
                 <Row label="Box software" value="Needs a one-off update" hint="This box's software is too old to update itself from here. Over SSH, run: cd /opt/ultimatetv && sudo git pull && sudo bash tools/box/install.sh" />

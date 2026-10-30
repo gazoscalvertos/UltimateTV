@@ -23,6 +23,11 @@ services:
     environment:
       TZ: ${TZ:-Europe/London}
       HTTPS_PUBLIC_PORT: ${HUB_HTTPS_PORT:-8096}
+      # The nightly backup (docs/backup.md): BACKUP=off turns it off.
+      BACKUP: ${BACKUP:-on}
+      BACKUP_DIR: ${BACKUP_DIR:-}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      BACKUP_TIME: ${BACKUP_TIME:-03:30}
     volumes:
       - hub-data:/data
       # Phase 0 test clips. Kept out of the Jellyfin library so they don't show up there.

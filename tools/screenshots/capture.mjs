@@ -43,7 +43,7 @@ const GHOST_PICTURE = `<body style="margin:0;background:transparent"><svg xmlns=
 async function startHub() {
   const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-shots-"));
   const hub = spawn(process.execPath, [path.join(root, "hub/dist/index.js")], {
-    env: { ...process.env, DEMO: "1", PORT: String(port), HOST: "127.0.0.1", DATA_DIR: path.join(tmp, "data"), CLIPS_DIR: path.join(tmp, "clips"), MEDIA_ROOT: path.join(tmp, "media") },
+    env: { ...process.env, DEMO: "1", PORT: String(port), HOST: "127.0.0.1", DATA_DIR: path.join(tmp, "data"), CLIPS_DIR: path.join(tmp, "clips"), MEDIA_ROOT: path.join(tmp, "media"), BACKUP_DIR: path.join(tmp, "nas-backups") },
     stdio: ["ignore", "ignore", "inherit"],
   });
   for (let i = 0; i < 100; i++) {
@@ -580,6 +580,11 @@ try {
     await wait(1500);
     await shot(name);
   }
+  // The Hub's nightly backup in Settings › About, after a couple of backups.
+  for (let i = 0; i < 2; i++) await fetch(`${base}/api/backup`, { method: "POST", headers: asTv });
+  await page.locator(".settings-nav-item", { hasText: "About" }).first().focus();
+  await wait(1500);
+  await shot("97-settings-backup");
   await page.goto(`${base}/app/`);
   await wait(1500);
 
@@ -772,6 +777,8 @@ try {
   console.log("  23-phone-setup.png");
   await phone.locator("#apps").screenshot({ path: path.join(out, "64-phone-android-apps.png") });
   console.log("  64-phone-android-apps.png");
+  await phone.locator("#backup").screenshot({ path: path.join(out, "98-phone-backup.png") });
+  console.log("  98-phone-backup.png");
   // Guide lists, custom guides and channels on the phone settings page.
   await phone.goto(`${base}/setup/#lists`);
   await phone.waitForTimeout(1500);

@@ -15,6 +15,14 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **Hub backup and the box without the Hub** ([docs/backup.md](docs/backup.md)): every night at
+  03:30 the Hub copies its database and clips to `/mnt/nas/.ultimatetv-backups` and keeps the last
+  14; `update.sh` takes one before each update. Settings › About on the TV and ⚙ Settings on the
+  phone show how the last one went, with Back up now; the phone can restore one, and so can
+  `tools/hub/restore.sh` on the server. Alerts say when a backup fails or none has worked for two
+  nights. When the Hub is down the box shows its own screen instead of a blank one: the time, what's
+  wrong, downloads on the box (Kids only see theirs), games and AirPlay, and it goes back to the TV
+  app when the Hub answers. Update the Hub and the box.
 - **Android client 0.2.1: Hub setup page opens straight away.** Settings › Hub setup page in the
   Android app used to land on "Pair with your TV", because Chrome doesn't share the app's key. The
   app now asks the Hub for a one-time code (`POST /api/pair/handoff`) and opens

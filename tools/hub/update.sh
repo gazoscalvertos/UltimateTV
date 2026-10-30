@@ -21,6 +21,10 @@ BUILD_DATE="$(git log -1 --format=%cI)"
 export GIT_COMMIT BUILD_DATE
 [ "$before" = "$GIT_COMMIT" ] && echo "Already on $GIT_COMMIT; rebuilding anyway." || echo "Updating $before -> $GIT_COMMIT"
 
+# A copy of the Hub's data before the new code touches it (hub/src/backup.ts). The Hub keeps the
+# last 14; tools/hub/restore.sh puts one back.
+docker compose exec -T hub node hub/dist/backup-now.js 2> /dev/null || echo "Couldn't back the Hub up first (it isn't running, or is too old to); carrying on." >&2
+
 docker compose up -d --build
 
 # The phone's "Update the Hub" button: a path unit watches for the Hub's request file and runs this
