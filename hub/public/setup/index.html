@@ -130,7 +130,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -193,6 +193,11 @@
     <label class="opt"><span>Subtitles<small>Turn on automatically when available</small></span><input type="checkbox" data-pb="subtitlesByDefault"></label>
     <label class="opt"><span>Audio language</span><select data-pb="preferredAudioLang"></select></label>
     <label class="opt"><span>Subtitle language</span><select data-pb="preferredSubtitleLang"></select></label>
+    <label class="opt"><span>Subtitle size</span><select data-sub="size"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option><option value="huge">Huge</option></select></label>
+    <label class="opt"><span>Subtitle background<small>A dark box is easiest to read over bright scenes</small></span><select data-sub="background"><option value="outline">Outline</option><option value="box">Dark box</option></select></label>
+    <label class="opt"><span>Subtitle colour</span><select data-sub="colour"><option value="white">White</option><option value="yellow">Yellow</option></select></label>
+    <label class="opt"><span>Subtitle position</span><select data-sub="position"><option value="bottom">Bottom</option><option value="raised">Raised</option></select></label>
+    <label class="opt"><span>TV apps button<small>How the box hands the screen to the TV's own apps. Try another if the TV stays on this app</small></span><select data-pb="tvAppsMethod"><option value="both">Step down, then Home</option><option value="inactive">Step down only</option><option value="home">Press Home only</option></select></label>
     <label class="opt"><span>Play the next episode automatically</span><input type="checkbox" data-pb="autoplayNext"></label>
     <label class="opt"><span>When the TV turns on</span><select data-pb="startOn"><option value="home">Home</option><option value="live">Live TV</option></select></label>
     <label class="opt"><span>Largest file to stream<small>Bigger versions are moved down the list</small></span><select data-pb="maxSizeGb" data-number><option value="20">20 GB</option><option value="40">40 GB</option><option value="60">60 GB</option><option value="100">100 GB</option></select></label>
@@ -384,6 +389,18 @@
       <label>AIOStreams (or any Stremio addon) addresses, one per line (the manifest or configure link both work)</label><textarea name="addons" placeholder="https://…/manifest.json"></textarea>
       <ul class="list" id="addon-list"></ul>
       <label>TorBox API key <span class="pill" id="torbox-pill">Not set</span></label><input name="torbox" placeholder="Leave blank to keep the current key" autocomplete="off">
+      <button>Save</button>
+    </form>
+  </section>
+
+  <section id="extras">
+    <h2>Scores and subtitles</h2>
+    <p class="hint">OMDb adds IMDb, Rotten Tomatoes and Metacritic scores to each film's page (a free key from omdbapi.com). OpenSubtitles finds subtitles a film doesn't come with: make a free account at opensubtitles.com, then add an API consumer under your profile for the key. Without the login it's 5 downloads a day; with it, 20.</p>
+    <form id="extras-form">
+      <label>OMDb API key <span class="pill" id="omdb-pill">Not set</span></label><input name="omdb" placeholder="Leave blank to keep the current key" autocomplete="off">
+      <label>OpenSubtitles API key <span class="pill" id="os-pill">Not set</span></label><input name="osKey" placeholder="Leave blank to keep the current key" autocomplete="off">
+      <label>OpenSubtitles username (optional)</label><input name="osUser" autocomplete="off">
+      <label>OpenSubtitles password</label><input name="osPass" type="password" placeholder="Leave blank to keep the current one" autocomplete="off">
       <button>Save</button>
     </form>
   </section>
@@ -703,6 +720,15 @@ for (const el of document.querySelectorAll("[data-pb], [data-rec], [data-ss]")) 
       const saved = await api("/api/settings", { method: "PUT", body });
       toast("Saved");
       if (el.dataset.ss) loadScreensaver(saved).catch(() => {});
+    } catch (err) { toast(err.message, true); load().catch(() => {}); }
+  });
+}
+
+for (const el of document.querySelectorAll("[data-sub]")) {
+  el.addEventListener("change", async () => {
+    try {
+      await api("/api/settings", { method: "PUT", body: { playback: { subtitleStyle: { [el.dataset.sub]: el.value } } } });
+      toast("Saved");
     } catch (err) { toast(err.message, true); load().catch(() => {}); }
   });
 }
@@ -1097,10 +1123,11 @@ async function load() {
   if (s.jellyfin) $("#jf-form").url.value = s.jellyfin.url;
   $("#jf-disconnect").hidden = !s.jellyfin;
   for (const el of document.querySelectorAll("[data-pb]")) setValue(el, s.playback[el.dataset.pb]);
+  for (const el of document.querySelectorAll("[data-sub]")) if (s.playback.subtitleStyle) setValue(el, s.playback.subtitleStyle[el.dataset.sub]);
   for (const el of document.querySelectorAll("[data-rec]")) setValue(el, s.recording[el.dataset.rec]);
   if (s.screensaver) loadScreensaver(s).catch(() => {});
   loadWeather().catch(() => {});
-  for (const [id, on] of [["#tmdb-pill", s.tmdb], ["#torbox-pill", s.torbox]]) { $(id).textContent = on ? "Set" : "Not set"; $(id).className = "pill" + (on ? " ok" : ""); }
+  for (const [id, on] of [["#tmdb-pill", s.tmdb], ["#torbox-pill", s.torbox], ["#omdb-pill", s.omdb], ["#os-pill", s.openSubtitles?.configured]]) { $(id).textContent = on ? "Set" : "Not set"; $(id).className = "pill" + (on ? " ok" : ""); }
   $("#addon-list").innerHTML = s.addons.map((a) => `<li><span>${a.name}<small>${a.url}</small></span></li>`).join("");
   const lib = $("#lib-form");
   for (const k of ["moviesPath", "tvPath", "recordingsPath", "inboxPath"]) lib[k].value = s.library[k];
@@ -1197,6 +1224,13 @@ $("#vod-form").onsubmit = async (e) => {
   if (f.tmdb.value.trim()) body.tmdbApiKey = f.tmdb.value.trim();
   if (f.torbox.value.trim()) body.torboxApiKey = f.torbox.value.trim();
   if (f.addons.value.trim()) body.addonUrls = f.addons.value.split(/\s+/).filter(Boolean);
+  try { await api("/api/settings", { method: "PUT", body }); f.reset(); toast("Saved."); load(); } catch (err) { toast(err.message, true); }
+};
+
+$("#extras-form").onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target; const body = {};
+  if (f.omdb.value.trim()) body.omdbApiKey = f.omdb.value.trim();
+  if (f.osKey.value.trim() || f.osUser.value.trim() || f.osPass.value) body.openSubtitles = { apiKey: f.osKey.value.trim(), ...(f.osUser.value.trim() ? { username: f.osUser.value.trim() } : {}), ...(f.osPass.value ? { password: f.osPass.value } : {}) };
   try { await api("/api/settings", { method: "PUT", body }); f.reset(); toast("Saved."); load(); } catch (err) { toast(err.message, true); }
 };
 

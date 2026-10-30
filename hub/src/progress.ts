@@ -41,6 +41,14 @@ export class ProgressStore {
     return next;
   }
 
+  /** The latest things played that have a title, watched or not, newest first ("Because you watched"). */
+  recent(limit = 5): ProgressEntry[] {
+    return this.db
+      .json<ProgressEntry>("SELECT data FROM progress WHERE position_ms > 300000 OR watched = 1 ORDER BY updated_at DESC LIMIT ?", limit * 4)
+      .filter((p) => p.title && !p.key.startsWith("link:") && !p.key.startsWith("recording:"))
+      .slice(0, limit);
+  }
+
   /** Part-watched items with a title, newest first, for Continue Watching. */
   continueWatching(limit = 20): ProgressEntry[] {
     return this.db

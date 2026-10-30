@@ -29,6 +29,10 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 - Discovery titles only show when an addon can play them.
 - Home: a hero, your play queue, live now, continue watching, recently recorded, films on TV tonight, trending and recently added.
 - Player: seek bar, skip intro, audio and subtitle tracks (Yellow), resume and Start again, Up Next with a countdown.
+- **Trailers and review scores** ([watching-extras.md](watching-extras.md)): a Trailer button (TMDB's official trailer, played by mpv through yt-dlp) and TMDB, IMDb, Rotten Tomatoes and Metacritic scores (OMDb key) on every film and series page.
+- **More like this** under each title and a **Because you watched** rail on Home, from TMDB's recommendations, kept to what a source can play and what the profile may see.
+- **Subtitles** ([watching-extras.md](watching-extras.md)): on, off or only for other languages per profile; missing ones fetched from OpenSubtitles by themselves or picked from Options › Find more online; size, a dark box, yellow and a raised position for an 85" screen.
+- **TV apps** ([watching-extras.md](watching-extras.md)): a button along the top (and on the phone's Cast sheet) hands the screen to the Hisense's own Home over HDMI-CEC for Netflix, Prime Video and Disney+; Input on the TV remote comes back.
 - A starting card shows what playback is waiting on and how fast it's arriving, and says when TorBox is still fetching (the box waits up to 5 minutes). A version that fails says so and offers another.
 - **Play queue**: line up films, episodes and recordings from the TV or the phone; the queue plays before the next episode and survives restarts.
 - **Save to NAS**: TorBox/AIOStreams titles download to the NAS with Jellyfin naming and are announced to Jellyfin. Files dropped in the Inbox share are tidied too. Save from Versions (Red saves that exact version), the player (Options › Keep a copy) or the phone, for films, episodes and whole series ([save-to-nas.md](save-to-nas.md)).
@@ -94,7 +98,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 
 ## Running and looking after it
 
-- **Setup page** at `/setup/` for IPTV, Jellyfin, AIOStreams, TorBox and every TV setting.
+- **Setup page** at `/setup/` for IPTV, Jellyfin, AIOStreams, TorBox, OMDb, OpenSubtitles and every TV setting.
 - **Updates** **(tested)**: the Hub lists what's new on GitHub since the code it runs, and updates with `tools/hub/update.sh` or from the phone (with the helper installed). The box updates weekly at 4 am after a btrfs snapshot, or from Settings › About or the phone. Both show the commit they run.
 - **Box install** **(tested** over PXE on the GMKtec K7 Plus**)**: one script on Arch (Debian 13 as a fallback), or an unattended network install from the PXE server ([box-install.md](box-install.md), [pxe.md](pxe.md)).
 - **Diagnostics** ([diagnostics.md](diagnostics.md)) **(tested)**: the box sends its log, a playback sample every 10 seconds and the screen's details to the Hub; read them at `/api/diagnostics?format=text`, with rolling 50 MB logs. Logins and keys are cut from addresses.

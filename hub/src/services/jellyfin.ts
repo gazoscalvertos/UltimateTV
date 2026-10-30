@@ -190,6 +190,11 @@ export class JellyfinClient {
     return itemId ? this.item(itemId) : undefined;
   }
 
+  /** Whether the library has a title, without fetching it. */
+  async hasProviderId(provider: "tmdb" | "imdb" | "tvdb", id: string, type: "Movie" | "Series"): Promise<boolean> {
+    return (await this.providerIds()).has(`${type}|${provider}|${id.toLowerCase()}`);
+  }
+
   private providerIds(): Promise<Map<string, string>> {
     if (this.providerIndex && Date.now() - this.providerIndex.at < 10 * 60_000) return this.providerIndex.map;
     const map = (async () => {

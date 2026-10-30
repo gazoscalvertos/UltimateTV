@@ -15,12 +15,20 @@ the commit they were built from in Settings › About, so you can tell exactly w
 
 ## Unreleased
 
+- **TV apps, trailers, scores and subtitles** ([docs/watching-extras.md](docs/watching-extras.md)):
+  a **TV apps** button along the top (and on the phone's Cast sheet) hands the screen to the TV's
+  own Home over HDMI-CEC for Netflix, Prime Video and Disney+; Input on the TV remote comes back.
+  Film and series pages get a **Trailer** button, **review scores** (TMDB, plus IMDb, Rotten
+  Tomatoes and Metacritic with a free OMDb key) and a **More like this** row; Home gets **Because
+  you watched**. **Subtitles** can be on, off or only for other languages per profile, come from
+  **OpenSubtitles** when a film has none (by themselves, or Options › Find more online), and can be
+  bigger, boxed, yellow or raised. Add the OMDb and OpenSubtitles keys on the setup page (Scores and
+  subtitles), then update the box too: the TV apps button and fetched subtitles need the new shell.
 - **Weather** ([docs/weather.md](docs/weather.md)): today's weather on Home ("Rain from 4pm"), the
   temperature next to the clock, a forecast page with the next hours and the week, and the weather
   under the screensaver's clock. Set your town or postcode in Settings › Weather on the TV or the
   phone; the forecast is Open-Meteo's (free, no key). "What's the weather like" by voice, and Watch ›
   Weather on the phone remote.
-
 - **Hub backup and the box without the Hub** ([docs/backup.md](docs/backup.md)): every night at
   03:30 the Hub copies its database and clips to `/mnt/nas/.ultimatetv-backups` and keeps the last
   14; `update.sh` takes one before each update. Settings › About on the TV and ⚙ Settings on the

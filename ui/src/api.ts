@@ -1,5 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
+import type { SubtitleResult, TitleExtras } from "@ultimatetv/shared";
 import type { AdSkipSettings, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -94,6 +95,9 @@ export const hub = {
   home: () => api<HomeScreen>("/api/home"),
   browse: (kind: "movie" | "series") => api<{ rails: Rail[] }>(`/api/browse/${kind}`),
   title: (id: string) => api<TitleDetails>(`/api/titles/${enc(id)}`),
+  extras: (id: string) => api<TitleExtras>(`/api/titles/${enc(id)}/extras`),
+  subtitleSearch: (titleId: string, episodeId?: string, lang?: string) => api<{ configured: boolean; results: SubtitleResult[]; note?: string }>(`/api/subtitles${q({ titleId, episodeId, lang })}`),
+  subtitleDownload: (r: { fileId: number; lang: string; label: string }) => api<{ url: string; lang: string; label: string }>("/api/subtitles/download", { method: "POST", body: r }),
   season: (id: string, n: number) => api<Season>(`/api/titles/${enc(id)}/season/${n}`),
   streams: (id: string, episode?: string) => api<{ streams: StreamRow[] }>(`/api/titles/${enc(id)}/streams${q({ episode })}`),
   search: (text: string) => api<{ results: SearchResult[] }>(`/api/search${q({ q: text })}`),

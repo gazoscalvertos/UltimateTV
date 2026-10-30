@@ -21,6 +21,7 @@ import { queue } from "../queue";
 import { canSave, saveToNas } from "../save";
 import { errorToast, nav, now, openDialog, setShowStats, showStats, toast } from "../store";
 import { openSleepMenu, sleep } from "../sleep";
+import { canFindSubtitles, findSubtitles } from "../subtitles";
 
 interface UpNext {
   req: PlaybackRequest;
@@ -296,6 +297,11 @@ export function Player() {
                 </button>
               )}
             </For>
+            <Show when={canFindSubtitles()}>
+              <button class="option" data-focus onClick={() => (close(), void findSubtitles())}>
+                <Icon name="search" /> Find more online
+              </button>
+            </Show>
           </div>
           <h4>
             <Icon name="moon" /> Night mode

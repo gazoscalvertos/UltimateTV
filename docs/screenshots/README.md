@@ -65,3 +65,7 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 98, 99 | The forecast: now, the next 12 hours and the week; and a day ahead with its hours |
 | 100 | Settings › Weather |
 | 101, 102 | The weather on the phone remote's Watch tab, and where it's set on the phone's settings page |
+| 103, 104 | Hub backup in Settings › About, and on the phone |
+| 105 | More like this at the bottom of a film's page (10 shows its scores and Trailer button) |
+| 106 | TV apps without the CEC adapter: which buttons on the TV remote to press |
+| 107 | Settings › Picture and sound: subtitles, their size, background, colour and position, and the TV apps button |

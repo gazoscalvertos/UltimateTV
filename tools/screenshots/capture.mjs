@@ -519,6 +519,24 @@ try {
   await key("F1");
   await wait(300);
   await shot("73-details-save-for-later");
+  // More like this, at the bottom of the same page.
+  await page.locator(".details .rail .card").first().focus();
+  await wait(1200);
+  await shot("105-more-like-this");
+  // TV apps: in a browser there's no CEC, so it says which button on the TV remote to press.
+  await page.goto(`${base}/app/?demo-cast`);
+  await wait(1500);
+  await page.locator(".tab-apps").first().focus();
+  await key("Enter");
+  await wait(600);
+  await shot("106-tv-apps");
+  await key("Escape");
+  // The subtitle rows in Settings › Picture and sound.
+  await tab("Settings");
+  await wait(1200);
+  await key("ArrowDown");
+  await wait(1000);
+  await shot("107-settings-subtitles");
   await page.goto(`${base}/app/?demo-cast`);
   await wait(1500);
   await key("F4");

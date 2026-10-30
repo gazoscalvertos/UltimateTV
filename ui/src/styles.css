@@ -295,6 +295,10 @@ kbd.key-blue {
   width: 1.6rem;
   height: 1.6rem;
 }
+.tab-apps .icon {
+  width: 1.3rem;
+  height: 1.3rem;
+}
 .topbar-right {
   display: flex;
   align-items: center;
@@ -837,6 +841,38 @@ kbd.key-blue {
   width: 1.2rem;
   height: 1.2rem;
   fill: var(--amber);
+}
+.details-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+}
+.score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 0.5rem;
+  background: rgb(var(--panel-rgb) / 0.75);
+  border-left: 0.3rem solid var(--tone, var(--muted));
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+.score b {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--muted);
+}
+.score-good {
+  --tone: var(--good);
+}
+.score-mid {
+  --tone: var(--amber);
+}
+.score-low {
+  --tone: var(--bad);
 }
 .details-badges {
   display: flex;

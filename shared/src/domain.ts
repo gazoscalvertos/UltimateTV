@@ -1,7 +1,7 @@
 // Domain model shared by the Hub, the TV UI and the box shell.
 // Times are epoch milliseconds (UTC) everywhere; the UI formats them in local time.
 
-import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState } from "./agent.js";
+import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState, SubtitleMode, SubtitleStyle, TvAppsMethod } from "./agent.js";
 import type { SpotifyState, WebAppState } from "./music.js";
 import type { ScreensaverSettings } from "./screensaver.js";
 import type { CastLink, ShareOffer } from "./cast.js";
@@ -281,6 +281,47 @@ export interface TitleDetails extends TitleRef {
   resumeMs?: number;
 }
 
+/** A review score for the details page: TMDB's own, and IMDb, Rotten Tomatoes and Metacritic from OMDb. */
+export interface TitleScore {
+  source: "tmdb" | "imdb" | "rotten-tomatoes" | "metacritic";
+  /** "TMDB", "IMDb", "Rotten Tomatoes", "Metacritic". */
+  label: string;
+  /** As shown: "7.9", "87%", "76". */
+  value: string;
+  /** The score out of 100, for its colour. */
+  pct: number;
+}
+
+/** A trailer to play (a YouTube page: mpv on the box plays it with yt-dlp), or the demo's own clip. */
+export interface Trailer {
+  name: string;
+  url: string;
+}
+
+/** What the details page fetches after the title itself: slower lookups that may fail on their own. */
+export interface TitleExtras {
+  trailer?: Trailer;
+  scores: TitleScore[];
+  /** "More like this": TMDB's recommendations, kept to what a source can play (and the profile may see). */
+  similar: TitleRef[];
+}
+
+/** A subtitle file OpenSubtitles has for a film or episode. */
+export interface SubtitleResult {
+  fileId: number;
+  /** OpenSubtitles' language code ("en", "pt-PT"). */
+  lang: string;
+  /** The release it was timed to ("Heat.1995.2160p.UHD.BluRay…"). */
+  release: string;
+  downloads: number;
+  /** Describes sounds as well as speech (SDH). */
+  hearingImpaired: boolean;
+  /** Machine or AI translated: listed last. */
+  machine: boolean;
+  /** From an uploader OpenSubtitles trusts. */
+  trusted?: boolean;
+}
+
 export interface Rail {
   id: string;
   title: string;
@@ -439,6 +480,8 @@ export interface Profile {
   allowedChannels: Id[];
   /** The channel list the guide opens on: a GuideChoice id ("" or missing = all channels). */
   defaultGuide?: string;
+  /** When subtitles come on for this profile; missing follows Settings › Picture and sound. */
+  subtitles?: SubtitleMode;
 }
 
 // ---------------------------------------------------------------------------
@@ -495,6 +538,10 @@ export interface Settings {
   xmltvUrls: string[];
   jellyfin?: { url: string; userId: string; token: string; serverName?: string };
   tmdbApiKey?: string;
+  /** OMDb (omdbapi.com, free) for IMDb, Rotten Tomatoes and Metacritic scores. */
+  omdbApiKey?: string;
+  /** OpenSubtitles (opensubtitles.com) for subtitles a film doesn't come with. The login lifts the daily limit. */
+  openSubtitles?: { apiKey: string; username?: string; password?: string };
   addonUrls: string[];
   torboxApiKey?: string;
   library: {
@@ -519,6 +566,10 @@ export interface Settings {
     avoidDvProfile5: boolean;
     autoplayNext: boolean;
     startOn: "home" | "live";
+    /** How the TV apps button hands the screen back to the TV (see TvAppsMethod). */
+    tvAppsMethod: TvAppsMethod;
+    /** How subtitles look on the TV, for everyone. Whether they come on is per profile. */
+    subtitleStyle: SubtitleStyle;
   };
   numbering: "uk" | "provider";
   /** Regular expression on the provider's group/category names; channels outside it are hidden. Empty = show all. */
@@ -538,6 +589,9 @@ export interface PublicSettings {
   xmltvCount: number;
   jellyfin?: { url: string; serverName?: string };
   tmdb: boolean;
+  omdb: boolean;
+  /** OpenSubtitles is set up (and signed in, which allows more downloads a day). */
+  openSubtitles: { configured: boolean; signedIn: boolean };
   addons: { url: string; name: string }[];
   torbox: boolean;
   recording: Settings["recording"];
@@ -714,7 +768,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay";
+export type TvMethod = "now" | "play" | "seek" | "track" | "tvApps" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {

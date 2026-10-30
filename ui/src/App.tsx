@@ -263,8 +263,9 @@ export function App() {
           <Match when={(() => { const r = nav.current(); return r.name === "browse" ? r : null; })()}>
             {(r) => <Browse kind={r().kind} />}
           </Match>
-          <Match when={(() => { const r = nav.current(); return r.name === "details" ? r : null; })()}>
-            {(r) => <Details id={r().id} />}
+          {/* Keyed: More like this opens another title's page, which starts afresh (season, focus). */}
+          <Match when={(() => { const r = nav.current(); return r.name === "details" ? r : null; })()} keyed>
+            {(r) => <Details id={r.id} />}
           </Match>
           <Match when={nav.current().name === "search"}>
             <Search />

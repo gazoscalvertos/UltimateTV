@@ -2,8 +2,8 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { Certification, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
-import { CERTIFICATIONS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES } from "@ultimatetv/shared";
+import type { Certification, SubtitleMode, SubtitleStyle, TvAppsMethod, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
+import { CERTIFICATIONS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, TV_APPS_METHODS, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -34,6 +34,9 @@ const whenAgo = (at: number) => {
   return days === 0 ? `Today ${time}` : days === 1 ? `Yesterday ${time}` : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
 };
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const SUB_LABELS: Record<SubtitleStyle["size"], string> = { small: "Small", medium: "Medium", large: "Large", huge: "Huge" };
+const MODE_LABELS: Record<SubtitleMode, string> = { off: "Off", on: "On", foreign: "Only for other languages" };
+const TV_APPS_LABELS: Record<TvAppsMethod, string> = { both: "Step down, then Home", inactive: "Step down only", home: "Press Home only" };
 const cycle = <T,>(list: readonly T[], value: T): T => list[(list.indexOf(value) + 1) % list.length]!;
 
 export function Settings(props: { section?: string }) {
@@ -314,6 +317,13 @@ export function Settings(props: { section?: string }) {
     }
   };
   const playback = () => settings()!.playback;
+  const subStyle = () => playback().subtitleStyle ?? DEFAULT_SUBTITLE_STYLE;
+  // Changed while something plays, the subtitles on screen change too.
+  const saveSubStyle = async (patch: Partial<SubtitleStyle>) => {
+    const style = { ...subStyle(), ...patch };
+    await save({ playback: { ...playback(), subtitleStyle: style } });
+    if (agentHas("setSubtitleStyle")) await agent.setSubtitleStyle(style).catch(() => undefined);
+  };
 
   // Dimming and the screensaver.
   const saver = () => settings()!.screensaver;
@@ -399,6 +409,7 @@ export function Settings(props: { section?: string }) {
       options: [
         { label: "Rename", value: "rename", icon: "list" },
         ...(p.kind === "kids" ? [{ label: `Ratings allowed: up to ${p.maxCertification}`, value: "cert", icon: "lock" }] : []),
+        { label: `Subtitles: ${p.subtitles ? MODE_LABELS[p.subtitles] : `as the household (${settings()?.playback.subtitlesByDefault ? "on" : "off"})`}`, value: "subtitles", icon: "subtitles" },
         { label: p.hasPin ? "Change PIN" : "Set a PIN", value: "pin", icon: "lock" },
         ...(p.hasPin ? [{ label: "Remove PIN", value: "nopin" }] : []),
         { label: "Delete profile", value: "delete", icon: "trash", tone: "danger" as const },
@@ -412,6 +423,19 @@ export function Settings(props: { section?: string }) {
       if (pick === "cert") {
         const cert = await choose<Certification>({ title: "Highest rating allowed", options: CERTIFICATIONS.filter((c) => c !== "18").map((c) => ({ label: c === "12A" ? "12A" : c, value: c })) });
         if (cert) await hub.updateProfile(p.id, { maxCertification: cert });
+      }
+      if (pick === "subtitles") {
+        const mode = await choose<SubtitleMode | "household">({
+          title: `Subtitles for ${p.name}`,
+          message: "Films without subtitles get some from OpenSubtitles when it's set up.",
+          options: [
+            { label: "On", value: "on", detail: "Whenever there are any" },
+            { label: "Only for other languages", value: "foreign", detail: "When the speech isn't in English, and for signs and short foreign bits" },
+            { label: "Off", value: "off" },
+            { label: "As the household", value: "household", detail: "Settings › Picture and sound" },
+          ],
+        });
+        if (mode) await hub.updateProfile(p.id, { subtitles: mode === "household" ? null : mode } as Partial<Profile>);
       }
       if (pick === "pin") await pinFor(p);
       if (pick === "nopin" && (await confirm("Remove the PIN?", "Anyone will be able to use this profile.", "Remove PIN", true))) await hub.updateProfile(p.id, { pin: null });
@@ -506,11 +530,24 @@ export function Settings(props: { section?: string }) {
             <Show when={section() === "playback"}>
               <h2>Picture and sound</h2>
               <p class="hint">The box switches the TV to each film's frame rate and sends HDR, and passes Dolby Digital Plus (with Atmos) straight to the TV's speakers.</p>
-              <Row label="Subtitles" hint="Turn on automatically when available" value={playback().subtitlesByDefault ? "On" : "Off"} onSelect={() => void save({ playback: { ...playback(), subtitlesByDefault: !playback().subtitlesByDefault } })} />
+              <Row label="Subtitles" hint="Turn on automatically when available, for profiles that haven't chosen (Profiles › a profile › Subtitles)" value={playback().subtitlesByDefault ? "On" : "Off"} onSelect={() => void save({ playback: { ...playback(), subtitlesByDefault: !playback().subtitlesByDefault } })} />
+              <Row label="Subtitle size" hint="Large reads best across the room on a big screen" value={SUB_LABELS[subStyle().size]} onSelect={() => void saveSubStyle({ size: cycle(["small", "medium", "large", "huge"] as const, subStyle().size) })} />
+              <Row label="Subtitle background" hint="A dark box behind the words is easiest to read over snow and bright skies" value={subStyle().background === "box" ? "Dark box" : "Outline"} onSelect={() => void saveSubStyle({ background: subStyle().background === "box" ? "outline" : "box" })} />
+              <Row label="Subtitle colour" value={subStyle().colour === "yellow" ? "Yellow" : "White"} onSelect={() => void saveSubStyle({ colour: subStyle().colour === "yellow" ? "white" : "yellow" })} />
+              <Row label="Subtitle position" hint="Raised keeps them clear of the bottom of the picture" value={subStyle().position === "raised" ? "Raised" : "Bottom"} onSelect={() => void saveSubStyle({ position: subStyle().position === "raised" ? "bottom" : "raised" })} />
+              <Show when={!settings()!.openSubtitles?.configured}>
+                <Row label="Subtitles from OpenSubtitles" hint="For films that come without any: add a free key on the phone's setup page (Scores and subtitles)" value="Not set up" />
+              </Show>
               <Row label="Audio language" value={playback().preferredAudioLang.toUpperCase()} onSelect={() => void save({ playback: { ...playback(), preferredAudioLang: cycle(["eng", "spa", "fra", "deu", "ita", "pol"], playback().preferredAudioLang) } })} />
               <Row label="Play the next episode automatically" value={playback().autoplayNext ? "On" : "Off"} onSelect={() => void save({ playback: { ...playback(), autoplayNext: !playback().autoplayNext } })} />
               <Row label="When the TV turns on" value={playback().startOn === "live" ? "Live TV" : "Home"} onSelect={() => void save({ playback: { ...playback(), startOn: playback().startOn === "live" ? "home" : "live" } })} />
               <Row label="Playback stats" hint="Show the stream, picture and sound details over the video. The blue button turns them on and off while watching" value={showStats() ? "On" : "Off"} onSelect={() => setShowStats(!showStats())} />
+              <Row
+                label="TV apps button"
+                hint="How the box hands the screen to the TV's own apps over HDMI-CEC. Try another if the TV stays on this app"
+                value={TV_APPS_LABELS[playback().tvAppsMethod ?? "both"]}
+                onSelect={() => void save({ playback: { ...playback(), tvAppsMethod: cycle(TV_APPS_METHODS, playback().tvAppsMethod ?? "both") } })}
+              />
               <Row label="Largest file to stream" hint="Bigger versions are moved down the list" value={`${playback().maxSizeGb} GB`} onSelect={() => void save({ playback: { ...playback(), maxSizeGb: cycle([20, 40, 60, 100], playback().maxSizeGb) } })} />
             </Show>
 

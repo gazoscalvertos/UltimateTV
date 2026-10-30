@@ -15,7 +15,7 @@ Gary asked for the whole app to be built before testing on the real hardware, so
 | 3. Unified films and TV | Built. Jellyfin playback has run on the box. |
 | 4. AIOStreams, TorBox, NAS pipeline, phone remote | Built. The phone remote is in daily use; TorBox and Save to NAS are untested. |
 | 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates, nightly Hub backup, a screen for when the Hub is down). Automatic rollback and the WAF test remain. |
-| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, button hints and help, sleep timer, alerts, Save for later, advert skip, seasonal clips, projected clip packs, weather: built, mostly untested. |
+| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, button hints and help, sleep timer, alerts, Save for later, advert skip, seasonal clips, projected clip packs, weather, TV apps, trailers and scores, More like this, OpenSubtitles: built, mostly untested. |
 
 ## Tested or untested, feature by feature
 
@@ -55,6 +55,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Seasonal clips, projected clip packs, community list | #60, #61 | Untested |
 | Nightly Hub backup, box screen when the Hub is down | #63 | Untested |
 | Weather | #64 | Untested |
+| TV apps button, trailers and scores, More like this, OpenSubtitles | #65 | Untested (TV apps needs the Pulse-Eight) |
 
 ### What has run on real hardware
 
@@ -74,7 +75,7 @@ First bring the box and the Hub up to date: run `tools/hub/update.sh`, then reru
 
 - **The Hisense itself:** 4K HDR10 switching, HLG, 24p and 50 Hz matching, scale ×1, and how the UI looks over HDR video.
 - **Sound:** Dolby Digital Plus / Atmos and DTS reaching the TV speakers.
-- **The TV remote:** waits for the Pulse-Eight USB-CEC adapter (the box has no HDMI-CEC of its own). Check every key, TV off stopping playback, and TV on switching to the box.
+- **The TV remote:** waits for the Pulse-Eight USB-CEC adapter (the box has no HDMI-CEC of its own). Check every key, TV off stopping playback, TV on switching to the box, and the TV apps button reaching the Hisense's Home.
 - **Boot time:** under 15 seconds to Who's watching.
 - **IPTV:** live TV, pause live, the guide, catch-up (never tried with this provider) and sharing the one connection.
 - **Recording:** a week of series links without misses, clashes, recordings showing up in Jellyfin.
@@ -84,8 +85,8 @@ First bring the box and the Hub up to date: run `tools/hub/update.sh`, then reru
 - **Pop-ups from Home Assistant** (existing commands need the `X-Api-Key` header).
 - **Play queue, screensavers, Halloween and jump scares, Download to box, and a trip** with `travel.sh`.
 - **Cast and games:** AirPlay, a laptop's screen share (trust the Hub's certificate first), links from the phone, RetroArch, Moonlight, Steam Link and GeForce NOW. The sleep timer's CEC standby needs the Pulse-Eight.
+- **Trailers, scores and subtitles:** a trailer through yt-dlp on the box, OMDb scores, and OpenSubtitles files lining up with TorBox and IPTV copies.
 - **Weather:** the forecast reaching the Hub from Open-Meteo, and your postcode found.
-
 - **Hub backup and the Hub-down screen:** a backup lands on the NAS overnight, a restore from the phone, and the box's own screen when the Hub's container is stopped (`docker stop ultimatetv-hub`).
 - **Advert skip** on real UK recordings (comskip's settings may need tuning), and alerts reaching Home Assistant or ntfy.
 - **Themes, Save to NAS, projected clip packs:** the seasonal theme on its dates, a TorBox film saved and showing in Jellyfin, a starter pack over a 4K film (smooth on the N150?), and a pack sent from the phone.
