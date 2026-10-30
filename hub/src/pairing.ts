@@ -24,6 +24,8 @@ const CODE_MS = 10 * 60_000;
 const PENDING_MS = 15 * 60_000;
 /** Wrong codes in a row before the code on screen is thrown away. */
 const MAX_FAILURES = 8;
+/** How long an app's code for opening a Hub page in the phone's browser lasts. */
+const HANDOFF_MS = 2 * 60_000;
 /** How often a device's last-seen time is saved; it's only shown as "today" or a date. */
 const SEEN_SAVE_MS = 10 * 60_000;
 
@@ -54,6 +56,8 @@ export class Pairing {
   private seenSaved = new Map<string, number>();
   /** Last seen times newer than the saved ones. */
   private seen = new Map<string, { at: number; ip?: string }>();
+  /** One-time codes an Android app hands the phone's browser, by the app's device id. */
+  private handoffs = new Map<string, { deviceId: string; expiresAt: number }>();
 
   constructor(
     private readonly db: Db,
@@ -134,6 +138,29 @@ export class Pairing {
     }
     this.code = null;
     return this.add(cleanName(rawName, "Phone"), "phone", ip);
+  }
+
+  /**
+   * A one-time code a paired app passes to the phone's browser when it opens a Hub page there
+   * (the setup page), so the browser needn't pair again. The app's own key never leaves the app.
+   */
+  handoff(deviceId: string): string {
+    const now = this.now();
+    for (const [code, h] of this.handoffs) if (h.expiresAt <= now) this.handoffs.delete(code);
+    const code = newToken();
+    this.handoffs.set(code, { deviceId, expiresAt: now + HANDOFF_MS });
+    return code;
+  }
+
+  /** The browser swaps the code for a key of its own, named after the app that sent it. Works once. */
+  redeemHandoff(rawCode: unknown, ip?: string): { token: string; device: PairedDevice } | undefined {
+    const code = String(rawCode ?? "");
+    const h = this.handoffs.get(code);
+    this.handoffs.delete(code);
+    if (!h || h.expiresAt <= this.now()) return undefined;
+    const from = this.load().find((d) => d.id === h.deviceId);
+    if (!from) return undefined;
+    return this.add(cleanName(`${from.name.slice(0, 30)} (browser)`, "Browser"), "phone", ip);
   }
 
   /**
@@ -224,6 +251,7 @@ export class Pairing {
     this.save([]);
     this.db.setKv("api-key", "");
     this.pending.clear();
+    this.handoffs.clear();
     this.code = null;
   }
 
