@@ -44,6 +44,10 @@ class Prefs(context: Context) {
     var appName: String
         get() = sp.getString("appName", null) ?: "UltimateTV"
         set(v) = sp.edit().putString("appName", v).apply()
+    /** The newest change in What's new this phone has shown (CHANGELOG.md, via the Hub). */
+    var changesSeen: String?
+        get() = sp.getString("changesSeen", null)
+        set(v) = sp.edit().putString("changesSeen", v).apply()
     /** Downloads wait for Wi-Fi (on by default: a film is several gigabytes). */
     var wifiOnly: Boolean
         get() = sp.getBoolean("wifiOnly", true)
@@ -168,6 +172,8 @@ class Hub(private val prefs: Prefs) {
 
     suspend fun appName(): String? = (get<Map<String, Any?>>("/api/settings", 5000)["appName"] as? String)?.takeIf { it.isNotBlank() }
 
+    /** With `seen` (the newest entry shown last time, "" for none), also what's new since. */
+    suspend fun changelog(seen: String? = null): Changelog = get("/api/changelog" + (if (seen != null) "?seen=${enc(seen)}" else ""), 8000)
     suspend fun clientVersion(): AppVersion = get("/setup/client-app.json", 5000)
 
     /** Saves a small file (artwork, subtitles) for offline use. */

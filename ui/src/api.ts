@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { SubtitleResult, TitleExtras } from "@ultimatetv/shared";
+import type { Changelog, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
 import type { AdSkipSettings, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -163,6 +163,7 @@ export const hub = {
   refresh: () => api<{ ok: true }>("/api/refresh", { method: "POST" }),
   reportBox: (state: Omit<BoxState, "reportedAt">) => api<{ ok: true }>("/api/box/state", { method: "POST", body: state }),
   /** The Hub's own version, checked against GitHub's main. */
+  changelog: () => api<Changelog>("/api/changelog"),
   hubSoftware: () => api<{ hub: HubSoftware }>("/api/software?check=1").then((r) => r.hub),
   updateHub: () => api<{ ok: true }>("/api/software/hub/update", { method: "POST" }),
   /** The nightly backup of the Hub's data to the NAS. */

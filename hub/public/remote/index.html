@@ -69,6 +69,11 @@
   .banner { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent-2) 18%, transparent)); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); font-size: 14px; color: var(--fg); text-decoration: none; }
   .banner span { flex: 1; }
   .banner small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-all; }
+  #news-banner { margin-bottom: 8px; }
+  .changes { display: grid; gap: 10px; margin: 8px 0 14px; }
+  .change { padding: 10px 12px; border-radius: 12px; background: rgb(var(--hi) / .05); }
+  .change b { display: block; font-size: 15px; }
+  .change small { display: block; color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 3px; }
   .banner .x { flex: none; width: 30px; height: 30px; border-radius: 50%; background: rgb(var(--hi) / .08); font-size: 16px; }
   .heard { min-height: 1.3em; text-align: center; color: var(--muted); font-size: 13px; margin: -4px 0 0; }
   .heard b { color: var(--fg); font-weight: 600; }
@@ -243,7 +248,7 @@
     main { max-width: 980px; }
     #tab-remote { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; align-content: center; gap: 8px 22px; }
     #tab-remote[hidden] { display: none; }
-    #install, #app-banner, #heard { grid-column: 1 / -1; }
+    #install, #app-banner, #news-banner, #heard { grid-column: 1 / -1; }
     #heard { margin: 0; min-height: 0; }
     #heard:empty { display: none; }
     .side { display: flex; flex-direction: column; gap: 12px; }
@@ -308,6 +313,7 @@
 </section>
 <main id="tab-remote">
   <button class="install" id="install">Install as an app</button>
+  <a class="banner" id="news-banner" href="#" hidden><span id="news-banner-text"></span><button class="x" id="news-banner-x" aria-label="Not now">×</button></a>
   <a class="banner" id="app-banner" href="/api/remote/app.apk" hidden><span id="app-banner-text"></span><button class="x" id="app-banner-x" aria-label="Not now">×</button></a>
   <p class="heard" id="heard"></p>
 

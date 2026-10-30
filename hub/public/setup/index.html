@@ -84,6 +84,12 @@
   .mix-err { color: var(--warn); font-size: 13px; margin: 6px 0 0; }
   .changes { margin: 0 0 6px; padding: 0 0 0 18px; font-size: 14px; color: var(--muted); }
   .changes li { margin: 4px 0; }
+  .news-day { margin: 14px 0 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .news { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .news li { padding: 10px 12px; border-radius: 10px; background: var(--panel-2); font-size: 14px; }
+  .news li.new { box-shadow: inset 3px 0 0 var(--accent); }
+  .news li small { display: block; color: var(--muted); font-size: 13px; margin-top: 3px; line-height: 1.45; }
+  .news li a { color: var(--muted); font-size: 12px; }
   .changes a { color: var(--fg); }
   .sw { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
   .sw:first-of-type { border-top: 0; }
@@ -130,7 +136,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -159,6 +165,15 @@
       <button class="secondary small" type="button" id="box-reload">Reload the TV app</button>
       <button class="secondary small" type="button" id="refresh">Refresh channels and guide</button>
       <button class="secondary small" type="button" id="sw-check">Check again</button>
+    </div>
+  </section>
+
+  <section id="whatsnew">
+    <h2>What's new <span class="pill" id="news-pill"></span></h2>
+    <p class="hint">What has changed in the app, newest first. The TV and the phone remote show the new things once after an update.</p>
+    <div id="news-list"><p class="hint">Loading…</p></div>
+    <div class="actions">
+      <button class="secondary small" type="button" id="news-all" hidden>Show everything</button>
     </div>
   </section>
 
@@ -933,6 +948,41 @@ async function checkBox() {
   setTimeout(() => loadSoftware(false).catch(() => {}), 12000);
 }
 // ---------------------------------------------------------------------------
+// What's new: CHANGELOG.md from the Hub (GET /api/changelog). The newest few days show; the
+// entries this phone hasn't seen yet are marked, and opening the page counts as seeing them (the
+// phone remote, on the same address, shares the note).
+
+const NEWS_SEEN = "utv-changelog-seen";
+const NEWS_DAYS = 3;
+async function loadNews(all) {
+  let seen = "";
+  try { seen = localStorage.getItem(NEWS_SEEN) || ""; } catch {}
+  const log = await api(`/api/changelog?seen=${encodeURIComponent(seen)}`);
+  const fresh = new Set((log.unseen ?? []).map((e) => e.id));
+  const releases = all ? log.releases : log.releases.slice(0, NEWS_DAYS);
+  const list = $("#news-list");
+  list.innerHTML = "";
+  if (!log.releases.length) list.append(el("p", { className: "hint", textContent: "This Hub doesn't have a change log." }));
+  for (const r of releases) {
+    const day = r.date ? new Date(`${r.date}T12:00:00Z`).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "";
+    list.append(el("h3", { className: "news-day", textContent: r.version ? [r.version, day].filter(Boolean).join(" · ") : day }));
+    if (r.note) list.append(el("p", { className: "hint", textContent: r.note }));
+    const ul = el("ul", { className: "news" });
+    for (const e of r.entries) {
+      const prs = e.prs.map((n) => el("a", { href: `https://github.com/gazoscalvertos/UltimateTV/pull/${n}`, target: "_blank", rel: "noopener", textContent: ` #${n}` }));
+      ul.append(el("li", { className: fresh.has(e.id) ? "new" : "" }, el("b", { textContent: e.title }), ...prs, e.text ? el("small", { textContent: e.text }) : null));
+    }
+    list.append(ul);
+  }
+  if (fresh.size) pill("#news-pill", `${fresh.size} new`, "ok");
+  else pill("#news-pill", "");
+  $("#news-pill").hidden = !fresh.size;
+  $("#news-all").hidden = all || log.releases.length <= NEWS_DAYS;
+  try { if (log.latest) localStorage.setItem(NEWS_SEEN, log.latest); } catch {}
+}
+$("#news-all").onclick = () => loadNews(true).catch((e) => toast(e.message, true));
+
+// ---------------------------------------------------------------------------
 // The nightly backup (hub/src/backup.ts)
 
 const kb = (n) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
@@ -1337,6 +1387,7 @@ for (const [file, id] of [["/setup/client-app.json", "#client-app-version"], ["/
 load().catch((err) => toast(err.message, true));
 loadDevices().catch(() => {});
 loadSoftware(true).then(checkBox).catch(() => {});
+loadNews(false).catch(() => { $("#news-list").innerHTML = '<p class="hint">Couldn\'t ask the Hub.</p>'; });
 // Keep checking GitHub while the page is open (the Hub asks it at most every 5 minutes).
 setInterval(() => { if (!document.hidden && !software?.hub.updating) loadSoftware(true).catch(() => {}); }, 5 * 60_000);
 </script>

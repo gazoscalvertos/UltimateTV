@@ -13,3 +13,4 @@ export * from "./themes.js";
 export * from "./weather.js";
 
 export * from "./backup.js";
+export * from "./changelog.js";

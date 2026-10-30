@@ -1626,6 +1626,56 @@ kbd.key-blue {
   width: 100%;
 }
 
+/* What's new after an update (whatsnew.tsx) and in Settings. */
+.whatsnew-list {
+  max-height: 34rem;
+}
+.whatsnew-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.9rem 1.2rem;
+  border: 0;
+  border-radius: 0.8rem;
+  background: rgb(var(--hi) / 0.04);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+}
+.whatsnew-item strong {
+  font-size: 1.25rem;
+}
+.whatsnew-item span {
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.whatsnew-item:focus {
+  background: var(--sel);
+  color: var(--on-sel);
+}
+.whatsnew-item:focus span {
+  color: var(--on-sel-muted);
+}
+.whatsnew-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.6rem;
+}
+.whatsnew-date {
+  margin: 1.8rem 0 0.4rem;
+  color: var(--muted);
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .programme-card .pc-layout {
   display: flex;
   gap: 2.4rem;

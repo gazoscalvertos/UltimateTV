@@ -70,3 +70,5 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 106 | TV apps without the CEC adapter: which buttons on the TV remote to press |
 | 107 | Settings › Picture and sound: subtitles, their size, background, colour and position, and the TV apps button |
 | 108, 109 | A music channel that follows a YouTube playlist, on the TV and on the phone's settings page: download progress, what was skipped and the video that failed |
+| 113, 114 | What's new: the pop-up on Home after an update, and Settings › What's new with every change |
+| 115–117 | What's new on the phone: the remote's banner after an update, the list it opens, and the settings page's section |

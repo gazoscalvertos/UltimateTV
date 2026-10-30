@@ -101,6 +101,11 @@ try {
 
   await key("Enter");
   await wait(1500);
+  // A TV that has never shown What's new pops up the newest day's changes on Home, once.
+  await page.waitForSelector(".whatsnew-dialog", { timeout: 5000 });
+  await shot("113-whats-new");
+  await key("Escape");
+  await wait(600);
   await shot("02-home");
   await key("ArrowDown", 2);
   await shot("03-home-rails");
@@ -632,6 +637,10 @@ try {
   await page.locator(".settings-nav-item", { hasText: "About" }).first().focus();
   await wait(1500);
   await shot("103-settings-backup");
+  // Every change, from the Hub's CHANGELOG.md.
+  await page.locator(".settings-nav-item", { hasText: "What's new" }).first().focus();
+  await wait(1500);
+  await shot("114-settings-whats-new");
   await page.goto(`${base}/app/`);
   await wait(1500);
 
@@ -657,6 +666,16 @@ try {
   await phone.screenshot({ path: path.join(out, "48-phone-pair.png") });
   console.log("  48-phone-pair.png");
   await phone.context().addCookies([{ name: "utv_device", value: phonePairing.token, url: base }]);
+  // The first time, the remote says what's new; tapping the banner lists it.
+  await phone.goto(`${base}/remote/`);
+  await phone.waitForSelector("#news-banner:not([hidden])", { timeout: 5000 });
+  await phone.waitForTimeout(500);
+  await phone.screenshot({ path: path.join(out, "115-phone-whats-new.png") });
+  console.log("  115-phone-whats-new.png");
+  await phone.click("#news-banner");
+  await phone.waitForTimeout(600);
+  await phone.screenshot({ path: path.join(out, "116-phone-whats-new-list.png") });
+  console.log("  116-phone-whats-new-list.png");
   await phone.goto(`${base}/remote/`);
   await phone.waitForTimeout(800);
   await phone.screenshot({ path: path.join(out, "22-phone-remote.png") });
@@ -867,6 +886,8 @@ try {
   console.log("  64-phone-android-apps.png");
   await phone.locator("#backup").screenshot({ path: path.join(out, "104-phone-backup.png") });
   console.log("  104-phone-backup.png");
+  await phone.locator("#whatsnew").screenshot({ path: path.join(out, "117-phone-setup-whats-new.png") });
+  console.log("  117-phone-setup-whats-new.png");
   // A music channel's videos on the phone: the playlist it follows, with its progress and the one that failed.
   const halloween = phone.locator("#mix-list .profile", { hasText: "Halloween TV" });
   await halloween.locator("button", { hasText: "Videos" }).click();

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { statfs } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import fastifyStatic from "@fastify/static";
 import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
@@ -19,6 +20,7 @@ import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { registerSubtitles } from "./subtitles.js";
 import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
+import { ChangelogFile, registerChangelog } from "./changelog.js";
 import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
 import { cleanAppName, cleanSubtitleStyle, TV_APPS_METHODS, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
@@ -589,6 +591,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // The nightly backup to the NAS (see backup.ts); it starts with the Hub's other jobs.
   const backups = new Backups({ db: ctx.db, dataDir: config.dataDir, mediaRoot: config.mediaRoot, log, env: deps.env ?? {} });
   registerBackups(app, backups, restartHub);
+
+  // What's new: CHANGELOG.md as the apps list it (see changelog.ts).
+  registerChangelog(app, new ChangelogFile(config.changelogPath ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../CHANGELOG.md")), HUB_BUILD);
   alerts.backups = () => backups.health();
   await registerMove(app, {
     db: ctx.db,
