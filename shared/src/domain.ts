@@ -1,7 +1,7 @@
 // Domain model shared by the Hub, the TV UI and the box shell.
 // Times are epoch milliseconds (UTC) everywhere; the UI formats them in local time.
 
-import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState } from "./agent.js";
+import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState, SubtitleMode, SubtitleStyle, TvAppsMethod } from "./agent.js";
 import type { SpotifyState, WebAppState } from "./music.js";
 import type { ScreensaverSettings } from "./screensaver.js";
 import type { CastLink, ShareOffer } from "./cast.js";
@@ -519,6 +519,10 @@ export interface Settings {
     avoidDvProfile5: boolean;
     autoplayNext: boolean;
     startOn: "home" | "live";
+    /** How the TV apps button hands the screen back to the TV (see TvAppsMethod). */
+    tvAppsMethod: TvAppsMethod;
+    /** How subtitles look on the TV, for everyone. Whether they come on is per profile. */
+    subtitleStyle: SubtitleStyle;
   };
   numbering: "uk" | "provider";
   /** Regular expression on the provider's group/category names; channels outside it are hidden. Empty = show all. */
@@ -710,7 +714,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay";
+export type TvMethod = "now" | "play" | "seek" | "track" | "tvApps" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {

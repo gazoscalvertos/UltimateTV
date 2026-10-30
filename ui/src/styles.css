@@ -295,6 +295,10 @@ kbd.key-blue {
   width: 1.6rem;
   height: 1.6rem;
 }
+.tab-apps .icon {
+  width: 1.3rem;
+  height: 1.3rem;
+}
 .topbar-right {
   display: flex;
   align-items: center;

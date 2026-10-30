@@ -17,7 +17,7 @@ import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { movedAway, registerMove } from "./move.js";
 import type { BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, TitleRef } from "@ultimatetv/shared";
-import { cleanAppName, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
+import { cleanAppName, cleanSubtitleStyle, TV_APPS_METHODS, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
@@ -407,7 +407,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (body.torboxApiKey !== undefined) patch.torboxApiKey = body.torboxApiKey.trim();
     if (body.library) patch.library = { ...s.library, ...body.library };
     if (body.recording) patch.recording = { ...s.recording, ...body.recording };
-    if (body.playback) patch.playback = { ...s.playback, ...body.playback };
+    if (body.playback) {
+      const b = body.playback;
+      patch.playback = { ...s.playback, ...b, subtitleStyle: cleanSubtitleStyle(b.subtitleStyle, s.playback.subtitleStyle), tvAppsMethod: TV_APPS_METHODS.includes(b.tvAppsMethod) ? b.tvAppsMethod : s.playback.tvAppsMethod };
+    }
     if (body.numbering) patch.numbering = body.numbering;
     if (body.appName !== undefined) patch.appName = cleanAppName(body.appName);
     if (body.screensaver) {
@@ -711,7 +714,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "tvApps", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay"]);
   const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
   let tvCallSeq = 0;
   app.post("/api/tv/call/:method", async (req: Req<{ method: string }, Record<string, string>, unknown>, reply) => {

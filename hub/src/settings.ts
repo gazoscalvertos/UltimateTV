@@ -1,4 +1,4 @@
-import { cleanLook, DEFAULT_APP_NAME, DEFAULT_SCREENSAVER, resolveTheme, type IptvSource, type IptvSourceStatus, type PublicSettings, type Settings } from "@ultimatetv/shared";
+import { cleanLook, DEFAULT_APP_NAME, DEFAULT_SCREENSAVER, DEFAULT_SUBTITLE_STYLE, resolveTheme, type IptvSource, type IptvSourceStatus, type PublicSettings, type Settings } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 
 export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
@@ -30,6 +30,8 @@ export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
       avoidDvProfile5: true,
       autoplayNext: true,
       startOn: "home",
+      tvAppsMethod: "both",
+      subtitleStyle: { ...DEFAULT_SUBTITLE_STYLE },
     },
     numbering: "uk",
     channelFilter: "^(UK|GB|United Kingdom)\\b|\\b(UK|GB)\\b",

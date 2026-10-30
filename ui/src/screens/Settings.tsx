@@ -2,8 +2,8 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { Certification, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
-import { CERTIFICATIONS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES } from "@ultimatetv/shared";
+import type { Certification, TvAppsMethod, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
+import { CERTIFICATIONS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, TV_APPS_METHODS } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -27,6 +27,7 @@ const ago = (t: number) => {
   return new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 };
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const TV_APPS_LABELS: Record<TvAppsMethod, string> = { both: "Step down, then Home", inactive: "Step down only", home: "Press Home only" };
 const cycle = <T,>(list: readonly T[], value: T): T => list[(list.indexOf(value) + 1) % list.length]!;
 
 export function Settings(props: { section?: string }) {
@@ -474,6 +475,12 @@ export function Settings(props: { section?: string }) {
               <Row label="Play the next episode automatically" value={playback().autoplayNext ? "On" : "Off"} onSelect={() => void save({ playback: { ...playback(), autoplayNext: !playback().autoplayNext } })} />
               <Row label="When the TV turns on" value={playback().startOn === "live" ? "Live TV" : "Home"} onSelect={() => void save({ playback: { ...playback(), startOn: playback().startOn === "live" ? "home" : "live" } })} />
               <Row label="Playback stats" hint="Show the stream, picture and sound details over the video. The blue button turns them on and off while watching" value={showStats() ? "On" : "Off"} onSelect={() => setShowStats(!showStats())} />
+              <Row
+                label="TV apps button"
+                hint="How the box hands the screen to the TV's own apps over HDMI-CEC. Try another if the TV stays on this app"
+                value={TV_APPS_LABELS[playback().tvAppsMethod ?? "both"]}
+                onSelect={() => void save({ playback: { ...playback(), tvAppsMethod: cycle(TV_APPS_METHODS, playback().tvAppsMethod ?? "both") } })}
+              />
               <Row label="Largest file to stream" hint="Bigger versions are moved down the list" value={`${playback().maxSizeGb} GB`} onSelect={() => void save({ playback: { ...playback(), maxSizeGb: cycle([20, 40, 60, 100], playback().maxSizeGb) } })} />
             </Show>
 

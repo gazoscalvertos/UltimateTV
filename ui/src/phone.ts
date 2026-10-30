@@ -13,6 +13,7 @@ import { channels, liveChannelId, nowPlaying, play, playerState } from "./player
 import { saveEpisodes, saveToNas } from "./save";
 import { sleep, setSleep } from "./sleep";
 import { isKids, nav, profile } from "./store";
+import { openTvApps } from "./tvapps";
 
 /** What the phone's "On the TV box" list shows: no pictures (they're data: URLs on the box), just links to them. */
 async function downloadsForPhone() {
@@ -127,6 +128,8 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
     if (a.subtitle !== undefined) await agent.setSubtitleTrack(a.subtitle);
     return { ok: true };
   },
+  // The phone's Cast sheet: over to the TV's own apps (Netflix and the rest).
+  tvApps: async () => ({ ok: await openTvApps(false) }),
   musicLibrary: async (a: { kind: "playlists" | "albums" | "artists"; offset?: number }) => music().spotifyLibrary(a.kind, a.offset ?? 0),
   musicTracks: async (a: { uri: string }) => music().spotifyTracks(a.uri),
   musicPlay: async (a: { uri: string; skipTo?: string; shuffle?: boolean }) => {

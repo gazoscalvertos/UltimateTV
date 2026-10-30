@@ -1,7 +1,7 @@
 // The box side of the BoxAgent contract: plays with mpv, follows its properties into a
 // PlayerState for the UI, and puts the TV in the right picture mode for each video.
 
-import type { AudioTrack, PlaybackSample, PlaybackStats, PlayerState, PlayOptions, SubTrack, VideoLayout } from "@ultimatetv/shared";
+import type { AudioTrack, PlaybackSample, PlaybackStats, PlayerState, PlayOptions, SubtitleMode, SubtitleStyle, SubTrack, VideoLayout } from "@ultimatetv/shared";
 import type { Display } from "./display.js";
 import type { Mpv } from "./mpv.js";
 
@@ -45,6 +45,33 @@ export function tracksFrom(list: MpvTrack[]): { audio: AudioTrack[]; subs: SubTr
     }
   }
   return { audio, subs };
+}
+
+const SUB_SCALE: Record<SubtitleStyle["size"], number> = { small: 0.85, medium: 1, large: 1.25, huge: 1.55 };
+
+/** mpv's properties for a subtitle style: bigger text, a box behind it, yellow, or raised. */
+export function subtitleProps(style: SubtitleStyle): [string, string | number][] {
+  const box = style.background === "box";
+  return [
+    ["sub-scale", SUB_SCALE[style.size] ?? 1],
+    ["sub-color", style.colour === "yellow" ? "#FFFFE14D" : "#FFFFFFFF"],
+    // background-box (mpv 0.38+) draws sub-back-color behind each line; the outline goes with it.
+    ["sub-border-style", box ? "background-box" : "outline-and-shadow"],
+    ["sub-back-color", box ? "#C0000000" : "#00000000"],
+    ["sub-outline-size", box ? 0 : 2.5],
+    ["sub-shadow-offset", box ? 0 : 1.5],
+    ["sub-pos", style.position === "raised" ? 90 : 100],
+  ];
+}
+
+/**
+ * mpv's options for when subtitles come on. "foreign" shows them only when the speech isn't in
+ * the preferred language, and forced ones (signs, a few lines in another language) always.
+ */
+export function subtitleModeProps(mode: SubtitleMode): [string, string][] {
+  if (mode === "off") return [["sid", "no"]];
+  if (mode === "on") return [["sid", "auto"], ["subs-with-matching-audio", "yes"], ["subs-fallback", "yes"]];
+  return [["sid", "auto"], ["subs-with-matching-audio", "forced"], ["subs-fallback", "default"], ["subs-fallback-forced", "yes"]];
 }
 
 /** mpv's margins that put the video in a rectangle of the screen (the guide's preview). */
@@ -347,7 +374,13 @@ export class Player {
     if (o.headers && Object.keys(o.headers).length) opts.push(`http-header-fields=${Object.entries(o.headers).map(([k, v]) => `${k}: ${v.replace(/,/g, "\\,")}`).join(",")}`);
     if (o.preferredAudioLang) opts.push(`alang=${o.preferredAudioLang}`);
     if (o.preferredSubtitleLang) opts.push(`slang=${o.preferredSubtitleLang}`);
-    opts.push(`sid=${o.subtitlesByDefault ? "auto" : "no"}`);
+    // The mode's other options are set globally: an option an older mpv doesn't know would fail the loadfile.
+    const mode = o.subtitleMode ?? (o.subtitlesByDefault ? "on" : "off");
+    for (const [name, value] of subtitleModeProps(mode)) {
+      if (name === "sid") opts.push(`sid=${value}`);
+      else await this.mpv.set(name, value).catch(() => undefined);
+    }
+    if (o.subtitleStyle) await this.setSubtitleStyle(o.subtitleStyle);
     opts.push(`cache-secs=${o.live ? 3600 : 60}`);
     // TorBox can take a minute or two to hand over a file it's still fetching; don't give up first.
     if (!o.live) opts.push("network-timeout=300");
@@ -405,6 +438,15 @@ export class Player {
 
   async setSubtitleTrack(id: number | null): Promise<void> {
     await this.mpv.set("sid", id ?? "no");
+  }
+
+  /** A subtitle file fetched while it plays (OpenSubtitles): added and shown straight away. */
+  async addSubtitle(sub: { url: string; lang: string; label: string }): Promise<void> {
+    await this.mpv.command("sub-add", sub.url, "select", sub.label, sub.lang);
+  }
+
+  async setSubtitleStyle(style: SubtitleStyle): Promise<void> {
+    for (const [name, value] of subtitleProps(style)) await this.mpv.set(name, value).catch((e: Error) => this.log(`mpv ${name}: ${e.message}`));
   }
 
   /** Night mode decodes the audio (no passthrough) and evens out loud and quiet parts. */

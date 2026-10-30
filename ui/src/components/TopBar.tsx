@@ -5,6 +5,7 @@ import { clockTime } from "@ultimatetv/shared";
 import { castSettings } from "../cast";
 import { visibleDownloads } from "../downloads";
 import { sleep } from "../sleep";
+import { openTvApps } from "../tvapps";
 import { appName, isKids, nav, now, profile, type Route } from "../store";
 import { Icon } from "./Icon";
 
@@ -45,6 +46,10 @@ export function TopBar() {
             </button>
           )}
         </For>
+        {/* Netflix, Prime and the rest are the TV's own: this hands the screen back to it. */}
+        <button class="tab tab-apps" data-focus onClick={() => void openTvApps()}>
+          <Icon name="apps" /> TV apps
+        </button>
         <button class="tab tab-icon" classList={{ active: nav.current().name === "search" }} data-focus aria-label="Search" onClick={() => nav.current().name !== "search" && nav.replace({ name: "search" })}>
           <Icon name="search" />
         </button>

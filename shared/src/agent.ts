@@ -55,6 +55,9 @@ export interface PlayOptions {
   preferredAudioLang?: string;
   preferredSubtitleLang?: string;
   subtitlesByDefault?: boolean;
+  /** Newer than subtitlesByDefault, which older shells read instead. */
+  subtitleMode?: SubtitleMode;
+  subtitleStyle?: SubtitleStyle;
   /** Night mode: decode audio and compress its dynamic range. */
   nightMode?: boolean;
   /** More to play after `url`, in order (music video channels). The state is "ended" once the last one ends. */
@@ -64,6 +67,45 @@ export interface PlayOptions {
   /** Per file crop ("WxH+X+Y", "" for none): `url` first, then each of `queue`. */
   crops?: string[];
 }
+
+/**
+ * How the box hands the screen back to the TV for its own apps (Netflix, Disney+, Prime): say over
+ * CEC that it's no longer the source, press the TV's Home key for it, or both (the default).
+ */
+export type TvAppsMethod = "inactive" | "home" | "both";
+
+/** How subtitles look on the TV (mpv's sub-scale, sub-color, sub-border-style and sub-pos). */
+export interface SubtitleStyle {
+  size: "small" | "medium" | "large" | "huge";
+  /** Outline and shadow (mpv's usual), or a dark box behind the words. */
+  background: "outline" | "box";
+  colour: "white" | "yellow";
+  /** Raised clears the bottom of the picture (and a soundbar or TV frame in the way). */
+  position: "bottom" | "raised";
+}
+
+/** Bigger than mpv's usual, as thin text is hard to read on an 85" screen across the room. */
+export const DEFAULT_SUBTITLE_STYLE: SubtitleStyle = { size: "large", background: "outline", colour: "white", position: "bottom" };
+
+const SUBTITLE_CHOICES: { [K in keyof SubtitleStyle]: SubtitleStyle[K][] } = {
+  size: ["small", "medium", "large", "huge"],
+  background: ["outline", "box"],
+  colour: ["white", "yellow"],
+  position: ["bottom", "raised"],
+};
+
+/** A style as sent from a TV or phone: anything unknown keeps what was there. */
+export function cleanSubtitleStyle(input: unknown, base: SubtitleStyle = DEFAULT_SUBTITLE_STYLE): SubtitleStyle {
+  const o = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const pick = <K extends keyof SubtitleStyle>(k: K): SubtitleStyle[K] => (SUBTITLE_CHOICES[k] as unknown[]).includes(o[k]) ? (o[k] as SubtitleStyle[K]) : base[k];
+  return { size: pick("size"), background: pick("background"), colour: pick("colour"), position: pick("position") };
+}
+
+export const SUBTITLE_MODES: SubtitleMode[] = ["off", "on", "foreign"];
+export const TV_APPS_METHODS: TvAppsMethod[] = ["both", "inactive", "home"];
+
+/** When subtitles come on: never, always, or only for speech in another language (and forced ones). */
+export type SubtitleMode = "off" | "on" | "foreign";
 
 /** Where video is drawn: full screen, or the guide's preview window (in CSS pixels of the UI). */
 export type VideoLayout = { mode: "fullscreen" } | { mode: "window"; x: number; y: number; width: number; height: number } | { mode: "hidden" };
@@ -269,6 +311,13 @@ export interface BoxAgent {
   tvStandby(): Promise<void>;
   /** The player's volume, 0–100 (for fading out). */
   setVolume(percent: number): Promise<void>;
+
+  // TV apps and subtitles. Older box shells lack these: check with agentHas first.
+  /** Hands the screen back to the TV's own Home over CEC; false when there's no CEC adapter. */
+  tvApps(method?: TvAppsMethod): Promise<boolean>;
+  /** Adds a subtitle file (one fetched from OpenSubtitles) to what's playing, and shows it. */
+  addSubtitle(sub: { url: string; lang: string; label: string }): Promise<void>;
+  setSubtitleStyle(style: SubtitleStyle): Promise<void>;
 }
 
 declare global {
