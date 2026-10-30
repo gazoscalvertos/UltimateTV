@@ -31,7 +31,7 @@ if [ -z "$choice" ]; then
   backups="$(list)"
   [ -n "$backups" ] || die "the Hub has no backups${dir:+ in $dir} yet"
   echo "Backups in $dir (newest first):"
-  printf '  %s\n' $backups
+  printf '%s\n' "$backups" | sed 's/^/  /'
   echo
   echo "Restore one with: bash $0 latest   (or give its name)"
   exit 0
