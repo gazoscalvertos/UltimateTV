@@ -30,11 +30,11 @@ pop up what's new after an update. So:
   Accessibility, also on the phone's setup page. Audio description plays the described soundtrack
   when a film or channel has one, text can be 125% or 150% on every screen, Bold focus puts a thick
   yellow ring round whatever is picked, and Reduce motion stops sliding screens, projected clips,
-  jump scares and moving screensavers. (#PRNUM)
+  jump scares and moving screensavers. (#116)
 - **Skip intro everywhere** ([docs/watching-extras.md](docs/watching-extras.md#skip-intro-everywhere)):
   with Jellyfin's Intro Skipper plugin (a script installs and checks it), Skip intro and Skip credits
   show on every series, recordings in Jellyfin included. When the credits are marked, the next
-  episode starts 15 seconds into them instead of at the very end. (#PRNUM)
+  episode starts 15 seconds into them instead of at the very end. (#116)
 - **What's new** ([CHANGELOG.md](CHANGELOG.md)): this list is now in the apps. The TV has Settings ›
   What's new, the setup page a What's new section, and after an update the TV's Home, the phone
   remote and the Android app (0.3.0, Settings › What's new) show what has changed since they last
