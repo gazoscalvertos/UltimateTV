@@ -2,15 +2,16 @@
 // came from the TV remote.
 
 import { createSignal } from "solid-js";
-import type { Action } from "@ultimatetv/shared";
+import type { Action, BoxSoftware } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
 import { hub } from "./api";
 import { onHubEvent } from "./events";
 import { takeRemoteText } from "./components/Dialog";
+import { showAlertCard } from "./components/Overlays";
 import { dispatch } from "./keys";
 import { sendWebAppKey, sendWebAppText, webAppTakesRemote } from "./music";
 import { play } from "./player";
-import { errorToast, nav, setShowStats, showStats, toast } from "./store";
+import { errorToast, isKids, nav, setShowStats, showStats, toast } from "./store";
 
 /** Text typed on the phone, for the search box. */
 export const [remoteText, setRemoteText] = createSignal<{ text: string; at: number } | null>(null);
@@ -29,7 +30,28 @@ export function isAction(a: string): a is Action {
 async function reportBox(check: boolean): Promise<void> {
   if (!onBox) return;
   const software = agentHas("software") ? await agent.software(check).catch(() => null) : null;
+  noticeRollback(software);
   await hub.reportBox({ software, stats: showStats() }).catch(() => undefined);
+}
+
+const ROLLBACK_SEEN_KEY = "utv-rollback-seen";
+
+/** Once per automatic roll back, a card on the TV saying the box undid a bad update (not for Kids). */
+function noticeRollback(sw: BoxSoftware | null): void {
+  const r = sw?.rollback;
+  if (!r || r.manual || isKids()) return;
+  try {
+    if (localStorage.getItem(ROLLBACK_SEEN_KEY) === r.at) return;
+    localStorage.setItem(ROLLBACK_SEEN_KEY, r.at);
+  } catch {
+    // No storage: show it anyway.
+  }
+  showAlertCard(
+    r.ok
+      ? { level: "warn", title: "The box undid an update", message: `${r.reason}, so the box went back to how it was before. Everything works as it did; Settings › About has the details.` }
+      : { level: "bad", title: "The box couldn't undo a bad update", message: `${r.reason}. It tried to go back to how it was before but didn't finish cleanly. Settings › About has the details.` },
+    60_000,
+  );
 }
 
 export function startRemoteBridge(): void {
@@ -43,6 +65,13 @@ export function startRemoteBridge(): void {
       if (e.command === "stats") {
         setShowStats(Boolean(e.on));
         void reportBox(false);
+      }
+      if (e.command === "rollback" && onBox && agentHas("rollback")) {
+        toast("Rolling back the box's last update from the phone. The box restarts when it's done.", "good");
+        void agent
+          .rollback()
+          .then(() => setTimeout(() => void reportBox(false), 3000))
+          .catch(errorToast);
       }
       if (e.command === "update" && onBox && agentHas("update")) {
         toast("Updating the box from the phone. The app restarts by itself when it's done.", "good");

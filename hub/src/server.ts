@@ -12,7 +12,7 @@ import { registerNotices } from "./notify.js";
 import { registerQueue } from "./queue.js";
 import { registerScares } from "./scares.js";
 import { AdSkipper, registerAdSkip } from "./adskip.js";
-import { Alerts, registerAlerts } from "./alerts.js";
+import { Alerts, BOX_UPDATE_ALERT_MS, boxUpdateAlert, registerAlerts } from "./alerts.js";
 import { registerWeather, Weather } from "./weather.js";
 import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
@@ -147,6 +147,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/music/login", "paired"],
     ["POST /api/box/check", "paired"],
     ["POST /api/box/update", "paired"],
+    ["POST /api/box/rollback", "paired"],
     ["POST /api/box/reload", "paired"],
     ["POST /api/box/stats", "paired"],
     ["GET /api/devices", "paired"],
@@ -235,6 +236,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/downloads/:id",
     "POST /api/software/hub/update",
     "POST /api/box/update",
+    "POST /api/box/rollback",
     "POST /api/mix-channels",
     "PATCH /api/mix-channels/:id",
     "DELETE /api/mix-channels/:id",
@@ -834,15 +836,22 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       if (before.checkedAt) software.checkedAt = before.checkedAt;
     }
     boxState = { software, stats: Boolean(req.body?.stats), reportedAt: new Date().toISOString() };
+    // An update gone wrong (rolled back, or a failed check left in place): tell whoever looks after it, once.
+    const told = boxUpdateAlert(software);
+    if (told && ctx.db.getKv<string>("box-update-alerted") !== told.id) {
+      ctx.db.setKv("box-update-alerted", told.id);
+      await alerts.raise(told.alert, BOX_UPDATE_ALERT_MS).catch((err) => ctx.log.warn({ err: String(err) }, "Couldn't raise the box update alert"));
+    }
     return { ok: true };
   });
-  const boxCommand = (command: "update" | "reload" | "report" | "stats", on?: boolean) => {
+  const boxCommand = (command: "update" | "rollback" | "reload" | "report" | "stats", on?: boolean) => {
     if (tvSockets === 0) throw Object.assign(new Error("The TV app isn't connected to the Hub. Is the box on?"), { statusCode: 409 });
     ctx.events.emit(on === undefined ? { type: "box.command", command } : { type: "box.command", command, on });
     return { ok: true };
   };
   app.post("/api/box/check", async () => boxCommand("report"));
   app.post("/api/box/update", async () => boxCommand("update"));
+  app.post("/api/box/rollback", async () => boxCommand("rollback"));
   app.post("/api/box/reload", async () => boxCommand("reload"));
   app.post("/api/box/stats", async (req: Req<Record<string, string>, Record<string, string>, { on?: boolean }>) => boxCommand("stats", Boolean(req.body?.on)));
 

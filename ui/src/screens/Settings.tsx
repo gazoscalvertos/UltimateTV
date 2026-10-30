@@ -2,7 +2,7 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { Certification, SubtitleMode, SubtitleStyle, TvAppsMethod, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
+import type { BoxUpdateHealth, Certification, SubtitleMode, SubtitleStyle, TvAppsMethod, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
 import { CERTIFICATIONS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, TV_APPS_METHODS, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
@@ -155,6 +155,7 @@ export function Settings(props: { section?: string }) {
     const sw = software();
     if (!sw) return software.loading ? "Checking…" : "";
     if (sw.updating) return "Updating now…";
+    if (sw.rollingBack) return "Rolling back…";
     if (!sw.latest) return "Couldn't check";
     return sw.latest === sw.commit ? "Up to date" : "Update available";
   };
@@ -176,6 +177,29 @@ export function Settings(props: { section?: string }) {
       errorToast(err);
     }
   };
+  // Undo the last update (the box reboots): the same as the health check does when an update breaks the box.
+  const rollBack = async () => {
+    const sw = software();
+    if (!sw?.canRollBack || sw.updating || sw.rollingBack) return;
+    const ok = await confirm(
+      "Roll back the last update?",
+      `The box goes back to how it was before it${sw.rollbackTo ? ` (${sw.rollbackTo.slice(0, 7)})` : ""}, then restarts. It takes a minute or two. The weekly update skips the version you rolled back; Update the box still installs it.`,
+      "Roll back",
+      true,
+    );
+    if (!ok) return;
+    try {
+      await agent.rollback();
+      toast("Rolling back. The box restarts by itself when it's done.", "good");
+      window.setTimeout(() => void refetchSoftware(), 3000);
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const healthValue = (h: BoxUpdateHealth) => (h.status === "checking" ? "Checking…" : h.status === "ok" ? "Passed" : "Failed");
+  const healthHint = (h: BoxUpdateHealth) =>
+    [h.at ? when(h.at) : "", h.status === "checking" ? "Within a few minutes of the update: the app, the Hub, a test clip and the CEC adapter" : (h.checks ?? []).map((c) => `${c.ok ? "✓" : "✗"} ${c.detail}`).join(" · ")].filter(Boolean).join(" · ");
   onCleanup(onHubEvent((e) => (e.type === "profiles.changed" ? void refetchProfiles() : undefined)));
 
   // Phones and screens paired with the TV, and the code that pairs another.
@@ -845,6 +869,27 @@ export function Settings(props: { section?: string }) {
                       icon="download"
                       onSelect={() => void updateBox()}
                     />
+                    <Show when={sw().health}>
+                      {(h) => <Row label="Check after the last update" value={<Status ok={h().status !== "failed"} text={healthValue(h())} />} hint={healthHint(h())} />}
+                    </Show>
+                    <Show when={sw().rollback}>
+                      {(r) => (
+                        <Row
+                          label="Last roll back"
+                          value={when(r().at)}
+                          hint={`${r().reason}${r().manual ? "" : " (done by itself)"}. ${r().how === "app" ? "The app went back" : "Everything went back"}${r().to ? ` to ${r().to!.slice(0, 7)}` : ""}${r().ok ? "" : ", with errors: see Diagnostics"}${r().from ? `. ${r().from!.slice(0, 7)} won't install by itself again` : ""}`}
+                        />
+                      )}
+                    </Show>
+                    <Show when={sw().canRollBack && agentHas("rollback")}>
+                      <Row
+                        label="Roll back last update"
+                        value={sw().rollingBack ? "Rolling back…" : ""}
+                        hint={`Puts the box back as it was before its last update${sw().rollbackTo ? ` (${sw().rollbackTo!.slice(0, 7)})` : ""}, then restarts it`}
+                        icon="restart"
+                        onSelect={() => void rollBack()}
+                      />
+                    </Show>
                   </>
                 )}
               </Show>

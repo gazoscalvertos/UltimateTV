@@ -14,7 +14,7 @@ Gary asked for the whole app to be built before testing on the real hardware, so
 | 2. Recording and series link | Built, untested. |
 | 3. Unified films and TV | Built. Jellyfin playback has run on the box. |
 | 4. AIOStreams, TorBox, NAS pipeline, phone remote | Built. The phone remote is in daily use; TorBox and Save to NAS are untested. |
-| 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates, nightly Hub backup, a screen for when the Hub is down). Automatic rollback and the WAF test remain. |
+| 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates, nightly Hub backup, a screen for when the Hub is down). Automatic rollback is built but untested on the box; the WAF test remains. |
 | Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, button hints and help, sleep timer, alerts, Save for later, advert skip, seasonal clips, projected clip packs, weather, TV apps, trailers and scores, More like this, OpenSubtitles: built, mostly untested. |
 
 ## Tested or untested, feature by feature
@@ -126,7 +126,7 @@ Left over from PR #58, which was closed in favour of #60, and could be brought a
 
 Also from the plan, or raised along the way:
 
-- **Automatic rollback** when the box fails a health check after an update. Today the update takes a snapper snapshot first, but rolling back is by hand.
+- **Automatic rollback** is built ([box-install.md](box-install.md#updates-and-rolling-back), issue #77) but hasn't been tried with a deliberately broken build on the box yet ([TESTING.md](TESTING.md) 8g).
 - **The full TV app without the Hub:** the box now has its own screen for when the Hub is down (downloads, games, AirPlay), but the guide, library and live TV still need the Hub.
 - **A second-box install test**, and the Debian 13 fallback, which has never been tried.
 - **Jellyfin progress from the box's offline downloads** isn't sent back to Jellyfin while away.

@@ -12,6 +12,7 @@
 #   REPO_URL       where updates come from (default the GitHub repository)
 #   BRANCH         which branch to follow (default main)
 #   SKIP_PACKAGES  1 to skip installing OS packages
+#   KEEP_CHECKOUT  1 to build the app as it is in APP_DIR rather than pull BRANCH (updates and roll backs)
 #   SPOTIFY        0 to leave out the Spotify Connect receiver (the Music tab's Spotify)
 #   AIRPLAY        0 to leave out the AirPlay receiver (UxPlay: mirror an iPhone, iPad or Mac)
 #   GAMES          0 to leave out RetroArch, Moonlight and Bluetooth for game controllers
@@ -127,7 +128,9 @@ home="$(getent passwd "$TV_USER" | cut -d: -f6)"
 
 say "Installing the app in $APP_DIR"
 src_root="$(cd "$here/../.." && pwd)"
-if [ -d "$APP_DIR/.git" ]; then
+if [ "${KEEP_CHECKOUT:-0}" = 1 ] && [ -d "$APP_DIR/.git" ]; then
+  : # The update (or roll back) has already put the commit it wants there.
+elif [ -d "$APP_DIR/.git" ]; then
   git -C "$APP_DIR" fetch --depth 1 origin "$BRANCH"
   git -C "$APP_DIR" reset --hard "origin/$BRANCH"
 elif [ -f "$src_root/box/package.json" ] && [ "$src_root" != "$APP_DIR" ]; then
@@ -167,9 +170,12 @@ CEC_DEVICE=/dev/cec0
 # MPV_ARGS=
 # Suspend the box a minute after the TV goes to standby (needs the box to wake on CEC or USB).
 SUSPEND_WHEN_TV_OFF=0
+# An update that leaves the box broken is rolled back by itself; 0 only reports it.
+# AUTO_ROLLBACK=1
 EOF
 else
   sed -i "s|^HUB_URL=.*|HUB_URL=$HUB_URL|" /etc/ultimatetv/box.env
+  grep -q AUTO_ROLLBACK /etc/ultimatetv/box.env || printf '%s\n' "# An update that leaves the box broken is rolled back by itself; 0 only reports it." "# AUTO_ROLLBACK=1" >>/etc/ultimatetv/box.env
 fi
 
 # --------------------------------------------------------------------------------------------
@@ -351,34 +357,31 @@ if [ "${GAMES:-1}" != 0 ]; then
 fi
 
 # --------------------------------------------------------------------------------------------
-# Updates: weekly at 4 am, after a snapshot when the root is btrfs.
+# Updates: weekly at 4 am, after a snapshot when the root is btrfs, then a health check that rolls
+# the update back if the box doesn't work afterwards (tools/box/update.sh, healthcheck.sh, rollback.sh).
 
 say "Setting up weekly updates"
 if command -v snapper >/dev/null && findmnt -n -o FSTYPE / | grep -qx btrfs; then
   snapper -c root list >/dev/null 2>&1 || snapper -c root create-config / || warn "snapper couldn't set up snapshots"
 fi
-cat > /usr/local/bin/ultimatetv-update <<EOF
-#!/usr/bin/env bash
-# Weekly update: snapshot, OS packages, then the app. The TV session restarts afterwards.
-set -euo pipefail
-if command -v snapper >/dev/null && snapper -c root list >/dev/null 2>&1; then
-  snapper -c root create --description "before UltimateTV update" --cleanup-algorithm number
+{
+  echo "APP_DIR=$APP_DIR"
+  echo "BRANCH=$BRANCH"
+  echo "TV_USER=$TV_USER"
+} > /etc/ultimatetv/update.env
+install -m755 "$here/update.sh" /usr/local/bin/ultimatetv-update
+install -m755 "$here/healthcheck.sh" /usr/local/bin/ultimatetv-healthcheck
+install -m755 "$here/rollback.sh" /usr/local/bin/ultimatetv-rollback
+install -d -m755 /var/lib/ultimatetv/update
+# The clip the health check plays: H.264 like most of what the TV plays, made once.
+if [ ! -s /usr/local/share/ultimatetv/test-clip.mkv ] && command -v ffmpeg >/dev/null; then
+  install -d /usr/local/share/ultimatetv
+  ffmpeg -loglevel error -y -f lavfi -i testsrc2=duration=3:size=1920x1080:rate=25 -c:v libx264 -pix_fmt yuv420p /usr/local/share/ultimatetv/test-clip.mkv \
+    || warn "couldn't make the health check's test clip (it plays a generated picture instead)"
 fi
-if [ -x /usr/bin/pacman ]; then pacman -Syu --noconfirm; else apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y upgrade; fi
-# Pull the new app before running its installer, so the update runs the new installer.
-git -C $APP_DIR fetch --depth 1 origin $BRANCH
-git -C $APP_DIR reset --hard origin/$BRANCH
-SKIP_PACKAGES=1 HUB_URL="\$(sed -n 's/^HUB_URL=//p' /etc/ultimatetv/box.env)" TV_USER=$TV_USER APP_DIR=$APP_DIR BRANCH=$BRANCH bash $APP_DIR/tools/box/install.sh
-# On a trip the Hub runs on the box too (tools/hub/travel.sh): update it with the app.
-if [ -f /etc/ultimatetv/travel.env ]; then
-  (cd $APP_DIR && GIT_COMMIT="\$(git rev-parse --short HEAD)" BUILD_DATE="\$(git log -1 --format=%cI)" docker compose up -d --build hub) || echo "The box's Hub didn't update" >&2
-fi
-systemctl restart sddm
-EOF
-chmod 755 /usr/local/bin/ultimatetv-update
 cat > /etc/systemd/system/ultimatetv-update.service <<'EOF'
 [Unit]
-Description=Update UltimateTV and the OS
+Description=Update UltimateTV and the OS (asked for in Settings or on the phone)
 After=network-online.target
 Wants=network-online.target
 
@@ -386,6 +389,17 @@ Wants=network-online.target
 Type=oneshot
 Environment=HOME=/root
 ExecStart=/usr/local/bin/ultimatetv-update
+EOF
+cat > /etc/systemd/system/ultimatetv-update-auto.service <<'EOF'
+[Unit]
+Description=Weekly UltimateTV and OS update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=HOME=/root
+ExecStart=/usr/local/bin/ultimatetv-update --auto
 EOF
 cat > /etc/systemd/system/ultimatetv-update.timer <<'EOF'
 [Unit]
@@ -395,16 +409,41 @@ Description=Weekly UltimateTV update
 OnCalendar=Mon *-*-* 04:00:00
 RandomizedDelaySec=20min
 Persistent=true
+Unit=ultimatetv-update-auto.service
 
 [Install]
 WantedBy=timers.target
 EOF
-# Settings › About › Update now: the tv user may start the update service, and nothing else.
+cat > /etc/systemd/system/ultimatetv-healthcheck.service <<'EOF'
+[Unit]
+Description=Check the box works after an update, and roll it back if not
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/var/lib/ultimatetv/update/last.env
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/ultimatetv-healthcheck
+
+[Install]
+WantedBy=multi-user.target
+EOF
+cat > /etc/systemd/system/ultimatetv-rollback.service <<'EOF'
+[Unit]
+Description=Roll back the box's last update (asked for in Settings or on the phone)
+
+[Service]
+Type=oneshot
+Environment=HOME=/root
+ExecStart=/usr/local/bin/ultimatetv-rollback --manual
+EOF
+# Settings › About › Update the box and Roll back last update: the tv user may start those two
+# services, and nothing else.
 install -d /etc/polkit-1/rules.d
 cat > /etc/polkit-1/rules.d/50-ultimatetv-update.rules <<EOF
 polkit.addRule(function (action, subject) {
   if (action.id == "org.freedesktop.systemd1.manage-units" &&
-      action.lookup("unit") == "ultimatetv-update.service" &&
+      (action.lookup("unit") == "ultimatetv-update.service" || action.lookup("unit") == "ultimatetv-rollback.service") &&
       action.lookup("verb") == "start" &&
       subject.user == "$TV_USER") {
     return polkit.Result.YES;
@@ -412,7 +451,7 @@ polkit.addRule(function (action, subject) {
 });
 EOF
 systemctl daemon-reload
-systemctl enable ultimatetv-update.timer >/dev/null
+systemctl enable ultimatetv-update.timer ultimatetv-healthcheck.service >/dev/null
 
 # --------------------------------------------------------------------------------------------
 # Check what we can from here.

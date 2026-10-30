@@ -20,12 +20,19 @@ pop up what's new after an update. So:
   with the version recorded, restarts and checks the Hub is up. The TV loads the new app the next
   time it opens it (Settings › About › Reload the app does it straight away).
 - **Box**: Settings › About › Update the box, or wait for Monday 4 am. Over SSH: `sudo systemctl
-  start ultimatetv-update`.
+  start ultimatetv-update`. If the box doesn't work afterwards it rolls itself back; Settings ›
+  About › Roll back last update (or `sudo systemctl start ultimatetv-rollback`) does it by hand.
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
 ## 2026-10-30
 
+- **The box undoes a bad update by itself** ([docs/box-install.md](docs/box-install.md#updates-and-rolling-back)):
+  after each update the box checks, within 5 minutes, that the TV app starts, reaches the Hub, plays a
+  test clip and still sees the CEC adapter. If not, it goes back to the snapshot from before the
+  update, reboots, and won't install that version again by itself. A card on the TV, Home Assistant
+  or ntfy and Settings › About say what happened. There's also Roll back last update in Settings ›
+  About and on the phone. Untested on the box so far. (#115)
 - **What's new** ([CHANGELOG.md](CHANGELOG.md)): this list is now in the apps. The TV has Settings ›
   What's new, the setup page a What's new section, and after an update the TV's Home, the phone
   remote and the Android app (0.3.0, Settings › What's new) show what has changed since they last

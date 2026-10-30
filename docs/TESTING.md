@@ -140,6 +140,23 @@ See [backup.md](backup.md). Update the Hub and the box first.
 - [ ] Reboot the box with the Hub stopped: it goes straight to the box's screen, not a blank one.
 - [ ] On Kids, stop the Hub: only Kids' downloads show, and no games.
 
+## 8g. Box updates and automatic roll back
+
+See [box-install.md](box-install.md#updates-and-rolling-back). Built without a box to try it on: none of this has run on real hardware yet. The first update after this lands runs the old update script, so it installs the new scripts but doesn't check itself; the one after that is the first with a health check.
+
+- [ ] Over SSH, `sudo bash /opt/ultimatetv/tools/box/install.sh` once (or Update the box twice). `systemctl list-timers ultimatetv-update.timer` shows Monday 4 am and `systemctl is-enabled ultimatetv-healthcheck` says enabled.
+- [ ] `sudo snapper -c root list` works (the box is btrfs from the PXE install). `/usr/local/share/ultimatetv/test-clip.mkv` exists.
+- [ ] Settings › About › Update the box. When the app comes back, **Check after the last update** shows Checking…, then within 5 minutes Passed with ✓ app, Hub, test clip and CEC adapter (or "Not checked" for CEC before the adapter arrives). The phone's ⚙ Settings › Updates says "Update check passed". `sudo cat /var/lib/ultimatetv/update/update.log` tells the same story, and so does the end of `/api/diagnostics?format=text` (Box updates).
+- [ ] **Roll back by hand**: Settings › About › Roll back last update. The box reboots in a minute or two, About shows **Last roll back** with the commit it went back to, and the Roll back row is gone (one level only). Do it once from the phone's Roll back last update button too.
+- [ ] **A broken build** (the real test): push a branch, say `rollback-test`, where `box/src/main.ts` throws straight away (`throw new Error("rollback test")` at the top of `main()`). On the box: `sudo sed -i 's/^BRANCH=.*/BRANCH=rollback-test/' /etc/ultimatetv/update.env`, then Update the box. The TV stays blank; within about 5 minutes the box rolls back by itself and reboots into the old app. Then:
+  - [ ] a card on the TV says "The box undid an update" (once, not on Kids);
+  - [ ] HA/ntfy gets "The box rolled back an update" (Settings › Alerts must have a webhook or ntfy set);
+  - [ ] Settings › About shows the failed check (✗ The TV app didn't start) and the roll back;
+  - [ ] `/var/lib/ultimatetv/update/bad-commits` has the broken commit, and `sudo systemctl start ultimatetv-update-auto` logs "Skipped" and changes nothing.
+  - [ ] Put the branch back: `sudo sed -i 's/^BRANCH=.*/BRANCH=main/' /etc/ultimatetv/update.env` and update.
+- [ ] With `AUTO_ROLLBACK=0` in `/etc/ultimatetv/box.env`, the broken build is left in place and the alert says "failed its check"; roll it back from the phone (the TV is blank).
+- [ ] After a roll back that went back past a kernel update, the box still boots (the old kernel is copied back into /boot).
+
 ## 9. The WAF test
 
 Hand over the remote with no instructions and ask for: watch BBC One; find tonight's film and record it; set a series link; carry on the film from yesterday; find a 4K comedy.

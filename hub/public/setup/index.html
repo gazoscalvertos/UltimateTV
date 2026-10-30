@@ -158,10 +158,12 @@
     <ul class="changes" id="hub-changes" hidden></ul>
     <p class="hint" id="hub-helper" hidden>To update the Hub from the phone, run this once on the server: <code>sudo bash /containers/UltimateTV/tools/hub/update.sh --phone-updates</code></p>
     <div class="sw">
-      <span><b>Box</b> <span class="pill" id="box-pill">…</span><small id="box-version"></small><small id="box-last"></small></span>
+      <span><b>Box</b> <span class="pill" id="box-pill">…</span><small id="box-version"></small><small id="box-last"></small><small id="box-health"></small><small id="box-rolled"></small></span>
       <button class="small" type="button" id="box-update">Update</button>
     </div>
+    <p class="hint">After each update the box checks that the app starts, reaches the Hub, plays a test clip and still sees the TV remote's adapter. If not, it rolls the update back by itself and tells you here and on the TV.</p>
     <div class="actions">
+      <button class="secondary small" type="button" id="box-rollback" hidden>Roll back last update</button>
       <button class="secondary small" type="button" id="box-reload">Reload the TV app</button>
       <button class="secondary small" type="button" id="refresh">Refresh channels and guide</button>
       <button class="secondary small" type="button" id="sw-check">Check again</button>
@@ -931,8 +933,15 @@ async function loadSoftware(check) {
   $("#stats").checked = Boolean(box?.stats);
   $("#box-version").textContent = sw ? `${shortSha(sw.commit)}${sw.date ? " · " + when(sw.date) : ""}${sw.branch && sw.branch !== "main" ? " · " + sw.branch : ""}${checked(sw.checkedAt)}` : tvConnected ? "Asking the box…" : "The TV app isn't connected. Is the box on?";
   $("#box-last").textContent = sw?.lastUpdate ? `Last update ${when(sw.lastUpdate.at)}${sw.lastUpdate.ok ? "" : " (it failed)"}` : "";
+  const h = sw?.health;
+  $("#box-health").textContent = h ? (h.status === "checking" ? "Checking the update…" : h.status === "ok" ? `Update check passed${h.at ? " " + when(h.at) : ""}` : `Update check failed${h.at ? " " + when(h.at) : ""}: ${(h.checks || []).filter((c) => !c.ok).map((c) => c.detail).join("; ") || h.summary || ""}`) : "";
+  const rb = sw?.rollback;
+  $("#box-rolled").textContent = rb ? `Rolled back ${when(rb.at)}${rb.manual ? "" : " by itself"}: ${rb.reason}${rb.ok ? "" : " (with errors)"}` : "";
+  $("#box-rollback").hidden = !sw?.canRollBack;
+  $("#box-rollback").disabled = !tvConnected || !sw || sw.updating || sw.rollingBack;
   if (!tvConnected) pill("#box-pill", "Off");
   else if (!sw) pill("#box-pill", "…");
+  else if (sw.rollingBack) pill("#box-pill", "Rolling back…", "warn");
   else if (sw.updating) pill("#box-pill", "Updating…", "warn");
   else if (!sw.latest) pill("#box-pill", "Couldn't check");
   else if (sw.latest === sw.commit) pill("#box-pill", "Up to date", "ok");
@@ -1043,6 +1052,11 @@ $("#hub-update").onclick = async () => {
 $("#box-update").onclick = async () => {
   if (!confirm("Update the box now? It takes a few minutes. The TV goes blank for a moment at the end while the app restarts.")) return;
   try { await api("/api/box/update", { method: "POST" }); toast("Updating the box. The TV app restarts by itself when it's done."); pill("#box-pill", "Updating…", "warn"); setTimeout(checkBox, 8000); } catch (e) { toast(e.message, true); }
+};
+$("#box-rollback").onclick = async () => {
+  const to = software?.box?.software?.rollbackTo;
+  if (!confirm(`Roll back the box's last update? It goes back to how it was before${to ? " (" + to.slice(0, 7) + ")" : ""} and restarts, which takes a minute or two. The weekly update won't install that version again by itself.`)) return;
+  try { await api("/api/box/rollback", { method: "POST" }); toast("Rolling back. The box restarts by itself when it's done."); pill("#box-pill", "Rolling back…", "warn"); } catch (e) { toast(e.message, true); }
 };
 $("#box-reload").onclick = () => api("/api/box/reload", { method: "POST" }).then(() => toast("Reloading the TV app")).catch((e) => toast(e.message, true));
 $("#refresh").onclick = () => api("/api/refresh", { method: "POST" }).then(() => toast("Refreshing. This takes a minute or two.")).catch((e) => toast(e.message, true));

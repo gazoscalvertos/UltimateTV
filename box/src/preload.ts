@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld("ultimatetv", {
   reload: call("reload"),
   software: call("software"),
   update: call("update"),
+  rollback: call("rollback"),
   spotify: call("spotify"),
   spotifyLibrary: call("spotifyLibrary"),
   spotifyTracks: call("spotifyTracks"),

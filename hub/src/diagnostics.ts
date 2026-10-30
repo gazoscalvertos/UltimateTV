@@ -189,6 +189,7 @@ export function cleanBoxReport(body: unknown): BoxDiagnostics | null {
     ...(r as BoxDiagnostics),
     log: (Array.isArray(r.log) ? r.log : []).slice(-MAX_LINES).map((l) => redactUrls(String(l))),
     samples: (Array.isArray(r.samples) ? r.samples : []).slice(-720),
+    ...(Array.isArray(r.updateLog) ? { updateLog: r.updateLog.slice(-200).map((l) => redactUrls(String(l))) } : {}),
   };
 }
 
@@ -245,6 +246,9 @@ export function renderDiagnostics(hub: { version: string; commit?: string; built
       "",
       "== Box log ==",
       ...r.log,
+      "",
+      "== Box updates (update, health check, roll back) ==",
+      ...(r.updateLog?.length ? r.updateLog : ["Nothing logged yet (boxes log here from their first update after 2026-10-30)."]),
       "",
     );
   }

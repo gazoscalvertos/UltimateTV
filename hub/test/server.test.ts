@@ -227,6 +227,19 @@ describe("hub API", () => {
     await app.inject({ method: "POST", url: "/api/box/state", payload: { software: { commit: "abc", branch: "main", updating: false } } });
     expect((await app.inject("/api/software")).json().box.software).toMatchObject({ latest: "def", checkedAt: "2026-10-28T12:00:00Z" });
   });
+
+  it("raises an alert once when the box rolls back a bad update by itself", async () => {
+    await start();
+    expect((await app.inject({ method: "POST", url: "/api/box/rollback" })).statusCode).toBe(409);
+    const rollback = { at: "2026-11-02T04:12:00Z", reason: "After the update the TV app didn't start", from: "2222222abc", to: "1111111abc", manual: false, ok: true, how: "snapshot" };
+    const report = () => app.inject({ method: "POST", url: "/api/box/state", payload: { software: { commit: "1111111abc", updating: false, rollback } } });
+    await report();
+    await report();
+    const alerts = (await app.inject("/api/alerts")).json().alerts.filter((a: { key: string }) => a.key === "box-update");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toMatchObject({ level: "warn", title: "The box rolled back an update" });
+    expect(alerts[0].message).toContain("won't install 2222222 again by itself");
+  });
 });
 
 describe("diagnostics", () => {

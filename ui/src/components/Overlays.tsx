@@ -113,23 +113,29 @@ export function MirroringLayer() {
   );
 }
 
+type Card = Pick<Alert, "level" | "title" | "message">;
+const [alert, setAlert] = createSignal<Card | null>(null);
+let alertTimer: number | undefined;
+
+/** Shows a card like the Hub's alerts, from the TV app itself (the box rolling back an update, say). */
+export function showAlertCard(card: Card, ms = 15_000): void {
+  setAlert(card);
+  window.clearTimeout(alertTimer);
+  alertTimer = window.setTimeout(() => setAlert(null), ms);
+}
+
 /** A heads-up when the Hub spots trouble coming (never on Kids, and only if Settings › Alerts says so). */
 export function AlertCard() {
-  const [alert, setAlert] = createSignal<Alert | null>(null);
-  let timer: number | undefined;
   const off = onHubEvent((e) => {
     if (e.type !== "alerts.changed" || !e.alert || e.alert.level === "info" || isKids()) return;
     const a = e.alert;
     void hub.alerts().then((st) => {
-      if (!st.settings.onTv) return;
-      setAlert(a);
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => setAlert(null), 15_000);
+      if (st.settings.onTv) showAlertCard(a);
     }, () => undefined);
   });
   onCleanup(() => {
     off();
-    window.clearTimeout(timer);
+    window.clearTimeout(alertTimer);
   });
   return (
     <Show when={alert()}>
