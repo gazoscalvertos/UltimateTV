@@ -1,0 +1,25 @@
+#!/bin/bash
+# Loads our button list (/etc/rc_keymaps/ultimatetv-cec.toml) onto the CEC adapter's remote, so OK
+# and Back reach the app as Enter and Escape. Without it the kernel's own list sends KEY_OK and
+# KEY_EXIT, which the app never sees (the arrows are the same in both, so only those work).
+# Run by ultimatetv-cec-attach@.service once inputattach has started the adapter, and safe to run
+# by hand: sudo ultimatetv-cec-keymap
+keymap=/etc/rc_keymaps/ultimatetv-cec.toml
+for _ in $(seq 1 30); do
+  found=0
+  for rc in /sys/class/rc/rc*; do
+    [ -e "$rc/protocols" ] || continue
+    grep -q cec "$rc/protocols" || continue
+    found=1
+    name="$(basename "$rc")"
+    if ir-keytable -s "$name" -c -w "$keymap" >/dev/null; then
+      echo "Loaded $keymap on $name"
+    else
+      echo "Couldn't load $keymap on $name" >&2
+    fi
+  done
+  [ "$found" = 1 ] && exit 0
+  sleep 1
+done
+echo "No CEC remote showed up" >&2
+exit 0

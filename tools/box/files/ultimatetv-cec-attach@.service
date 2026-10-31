@@ -6,4 +6,6 @@ After=dev-%i.device
 [Service]
 Type=simple
 ExecStart=inputattach --pulse8-cec /dev/%I
+# The udev rule can miss the remote's arrival, so load our button list here too.
+ExecStartPost=-/usr/local/bin/ultimatetv-cec-keymap
 Restart=on-failure
