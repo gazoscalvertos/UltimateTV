@@ -27,7 +27,7 @@ pop up what's new after an update. So:
 
 ## 2026-10-31
 
-- **TV remote over the Pulse-Eight adapter**: the box now tells the adapter its HDMI address (from the TV's EDID) so the TV sends it the remote's buttons, and sets the adapter up again if it's plugged in after the app has started.
+- **TV remote over the Pulse-Eight adapter**: the box now tells the adapter its HDMI address (from the TV's EDID) so the TV sends it the remote's buttons, and sets the adapter up again if it's plugged in after the app has started. (#120)
 - **Save to Jellyfin from the Android app** ([docs/save-to-nas.md](docs/save-to-nas.md)): a film's
   Other versions and an episode's Versions now have **Save to NAS + Jellyfin**, as the TV and the
   phone remote do. It keeps the version you picked on the NAS and adds it to Jellyfin for every
