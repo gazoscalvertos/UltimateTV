@@ -166,6 +166,9 @@ if [ ! -f /etc/ultimatetv/box.env ]; then
 # UltimateTV box settings. Restart the box (or run: sudo systemctl restart sddm) after a change.
 HUB_URL=$HUB_URL
 CEC_DEVICE=/dev/cec0
+# The box's HDMI address for the CEC adapter, found from the TV's EDID; set N.0.0.0 (N = the TV's
+# HDMI input number) only if the log says it couldn't find one.
+# CEC_PHYS_ADDR=
 # AUDIO_DEVICE=pipewire
 # MPV_ARGS=
 # Suspend the box a minute after the TV goes to standby (needs the box to wake on CEC or USB).
