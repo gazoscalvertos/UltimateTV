@@ -147,6 +147,11 @@ export class Display {
   constructor(
     private readonly log: (line: string) => void,
     private readonly customModes = true,
+    /**
+     * false in desktop mode (mode.ts): the screen is someone's desktop monitor, so its modes, HDR,
+     * variable refresh and scaling are only read (for the stats), never changed.
+     */
+    private readonly manage = true,
   ) {}
 
   async outputs(): Promise<Output[]> {
@@ -181,6 +186,7 @@ export class Display {
    * mode, e.g. a 50/60/100 Hz monitor playing 24p film) or null (it isn't: expect judder).
    */
   async prepare(fps: number | undefined, hdr: boolean): Promise<"mode" | "vrr" | null> {
+    if (!this.manage) return null;
     const tv = await this.tv();
     if (!tv) return null;
     const args: string[] = [];
@@ -256,6 +262,7 @@ export class Display {
    * so it needs no scaling.
    */
   async unscaled(): Promise<void> {
+    if (!this.manage) return;
     const tv = await this.tv();
     if (tv?.output.scale !== undefined && tv.output.scale !== 1) {
       this.log(`The screen was scaled ×${tv.output.scale}: setting it to ×1`);
@@ -264,6 +271,7 @@ export class Display {
   }
 
   async restore(): Promise<void> {
+    if (!this.manage) return;
     const args: string[] = [];
     if (this.restoreVrr) args.push(`output.${this.restoreVrr.output}.vrrpolicy.${this.restoreVrr.policy}`);
     this.restoreVrr = null;

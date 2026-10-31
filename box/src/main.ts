@@ -12,9 +12,16 @@
 //   SPOTIFY_API   the Spotify receiver's local API (default http://127.0.0.1:3678)
 //   DOWNLOADS_DIR where downloads to the box go (default ~/.local/share/ultimatetv/downloads)
 //   UXPLAY_ARGS   extra UxPlay (AirPlay receiver) arguments, space separated, e.g. -vd vah264dec
+//
+// The same app runs on a desktop as an AppImage (mode.ts, docs/desktop.md): a normal window, video
+// in mpv's own window, settings in ~/.config/ultimatetv/box.env, and the screen, sound, CEC and
+// updates left to the computer (CEC only if CEC_DEVICE is set).
+
+import { DESKTOP, MODE } from "./mode.js";
 
 import { execFile } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { AppImageUpdates } from "./appimage-updates.js";
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "electron";
 import os from "node:os";
 import path from "node:path";
@@ -34,18 +41,29 @@ import { Updates } from "./updates.js";
 import { WebApps } from "./webapp.js";
 
 const HUB_URL = (process.env.HUB_URL ?? "http://192.168.0.19:8095").replace(/\/$/, "");
-const CEC_DEVICE = process.env.CEC_DEVICE ?? "/dev/cec0";
+const CEC_DEVICE = process.env.CEC_DEVICE ?? (DESKTOP ? "" : "/dev/cec0");
 const RUNTIME = process.env.XDG_RUNTIME_DIR ?? os.tmpdir();
 const VERSION: string = require("../package.json").version;
 
 const diagnostics = new Diagnostics(HUB_URL);
+// The box's launcher sends the output to ~/.local/state/ultimatetv.log; an AppImage started from
+// the menu has nowhere to send it, so a desktop copy writes its own.
+const desktopLog = DESKTOP ? path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local/state"), "ultimatetv-desktop.log") : null;
 const log = (line: string) => {
   const stamped = `${new Date().toISOString()} ${line}`;
   console.log(stamped);
   diagnostics.record(stamped);
+  if (desktopLog) {
+    try {
+      appendFileSync(desktopLog, `${stamped}\n`);
+    } catch {
+      // As above.
+    }
+  }
 };
 
-// Wayland where there is one (KDE), and the class KWin's rules use to keep this window on top.
+// Wayland where there is one, and the class KWin's rules use to keep this window on top (and a
+// desktop's window rules can match, e.g. Hyprland's class:^(ultimatetv)$).
 app.commandLine.appendSwitch("ozone-platform-hint", "auto");
 app.commandLine.appendSwitch("class", "ultimatetv");
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
@@ -103,17 +121,48 @@ const boxAddresses = () =>
     .map((a) => a!.address);
 
 async function main(): Promise<void> {
+  if (desktopLog) {
+    try {
+      mkdirSync(path.dirname(desktopLog), { recursive: true });
+      // A fresh log each start (only the copy that runs gets here), so it never grows without end.
+      writeFileSync(desktopLog, "");
+    } catch {
+      // Logging to the terminal only.
+    }
+  }
   await app.whenReady();
-  const display = new Display(log, process.env.CUSTOM_MODES !== "0");
+  log(`UltimateTV ${VERSION} starting in ${MODE} mode for the Hub at ${HUB_URL}`);
+  const display = new Display(log, process.env.CUSTOM_MODES !== "0", !DESKTOP);
   await display.unscaled().catch((e: Error) => log(`Couldn't unscale the screen: ${e.message}`));
-  const mpv = new Mpv({ socket: path.join(RUNTIME, "ultimatetv-mpv.sock"), log, ...(process.env.AUDIO_DEVICE ? { audioDevice: process.env.AUDIO_DEVICE } : {}), extraArgs: (process.env.MPV_ARGS ?? "").split(/\s+/).filter(Boolean) });
+  const mpv = new Mpv({
+    socket: path.join(RUNTIME, "ultimatetv-mpv.sock"),
+    log,
+    ...(process.env.AUDIO_DEVICE ? { audioDevice: process.env.AUDIO_DEVICE } : {}),
+    extraArgs: (process.env.MPV_ARGS ?? "").split(/\s+/).filter(Boolean),
+    ...(DESKTOP ? { desktop: true, inputConf: path.join(RUNTIME, "ultimatetv-mpv-input.conf") } : {}),
+  });
   const cec = new Cec(CEC_DEVICE, log);
   const screenSize = () => {
     const b = win?.getContentBounds() ?? screen.getPrimaryDisplay().bounds;
     return { width: b.width, height: b.height };
   };
-  const player = new Player(mpv, display, screenSize, log);
-  const updates = new Updates(log);
+  const player = new Player(mpv, display, screenSize, log, DESKTOP);
+  // The AppImage updates itself from GitHub; the box through its root services; a desktop copy run
+  // from a checkout (npm start -- --desktop) doesn't update.
+  const appImage = process.env.APPIMAGE;
+  const updates = appImage
+    ? new AppImageUpdates({
+        appImage,
+        buildInfo: path.join(__dirname, "../build-info.json"),
+        stateDir: app.getPath("userData"),
+        log,
+        ...(process.env.UPDATE_URL ? { baseUrl: process.env.UPDATE_URL } : {}),
+        relaunch: () => {
+          app.relaunch({ execPath: appImage, args: process.argv.slice(1) });
+          app.quit();
+        },
+      })
+    : new Updates(log);
   const spotify = new Spotify((process.env.SPOTIFY_API ?? "http://127.0.0.1:3678").replace(/\/$/, ""), log);
   const webApps = new WebApps(() => win, log);
   const downloads = new Downloads(HUB_URL, log);
@@ -133,14 +182,15 @@ async function main(): Promise<void> {
 
   // Sound to the TV before mpv opens its output; again before each play, in case the TV moved.
   const audio = new Audio(log);
-  const hdmiAudio = process.env.HDMI_AUDIO !== "0" && !process.env.AUDIO_DEVICE;
+  // A desktop's sound output and volume are its owner's business.
+  const hdmiAudio = !DESKTOP && process.env.HDMI_AUDIO !== "0" && !process.env.AUDIO_DEVICE;
   if (hdmiAudio) {
     await audio.useHdmi();
     await audio.fullVolume();
   }
   await mpv.start().catch((e: Error) => log(`mpv didn't start: ${e.message}`));
   await player.start().catch((e: Error) => log(e.message));
-  void cec.start();
+  if (CEC_DEVICE) void cec.start();
 
   const send = (channel: string, value: unknown) => {
     if (win && !win.isDestroyed()) win.webContents.send(channel, value);
@@ -151,7 +201,8 @@ async function main(): Promise<void> {
     // Report to the Hub as playback starts and ends, so a diagnosis sees both.
     if (s.status !== lastStatus && (s.status === "playing" || s.status === "idle" || s.status === "error" || s.status === "ended")) {
       log(`Player ${s.status}${s.error ? `: ${s.error}` : ""}`);
-      setTimeout(() => void diagnostics.send(), s.status === "playing" ? 5000 : 0);
+      // (Not from a desktop: the Hub keeps one box's diagnostics, and that's the TV's.)
+      if (!DESKTOP) setTimeout(() => void diagnostics.send(), s.status === "playing" ? 5000 : 0);
     }
     lastStatus = s.status;
     // Keep the screen awake while something plays.
@@ -301,7 +352,7 @@ async function main(): Promise<void> {
     hubStatus: async () => ({ hubUrl: HUB_URL, appName, reason: offlineReason, since: watch.since, addresses: boxAddresses(), profile: offlineProfile }),
     retryHub: async () => void watch.check(),
   };
-  diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!(), updateLog: () => updates.history() });
+  if (!DESKTOP) diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!(), updateLog: () => updates.history() });
   // Tells the check after an update that the app is up (tools/box/healthcheck.sh).
   const heartbeat = new Heartbeat(async () => ({ page: watch.mode, hub: await hubAnswers(HUB_URL) }), VERSION, log);
 
@@ -324,18 +375,55 @@ async function main(): Promise<void> {
   });
 
   const { width, height } = screen.getPrimaryDisplay().bounds;
-  win = new BrowserWindow({
-    width,
-    height,
-    fullscreen: true,
-    frame: false,
-    transparent: true,
-    backgroundColor: "#00000000",
-    show: false,
-    title: appName,
-    webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false, backgroundThrottling: false },
-  });
+  const webPreferences = {
+    preload: path.join(__dirname, "preload.js"),
+    contextIsolation: true,
+    sandbox: true,
+    nodeIntegration: false,
+    spellcheck: false,
+    backgroundThrottling: false,
+    // Tells the UI it's on a desktop (preload.ts), so it leaves phone commands to the TV box.
+    ...(DESKTOP ? { additionalArguments: ["--utv-desktop"] } : {}),
+  };
+  win = DESKTOP
+    ? // A normal window, 16:9 like the TV (the UI scales to any size). Video opens in mpv's own
+      // window, so this one is opaque: the hole the UI leaves for video is just black.
+      new BrowserWindow({
+        width: Math.min(1600, Math.round(width * 0.8)),
+        height: Math.min(900, Math.round((Math.min(1600, Math.round(width * 0.8)) * 9) / 16)),
+        minWidth: 640,
+        minHeight: 360,
+        backgroundColor: "#000000",
+        show: false,
+        title: appName,
+        autoHideMenuBar: true,
+        webPreferences,
+      })
+    : new BrowserWindow({
+        width,
+        height,
+        fullscreen: true,
+        frame: false,
+        transparent: true,
+        backgroundColor: "#00000000",
+        show: false,
+        title: appName,
+        webPreferences,
+      });
   win.setMenu(null);
+  if (DESKTOP) {
+    // F11 for full screen, as in a browser; the TV UI has no use for the key.
+    win.webContents.on("before-input-event", (e, input) => {
+      if (input.type === "keyDown" && input.key === "F11") {
+        e.preventDefault();
+        win?.setFullScreen(!win.isFullScreen());
+      }
+    });
+    // Back from mpv's window (q, Esc, closing it) leaves playback stopped: bring the app forward.
+    player.onState((s) => {
+      if ((s.status === "idle" || s.status === "ended") && win && !win.isDestroyed() && !win.isFocused()) win.focus();
+    });
+  }
   win.webContents.setZoomFactor(1);
   win.once("ready-to-show", () => win?.show());
   win.webContents.on("did-finish-load", () => heartbeat.start());
@@ -379,8 +467,8 @@ async function main(): Promise<void> {
     log("UI unresponsive; reloading");
     win?.webContents.forcefullyCrashRenderer();
   });
-  // The cursor never shows on the TV.
-  win.webContents.on("dom-ready", () => void win?.webContents.insertCSS("*{cursor:none!important}"));
+  // The cursor never shows on the TV; on a desktop the UI works with the mouse too.
+  win.webContents.on("dom-ready", () => void win?.webContents.insertCSS(DESKTOP ? "*{cursor:auto!important}" : "*{cursor:none!important}"));
   await carryPairing();
   // Straight to the box's own screen when the Hub's down, rather than waiting on a dead address.
   if (await hubAnswers(HUB_URL)) await win.loadURL(`${HUB_URL}/app/`).catch(() => undefined);
@@ -391,6 +479,12 @@ async function main(): Promise<void> {
   watch.start();
 
   app.on("window-all-closed", () => app.quit());
+  // Started again from the menu: bring the open one forward.
+  app.on("second-instance", () => {
+    if (win?.isMinimized()) win.restore();
+    win?.show();
+    win?.focus();
+  });
   app.on("before-quit", () => {
     diagnostics.stop();
     heartbeat.stop();

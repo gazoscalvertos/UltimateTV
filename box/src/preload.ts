@@ -15,6 +15,8 @@ function subscribe(channel: string, listener: (value: unknown) => void): () => v
 }
 
 contextBridge.exposeInMainWorld("ultimatetv", {
+  // main.ts passes --utv-desktop in desktop mode (mode.ts).
+  desktop: process.argv.includes("--utv-desktop"),
   info: call("info"),
   play: call("play"),
   stop: call("stop"),

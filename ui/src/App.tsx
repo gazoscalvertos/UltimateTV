@@ -4,7 +4,7 @@
 
 import { createEffect, ErrorBoundary, For, Match, on, onCleanup, onMount, Show, Switch } from "solid-js";
 import { resolveTheme } from "@ultimatetv/shared";
-import { agent } from "./agent";
+import { agent, onDesktop } from "./agent";
 import { ApiError, hub, session } from "./api";
 import { choose, DialogHost } from "./components/Dialog";
 import { EasterEggs } from "./components/EasterEggs";
@@ -179,8 +179,11 @@ export function App() {
   onMount(() => {
     // The Hub only sends events to a paired screen.
     void pairScreen().then(startEvents);
-    startRemoteBridge();
-    startPhoneBridge();
+    // Phones, Home Assistant and the Hub's box reports work the TV box, not a desktop copy.
+    if (!onDesktop) {
+      startRemoteBridge();
+      startPhoneBridge();
+    }
     startIdle();
     startQueue();
     startDownloads();

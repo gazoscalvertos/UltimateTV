@@ -1,0 +1,8 @@
+{
+  "name": "ultimatetv-desktop-build",
+  "private": true,
+  "description": "Builds the box app as an AppImage for desktops (tools/desktop/build-appimage.sh). Not a workspace, so the rest of the repo doesn't install electron-builder.",
+  "devDependencies": {
+    "electron-builder": "26.18.0"
+  }
+}

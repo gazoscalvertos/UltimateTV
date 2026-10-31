@@ -32,6 +32,7 @@ pop up what's new after an update. So:
   phone remote do. It keeps the version you picked on the NAS and adds it to Jellyfin for every
   screen, which is different from Download (a copy on the phone for away from home). Adult profiles
   only. Android app 0.3.3. (#119)
+- **Desktop app for any Linux** ([docs/desktop.md](docs/desktop.md)): the TV app as an AppImage for Fedora, Omarchy and other Linux desktops. It opens in a normal window, plays in the computer's own mpv, leaves the screen and sound alone, ignores the phone remote (that stays with the TV), and updates itself from Settings › About. (#118)
 
 ## 2026-10-30
 

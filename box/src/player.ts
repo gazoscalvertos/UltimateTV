@@ -240,6 +240,11 @@ export class Player {
     private readonly display: Display,
     private readonly screenSize: () => { width: number; height: number },
     private readonly log: (line: string) => void,
+    /**
+     * Desktop mode (mode.ts): mpv has its own window over the app rather than under it, so it only
+     * shows while the UI wants the video full screen; the sound is always decoded.
+     */
+    private readonly desktop = false,
   ) {}
 
   async start(): Promise<void> {
@@ -371,8 +376,9 @@ export class Player {
     // screen) resampling mistimes and drops frames all the time, so mpv times frames to the audio.
     this.match = o.fps ? await this.display.prepare(o.fps, false) : undefined;
     const sync = this.match === "mode" || this.match === undefined ? "display-resample" : "audio";
-    this.log(`Playing ${o.fps ? `${o.fps} fps` : "unknown frame rate"}: screen match ${this.match ?? "not tried"}, video-sync ${sync}`);
-    await this.mpv.set("video-sync", sync).catch(() => undefined);
+    this.log(`Playing ${o.fps ? `${o.fps} fps` : "unknown frame rate"}: screen match ${this.match ?? "not tried"}, video-sync ${this.desktop ? "audio (desktop)" : sync}`);
+    // A desktop's screen isn't switched to match, so mpv's default (timed to the audio) stays.
+    if (!this.desktop) await this.mpv.set("video-sync", sync).catch(() => undefined);
     const opts: string[] = [];
     if (o.startMs) opts.push(`start=${(o.startMs / 1000).toFixed(3)}`);
     if (o.headers && Object.keys(o.headers).length) opts.push(`http-header-fields=${Object.entries(o.headers).map(([k, v]) => `${k}: ${v.replace(/,/g, "\\,")}`).join(",")}`);
@@ -393,13 +399,26 @@ export class Player {
     await this.setNightMode(Boolean(o.nightMode));
     // panscan 1 crops the longer side so the picture fills the screen with no black bars.
     await this.mpv.set("panscan", o.fill ? 1 : 0).catch(() => undefined);
-    await this.mpv.command("loadfile", o.url, "replace", -1, opts.join(","));
+    await this.loadfile(o.url, "replace", opts.join(","));
     for (const [i, next] of (o.queue ?? []).entries()) {
       const c = crop(i + 1);
-      await (c ? this.mpv.command("loadfile", next, "append", -1, c) : this.mpv.command("loadfile", next, "append")).catch(() => undefined);
+      await (c ? this.loadfile(next, "append", c) : this.mpv.command("loadfile", next, "append")).catch(() => undefined);
     }
     for (const s of o.subtitles ?? []) await this.mpv.command("sub-add", s.url, "auto", s.label, s.lang).catch(() => undefined);
     await this.mpv.set("pause", false);
+  }
+
+  /**
+   * loadfile with per-file options. mpv 0.38 put an index before the options; older mpv (still in
+   * Ubuntu 24.04 and Debian 12, which a desktop copy may meet) takes them third, so try that too.
+   */
+  private async loadfile(url: string, flags: "replace" | "append", options: string): Promise<void> {
+    try {
+      await this.mpv.command("loadfile", url, flags, -1, options);
+    } catch (e) {
+      if (!/invalid parameter/.test((e as Error).message)) throw e;
+      await this.mpv.command("loadfile", url, flags, options);
+    }
   }
 
   private async matchLate(fps: number): Promise<void> {
@@ -409,7 +428,7 @@ export class Player {
     this.match = match;
     const sync = match === "mode" ? "display-resample" : "audio";
     this.log(`Frame rate ${fps} fps from the stream: screen match ${match ?? "none"}, video-sync ${sync}`);
-    await this.mpv.set("video-sync", sync).catch(() => undefined);
+    if (!this.desktop) await this.mpv.set("video-sync", sync).catch(() => undefined);
   }
 
   async stop(): Promise<void> {
@@ -455,7 +474,7 @@ export class Player {
 
   /** Night mode decodes the audio (no passthrough) and evens out loud and quiet parts. */
   async setNightMode(on: boolean): Promise<void> {
-    await this.mpv.set("audio-spdif", on ? "" : "ac3,eac3,dts").catch(() => undefined);
+    if (!this.desktop) await this.mpv.set("audio-spdif", on ? "" : "ac3,eac3,dts").catch(() => undefined);
     await this.mpv.set("af", on ? "lavfi=[acompressor=threshold=-24dB:ratio=4:attack=5:release=200:makeup=6dB],lavfi=[dynaudnorm=f=250:g=15]" : "").catch(() => undefined);
   }
 
@@ -465,6 +484,13 @@ export class Player {
   }
 
   async setLayout(layout: VideoLayout): Promise<void> {
+    if (this.desktop) {
+      // mpv's window can't be placed inside the guide's preview (Wayland has no window positions),
+      // so outside the full-screen player the video is switched off, which closes its window; the
+      // sound carries on. Full screen again brings it back.
+      await this.mpv.set("vid", layout.mode === "fullscreen" ? "auto" : "no").catch((e: Error) => this.log(e.message));
+      return;
+    }
     const [l, r, t, b] = marginsFor(layout, this.screenSize());
     await Promise.all([this.mpv.set("video-margin-ratio-left", l), this.mpv.set("video-margin-ratio-right", r), this.mpv.set("video-margin-ratio-top", t), this.mpv.set("video-margin-ratio-bottom", b)]).catch((e: Error) => this.log(e.message));
   }
