@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: shellcheck tools/box/*.sh tools/pxe/*.sh tools/hub/*.sh
+      - run: shellcheck tools/box/*.sh tools/pxe/*.sh tools/hub/*.sh tools/desktop/*.sh
       - name: Installer files are where the installer expects them
         run: |
           for f in cec-keymap.toml 51-ultimatetv-hdmi.conf 70-ultimatetv-cec.rules ultimatetv-cec-attach@.service ultimatetv.desktop kwinrulesrc kwinrc kscreenlockerrc; do
@@ -101,6 +101,39 @@ jobs:
       - name: PXE server log
         if: always()
         run: docker logs pxe || true
+
+  # The TV app as an AppImage for Linux desktops (docs/desktop.md). The app updates itself from the
+  # desktop-app release, so each build from main replaces the files there.
+  desktop-appimage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build the AppImage
+        env:
+          BRANCH: main
+        run: bash tools/desktop/build-appimage.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ultimatetv-desktop-appimage
+          path: |
+            tools/desktop/out/UltimateTV-x86_64.AppImage
+            tools/desktop/out/ultimatetv-desktop.json
+          if-no-files-found: error
+      - name: Publish the AppImage
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view desktop-app > /dev/null 2>&1 || gh release create desktop-app --title "Desktop app (latest)" --notes "The TV app for Linux desktops, built from main by CI. See docs/desktop.md. The app updates itself from here (Settings › About)." --latest=false
+          # The AppImage first, so an app that sees the new commit always finds its file.
+          gh release upload desktop-app tools/desktop/out/UltimateTV-x86_64.AppImage --clobber
+          gh release upload desktop-app tools/desktop/out/ultimatetv-desktop.json --clobber
 
   android-remote:
     runs-on: ubuntu-latest
