@@ -31,7 +31,7 @@ pop up what's new after an update. So:
   Other versions and an episode's Versions now have **Save to NAS + Jellyfin**, as the TV and the
   phone remote do. It keeps the version you picked on the NAS and adds it to Jellyfin for every
   screen, which is different from Download (a copy on the phone for away from home). Adult profiles
-  only. Android app 0.3.3.
+  only. Android app 0.3.3. (#119)
 
 ## 2026-10-30
 
