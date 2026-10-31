@@ -2,8 +2,9 @@
 # Loads our button list (/etc/rc_keymaps/ultimatetv-cec.toml) onto the CEC adapter's remote, so OK
 # and Back reach the app as Enter and Escape. Without it the kernel's own list sends KEY_OK and
 # KEY_EXIT, which the app never sees (the arrows are the same in both, so only those work).
-# Run by ultimatetv-cec-attach@.service once inputattach has started the adapter, and safe to run
-# by hand: sudo ultimatetv-cec-keymap
+# Run by udev (70-ultimatetv-cec.rules) as the remote's input device appears, before KWin opens it.
+# By hand (sudo ultimatetv-cec-keymap) it changes the keys, but KWin only sees keys the device had
+# when it opened it, so restart the session afterwards: sudo systemctl restart sddm
 keymap=/etc/rc_keymaps/ultimatetv-cec.toml
 for _ in $(seq 1 30); do
   found=0

@@ -65,7 +65,7 @@ Plug the adapter between the box's HDMI and the TV's, and its USB into the box. 
 
 The adapter can't read the TV's EDID, so the app tells it the box's HDMI address (taken from the EDID the TV gives the box's HDMI output) each time it starts and whenever the adapter is plugged in again. Until it has an address the adapter can't claim a CEC address and the TV sends it no remote keys. If the app's log says `no HDMI address yet` or `at f.f.f.f`, set `CEC_PHYS_ADDR=N.0.0.0` in `box.env`, where N is the number of the TV's HDMI input the box is on, and restart.
 
-To check it from an SSH session: `cec-ctl -d /dev/cec0` should show a physical address such as `2.0.0.0` (not `f.f.f.f`) and a logical address of Playback Device 1, and `ir-keytable` should list a `pulse8-cec` device using the `ultimatetv-cec` protocol. If the arrows work but OK and Back don't, the kernel's own button list is loaded instead of ours: `sudo ultimatetv-cec-keymap` loads ours. To see exactly which buttons the TV sends, run `ir-keytable -s rc0 -t` and press them.
+To check it from an SSH session: `cec-ctl -d /dev/cec0` should show a physical address such as `2.0.0.0` (not `f.f.f.f`) and a logical address of Playback Device 1, and `ir-keytable` should list a `pulse8-cec` device using the `ultimatetv-cec` protocol. If the arrows work but OK, Back or the colour keys don't, the kernel's own button list is loaded instead of ours: `sudo ultimatetv-cec-keymap`, then `sudo systemctl restart sddm` (KWin only sees the keys a device had when it opened it). To see exactly which buttons the TV sends, run `ir-keytable -s rc0 -t` and press them.
 
 Until the adapter arrives, use the phone remote, or a USB keyboard (arrows, Enter, Escape, F1–F4 for the colour keys).
 
