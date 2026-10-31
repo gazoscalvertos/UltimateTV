@@ -63,7 +63,9 @@ You can roll back by hand too: Settings › About › Roll back last update, or 
 
 Plug the adapter between the box's HDMI and the TV's, and its USB into the box. Then on the TV, turn on CEC (Hisense calls it **CEC Control**, under Settings › System › Input settings) and **Device auto power off**.
 
-To check it from an SSH session: `cec-ctl -d /dev/cec0 --playback` should show a physical address such as `1.0.0.0`, and `ir-keytable` should list a `pulse8-cec` device using the `ultimatetv-cec` protocol. To see exactly which buttons the TV sends, run `ir-keytable -s rc0 -t` and press them.
+The adapter can't read the TV's EDID, so the app tells it the box's HDMI address (taken from the EDID the TV gives the box's HDMI output) each time it starts and whenever the adapter is plugged in again. Until it has an address the adapter can't claim a CEC address and the TV sends it no remote keys. If the app's log says `no HDMI address yet` or `at f.f.f.f`, set `CEC_PHYS_ADDR=N.0.0.0` in `box.env`, where N is the number of the TV's HDMI input the box is on, and restart.
+
+To check it from an SSH session: `cec-ctl -d /dev/cec0` should show a physical address such as `2.0.0.0` (not `f.f.f.f`) and a logical address of Playback Device 1, and `ir-keytable` should list a `pulse8-cec` device using the `ultimatetv-cec` protocol. To see exactly which buttons the TV sends, run `ir-keytable -s rc0 -t` and press them.
 
 Until the adapter arrives, use the phone remote, or a USB keyboard (arrows, Enter, Escape, F1–F4 for the colour keys).
 
