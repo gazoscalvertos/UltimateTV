@@ -54,6 +54,8 @@ data class StreamCandidate(
     val ready: Boolean?,
     val badges: List<String>?,
     val lang: String?,
+    /** The Hub can keep this copy on the NAS for Jellyfin (Save to NAS). */
+    val downloadable: Boolean? = null,
 )
 
 data class TitleRef(

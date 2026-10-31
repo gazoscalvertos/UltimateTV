@@ -12,7 +12,7 @@ The app looks for the Hub at `http://192.168.0.19:8095`. Change it in Settings i
 
 ## Watching
 
-- **Home, Films & TV, Search** work as on the TV. A title page lists every version the sources have (4K remux, 1080p, IPTV…) under **Other versions** or an episode's **Versions**.
+- **Home, Films & TV, Search** work as on the TV. A title page lists every version the sources have (4K remux, 1080p, IPTV…) under **Other versions** or an episode's **Versions**. Pick one to play it, or (adult profiles) **Save to NAS + Jellyfin** to keep that version in the house's Jellyfin library for good ([save-to-nas.md](save-to-nas.md)). That's not the same as downloading it to the phone.
 - **TV Guide** shows what's on now and next for each channel list. The calendar button opens a channel's day: earlier programmes can be watched from the start when the provider keeps catch-up, and later ones can be recorded or series-linked.
 - The **player** is ExoPlayer: it plays the Hub's live TV, MKV and HEVC files directly, and an FFmpeg decoder covers Dolby Digital, Dolby Digital Plus, DTS and TrueHD sound. It has subtitles and audio tracks (the gear button), Skip intro, Next episode and picture-in-picture when you leave the app.
 - **On the TV** (the TV button) starts the same thing on the TV instead.

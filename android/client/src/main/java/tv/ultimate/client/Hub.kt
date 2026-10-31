@@ -144,6 +144,9 @@ class Hub(private val prefs: Prefs) {
     suspend fun play(req: PlaybackRequest, force: Boolean = false): PlaybackInfo = post("/api/play", playBody(req, force))
     /** The same for a download: never live TV, and Jellyfin can send a smaller copy. */
     suspend fun offline(req: PlaybackRequest, smaller: Boolean): PlaybackInfo = post("/api/offline", playBody(req, false) + ("smaller" to smaller), timeoutMs = 120_000)
+    /** Save to NAS: the Hub keeps this copy in the Films or TV folder and tells Jellyfin (adults only). */
+    suspend fun saveToNas(titleId: String, episodeId: String?, streamId: String?): Map<String, Any?> =
+        post("/api/downloads", listOfNotNull("titleId" to titleId, episodeId?.let { "episodeId" to it }, streamId?.let { "streamId" to it }).toMap())
     suspend fun playOnTv(req: PlaybackRequest, title: TitleRef?) = raw("/api/tv/call/play", "POST", mapOf("req" to req, "title" to title))
 
     /** Whether the Hub knows this phone as paired. */

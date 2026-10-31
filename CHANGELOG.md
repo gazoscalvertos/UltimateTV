@@ -25,6 +25,14 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-10-31
+
+- **Save to Jellyfin from the Android app** ([docs/save-to-nas.md](docs/save-to-nas.md)): a film's
+  Other versions and an episode's Versions now have **Save to NAS + Jellyfin**, as the TV and the
+  phone remote do. It keeps the version you picked on the NAS and adds it to Jellyfin for every
+  screen, which is different from Download (a copy on the phone for away from home). Adult profiles
+  only. Android app 0.3.3.
+
 ## 2026-10-30
 
 - **Android app fills the screen**: on newer phones (Android 15) the app left a big empty band
