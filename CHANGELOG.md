@@ -25,6 +25,10 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-10-31
+
+- **Desktop app for any Linux** ([docs/desktop.md](docs/desktop.md)): the TV app as an AppImage for Fedora, Omarchy and other Linux desktops. It opens in a normal window, plays in the computer's own mpv, leaves the screen and sound alone, ignores the phone remote (that stays with the TV), and updates itself from Settings › About. (#118)
+
 ## 2026-10-30
 
 - **Android app fills the screen**: on newer phones (Android 15) the app left a big empty band

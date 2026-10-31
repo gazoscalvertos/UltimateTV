@@ -4,7 +4,7 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 
 export interface MpvOptions {
@@ -12,40 +12,75 @@ export interface MpvOptions {
   /** Extra mpv arguments, e.g. from MPV_ARGS in the box's config. */
   extraArgs?: string[];
   audioDevice?: string;
+  /**
+   * Desktop mode (mode.ts): mpv opens its own ordinary window only while there's video, with its
+   * usual on-screen controls and keys, rather than sitting full screen under the TV UI all the time.
+   */
+  desktop?: boolean;
+  /** Desktop mode's key file (DESKTOP_INPUT_CONF), written beside the socket. */
+  inputConf?: string;
   log?: (line: string) => void;
 }
+
+/**
+ * Keys for desktop mode's video window, on top of mpv's own: leaving it stops playback (back to the
+ * app) rather than quitting mpv, which the app would have to restart.
+ */
+export const DESKTOP_INPUT_CONF = ["q stop", "Q stop", "ESC stop", "CLOSE_WIN stop", "BS stop", ""].join("\n");
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void };
 
 /** The arguments for an mpv window that sits idle until told what to play. */
 export function mpvArgs(o: MpvOptions): string[] {
+  const window = o.desktop
+    ? [
+        // A window only while there's video; full screen to start with (f toggles it).
+        "--force-window=no",
+        "--fullscreen",
+        "--title=${?media-title:${media-title}}${!media-title:UltimateTV}",
+        "--osc=yes",
+        "--input-default-bindings=yes",
+        "--input-vo-keyboard=yes",
+        "--cursor-autohide=1000",
+        ...(o.inputConf ? [`--input-conf=${o.inputConf}`] : []),
+        // The computer's own GPU and screen: whatever decoder works, no resampling to the refresh rate.
+        "--vo=gpu-next",
+        "--hwdec=auto-safe",
+        "--video-sync=audio",
+      ]
+    : [
+        "--force-window=yes",
+        "--fullscreen",
+        "--title=ultimatetv-video",
+        "--osc=no",
+        "--osd-level=0",
+        "--input-default-bindings=no",
+        "--input-vo-keyboard=no",
+        "--cursor-autohide=always",
+        // Picture: gpu-next with VA-API decode; HDR and the TV's own colour handling are passed through.
+        "--vo=gpu-next",
+        "--hwdec=vaapi,auto-safe",
+        "--target-colorspace-hint=yes",
+        "--video-sync=display-resample",
+      ];
   const args = [
     `--input-ipc-server=${o.socket}`,
     "--idle=yes",
-    "--force-window=yes",
-    "--fullscreen",
-    "--title=ultimatetv-video",
     "--wayland-app-id=ultimatetv-video",
     "--x11-name=ultimatetv-video",
-    "--background-color=#000000",
-    "--osc=no",
-    "--osd-level=0",
-    "--input-default-bindings=no",
-    "--input-vo-keyboard=no",
-    "--cursor-autohide=always",
+    // (Not in desktop mode, where the window only shows video: mpv before 0.38, as some distros
+    // still ship, doesn't know the option and won't start.)
+    ...(o.desktop ? [] : ["--background-color=#000000"]),
     "--keep-open=yes",
-    // Picture: gpu-next with VA-API decode; HDR and the TV's own colour handling are passed through.
-    "--vo=gpu-next",
-    "--hwdec=vaapi,auto-safe",
-    "--target-colorspace-hint=yes",
-    "--video-sync=display-resample",
+    ...window,
     "--interpolation=no",
     "--deband=yes",
     // spline36: sharp, and light enough for Intel UHD graphics at 4K (ewa_lanczossharp kept a
     // 3440×1440 screen's GPU near its limit).
     "--scale=spline36",
-    // Sound: Dolby Digital (Plus) and DTS go to the TV untouched; everything else is decoded.
-    "--audio-spdif=ac3,eac3,dts",
+    // Sound: on the box, Dolby Digital (Plus) and DTS go to the TV untouched; everything else is
+    // decoded. A desktop's speakers or headphones get everything decoded.
+    ...(o.desktop ? [] : ["--audio-spdif=ac3,eac3,dts"]),
     "--audio-channels=auto",
     // Live TV: keep a few minutes behind us so live can be paused and rewound.
     "--cache=yes",
@@ -79,6 +114,7 @@ export class Mpv extends EventEmitter {
   async start(): Promise<void> {
     this.stopping = false;
     if (existsSync(this.opts.socket)) rmSync(this.opts.socket);
+    if (this.opts.inputConf) writeFileSync(this.opts.inputConf, DESKTOP_INPUT_CONF);
     const proc = spawn("mpv", mpvArgs(this.opts), { stdio: ["ignore", "ignore", "pipe"] });
     this.proc = proc;
     proc.stderr?.on("data", (d: Buffer) => this.opts.log?.(`mpv: ${d.toString().trim()}`));

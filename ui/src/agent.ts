@@ -279,3 +279,9 @@ export const agent: BoxAgent = window.ultimatetv ?? new BrowserAgent();
  */
 export const agentHas = (method: keyof BoxAgent): boolean => typeof (agent as unknown as Record<string, unknown>)[method] === "function";
 export const onBox = Boolean(window.ultimatetv);
+/**
+ * The app on a desktop computer (docs/desktop.md). The Hub sends what phones and Home Assistant ask
+ * of the TV to every paired screen, so a desktop copy ignores those and doesn't report itself as the
+ * box: the TV box stays the one they work.
+ */
+export const onDesktop = Boolean(window.ultimatetv?.desktop);

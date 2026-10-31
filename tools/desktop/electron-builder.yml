@@ -1,0 +1,35 @@
+# The desktop AppImage (docs/desktop.md). build-appimage.sh stages the bundled app in
+# tools/desktop/stage and runs electron-builder there with this file.
+appId: tv.ultimatetv.desktop
+productName: UltimateTV
+executableName: ultimatetv
+electronVersion: 44.6.0
+directories:
+  app: stage
+  output: out
+  buildResources: resources
+files:
+  - "**/*"
+asar: true
+# The offline page is loaded with loadFile, which reads from the asar fine; nothing needs unpacking.
+linux:
+  target:
+    - AppImage
+  category: AudioVideo
+  # Keep Chromium's sandbox: AppRun adds --no-sandbox by itself only where the system won't allow
+  # it (no unprivileged user namespaces), rather than the desktop entry always turning it off.
+  executableArgs: []
+  icon: resources/icon.png
+  synopsis: Live TV, films and series from your UltimateTV Hub
+  description: The UltimateTV TV app in a window on a Linux desktop. Plays through the computer's own mpv.
+  desktop:
+    entry:
+      Name: UltimateTV
+      GenericName: TV
+      Comment: Live TV, films and series from your UltimateTV Hub
+      Categories: AudioVideo;Video;TV;Player;
+      StartupWMClass: ultimatetv
+      Keywords: tv;iptv;jellyfin;guide;
+appImage:
+  artifactName: UltimateTV-${arch}.AppImage
+publish: null

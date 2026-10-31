@@ -4,7 +4,7 @@
 
 import { createEffect, createSignal, on } from "solid-js";
 import type { HaCommand, HaKind, TvPlayState } from "@ultimatetv/shared";
-import { agent, agentHas, onBox } from "./agent";
+import { agent, agentHas, onBox, onDesktop } from "./agent";
 import { api } from "./api";
 import { onAnyKey } from "./keys";
 import { channels, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback, type NowPlaying } from "./player";
@@ -191,8 +191,8 @@ export async function haCommand(cmd: HaCommand): Promise<{ ok: true }> {
 }
 
 export function startHomeAssistant(): void {
-  // Only the box reports: a TV app open in a browser (development) would muddle the state.
-  if (!onBox) return;
+  // Only the box reports: a TV app open in a browser (development) or on a desktop would muddle the state.
+  if (!onBox || onDesktop) return;
   onAnyKey(() => setTvOff(false));
   createEffect(
     on(nowPlaying, (np) => {

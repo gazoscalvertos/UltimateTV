@@ -60,6 +60,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Home Assistant both ways (media player, playback events) | #113 | Untested |
 | Kids TV time and bedtime | #114 | Untested |
 | Skip intro everywhere (Intro Skipper), accessibility settings | #116 | Untested (the plugin isn't on the Jellyfin LXC yet) |
+| Desktop app (AppImage) for Fedora, Omarchy and other Linux | #118 | Partly: built and run in a virtual screen with a test video; untested on real desktops |
 
 ### What has run on real hardware
 

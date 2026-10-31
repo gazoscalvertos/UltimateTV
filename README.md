@@ -31,6 +31,7 @@ Guides for each feature are linked from the steps below.
 - **The box** (the GMKtec mini PC) boots straight into the TV app: an Electron window over mpv, with HDR, refresh rate matching and Dolby passthrough. The TV remote works through a Pulse-Eight USB-CEC adapter.
 - **The phone remote** works over Wi-Fi from any Android phone, as a web app or a small installable app.
 - **The Android app** watches everything on a phone or tablet at home, and downloads films, episodes and recordings for the road ([docs/android-client.md](docs/android-client.md)).
+- **The desktop app** is the same TV app as an AppImage for any Linux desktop (Fedora, Omarchy, Ubuntu…), in a normal window and playing through the computer's own mpv ([docs/desktop.md](docs/desktop.md)).
 
 ## Setting it up
 

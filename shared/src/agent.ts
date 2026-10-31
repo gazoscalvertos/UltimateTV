@@ -277,6 +277,11 @@ export interface BoxDownloads {
 }
 
 export interface BoxAgent {
+  /**
+   * The app on someone's desktop (the AppImage, docs/desktop.md) rather than the TV box. It plays
+   * and browses like the box, but phones, Home Assistant and the Hub's box reports leave it alone.
+   */
+  readonly desktop?: boolean;
   info(): Promise<BoxInfo>;
   play(options: PlayOptions): Promise<void>;
   stop(): Promise<void>;
