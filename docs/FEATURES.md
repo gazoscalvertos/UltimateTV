@@ -37,7 +37,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 - **TV apps** ([watching-extras.md](watching-extras.md)): a button along the top (and on the phone's Cast sheet) hands the screen to the Hisense's own Home over HDMI-CEC for Netflix, Prime Video and Disney+; Input on the TV remote comes back.
 - A starting card shows what playback is waiting on and how fast it's arriving, and says when TorBox is still fetching (the box waits up to 5 minutes). A version that fails says so and offers another.
 - **Play queue**: line up films, episodes and recordings from the TV or the phone; the queue plays before the next episode and survives restarts.
-- **Save to NAS**: TorBox/AIOStreams titles download to the NAS with Jellyfin naming and are announced to Jellyfin. Files dropped in the Inbox share are tidied too. Save from Versions (Red saves that exact version), the player (Options › Keep a copy) or the phone, for films, episodes and whole series ([save-to-nas.md](save-to-nas.md)).
+- **Save to NAS**: TorBox/AIOStreams titles download to the NAS with Jellyfin naming and are announced to Jellyfin. Files dropped in the Inbox share are tidied too. Save from Versions (Red saves that exact version), the player (Options › Keep a copy), the phone remote or the Android app's Versions list, for films, episodes and whole series ([save-to-nas.md](save-to-nas.md)).
 - **Download to box** ([downloads.md](downloads.md)): films, episodes, series and recordings copied onto the box's disk for trips, with a Downloaded tab, a 10 GB free-space floor and automatic clean-up.
 
 ## Picture and sound (on the box)

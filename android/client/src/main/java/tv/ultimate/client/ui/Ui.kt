@@ -92,6 +92,24 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
         }
     }
 
+    /**
+     * Save to NAS: the Hub downloads this version into the Films or TV folder and adds it to
+     * Jellyfin, for everyone, for good. Not the same as [download], which copies it onto this phone.
+     */
+    fun saveToNas(titleId: String, episodeId: String?, streamId: String?, name: String) {
+        scope.launch {
+            working = "Asking the Hub to save $name…"
+            try {
+                val d = hub.saveToNas(titleId, episodeId, streamId)
+                say(if (d["status"] == "completed") "$name is already saved on the NAS" else "Saving $name to the NAS. It goes into Jellyfin when it's done.")
+            } catch (e: Throwable) {
+                say(explain(e))
+            } finally {
+                working = null
+            }
+        }
+    }
+
     /** A whole season, one episode after another, with the default version of each. */
     fun downloadAll(items: List<Pair<PlaybackRequest, OfflineMeta>>, smaller: Boolean) {
         scope.launch {

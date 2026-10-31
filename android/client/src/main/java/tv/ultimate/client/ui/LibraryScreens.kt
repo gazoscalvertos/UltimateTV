@@ -1,5 +1,5 @@
 // Films and TV: the browse rails, a title's page (seasons, episodes, versions) and the sheet for
-// choosing which version to play or download.
+// choosing which version to play, download to the phone or save to the NAS for Jellyfin.
 
 package tv.ultimate.client.ui
 
@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -315,6 +316,30 @@ private fun VersionSheet(d: TitleDetails, e: Episode?, download: Boolean, close:
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(if (download) "Download" else "Play") }
+                    // Save to NAS + Jellyfin: kept on the NAS for every screen in the house, unlike
+                    // Download, which copies it onto this phone. Adults only (the Hub checks too).
+                    if (!download && chosen != null && list.any { it.downloadable == true } && App.instance.prefs.profileKind != "kids") {
+                        val savable = chosen.downloadable == true
+                        OutlinedButton(
+                            enabled = savable,
+                            onClick = {
+                                close()
+                                ui.saveToNas(d.id, episodeId, chosen.id, if (e != null) "${d.name} S${e.season} E${e.episode}" else d.name)
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        ) {
+                            Icon(Icons.Default.Save, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Save to NAS + Jellyfin")
+                        }
+                        Text(
+                            if (savable) "Keeps this version on the NAS and adds it to Jellyfin for every screen. To watch it away from home, use Download instead."
+                            else "Pick a TorBox, online or IPTV version to save it. This one is already in Jellyfin or on the NAS.",
+                            Modifier.padding(top = 6.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

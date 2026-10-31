@@ -11,6 +11,7 @@
 | Versions (Yellow) | Move onto a version and press **Red** to save that exact one |
 | While it plays | Yellow (or Down) for Options, then **Keep a copy › Save to NAS and Jellyfin**: it saves the copy that's playing |
 | The phone remote | **Save to NAS** on a film, **Save this series to the NAS**, 💾 beside an episode, or **Save** on the Now Playing card |
+| The Android app | **Other versions** on a film or **Versions** on an episode, pick a version, then **Save to NAS + Jellyfin**. It's separate from **Download**, which copies it onto the phone for watching away from home |
 
 Pressing Save twice keeps one copy. The TV says when each one is saved and whether Jellyfin has it; Recordings › Downloads shows how far each one has got. Torrents that TorBox hasn't fetched yet wait for TorBox first.
 
