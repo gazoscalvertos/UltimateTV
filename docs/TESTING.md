@@ -62,6 +62,15 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 - [ ] Android app on Kids: the warnings show as messages; at the limit nothing new plays, and once the 30 minutes are up the player closes.
 - [ ] With "Tell my phone when time's up" on and ntfy set in Settings › Alerts, one message arrives when time runs out.
 
+### Favourites ([profiles.md](profiles.md#favourites))
+
+- [ ] After updating, each profile's guide Favourites list has the channels that were favourites before.
+- [ ] On Family, open a film and press Blue: the button fills with a heart and a toast says it's added. Home has a Favourites row with it; Films › Favourites shows it. Switch to Kids: none of that shows there.
+- [ ] Guide: hold OK on a channel for about a second. Its heart appears and the Favourites list count changes. A short press still plays the channel. Try it with the TV remote through the CEC adapter too.
+- [ ] Live TV: Green stars the channel on the banner. Watching a film: Green stars the film; Options shows a Favourites line.
+- [ ] Phone remote: a film's sheet and a channel's sheet have ♡ Add to Favourites; it lands on the profile the TV is on.
+- [ ] Android app 0.4.0: the heart on a title's page and beside guide channels; Films & TV › Favourites.
+
 ## 6b. Music
 
 Update the box first (Settings › About › Update the box): the update builds the Spotify receiver. See [music.md](music.md).

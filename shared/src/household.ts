@@ -1,4 +1,4 @@
-// Everyday things for living with the TV: a watchlist ("Save for later"), the sleep timer,
+// Everyday things for living with the TV: a watchlist ("Save for later"), favourites, the sleep timer,
 // warnings before something breaks, and skipping the adverts on recordings.
 
 import type { TitleRef } from "./domain.js";
@@ -27,6 +27,38 @@ export interface WatchlistInput {
   name?: string;
   year?: number;
   from?: WatchItem["from"];
+}
+
+// ---------------------------------------------------------------------------
+// Favourites
+
+/** A film or TV show one profile marked as a favourite. */
+export interface FavouriteTitle {
+  title: TitleRef;
+  addedAt: number;
+}
+
+/**
+ * One profile's favourites: the films and shows it likes, newest first, and its guide channels
+ * (ids). With no profile chosen, the channels are the household's (the star in the phone's
+ * channel settings).
+ */
+export interface Favourites {
+  titles: FavouriteTitle[];
+  channels: string[];
+}
+
+/** Marks or unmarks one title or channel. Leave `on` out to flip it. */
+export interface FavouriteInput {
+  title?: Partial<TitleRef>;
+  channel?: string;
+  on?: boolean;
+}
+
+/** What POST /api/favourites (and the TV's `favourite` call from the phone) answers. */
+export interface FavouriteResult extends Favourites {
+  /** Whether the title or channel asked about is a favourite now. */
+  on: boolean;
 }
 
 // ---------------------------------------------------------------------------

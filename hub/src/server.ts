@@ -18,6 +18,7 @@ import { registerWeather, Weather } from "./weather.js";
 import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
+import { FavouriteStore, registerFavourites } from "./favourites.js";
 import { registerSubtitles } from "./subtitles.js";
 import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
@@ -77,6 +78,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   const library = new Library(ctx);
   const playback = new Playback(ctx, library);
   const watchlist = new Watchlist(ctx.db, ctx.events);
+  // Favourites per profile; the household's channel favourites are copied to each profile once.
+  const favourites = new FavouriteStore(ctx.db, ctx.events, ctx.channels);
+  favourites.migrate(ctx.profiles.list().map((p) => p.id));
   const reports = new ReportStore(path.join(config.dataDir, "probe-reports"));
   const getSystem = deps.systemReport ?? systemReport;
   app.addHook("onClose", async () => ctx.close());
@@ -176,6 +180,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/watchlist", "paired"],
     ["POST /api/subtitles/download", "paired"],
     ["DELETE /api/watchlist/:id", "paired"],
+    ["POST /api/favourites", "paired"],
     ["GET /api/backup", "paired"],
     ["GET /api/alerts", "paired"],
     ["POST /api/alerts/check", "paired"],
@@ -211,7 +216,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       return typeof v === "string" && v ? v : undefined;
     };
     const who = ctx.profiles.resolve(header("x-profile"), header("x-profile-token"));
-    return { ...who, filter: new ContentFilter(who.profile) };
+    return { ...who, filter: new ContentFilter(who.profile, favourites.channelSet(who.profile?.id ?? null)) };
   };
   const filterOf = (req: FastifyRequest) => viewer(req).filter;
   /** The Android client names itself ("phone:<id>") so it can share the IPTV connection politely. */
@@ -790,7 +795,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "tvApps", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "tvApps", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay", "favourite"]);
   /** Asks the TV app something and waits for its answer (12 s at most). */
   const callTv = (method: TvMethod, args: unknown) =>
     new Promise<{ result?: unknown; error?: string }>((resolve) => {
@@ -1085,6 +1090,15 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // The play queue: what plays after this, ahead of the next episode.
   registerQueue(app, ctx, filterOf);
   registerSubtitles(app, ctx, (id, f) => library.details(id, f), filterOf, hubBase);
+  registerFavourites(
+    app,
+    favourites,
+    (req) => {
+      const who = viewer(req);
+      return { profileId: who.profile?.id ?? null, admin: who.admin, filter: who.filter };
+    },
+    (id, f) => ctx.channels.list(true).some((c) => c.id === id && f.channel(c)),
+  );
   registerWatchlist(
     app,
     watchlist,
@@ -1327,6 +1341,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.delete("/api/profiles/:id", async (req: Req<{ id: string }>) => {
     ctx.profiles.remove(req.params.id);
+    favourites.forget(req.params.id);
     ctx.events.emit({ type: "profiles.changed" });
     return { ok: true };
   });
@@ -1351,6 +1366,12 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (saved.length) {
       const at = home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0);
       home.rails.splice(at, 0, { id: "watchlist", title: "Saved for later", kind: "titles", items: saved.slice(0, 30) });
+    }
+    // The profile's favourite films and shows, after Saved for later (or where it would be).
+    const liked = favourites.get(who.profile?.id ?? null).titles.map((f) => f.title).filter((t) => who.filter.ref(t));
+    if (liked.length) {
+      const after = home.rails.findIndex((r) => r.id === "watchlist") + 1 || home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0);
+      home.rails.splice(after, 0, { id: "favourites", title: "Favourites", kind: "titles", items: liked.slice(0, 30) });
     }
     return home;
   });

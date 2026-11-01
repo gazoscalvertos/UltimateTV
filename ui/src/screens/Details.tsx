@@ -1,6 +1,6 @@
 // A film or series: artwork, review scores, the trailer, the best version ready to play, every
 // other version (library, IPTV, TorBox via AIOStreams), seasons and episodes, More like this, Add
-// to queue, Save to NAS (kept for good and added to Jellyfin; Red in Versions saves that exact
+// to queue, Favourite (Blue; one set per profile), Save to NAS (kept for good and added to Jellyfin; Red in Versions saves that exact
 // version), and Download to box (onto the box's own disk, to watch away from home).
 
 import { createEffect, createResource, createSignal, For, Show } from "solid-js";
@@ -17,6 +17,7 @@ import { play, playLink } from "../player";
 import { addToQueue } from "../queue";
 import { allEpisodes, canDownload, downloadLabel, downloadOf, downloadToBox, episodeRequest, episodesOf, filmRequest } from "../downloads";
 import { canSave, saveEpisodes, saveToNas } from "../save";
+import { isFavouriteTitle, toggleFavouriteTitle } from "../favourites";
 import { errorToast, isKids, openDialog, toast } from "../store";
 
 const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
@@ -247,15 +248,25 @@ export function Details(props: { id: string }) {
     }
   };
 
+  const liked = () => isFavouriteTitle(d()?.id);
+  const toggleLiked = () => {
+    const t = d();
+    if (t) toggleFavouriteTitle(refOf(t));
+  };
   useHints(() => [
     { key: "red", label: saved() ? "Remove from saved" : "Save for later" },
     { key: "green", label: "Add to queue" },
     { key: "yellow", label: "Versions" },
+    { key: "blue", label: liked() ? "Unfavourite" : "Favourite" },
     { key: "play", label: "Play" },
   ]);
   useKeys((a) => {
     if (a === "red" && d()) {
       void toggleSaved();
+      return true;
+    }
+    if (a === "blue" && d()) {
+      toggleLiked();
       return true;
     }
     if (a === "yellow" && d()) {
@@ -378,6 +389,9 @@ export function Details(props: { id: string }) {
                   </Show>
                   <button class="btn btn-large" classList={{ selected: Boolean(saved()) }} data-focus onClick={() => void toggleSaved()}>
                     <Icon name={saved() ? "bookmarked" : "bookmark"} /> {saved() ? "Saved" : "Save for later"}
+                  </button>
+                  <button class="btn btn-large btn-favourite" classList={{ selected: liked() }} data-focus aria-pressed={liked()} onClick={toggleLiked}>
+                    <Icon name={liked() ? "hearted" : "heart"} /> {liked() ? "Favourite" : "Add to Favourites"}
                   </button>
                   <Show when={canDownload() && !isKids() && !(t().kind === "movie" && filmDownload())}>
                     <button class="btn btn-large" data-focus onClick={() => void downloadIt()}>

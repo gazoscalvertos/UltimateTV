@@ -4925,3 +4925,30 @@ html[data-text-scale="150"] .tab {
 html[data-text-scale="150"] .details-actions {
   flex-wrap: wrap;
 }
+
+/* Favourites (one set per profile): a filled heart marks a favourite film, show or channel. */
+.btn-favourite.selected svg,
+.option-favourite.selected svg,
+.fav-heart {
+  color: #ff5a7a;
+}
+.fav-heart {
+  width: 1em;
+  height: 1em;
+  margin-left: 0.4em;
+  vertical-align: -0.1em;
+  flex: none;
+}
+.gg-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.gg-tags .fav-heart {
+  margin-left: 0;
+}
+.browse-filter {
+  display: flex;
+  gap: 0.8rem;
+  padding: 0 6rem 1rem;
+}

@@ -18,7 +18,7 @@ import { HomeWeather } from "../components/HomeWeather";
 export function Home() {
   const [home, { refetch }] = createResource(() => hub.home());
   // Refreshed only when a recording finishes, so the rails don't shift under the remote.
-  onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" ? void refetch() : undefined)));
+  onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" || e.type === "favourites.changed" ? void refetch() : undefined)));
 
   // The colour keys are shortcuts on Home, as on Sky.
   const castOk = () => !isKids() || castSettings().gamesForKids;

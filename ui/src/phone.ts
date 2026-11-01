@@ -1,13 +1,14 @@
 // Answers the phone remote: what's playing (for its Now Playing card and Stats page), and requests
-// to play something, seek, pick a track, drive the music, download to the box or save to the NAS. The Hub relays each call as a
+// to play something, seek, pick a track, drive the music, download to the box, save to the NAS or star a favourite. The Hub relays each call as a
 // "tv.call" event and waits for the answer posted back to /api/tv/reply/:id.
 
-import type { GameAppId, HaCommand, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
+import type { FavouriteInput, GameAppId, HaCommand, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
 import { backToTv, canCast, castSettings, castState, gamesAllowed, openGame, refreshCast, setAirplay, shareUrl } from "./cast";
 import { api, hub } from "./api";
 import { allEpisodes, canDownload, downloadToBox, episodeRequest, episodesOf, filmRequest, recordingRequest, removeFromBox, visibleDownloads } from "./downloads";
 import { onHubEvent } from "./events";
+import { favourites, setFavourite } from "./favourites";
 import { haCommand } from "./homeassistant";
 import { music, spotify, spotifySetup, webApp } from "./music";
 import { channels, liveChannelId, nowPlaying, play, playerState } from "./player";
@@ -165,6 +166,12 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
     if (a.stop) await backToTv();
     else if (a.id) await openGame(a.id);
     return castForPhone();
+  },
+  // Favourites land on the profile watching the TV. With nothing to mark, says what's starred.
+  favourite: async (a: FavouriteInput) => {
+    if (!a.title && !a.channel) return { on: false, ...favourites() };
+    const name = a.title?.name ?? channels().find((c) => c.id === a.channel)?.name ?? "That";
+    return setFavourite(a, name);
   },
   // Home Assistant's media player controls, checked by the Hub (cleanHaCommand) on the way.
   ha: async (a: HaCommand) => haCommand(a),

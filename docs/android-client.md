@@ -16,6 +16,7 @@ The app looks for the Hub at `http://192.168.0.19:8095`. Change it in Settings i
 - **TV Guide** shows what's on now and next for each channel list. The calendar button opens a channel's day: earlier programmes can be watched from the start when the provider keeps catch-up, and later ones can be recorded or series-linked.
 - The **player** is ExoPlayer: it plays the Hub's live TV, MKV and HEVC files directly, and an FFmpeg decoder covers Dolby Digital, Dolby Digital Plus, DTS and TrueHD sound. It has subtitles and audio tracks (the gear button), Skip intro, Next episode and picture-in-picture when you leave the app.
 - **On the TV** (the TV button) starts the same thing on the TV instead.
+- **Favourites**: the heart on a title's page, and beside each channel in the TV Guide, stars it for the profile the app is on. Films & TV has **Everything / Favourites** chips; the guide's Favourites list and Home's Favourites row are that profile's ([profiles.md](profiles.md#favourites)).
 
 ### One IPTV connection
 

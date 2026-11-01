@@ -60,6 +60,9 @@ The **Watch** tab at the bottom chooses what the TV plays, without using the TV'
 - **Music**: your Spotify playlists, albums and artists. Play, shuffle, or start at a song.
 - **Weather**: now, hour by hour and the week, with Show on the TV ([weather.md](weather.md)).
 - **Search**: films, series, channels, programmes and recordings.
+- **Favourites**: a channel's sheet and a film's or show's sheet have **♡ Add to Favourites**. It
+  stars it for the profile the TV is on, and fills in once it's a favourite
+  ([profiles.md](profiles.md#favourites)).
 
 ![Guide on the phone](screenshots/37-phone-guide.png)
 ![Films on the phone](screenshots/38-phone-films.png)

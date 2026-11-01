@@ -40,6 +40,38 @@ Bedtime goes by the Hub's clock. Two things to know:
   minute. A download played on the phone away from the home Wi-Fi isn't counted, and something
   already playing in a browser isn't cut off by the Hub (it just can't start the next thing).
 
+## Favourites
+
+Each profile has its own favourite films, TV shows and guide channels. Starring something on one
+profile doesn't change another's.
+
+| Where | How |
+| --- | --- |
+| A film's or show's page | **Blue**, or the **Add to Favourites** button (a filled heart once it's a favourite) |
+| Watching a film or episode | **Green**, or Options (Yellow) › Favourites |
+| Live TV | **Green** stars the channel on the banner |
+| TV Guide | **Hold OK** for about a second on a channel, or Info › *Add BBC One to Favourites* |
+| Phone remote | The **♡ Add to Favourites** button on a film's sheet and a channel's sheet. It stars it on the profile the TV is on |
+| Android app | The heart on a title's page and beside each channel in the guide |
+
+What follows the profile watching:
+
+- The guide's **Favourites** list (and its count) is that profile's channels, and so is the **Live
+  now** row on Home, which leads with them.
+- A **Favourites** row on Home, after Saved for later.
+- Films and TV Shows have **Everything / Favourites** chips at the top; Favourites shows just that
+  profile's films or shows. The Android app has the same chips under Films & TV.
+- Kids can only star what their profile is allowed to watch.
+
+When favourites became per profile, every profile that existed got a copy of the household's
+favourite channels, so nothing was lost. A profile made after that starts with none. With no
+profile chosen (the phone's settings page, Guide lists and channels), the star is still the
+household's own and only changes what shows with no profile. Favourites live in the Hub's database,
+so the nightly backup keeps them; deleting a profile deletes its favourites.
+
+![A film's page with its Favourite button](screenshots/favourites-details.png)
+![The guide's Favourites list, with a heart beside each starred channel](screenshots/favourites-guide.png)
+
 ## Custom guides
 
 Above the TV Guide's grid are the channel lists: all channels, favourites, your custom guides and
@@ -51,7 +83,8 @@ each category. Press Up from the top row to pick one, or Blue to step through th
 - **Make default** saves the list you're on as the one this profile's guide opens on. Each profile
   keeps its own, Kids included.
 - The phone settings page (Guide lists and channels) does all of this too, and also sets the
-  order of the lists, every channel's number and category, and favourites.
+  order of the lists, every channel's number and category, and the household's favourites (used
+  when no profile is chosen; each profile has its own, see [Favourites](#favourites)).
 - Custom guides are shared by the household; only adults can build, change or delete them. A Kids
   profile only sees the kids' channels in them.
 

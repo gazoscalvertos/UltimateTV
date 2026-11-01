@@ -47,6 +47,23 @@
     if (!r.ok) throw new Error(d.error || r.statusText);
     return d;
   }
+  // Favourites belong to the profile watching the TV, so the TV marks them (see ui/src/phone.ts).
+  // `btn` shows the state: a filled heart when it's a favourite.
+  function favouriteButton(btn, what, name) {
+    const show = (on) => {
+      btn.textContent = on ? "♥ Favourite" : "♡ Add to Favourites";
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    };
+    const isOn = (f) => (what.title ? f.titles.some((t) => t.title.id === what.title.id) : f.channels.includes(what.channel));
+    show(false);
+    call("favourite", {}).then((f) => show(isOn(f)), () => (btn.hidden = true));
+    btn.onclick = () =>
+      call("favourite", { ...what, on: btn.getAttribute("aria-pressed") !== "true" }).then(
+        (r) => (show(r.on), toast(r.on ? `${name} added to Favourites` : `${name} taken out of Favourites`)),
+        (e) => toast(e.message, true),
+      );
+  }
   async function del(path) {
     const r = await fetch(path, { method: "DELETE" });
     const d = await r.json().catch(() => ({}));
@@ -1171,10 +1188,11 @@
   function channelSheet(n) {
     openSheet(`<h2>${esc(n.channel.number)} ${esc(n.channel.name)}</h2>
       ${n.now ? programmeHtml(n.now, "Now") : ""}
-      <div class="actions"><button class="primary" id="s-watch">Watch on TV</button>${n.now ? `<button id="s-rec-now">Record this</button>` : ""}</div>
+      <div class="actions"><button class="primary" id="s-watch">Watch on TV</button>${n.now ? `<button id="s-rec-now">Record this</button>` : ""}<button id="s-fav" class="fav">♡ Add to Favourites</button></div>
       ${n.next ? programmeHtml(n.next, "Next") + `<div class="actions"><button id="s-rec-next">Record next</button></div>` : ""}
       <button class="link" data-close>Close</button>`);
     $("s-watch").onclick = () => playOnTv({ kind: "channel", id: n.channel.id });
+    favouriteButton($("s-fav"), { channel: n.channel.id }, n.channel.name);
     const rec = (p) => post("/api/recordings", { programmeId: p.id }).then(() => (toast(`Recording ${p.title}`), closeSheet()), (e) => toast(e.message, true));
     if (n.now) $("s-rec-now").onclick = () => rec(n.now);
     if (n.next) $("s-rec-next").onclick = () => rec(n.next);
@@ -1203,13 +1221,13 @@
     } catch (e) {
       return openSheet(`<p class="empty">${esc(e.message)}</p><button class="link" data-close>Close</button>`);
     }
-    const titleRef = { id: d.id, kind: d.kind, name: d.name, ...(d.year ? { year: d.year } : {}), ...(d.poster ? { poster: d.poster } : {}), ...(d.backdrop ? { backdrop: d.backdrop } : {}) };
+    const titleRef = { id: d.id, kind: d.kind, name: d.name, ...(d.year ? { year: d.year } : {}), ...(d.poster ? { poster: d.poster } : {}), ...(d.backdrop ? { backdrop: d.backdrop } : {}), ...(d.certification ? { certification: d.certification } : {}), ...(d.genres?.length ? { genres: d.genres } : {}) };
     const meta = [d.year, d.certification, d.runtimeMin ? `${d.runtimeMin} min` : "", d.rating ? `★ ${d.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ");
     const seasons = d.seasons ?? [];
     openSheet(`${d.backdrop ? `<div class="hero" style="background-image:url('${esc(d.backdrop)}')"></div>` : ""}
       <h2>${esc(d.name)}</h2><p class="meta">${esc(meta)}</p>
       ${d.overview ? `<p class="overview">${esc(d.overview)}</p>` : ""}
-      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>${!kidsProfile && !d.inLibrary ? `<button id="s-save">Save to NAS</button>` : ""}` : ""}<button id="s-later">Save for later</button></div>
+      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>${!kidsProfile && !d.inLibrary ? `<button id="s-save">Save to NAS</button>` : ""}` : ""}<button id="s-later">Save for later</button><button id="s-fav" class="fav">♡ Add to Favourites</button></div>
       ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="actions"><button id="s-dl-season">Download this series to the TV box</button>${!kidsProfile ? `<button id="s-save-season">Save this series to the NAS</button>` : ""}${seasons.filter((s) => s.season > 0).length > 1 ? `<button id="s-dl-all">Download every series</button>` : ""}</div><div class="list" id="s-eps"></div>` : ""}
       <button class="link" data-close>Close</button>`);
     if ($("s-play")) $("s-play").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef);
@@ -1222,6 +1240,7 @@
         () => (($("s-later").textContent = "Saved for later"), ($("s-later").disabled = true), toast("Saved: it's on the TV's Home")),
         (e) => toast(e.message, true),
       );
+    favouriteButton($("s-fav"), { title: titleRef }, d.name);
     if ($("s-dl-season")) $("s-dl-season").onclick = () => downloadToBox({ titleId: d.id, season: seasons[Number($("s-season").value)].season });
     if ($("s-dl-all")) $("s-dl-all").onclick = () => downloadToBox({ titleId: d.id, all: true });
     if ($("s-save")) $("s-save").onclick = () => saveToNas({ titleId: d.id });

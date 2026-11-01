@@ -2,6 +2,8 @@
 // programme beside it, and a grid of channels against time. Left/right walk through programmes,
 // up/down through channels, digits jump to a channel number, Record records. Above the grid, the
 // channel lists: all channels, favourites, custom guides and categories (Blue steps through them).
+// Holding OK on a channel adds it to (or takes it out of) the profile's Favourites; so does the
+// button on the programme card (Info).
 
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import type { Channel, GuideChoice, GuideWindow, Programme, ProgrammeMark } from "@ultimatetv/shared";
@@ -17,6 +19,7 @@ import { useHints } from "../hints";
 import { useKeys } from "../keys";
 import { channels as allChannels, guideList, liveChannelId, nowPlaying, play, setGuideList, setListChannels, stopPlayback } from "../player";
 import { errorToast, isKids, nav, now, profile, toast } from "../store";
+import { isFavouriteChannel, toggleFavouriteChannel } from "../favourites";
 
 const SLOT = 30 * 60_000;
 const SPAN = 2 * 3_600_000; // Two hours across the grid, as on Sky.
@@ -66,7 +69,9 @@ export function Guide() {
   onCleanup(
     onHubEvent((e) => {
       if (e.type === "recordings.changed" || e.type === "guide.updated") void refetch();
-      if (e.type === "guide.updated" || e.type === "profiles.changed") void refetchLists();
+      if (e.type === "guide.updated" || e.type === "profiles.changed" || e.type === "favourites.changed") void refetchLists();
+      // On the Favourites list, a channel starred or unstarred comes or goes.
+      if (e.type === "favourites.changed" && category() === "favourites") void refetch();
     }),
   );
 
@@ -182,6 +187,36 @@ export function Guide() {
     void openProgramme(p).then((changed) => changed && refetch());
   };
 
+  // Hold OK for a moment on a channel to star it. Only a real key press (the remote through CEC,
+  // or a keyboard) says when it's let go, so the phone remote's OK still plays straight away.
+  const HOLD_MS = 900;
+  let okTimer: number | undefined;
+  let okHeld = false;
+  const okDown = (e: KeyboardEvent) => {
+    if (!e.isTrusted) return activate(selected());
+    if (e.repeat || okTimer !== undefined || okHeld) return;
+    okTimer = window.setTimeout(() => {
+      okTimer = undefined;
+      okHeld = true;
+      const c = channel();
+      if (c) toggleFavouriteChannel(c);
+    }, HOLD_MS);
+  };
+  const okUp = (e: KeyboardEvent) => {
+    if (e.key !== "Enter" && e.keyCode !== 13) return;
+    if (okTimer !== undefined) {
+      window.clearTimeout(okTimer);
+      okTimer = undefined;
+      activate(selected());
+    }
+    okHeld = false;
+  };
+  onMount(() => window.addEventListener("keyup", okUp));
+  onCleanup(() => {
+    window.removeEventListener("keyup", okUp);
+    window.clearTimeout(okTimer);
+  });
+
   let digitTimer: number | undefined;
   const jumpTo = (n: number) => {
     // A custom guide has its own order, so look for the exact number before the nearest one above.
@@ -216,8 +251,9 @@ export function Guide() {
     { key: "yellow", label: "Next day" },
     { key: "blue", label: "Channel list" },
     { key: "info", label: "About the programme" },
+    { key: "ok", label: "Hold to favourite the channel" },
   ]);
-  useKeys((a) => {
+  useKeys((a, e) => {
     if (document.activeElement !== grid) {
       if (a === "back") {
         nav.back() || nav.reset({ name: "home" });
@@ -257,6 +293,8 @@ export function Guide() {
         setRow(Math.min(channels().length - 1, row() + rows()));
         return true;
       case "ok":
+        okDown(e);
+        return true;
       case "play":
         activate(selected());
         return true;
@@ -404,8 +442,15 @@ export function Guide() {
                     </Show>
                     <span class="gg-title">
                       <span class="gg-name">{c.name}</span>
-                      <Show when={qualityLabel(c.maxHeight)}>
-                        {(label) => <span class="gg-quality" classList={{ "gg-quality-4k": c.maxHeight >= 2160 }}>{label()}</span>}
+                      <Show when={qualityLabel(c.maxHeight) || isFavouriteChannel(c.id)}>
+                        <span class="gg-tags">
+                          <Show when={qualityLabel(c.maxHeight)}>
+                            {(label) => <span class="gg-quality" classList={{ "gg-quality-4k": c.maxHeight >= 2160 }}>{label()}</span>}
+                          </Show>
+                          <Show when={isFavouriteChannel(c.id)}>
+                            <Icon name="hearted" class="fav-heart" />
+                          </Show>
+                        </span>
                       </Show>
                     </span>
                   </div>
