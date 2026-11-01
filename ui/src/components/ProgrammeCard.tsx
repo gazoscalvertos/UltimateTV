@@ -5,7 +5,8 @@ import { createResource, For, Show } from "solid-js";
 import type { Programme } from "@ultimatetv/shared";
 import { clockTime, dayLabel, durationLabel, episodeLabel } from "@ultimatetv/shared";
 import { hub, type ProgrammeInfo } from "../api";
-import { play } from "../player";
+import { channelById, play } from "../player";
+import { isFavouriteChannel, toggleFavouriteChannel } from "../favourites";
 import { errorToast, openDialog, toast } from "../store";
 import { choose, confirm, DialogFrame } from "./Dialog";
 import { Icon } from "./Icon";
@@ -128,6 +129,13 @@ export function openProgramme(p: Programme): Promise<boolean> {
                 <Icon name={info()?.seriesLink ? "series" : "record"} />
                 {info()?.seriesLink ? "Cancel series link" : info()?.recording && info()!.recording!.status !== "cancelled" && info()!.recording!.status !== "completed" ? "Cancel recording" : "Record"}
               </button>
+              <Show when={channelById(p.channelId)}>
+                {(c) => (
+                  <button class="btn btn-favourite" classList={{ selected: isFavouriteChannel(c().id) }} data-focus aria-pressed={isFavouriteChannel(c().id)} onClick={() => toggleFavouriteChannel(c())}>
+                    <Icon name={isFavouriteChannel(c().id) ? "hearted" : "heart"} /> {isFavouriteChannel(c().id) ? `${c().name} is a favourite` : `Add ${c().name} to Favourites`}
+                  </button>
+                )}
+              </Show>
               <Show when={!past && !onNow}>
                 <button
                   class="btn"

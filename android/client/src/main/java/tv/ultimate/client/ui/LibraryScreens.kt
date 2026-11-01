@@ -28,6 +28,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Tv
@@ -66,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import tv.ultimate.client.App
 import tv.ultimate.client.Episode
+import tv.ultimate.client.Favourites
 import tv.ultimate.client.Offline
 import tv.ultimate.client.OfflineEntry
 import tv.ultimate.client.OfflineMeta
@@ -83,13 +86,27 @@ fun LibraryScreen(nav: NavHostController) {
     val tab = if (!films) 1 else if (!shows) 0 else picked
     val kind = if (tab == 0) "movie" else "series"
     val rails = rememberLoad(kind, ui.online) { App.instance.hub.browse(kind) }
+    var onlyFavourites by rememberSaveable { mutableStateOf(false) }
+    val favourites by Favourites.state.collectAsState()
+    LaunchedEffect(ui.online) { Favourites.load() }
     Column {
         Header(if (!films) "TV shows" else if (!shows) "Films" else "Films & TV", nav)
         if (films && shows) TabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.background) {
             Tab(selected = tab == 0, onClick = { picked = 0 }, text = { Text("Films") })
             Tab(selected = tab == 1, onClick = { picked = 1 }, text = { Text("TV shows") })
         }
-        Loaded(rails) { list ->
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = !onlyFavourites, onClick = { onlyFavourites = false }, label = { Text("Everything") })
+            FilterChip(selected = onlyFavourites, onClick = { onlyFavourites = true }, label = { Text("Favourites") }, leadingIcon = { Icon(Icons.Default.Favorite, null, Modifier.size(18.dp)) })
+        }
+        if (onlyFavourites) {
+            val liked = favourites.titles.orEmpty().map { it.title }.filter { it.kind == kind }
+            if (liked.isEmpty()) Empty("No favourites yet. Open a ${if (kind == "movie") "film" else "show"} and tap the heart.")
+            val rows = liked.chunked(10)
+            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+                items(rows.size) { i -> PosterRail(if (i == 0) "Your favourites" else "", rows[i]) { details(nav, it.id) } }
+            }
+        } else Loaded(rails) { list ->
             if (list.isEmpty()) Empty("Nothing here yet. Add Jellyfin or an addon on the Hub's setup page.")
             LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                 items(list) { r -> PosterRail(r.title, r.items.orEmpty()) { details(nav, it.id) } }
@@ -160,6 +177,13 @@ fun DetailsScreen(nav: NavHostController, id: String) {
                                 }
                             }
                             IconButton(onClick = { ui.playOnTv(PlaybackRequest("title", d.id), d.ref()) }) { Icon(Icons.Default.Tv, "Play on the TV") }
+                            val favourites by Favourites.state.collectAsState()
+                            LaunchedEffect(d.id) { Favourites.load() }
+                            val liked = favourites.hasTitle(d.id)
+                            IconButton(onClick = { ui.favouriteTitle(d, !liked) }) {
+                                if (liked) Icon(Icons.Default.Favorite, "Take out of Favourites", tint = Color(0xFFFF5A7A))
+                                else Icon(Icons.Default.FavoriteBorder, "Add to Favourites")
+                            }
                         }
                         if (d.kind == "movie") {
                             Text("Other versions", Modifier.clickable { choose = Choose(false, null) }.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.primary)

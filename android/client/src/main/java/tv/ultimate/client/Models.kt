@@ -83,6 +83,13 @@ data class Episode(
     val watched: Boolean?,
 )
 
+/** One profile's favourites (GET /api/favourites): films and shows, and guide channel ids. */
+data class FavouriteTitle(val title: TitleRef, val addedAt: Long?)
+data class FavouriteState(val titles: List<FavouriteTitle>?, val channels: List<String>?) {
+    fun hasTitle(id: String) = titles.orEmpty().any { it.title.id == id }
+    fun hasChannel(id: String) = channels.orEmpty().contains(id)
+}
+
 data class Season(val season: Int, val name: String, val episodes: List<Episode>?)
 
 data class TitleDetails(

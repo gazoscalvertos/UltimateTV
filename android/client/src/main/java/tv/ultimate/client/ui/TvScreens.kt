@@ -27,6 +27,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
@@ -47,6 +49,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +69,7 @@ import androidx.navigation.NavHostController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tv.ultimate.client.App
+import tv.ultimate.client.Favourites
 import tv.ultimate.client.NowNext
 import tv.ultimate.client.PlaybackRequest
 import tv.ultimate.client.Programme
@@ -153,6 +157,8 @@ fun GuideScreen(nav: NavHostController) {
     val hub = App.instance.hub
     val choices = rememberLoad(ui.online) { hub.guides() }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
+    val favourites by Favourites.state.collectAsState()
+    LaunchedEffect(ui.online) { Favourites.load() }
     Column {
         Header("TV Guide", nav)
         Loaded(choices) { c ->
@@ -174,7 +180,15 @@ fun GuideScreen(nav: NavHostController) {
                 if (rows.isEmpty()) Empty("No channels in this list.")
                 LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
                     items(rows) { n ->
-                        ChannelRow(n, play = { ui.play(PlaybackRequest("channel", n.channel.id), name = n.channel.name) }, schedule = { channel(nav, n.channel.id, n.channel.name) })
+                        val liked = favourites.hasChannel(n.channel.id)
+                        ChannelRow(
+                            n,
+                            liked = liked,
+                            play = { ui.play(PlaybackRequest("channel", n.channel.id), name = n.channel.name) },
+                            schedule = { channel(nav, n.channel.id, n.channel.name) },
+                            // The Favourites list (and its count above) changes with it.
+                            favourite = { ui.favouriteChannel(n.channel.id, n.channel.name, !liked) { choices.reload(); if (current == "favourites") list.reload() } },
+                        )
                     }
                 }
             }
@@ -183,7 +197,7 @@ fun GuideScreen(nav: NavHostController) {
 }
 
 @Composable
-private fun ChannelRow(n: NowNext, play: () -> Unit, schedule: () -> Unit) {
+private fun ChannelRow(n: NowNext, liked: Boolean, play: () -> Unit, schedule: () -> Unit, favourite: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = play).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.width(64.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Picture(n.channel.logo, Modifier.size(56.dp, 36.dp).clip(RoundedCornerShape(4.dp)), ContentScale.Fit)
@@ -202,6 +216,10 @@ private fun ChannelRow(n: NowNext, play: () -> Unit, schedule: () -> Unit) {
                 }
             }
             n.next?.let { Text("Then ${clock(it.start)} ${it.title}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
+        IconButton(onClick = favourite) {
+            if (liked) Icon(Icons.Default.Favorite, "Take ${n.channel.name} out of Favourites", tint = Color(0xFFFF5A7A))
+            else Icon(Icons.Default.FavoriteBorder, "Add ${n.channel.name} to Favourites", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         IconButton(onClick = schedule) { Icon(Icons.Default.CalendarMonth, "What's on later") }
     }

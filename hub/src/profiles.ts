@@ -215,7 +215,15 @@ function publicProfile(p: StoredProfile): Profile {
 // Filtering for Kids profiles
 
 export class ContentFilter {
-  constructor(readonly profile: Profile | null) {}
+  /**
+   * `favouriteChannels` is the profile's own favourite channels (favourites.ts): every channel
+   * list this filter hands out carries them in `favourite`, so the guide's Favourites list and
+   * Home's "Live now" row follow the profile. Left out, the household's star stays.
+   */
+  constructor(
+    readonly profile: Profile | null,
+    private readonly favouriteChannels?: ReadonlySet<string>,
+  ) {}
 
   get kids(): boolean {
     return this.profile?.kind === "kids";
@@ -232,7 +240,10 @@ export class ContentFilter {
   }
 
   channels(list: Channel[]): Channel[] {
-    return this.kids ? list.filter((c) => this.channel(c)) : list;
+    const kept = this.kids ? list.filter((c) => this.channel(c)) : list;
+    const fav = this.favouriteChannels;
+    if (!fav) return kept;
+    return kept.map((c) => (c.favourite === fav.has(c.id) ? c : { ...c, favourite: fav.has(c.id) }));
   }
 
   programme(_p: Programme, channel: Channel | undefined): boolean {

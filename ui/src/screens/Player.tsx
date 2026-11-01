@@ -19,6 +19,7 @@ import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
 import { queue } from "../queue";
 import { canSave, saveToNas } from "../save";
+import { isFavouriteChannel, isFavouriteTitle, toggleFavouriteChannel, toggleFavouriteTitle } from "../favourites";
 import { errorToast, nav, now, openDialog, setShowStats, showStats, toast } from "../store";
 import { openSleepMenu, sleep } from "../sleep";
 import { canFindSubtitles, findSubtitles } from "../subtitles";
@@ -291,6 +292,18 @@ export function Player() {
     void saveToNas(req, [np.title?.name ?? np.info.title, np.info.subtitle].filter(Boolean).join(" ")).catch(errorToast);
   };
 
+  // Favourite (Green, or in Options): the channel on the banner when live, else the film or show.
+  const favouriteTarget = (): { name: string; on: boolean; toggle: () => void } | null => {
+    const np = nowPlaying();
+    if (!np) return null;
+    if (live()) {
+      const c = channelById(bannerChannelId());
+      return c ? { name: c.name, on: isFavouriteChannel(c.id), toggle: () => toggleFavouriteChannel(c) } : null;
+    }
+    const t = np.req.kind === "title" ? np.title : undefined;
+    return t && (t.kind === "movie" || t.kind === "series") ? { name: t.name, on: isFavouriteTitle(t.id), toggle: () => toggleFavouriteTitle(t) } : null;
+  };
+
   const options = () =>
     openDialog((close) => {
       const st = playerState();
@@ -359,6 +372,20 @@ export function Player() {
               Off
             </button>
           </div>
+          <Show when={favouriteTarget()}>
+            {(f) => (
+              <>
+                <h4>
+                  <Icon name="heart" /> Favourites
+                </h4>
+                <div class="option-list">
+                  <button class="option option-favourite" classList={{ selected: f().on }} data-focus onClick={() => f().toggle()}>
+                    <Icon name={f().on ? "hearted" : "heart"} /> {f().on ? `${f().name} is a favourite` : `Add ${f().name} to Favourites`}
+                  </button>
+                </div>
+              </>
+            )}
+          </Show>
           <Show when={savable()}>
             <h4>
               <Icon name="download" /> Keep a copy
@@ -422,6 +449,14 @@ export function Player() {
       case "yellow":
         void options();
         return true;
+      case "green": {
+        const f = favouriteTarget();
+        if (f) {
+          f.toggle();
+          poke();
+        }
+        return true;
+      }
       case "blue":
         setShowStats(!showStats());
         return true;
@@ -589,6 +624,9 @@ export function Player() {
               <img class="banner-logo" src={channelById(bannerChannelId())!.logo} alt="" onError={(e) => (e.currentTarget.style.display = "none")} />
             </Show>
             <span class="banner-name">{channelById(bannerChannelId())?.name}</span>
+            <Show when={isFavouriteChannel(bannerChannelId())}>
+              <Icon name="hearted" class="fav-heart" />
+            </Show>
             <Show when={browsing()}>
               <span class="flag">Press OK to watch</span>
             </Show>
@@ -630,6 +668,9 @@ export function Player() {
             </span>
             <span>
               <kbd class="key-red" /> Record
+            </span>
+            <span>
+              <kbd class="key-green" /> {isFavouriteChannel(bannerChannelId()) ? "Favourite ♥" : "Favourite"}
             </span>
             <span>
               <kbd class="key-yellow" /> Options
@@ -674,6 +715,13 @@ export function Player() {
                 <span>
                   <kbd>◀▶</kbd> Skip back and forward
                 </span>
+                <Show when={favouriteTarget()}>
+                  {(f) => (
+                    <span>
+                      <kbd class="key-green" /> {f().on ? "Favourite ♥" : "Favourite"}
+                    </span>
+                  )}
+                </Show>
                 <span>
                   <kbd class="key-yellow" /> Audio and subtitles{savable() ? ", Save to NAS" : ""}
                 </span>
