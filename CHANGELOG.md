@@ -27,6 +27,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-01
 
+- **Features on each screen** ([docs/features-per-screen.md](docs/features-per-screen.md)): switch Live TV, Films, TV shows, Music, Recordings, Downloads, Search, Cast & games, Weather, music video channels, projected clips or pop-ups off on one screen only. In TV Settings › Features on this screen, for every paired screen on the Hub's settings page, and in the Android app's Settings. A switched-off feature leaves the menu, Home, the colour keys and help, and nothing opens it there. The phone remote follows the TV. (#133)
 - **Screen pairing code stays put**: a screen waiting to be let in (such as the desktop app) keeps the same four-letter code until it's let in or the code runs out after fifteen minutes. Before, two waiting screens that reached the Hub from one address kept replacing each other's code every few seconds. (#122)
 
 ## 2026-10-31
