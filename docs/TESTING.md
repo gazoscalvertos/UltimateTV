@@ -80,7 +80,6 @@ Update the box first (Settings › About › Update the box): the update builds 
 1. Plug it in between the box and the TV, turn on CEC on the TV.
 2. Every button: arrows, OK, Back, Home, the colour keys, numbers, channel up and down, play/pause, rewind and fast forward, Guide and Info. Note any that do nothing.
 3. Turn the TV off: playback stops. Turn it on: the TV switches to the box.
-4. **TV apps** along the top: after the note, the TV leaves for its own Home (Netflix and the rest). Input › UltimateTV comes back to Home. If the TV stays put, try the other ways in Settings › Picture and sound › TV apps button, and note which one the Hisense needs ([watching-extras.md](watching-extras.md)).
 
 ## 8. Music video channels
 

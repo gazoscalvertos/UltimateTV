@@ -271,8 +271,7 @@ async function main(): Promise<void> {
   cec.onPower((active) => {
     send("agent:power", active);
     clearTimeout(suspendTimer);
-    // Not while the TV shows its own apps: the box has to answer when it's picked again.
-    if (!active && process.env.SUSPEND_WHEN_TV_OFF === "1" && !cec.handedOver) {
+    if (!active && process.env.SUSPEND_WHEN_TV_OFF === "1") {
       suspendTimer = setTimeout(() => {
         log("TV is off: suspending");
         execFile("systemctl", ["suspend"], (e) => e && log(`Suspend failed: ${e.message}`));
@@ -333,7 +332,6 @@ async function main(): Promise<void> {
     launchApp: (id: never) => cast.launch(id),
     stopApp: () => cast.stopForeground(),
     tvStandby: () => cec.standby(),
-    tvApps: (method: never) => cec.tvApps(method),
     addSubtitle: (sub: never) => player.addSubtitle(sub),
     setSubtitleStyle: (style: never) => player.setSubtitleStyle(style),
     setVolume: (pct: never) => player.setVolume(pct),
