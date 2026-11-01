@@ -740,6 +740,8 @@ export type HubEvent =
   | { type: "queue.changed" }
   /** A profile's watchlist changed (saved from the phone, say): fetch /api/watchlist again. */
   | { type: "watchlist.changed"; profileId: string | null }
+  /** A profile's recent searches changed (cleared on the phone, say): fetch /api/search/history again. */
+  | { type: "search.history.changed"; profileId: string | null }
   /** A new alert, or one cleared (Settings › Alerts, and a pop-up for adults when that's on). */
   | { type: "alerts.changed"; alert?: Alert }
   /** A laptop asks to share its screen; the TV asks before it accepts. */

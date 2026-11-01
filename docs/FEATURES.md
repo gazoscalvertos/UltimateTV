@@ -14,6 +14,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 - Reminders on programmes.
 - Live TV switches the screen's refresh rate once mpv reads the stream's frame rate.
 - Search finds channels with or without spaces ("bbcone"), what's on this week, recordings, films and series, with an on-screen keyboard or typing from the phone.
+- Recent searches per profile (kept on the Hub, up to 20): shown before anything is typed and as suggestions while typing; OK runs one. Clear removes one, Clear all the lot. The phone remote's Search shows the TV profile's list.
 
 ## Recording and series link
 

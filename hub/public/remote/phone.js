@@ -1456,11 +1456,35 @@
   }
 
   // Search: films, series, channels, programmes and recordings.
+  // Recent searches are the TV profile's (?tv=1), the same list the TV shows.
   function showSearch() {
-    body.innerHTML = `<form class="search" id="search-form"><input id="search-q" type="search" placeholder="Films, series, channels…" autocomplete="off" enterkeyhint="search"></form><div id="search-results"></div>`;
+    body.innerHTML = `<form class="search" id="search-form"><input id="search-q" type="search" placeholder="Films, series, channels…" autocomplete="off" enterkeyhint="search"></form><div id="search-recent"></div><div id="search-results"></div>`;
     const q = $("search-q");
     let timer;
+    let recent = [];
+    const keep = (p) => p.then((d) => ((recent = d.searches || []), showRecent()), (e) => toast(e.message, true));
+    const remember = () => {
+      const text = q.value.trim();
+      if (text.length >= 2) post("/api/search/history?tv=1", { q: text }).then((d) => (recent = d.searches || []), () => {});
+    };
+    // All of them before anything is typed, then those with a word starting with what's typed.
+    const showRecent = () => {
+      const typed = q.value.replace(/\s+/g, " ").trim().toLowerCase();
+      const list = (typed ? recent.filter((s) => { const l = s.q.toLowerCase(); return l !== typed && (l.startsWith(typed) || l.includes(` ${typed}`)); }).slice(0, 3) : recent.slice(0, 8));
+      const el = $("search-recent");
+      if (!el) return;
+      el.innerHTML = list.length
+        ? `<div class="recent-head"><h3>${typed ? "Searched before" : "Recent searches"}</h3>${typed ? "" : `<button class="link" id="recent-all">Clear all</button>`}</div><div class="list">${list
+            .map((s, i) => `<div class="recent-row"><button class="item" data-rq="${i}"><span class="text"><b>${esc(s.q)}</b></span></button><button class="link" data-rx="${i}">Clear</button></div>`)
+            .join("")}</div>`
+        : "";
+      for (const b of el.querySelectorAll("[data-rq]")) b.onclick = () => ((q.value = list[Number(b.dataset.rq)].q), clearTimeout(timer), run());
+      for (const b of el.querySelectorAll("[data-rx]")) b.onclick = () => keep(del(`/api/search/history?tv=1&q=${encodeURIComponent(list[Number(b.dataset.rx)].q)}`));
+      if ($("recent-all")) $("recent-all").onclick = () => keep(del("/api/search/history?tv=1"));
+    };
+    get("/api/search/history?tv=1").then((d) => ((recent = d.searches || []), showRecent()), () => {});
     const run = async () => {
+      showRecent();
       const text = q.value.trim();
       if (text.length < 2) return ($("search-results").innerHTML = "");
       try {
@@ -1474,6 +1498,7 @@
         for (const b of $("search-results").querySelectorAll("[data-sr]")) {
           const r = results[Number(b.dataset.sr)];
           b.onclick = () => {
+            remember();
             if (r.kind === "title" && r.title) return titleSheet(r.title);
             if (r.kind === "recording") return playOnTv({ kind: "recording", id: r.recording?.id ?? r.id });
             if ((r.kind === "channel" || r.kind === "on-now") && r.channel) return playOnTv({ kind: "channel", id: r.channel.id });
@@ -1488,6 +1513,7 @@
       }
     };
     q.addEventListener("input", () => {
+      showRecent();
       clearTimeout(timer);
       timer = setTimeout(run, 350);
     });

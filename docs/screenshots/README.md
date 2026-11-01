@@ -73,4 +73,6 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 113, 114 | What's new: the pop-up on Home after an update, and Settings › What's new with every change |
 | 115–117 | What's new on the phone: the remote's banner after an update, the list it opens, and the settings page's section |
 | 123 | The desktop app (AppImage) in a 1536×864 window on a 1920×1080 screen, against the demo Hub ([desktop.md](../desktop.md)) |
+| 124 | Search before anything is typed: the profile's recent searches, with Clear on each and Clear all |
+| 125 | Phone remote › Watch › Search: the same recent searches as the TV, with Clear and Clear all |
 | kids-time-settings, kids-time-up, kids-time-phone | Kids TV time and bedtime: the settings on the TV, asking for more time at Who's watching? once it's bedtime, and the same settings with today's time and the more-time buttons on the phone's settings page |
