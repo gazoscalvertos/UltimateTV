@@ -3,6 +3,7 @@
 
 import { Show } from "solid-js";
 import { describeWeather, formatTemp, weatherHeadline } from "@ultimatetv/shared";
+import { featureOn } from "../features";
 import { now } from "../store";
 import { weather } from "../weather";
 import { WeatherIcon } from "./WeatherIcon";
@@ -10,7 +11,7 @@ import { WeatherIcon } from "./WeatherIcon";
 export function HomeWeather() {
   const shown = () => {
     const st = weather();
-    return st?.settings.onHome && st.report ? { report: st.report, settings: st.settings } : undefined;
+    return featureOn("weather") && st?.settings.onHome && st.report ? { report: st.report, settings: st.settings } : undefined;
   };
   return (
     <Show when={shown()}>

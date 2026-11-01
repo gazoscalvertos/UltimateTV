@@ -89,6 +89,16 @@ private val Colours = darkColorScheme(
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
+/** Whether a screen is switched off on this phone (Settings › Features on this phone). */
+private fun routeOn(ui: Ui, route: String?): Boolean = when (route?.substringBefore('/')) {
+    "guide", "channel" -> ui.on("live")
+    "library" -> ui.on("films") || ui.on("shows")
+    "recordings" -> ui.on("recordings")
+    "downloads" -> ui.on("downloads")
+    "search" -> ui.on("search")
+    else -> true
+}
+
 private val TABS = listOf(
     Tab("home", "Home", Icons.Default.Home),
     Tab("guide", "TV Guide", Icons.Default.LiveTv),
@@ -144,6 +154,7 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
                     ui.appName = name
                     app.prefs.appName = name
                 }
+                ui.loadFeatures()
                 Offline.syncPositions(app.hub)
                 if (app.prefs.profileId == null) nav.navigate("profiles")
             } else if (wasOnline || startTab == null) {
@@ -156,6 +167,9 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
     val route = entry?.destination?.route
     val wide = isWide()
     val showBars = route != "profiles"
+    val tabs = TABS.filter { routeOn(ui, it.route) }
+    // A screen switched off here (from Settings, the Hub, or a link into the app) goes back Home.
+    LaunchedEffect(route, ui.featuresOff) { if (route != null && !routeOn(ui, route)) go(nav, "home") }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -165,7 +179,7 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
         bottomBar = {
             if (!wide && showBars) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-                    for (t in TABS) NavigationBarItem(
+                    for (t in tabs) NavigationBarItem(
                         selected = route == t.route,
                         onClick = { go(nav, t.route) },
                         icon = { Icon(t.icon, null) },
@@ -179,13 +193,13 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
             if (wide && showBars) {
                 NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer, windowInsets = WindowInsets(0, 0, 0, 0)) {
                     Spacer(Modifier.size(8.dp))
-                    for (t in TABS) NavigationRailItem(selected = route == t.route, onClick = { go(nav, t.route) }, icon = { Icon(t.icon, null) }, label = { Text(t.label) })
-                    NavigationRailItem(selected = route == "search", onClick = { go(nav, "search") }, icon = { Icon(Icons.Default.Search, null) }, label = { Text("Search") })
+                    for (t in tabs) NavigationRailItem(selected = route == t.route, onClick = { go(nav, t.route) }, icon = { Icon(t.icon, null) }, label = { Text(t.label) })
+                    if (ui.on("search")) NavigationRailItem(selected = route == "search", onClick = { go(nav, "search") }, icon = { Icon(Icons.Default.Search, null) }, label = { Text("Search") })
                     NavigationRailItem(selected = route == "settings", onClick = { go(nav, "settings") }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Settings") })
                 }
             }
             Column(Modifier.fillMaxSize()) {
-                if (!ui.online && route != "downloads" && route != "settings") OfflineBanner { go(nav, "downloads") }
+                if (!ui.online && route != "downloads" && route != "settings" && ui.on("downloads")) OfflineBanner { go(nav, "downloads") }
                 Box(Modifier.fillMaxSize()) {
                     NavHost(nav, startDestination = startTab ?: "home") {
                         composable("home") { HomeScreen(nav) }

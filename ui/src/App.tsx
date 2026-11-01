@@ -2,7 +2,7 @@
 // handles things that can happen anywhere (reminders, a recording taking the connection,
 // the TV going to standby).
 
-import { createEffect, ErrorBoundary, For, Match, on, onCleanup, onMount, Show, Switch } from "solid-js";
+import { createEffect, ErrorBoundary, For, Match, on, onCleanup, onMount, Show, Switch, untrack } from "solid-js";
 import { resolveTheme } from "@ultimatetv/shared";
 import { agent, onDesktop } from "./agent";
 import { ApiError, hub, session } from "./api";
@@ -53,6 +53,7 @@ import { KeyHints, openHelp } from "./components/KeyHints";
 import { AlertCard, KidsTimeCard, MirroringLayer, ScreenShareLayer, SleepWarning } from "./components/Overlays";
 import { startKidsTime } from "./kidstime";
 import { ProjectionLayer } from "./components/Projection";
+import { featureOn, startFeatures } from "./features";
 
 function ScreenError(props: { error: unknown; reset: () => void }) {
   const message = props.error instanceof ApiError && props.error.status === 403 ? "That isn't available on this profile." : props.error instanceof Error ? props.error.message : "Something went wrong.";
@@ -131,7 +132,7 @@ export function App() {
       void musicPlayPause();
       return true;
     }
-    if ((a === "channelUp" || a === "channelDown") && !isLive()) {
+    if ((a === "channelUp" || a === "channelDown") && !isLive() && featureOn("live")) {
       const id = liveChannelId() ?? channels()[0]?.id;
       if (id) void play({ kind: "channel", id });
       return true;
@@ -178,7 +179,15 @@ export function App() {
 
   onMount(() => {
     // The Hub only sends events to a paired screen.
-    void pairScreen().then(startEvents);
+    void pairScreen().then(() => {
+      startEvents();
+      startFeatures();
+    });
+    // A feature switched off while its screen is open: step back out of it.
+    createEffect(() => {
+      featureOn("live"); // any change to this screen's switches
+      untrack(() => nav.prune());
+    });
     // Phones, Home Assistant and the Hub's box reports work the TV box, not a desktop copy.
     if (!onDesktop) {
       startRemoteBridge();
@@ -318,16 +327,27 @@ export function App() {
         )}
       </Show>
       <KeyHints />
-      <ProjectionLayer />
+      {/* Each of these goes when its feature is switched off on this screen (features.ts). */}
+      <Show when={featureOn("clips")}>
+        <ProjectionLayer />
+      </Show>
       <Halloween />
       <ThemeDecor />
       <EasterEggs />
-      <NewsFlash />
-      <Notices />
-      <JumpScare />
-      <ScreenShareLayer />
-      <MirroringLayer />
-      <AlertCard />
+      <Show when={featureOn("notifications")}>
+        <NewsFlash />
+        <Notices />
+      </Show>
+      <Show when={featureOn("clips")}>
+        <JumpScare />
+      </Show>
+      <Show when={featureOn("cast")}>
+        <ScreenShareLayer />
+        <MirroringLayer />
+      </Show>
+      <Show when={featureOn("notifications")}>
+        <AlertCard />
+      </Show>
       <SleepWarning />
       <KidsTimeCard />
       <DialogHost />

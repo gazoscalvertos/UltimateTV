@@ -227,3 +227,9 @@ data class AppVersion(val versionCode: Int, val versionName: String?)
 data class ChangeEntry(val id: String, val title: String, val text: String?, val prs: List<Int>?)
 data class ChangeRelease(val id: String, val date: String?, val version: String?, val note: String?, val entries: List<ChangeEntry>?)
 data class Changelog(val releases: List<ChangeRelease>?, val latest: String?, val unseen: List<ChangeEntry>?)
+
+/** A part of the app that can be switched off on one phone or screen (Hub: shared/src/features.ts). */
+data class FeatureInfo(val id: String, val label: String, val detail: String, val clients: List<String>?)
+
+/** GET /api/features: this phone's paired id and what's switched off on it. */
+data class FeatureState(val device: String?, val client: String?, val off: List<String>?, val features: List<FeatureInfo>?)

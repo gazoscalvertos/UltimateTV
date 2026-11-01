@@ -736,6 +736,8 @@ export type HubEvent =
   | { type: "music.login"; app: "deezer"; id: string }
   /** A phone or screen paired or was removed, a screen is waiting to be let in, or the pairing code was used. */
   | { type: "devices.changed" }
+  /** A screen's switched-off features changed (see features.ts): the screen with that id fetches /api/features again. */
+  | { type: "features.changed"; device: string }
   /** The play queue changed (added to on the TV or the phone, reordered, or an item started): fetch /api/queue again. */
   | { type: "queue.changed" }
   /** A profile's watchlist changed (saved from the phone, say): fetch /api/watchlist again. */

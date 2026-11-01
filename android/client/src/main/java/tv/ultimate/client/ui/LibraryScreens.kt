@@ -47,6 +47,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -75,14 +76,18 @@ import tv.ultimate.client.TitleDetails
 @Composable
 fun LibraryScreen(nav: NavHostController) {
     val ui = LocalUi.current
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var picked by rememberSaveable { mutableIntStateOf(0) }
+    // Films or TV shows switched off on this phone leave just the other.
+    val films = ui.on("films")
+    val shows = ui.on("shows")
+    val tab = if (!films) 1 else if (!shows) 0 else picked
     val kind = if (tab == 0) "movie" else "series"
     val rails = rememberLoad(kind, ui.online) { App.instance.hub.browse(kind) }
     Column {
-        Header("Films & TV", nav)
-        TabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.background) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Films") })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("TV shows") })
+        Header(if (!films) "TV shows" else if (!shows) "Films" else "Films & TV", nav)
+        if (films && shows) TabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.background) {
+            Tab(selected = tab == 0, onClick = { picked = 0 }, text = { Text("Films") })
+            Tab(selected = tab == 1, onClick = { picked = 1 }, text = { Text("TV shows") })
         }
         Loaded(rails) { list ->
             if (list.isEmpty()) Empty("Nothing here yet. Add Jellyfin or an addon on the Hub's setup page.")
@@ -112,6 +117,14 @@ fun DetailsScreen(nav: NavHostController, id: String) {
     Column {
         Header("", nav, back = true)
         Loaded(details) { d ->
+            // A film or show switched off on this phone doesn't open from a link either.
+            if (!ui.titleShown(d.kind)) {
+                LaunchedEffect(d.id) {
+                    ui.say("${if (d.kind == "series") "TV shows are" else "Films are"} switched off on this phone")
+                    nav.popBackStack()
+                }
+                return@Loaded
+            }
             val wide = isWide()
             var season by rememberSaveable(d.id) { mutableIntStateOf(firstSeason(d)) }
             val seasonLoad = rememberLoad(d.id, season) {

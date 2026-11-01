@@ -5,6 +5,7 @@ import { createEffect, createMemo, createResource, createSignal, For, on, Show }
 import type { SearchResult } from "@ultimatetv/shared";
 import { digitOf } from "@ultimatetv/shared";
 import { hub } from "../api";
+import { featureOn, titleShown } from "../features";
 import { Icon } from "../components/Icon";
 import { openProgramme, timeRange } from "../components/ProgrammeCard";
 import { Poster } from "../components/Rail";
@@ -29,10 +30,11 @@ export function Search() {
   const groups = createMemo(() => {
     const r = results() ?? [];
     return [
-      { title: "Channels", items: r.filter((x) => x.kind === "channel") },
-      { title: "On TV", items: r.filter((x) => x.kind === "on-now" || x.kind === "upcoming") },
-      { title: "Recordings", items: r.filter((x) => x.kind === "recording") },
-      { title: "Films and TV", items: r.filter((x) => x.kind === "title") },
+      // Only what's switched on on this screen (features.ts).
+      { title: "Channels", items: featureOn("live") ? r.filter((x) => x.kind === "channel" && (!x.channel?.mix || featureOn("mix"))) : [] },
+      { title: "On TV", items: featureOn("live") ? r.filter((x) => x.kind === "on-now" || x.kind === "upcoming") : [] },
+      { title: "Recordings", items: featureOn("recordings") ? r.filter((x) => x.kind === "recording") : [] },
+      { title: "Films and TV", items: r.filter((x) => x.kind === "title" && (!x.title || titleShown(x.title))) },
     ].filter((g) => g.items.length);
   });
 

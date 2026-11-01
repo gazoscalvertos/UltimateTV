@@ -1,6 +1,7 @@
 // App-wide state: where we are, who's watching, toasts and dialogs.
 
 import { createSignal, type JSX } from "solid-js";
+import { blockedRoute, featureLabel } from "./features";
 import { cleanAccessibility, DEFAULT_APP_NAME, isThemeName, themeInfo, type AccessibilitySettings, type MusicItem, type Profile, type ThemeName } from "@ultimatetv/shared";
 
 export type Route =
@@ -25,18 +26,37 @@ export type PlannerTab = "recorded" | "scheduled" | "series" | "downloads";
 
 const [stack, setStack] = createSignal<Route[]>([{ name: "profiles" }]);
 
+/**
+ * A screen whose feature is switched off on this screen (features.ts) doesn't open, whichever
+ * shortcut, colour key, phone request or link asked for it.
+ */
+function refused(route: Route): boolean {
+  const off = blockedRoute(route);
+  if (off) toast(`${featureLabel(off)} is switched off on this screen`, "bad");
+  return Boolean(off);
+}
+
 export const nav = {
   stack,
   current: () => stack()[stack().length - 1]!,
   push(route: Route): void {
+    if (refused(route)) return;
     setStack((s) => [...s, route]);
   },
   /** Swap the current screen (top menu tabs), so Back doesn't walk through every tab. */
   replace(route: Route): void {
+    if (refused(route)) return;
     setStack((s) => [...s.slice(0, -1), route]);
   },
   reset(route: Route): void {
-    setStack([route]);
+    setStack([refused(route) ? { name: "home" } : route]);
+  },
+  /** Drops screens whose feature has just been switched off, landing on Home if nothing's left. */
+  prune(): void {
+    setStack((s) => {
+      const kept = s.filter((r) => !blockedRoute(r));
+      return kept.length === s.length ? s : kept.length ? kept : [{ name: "home" }];
+    });
   },
   back(): boolean {
     if (stack().length <= 1) return false;

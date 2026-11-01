@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import tv.ultimate.client.ApiError
 import tv.ultimate.client.App
+import tv.ultimate.client.FeatureState
 import tv.ultimate.client.Offline
 import tv.ultimate.client.OfflineMeta
 import tv.ultimate.client.PlaybackInfo
@@ -33,6 +34,50 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
     var ask by mutableStateOf<Ask?>(null)
     /** What the household calls the app (GazosTV, …), from the Hub's settings. */
     var appName by mutableStateOf(App.instance.prefs.appName)
+    /** Features switched off on this phone (Hub: /api/features), remembered for away from home. */
+    var featuresOff by mutableStateOf(App.instance.prefs.featuresOff)
+    var features by mutableStateOf<FeatureState?>(null)
+
+    fun on(feature: String): Boolean = feature !in featuresOff
+
+    /** Films and TV shows go with their switches. */
+    fun titleShown(kind: String?): Boolean = when (kind) {
+        "series" -> on("shows")
+        "movie" -> on("films")
+        else -> true
+    }
+
+    fun featureLabel(id: String): String = features?.features?.find { it.id == id }?.label ?: when (id) {
+        "live" -> "Live TV and guide"
+        "films" -> "Films"
+        "shows" -> "TV shows"
+        "recordings" -> "Recordings"
+        "downloads" -> "Downloads"
+        "search" -> "Search"
+        else -> id
+    }
+
+    suspend fun loadFeatures() {
+        val s = runCatching { hub.features() }.getOrNull() ?: return
+        features = s
+        apply(s.off.orEmpty().toSet())
+    }
+
+    fun apply(off: Set<String>) {
+        featuresOff = off
+        App.instance.prefs.featuresOff = off
+    }
+
+    /** The feature that stops this playing here, if it's switched off. */
+    private fun blockedBy(req: PlaybackRequest, title: TitleRef?): String? {
+        val f = when (req.kind) {
+            "channel", "catchup" -> if (req.id.startsWith("mix:")) "mix" else "live"
+            "recording" -> "recordings"
+            "title" -> when (title?.kind) { "series" -> "shows"; "movie" -> "films"; else -> null }
+            else -> null
+        }
+        return f?.takeIf { !on(it) }
+    }
 
     suspend fun confirm(title: String, message: String, yes: String, no: String = "Cancel"): Boolean {
         val answer = CompletableDeferred<Boolean>()
@@ -45,6 +90,7 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
     }
 
     fun play(req: PlaybackRequest, title: TitleRef? = null, name: String? = null) {
+        blockedBy(req, title)?.let { say("${featureLabel(it)} is switched off on this phone"); return }
         scope.launch {
             working = if (req.kind == "channel") "Tuning…" else "Starting ${name ?: title?.name ?: ""}…".replace("  ", " ")
             try {
@@ -77,6 +123,7 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
 
     /** Asks the Hub for a copy to download and hands it to the download service. */
     fun download(req: PlaybackRequest, meta: OfflineMeta, smaller: Boolean) {
+        if (!on("downloads")) return say("Downloads are switched off on this phone")
         scope.launch {
             working = "Getting ${meta.title ?: "it"} ready to download…"
             try {
@@ -112,6 +159,7 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
 
     /** A whole season, one episode after another, with the default version of each. */
     fun downloadAll(items: List<Pair<PlaybackRequest, OfflineMeta>>, smaller: Boolean) {
+        if (!on("downloads")) return say("Downloads are switched off on this phone")
         scope.launch {
             askNotifications()
             var added = 0

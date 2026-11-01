@@ -100,7 +100,14 @@ fun SearchScreen(nav: NavHostController) {
         )
         error?.let { Text(explain(it), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
-            items(results) { r ->
+            items(results.filter { r ->
+                // Only what's switched on on this phone.
+                when (r.kind) {
+                    "channel", "on-now", "upcoming" -> ui.on("live")
+                    "recording" -> ui.on("recordings")
+                    else -> ui.titleShown(r.title?.kind)
+                }
+            }) { r ->
                 Row(
                     Modifier.fillMaxWidth().clickable {
                         when (r.kind) {
@@ -145,7 +152,12 @@ fun SettingsScreen(nav: NavHostController) {
     var smaller by remember { mutableStateOf(prefs.smaller) }
     var paired by remember { mutableStateOf<Boolean?>(null) }
     var pairCode by remember { mutableStateOf("") }
-    LaunchedEffect(ui.online) { if (ui.online) paired = runCatching { app.hub.paired() }.getOrNull() }
+    LaunchedEffect(ui.online) {
+        if (ui.online) {
+            paired = runCatching { app.hub.paired() }.getOrNull()
+            ui.loadFeatures()
+        }
+    }
     fun pairWith(code: String) {
         scope.launch {
             runCatching { app.hub.pair(code, android.os.Build.MODEL ?: "Android phone") }
@@ -211,6 +223,30 @@ fun SettingsScreen(nav: NavHostController) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value = pairCode, onValueChange = { pairCode = it }, label = { Text("Code on the TV") }, singleLine = true, modifier = Modifier.weight(1f))
                     OutlinedButton(onClick = { pairWith(pairCode) }, enabled = pairCode.isNotBlank() && ui.online) { Text("Pair") }
+                }
+            }
+            HorizontalDivider()
+
+            Text("Features on this phone", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            val featureState = ui.features
+            val device = featureState?.device
+            if (device == null) {
+                Text(
+                    if (paired == true || featureState != null) "Pairing is off on the Hub, so phones can't be told apart." else "Pair with the TV first, then switch off what this phone doesn't need.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text("Switch off what this phone doesn't need. The TV and other phones keep it. The Hub's setup page can set every screen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                for (f in featureState?.features.orEmpty()) {
+                    Toggle(f.label, f.detail, ui.on(f.id)) { want ->
+                        val next = if (want) ui.featuresOff - f.id else ui.featuresOff + f.id
+                        scope.launch {
+                            runCatching { app.hub.setFeatures(device, next.toList()) }
+                                .onSuccess { ui.apply(it.toSet()) }
+                                .onFailure { ui.say(explain(it)) }
+                        }
+                    }
                 }
             }
             HorizontalDivider()

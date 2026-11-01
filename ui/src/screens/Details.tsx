@@ -12,12 +12,13 @@ import { Icon } from "../components/Icon";
 import { Progress, RailRow } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { useHints } from "../hints";
+import { titleShown } from "../features";
 import { useKeys } from "../keys";
 import { play, playLink } from "../player";
 import { addToQueue } from "../queue";
 import { allEpisodes, canDownload, downloadLabel, downloadOf, downloadToBox, episodeRequest, episodesOf, filmRequest } from "../downloads";
 import { canSave, saveEpisodes, saveToNas } from "../save";
-import { errorToast, isKids, openDialog, toast } from "../store";
+import { errorToast, isKids, nav, openDialog, toast } from "../store";
 
 const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
 
@@ -96,6 +97,14 @@ const scoreTone = (s: TitleScore) => (s.pct >= 70 ? "good" : s.pct >= 50 ? "mid"
 
 export function Details(props: { id: string }) {
   const [d] = createResource(() => props.id, (id) => hub.title(id));
+  // A film or series whose tab is switched off on this screen (features.ts) doesn't open from a link either.
+  createEffect(() => {
+    const t = d();
+    if (t && !titleShown(t)) {
+      toast(`${t.kind === "series" ? "TV shows are" : "Films are"} switched off on this screen`, "bad");
+      nav.back();
+    }
+  });
   // The trailer, scores and More like this come after the page, as they can take a moment.
   const [extras] = createResource(() => props.id, (id) => hub.extras(id).catch(() => null));
   const playTrailer = () => {

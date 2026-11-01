@@ -2,7 +2,9 @@
 
 import { For, Show } from "solid-js";
 import { clockTime, formatTemp } from "@ultimatetv/shared";
+import type { FeatureId } from "@ultimatetv/shared";
 import { castSettings } from "../cast";
+import { featureOn } from "../features";
 import { visibleDownloads } from "../downloads";
 import { sleep } from "../sleep";
 import { openTvApps } from "../tvapps";
@@ -11,20 +13,20 @@ import { weather } from "../weather";
 import { Icon } from "./Icon";
 import { WeatherIcon } from "./WeatherIcon";
 
-type Tab = { label: string; route: Route; match: Route["name"]; adults?: boolean; when?: () => boolean };
+type Tab = { label: string; route: Route; match: Route["name"]; adults?: boolean; when?: () => boolean; feature?: FeatureId };
 
 const TABS: Tab[] = [
   { label: "Home", route: { name: "home" }, match: "home" },
-  { label: "TV Guide", route: { name: "guide" }, match: "guide" },
-  { label: "Films", route: { name: "browse", kind: "movie" }, match: "browse" },
-  { label: "TV Shows", route: { name: "browse", kind: "series" }, match: "browse" },
+  { label: "TV Guide", route: { name: "guide" }, match: "guide", feature: "live" },
+  { label: "Films", route: { name: "browse", kind: "movie" }, match: "browse", feature: "films" },
+  { label: "TV Shows", route: { name: "browse", kind: "series" }, match: "browse", feature: "shows" },
   // Kids don't get the grown-ups' Spotify account (or its explicit songs).
-  { label: "Music", route: { name: "music" }, match: "music", adults: true },
-  { label: "Recordings", route: { name: "planner" }, match: "planner" },
+  { label: "Music", route: { name: "music" }, match: "music", adults: true, feature: "music" },
+  { label: "Recordings", route: { name: "planner" }, match: "planner", feature: "recordings" },
   // Once something is on the box's own disk (for a trip, say).
-  { label: "Downloaded", route: { name: "downloads" }, match: "downloads", when: () => visibleDownloads().length > 0 },
+  { label: "Downloaded", route: { name: "downloads" }, match: "downloads", when: () => visibleDownloads().length > 0, feature: "downloads" },
   // Kids only see it when a grown-up has allowed the games.
-  { label: "Cast & games", route: { name: "cast" }, match: "cast", when: () => !isKids() || castSettings().gamesForKids },
+  { label: "Cast & games", route: { name: "cast" }, match: "cast", when: () => !isKids() || castSettings().gamesForKids, feature: "cast" },
 ];
 
 function isActive(t: Tab): boolean {
@@ -41,7 +43,7 @@ export function TopBar() {
         <span class="brand-name">{appName()}</span>
       </div>
       <nav class="tabs">
-        <For each={TABS.filter((t) => !(t.adults && isKids()) && (!t.when || t.when()))}>
+        <For each={TABS.filter((t) => !(t.adults && isKids()) && (!t.when || t.when()) && (!t.feature || featureOn(t.feature)))}>
           {(t) => (
             <button class="tab" classList={{ active: isActive(t) }} data-focus data-tab onClick={() => !isActive(t) && nav.replace(t.route)}>
               {t.label}
@@ -52,9 +54,11 @@ export function TopBar() {
         <button class="tab tab-apps" data-focus onClick={() => void openTvApps()}>
           <Icon name="apps" /> TV apps
         </button>
+        <Show when={featureOn("search")}>
         <button class="tab tab-icon" classList={{ active: nav.current().name === "search" }} data-focus aria-label="Search" onClick={() => nav.current().name !== "search" && nav.replace({ name: "search" })}>
           <Icon name="search" />
         </button>
+        </Show>
         <Show when={!isKids()}>
           <button class="tab" classList={{ active: nav.current().name === "settings" }} data-focus onClick={() => nav.current().name !== "settings" && nav.replace({ name: "settings" })}>
             Settings
@@ -62,7 +66,7 @@ export function TopBar() {
         </Show>
       </nav>
       <div class="topbar-right">
-        <Show when={weather()?.settings.inTopBar ? weather()!.report : undefined}>
+        <Show when={featureOn("weather") && weather()?.settings.inTopBar ? weather()!.report : undefined}>
           {(r) => (
             <button class="tab weather-chip" classList={{ active: nav.current().name === "weather" }} data-focus aria-label="The weather" onClick={() => nav.current().name !== "weather" && nav.push({ name: "weather" })}>
               <WeatherIcon code={r().now.code} isDay={r().now.isDay} />

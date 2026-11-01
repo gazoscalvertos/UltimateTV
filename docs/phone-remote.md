@@ -91,6 +91,10 @@ the same screen.
 the doorbell, dinner, a meeting, an alarm. Home Assistant can send the same pop-ups. See
 [Pop-ups on the TV](notifications.md).
 
+## Following the TV's features
+
+What's switched off on the TV box (Settings › Features on this screen) goes from the remote too: the Guide button, the Watch tab's lists, Cast, Clips, News and Pop-up. See [features-per-screen.md](features-per-screen.md).
+
 ## Settings
 
 Tap ⚙ at the top of the remote for the settings page. It has everything the TV's Settings has
