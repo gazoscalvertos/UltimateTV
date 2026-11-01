@@ -48,6 +48,7 @@ import { SelfUpdate } from "./selfupdate.js";
 import { statsWarnings } from "./stats.js";
 import { sendFile } from "./streaming.js";
 import { systemReport, type SystemReport } from "./system.js";
+import { VideoOnly } from "./tsfilter.js";
 import { HostMonitor } from "@ultimatetv/shared/host";
 import { parseVoice } from "./voice.js";
 import { KidsTime, LimitError, registerKidsTime } from "./kidstime.js";
@@ -1191,7 +1192,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ok: true };
   });
 
-  app.get("/api/live/:file", async (req: Req<{ file: string }, { force?: string; holder?: string }>, reply) => {
+  app.get("/api/live/:file", async (req: Req<{ file: string }, { force?: string; holder?: string; video?: string }>, reply) => {
     const channelId = req.params.file.replace(/\.ts$/, "");
     const live = ctx.channels.get(channelId);
     if (live && !filterOf(req).channel(live)) throw new NotAllowedError();
@@ -1207,6 +1208,12 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       }
     });
     reply.header("Content-Type", "video/mp2t").header("Cache-Control", "no-store");
+    // ?video=only: just the picture, for the desktop app's guide preview (tsfilter.ts).
+    if (req.query.video === "only") {
+      const filter = new VideoOnly();
+      filter.on("close", () => consumer.close());
+      return reply.send(consumer.stream.pipe(filter));
+    }
     return reply.send(consumer.stream);
   });
 

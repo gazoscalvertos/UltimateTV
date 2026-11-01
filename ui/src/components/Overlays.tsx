@@ -36,10 +36,10 @@ export function SleepWarning() {
           <h3>Still watching?</h3>
           <p>The TV turns off in {left() > 50 ? "a minute" : `${left()} seconds`}.</p>
           <p class="sleep-keys">
-            <span>
+            <span data-key="ok">
               <kbd>OK</kbd> 15 more minutes
             </span>
-            <span>
+            <span data-key="back">
               <kbd>Back</kbd> cancel the timer
             </span>
           </p>
@@ -92,7 +92,7 @@ export function ScreenShareLayer() {
           <Show when={s().stream} fallback={<div class="screen-share-wait"><div class="spinner" /><p>Connecting to {s().name}…</p></div>}>
             {(stream) => <video autoplay playsinline ref={(v) => (v.srcObject = stream())} />}
           </Show>
-          <div class="cast-hint" classList={{ hidden: !hint() }}>
+          <div class="cast-hint" classList={{ hidden: !hint() }} data-key="back">
             <Icon name="laptop" /> Showing {s().name} · <kbd>Back</kbd> stops
           </div>
         </div>
@@ -123,7 +123,7 @@ export function MirroringLayer() {
   return (
     <Show when={mirroring()}>
       <div class="mirroring-layer">
-        <div class="cast-hint" classList={{ hidden: !hint() }}>
+        <div class="cast-hint" classList={{ hidden: !hint() }} data-key="back">
           <Icon name="cast" /> AirPlay · <kbd>Back</kbd> stops mirroring
         </div>
       </div>

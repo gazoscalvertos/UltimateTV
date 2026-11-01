@@ -5013,3 +5013,165 @@ html[data-text-scale="150"] .details-actions {
   gap: 0.8rem;
   padding: 0 6rem 1rem;
 }
+
+/* Desktop (AppImage): the guide's preview draws live TV itself (LivePreview.tsx) on a black box. */
+.guide-preview-own {
+  overflow: hidden;
+  background: #000;
+}
+.live-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.live-preview.ready {
+  opacity: 1;
+}
+.guide-preview-own .preview-empty {
+  position: relative;
+  padding: 0 1.5rem;
+  text-align: center;
+}
+
+/* The mouse (mouse.ts): a desktop copy and a browser. The TV box never shows a pointer. */
+html.mouse,
+html.mouse body,
+html.mouse button {
+  cursor: default;
+}
+html.mouse [data-focus],
+html.mouse [data-key],
+html.mouse .gg-cell,
+html.mouse .ge-row {
+  cursor: pointer;
+}
+html.mouse input,
+html.mouse textarea {
+  cursor: text;
+}
+html.mouse.mouse-idle,
+html.mouse.mouse-idle * {
+  cursor: none !important;
+}
+/* Key hints and pop-ups normally let the pointer through; with a mouse they're buttons. */
+html.mouse .key-hints [data-key],
+html.mouse .notices [data-key],
+html.mouse [data-key] {
+  pointer-events: auto;
+}
+html.mouse .key-hints [data-key]:hover,
+html.mouse .legend [data-key]:hover,
+html.mouse .banner-hints [data-key]:hover,
+html.mouse .osd-meta [data-key]:hover {
+  color: var(--fg);
+}
+/* The arrows over a row's ends, while the pointer is on it. */
+.row-arrow {
+  position: fixed;
+  z-index: 14;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  padding: 0;
+  border: 0;
+  background: linear-gradient(90deg, rgba(4, 7, 14, 0.85), rgba(4, 7, 14, 0));
+  color: var(--fg);
+  cursor: pointer;
+  opacity: 0.85;
+}
+.row-arrow-right {
+  background: linear-gradient(270deg, rgba(4, 7, 14, 0.85), rgba(4, 7, 14, 0));
+}
+.row-arrow svg {
+  width: 2.4rem;
+  height: 2.4rem;
+}
+.row-arrow:hover {
+  opacity: 1;
+}
+html.mouse:not(.mouse-idle) .row-arrow.show {
+  display: flex;
+}
+
+/* The player with a mouse: buttons along the top, and a seek bar to click or drag. */
+.mouse-controls {
+  position: absolute;
+  z-index: 6;
+  top: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  background: rgb(var(--bg-rgb) / 0.82);
+  backdrop-filter: blur(1rem);
+  box-shadow: 0 0.6rem 2rem rgba(0, 0, 0, 0.45);
+  animation: rise 0.2s var(--ease);
+}
+.mc-btn {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 50%;
+  color: var(--fg);
+}
+.mc-btn:hover {
+  background: rgb(var(--hi) / 0.16);
+}
+.mc-btn svg {
+  width: 1.8rem;
+  height: 1.8rem;
+}
+.mc-muted {
+  opacity: 0.4;
+}
+.mc-volume {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0 0.4rem;
+}
+.mc-slider {
+  width: 8rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.seek-bar {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 1.8rem;
+  cursor: pointer;
+  touch-action: none;
+}
+.seek-bar .osd-progress {
+  transition: height 0.12s;
+}
+.seek-bar:hover .osd-progress {
+  height: 0.8rem;
+}
+.seek-tip {
+  position: absolute;
+  bottom: 2.2rem;
+  transform: translateX(-50%);
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.4rem;
+  background: rgb(var(--bg-rgb) / 0.92);
+  font-size: calc(1rem * var(--ts));
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+html.mouse .up-next,
+html.mouse .skip-button {
+  cursor: pointer;
+}
