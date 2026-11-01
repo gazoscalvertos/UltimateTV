@@ -19,8 +19,8 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md).
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The Hub, the box, the phone remote and the Android app, and how data moves between them |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What has run on real hardware, what's still to test, and what isn't built yet |
 | [docs/TESTING.md](docs/TESTING.md) | The end-to-end test run, step by step |
-| [docs/PLAN.md](docs/PLAN.md) | The original product and technical plan, and why each choice was made |
-| [docs/adr/](docs/adr/) | Decision records (VIDAA ruled out, the Linux mini PC chosen) |
+| [docs/PLAN.md](docs/PLAN.md) | The original plan and why each choice was made (**historical**: for what exists now see FEATURES and ROADMAP) |
+| [docs/adr/](docs/adr/) | Decision records (VIDAA ruled out, the Linux mini PC chosen, profiles and mobile apps in scope) |
 | [CHANGELOG.md](CHANGELOG.md) | Every change since 0.1.0, and how to update |
 
 Guides for each feature are linked from the steps below.
