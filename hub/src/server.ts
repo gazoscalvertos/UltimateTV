@@ -303,7 +303,12 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const status = (err as { statusCode?: number }).statusCode ?? 500;
     if (status >= 500) log.error({ err: String(err) }, "Request failed");
     const code = (err as { code?: unknown }).code;
-    return reply.code(status).send({ error: err instanceof Error ? err.message : String(err), ...(code === "pin" || code === "pair" ? { code } : {}) });
+    // A PIN lockout tells the TV and the phone how long to wait, so they can count down.
+    const retryAfterMs = (err as { retryAfterMs?: unknown }).retryAfterMs;
+    const locked = code === "pin-locked" && typeof retryAfterMs === "number";
+    if (locked) reply.header("Retry-After", String(Math.ceil((retryAfterMs as number) / 1000)));
+    const body = { error: err instanceof Error ? err.message : String(err), ...(code === "pin" || code === "pair" || locked ? { code } : {}), ...(locked ? { retryAfterMs } : {}) };
+    return reply.code(status).send(body);
   });
 
   // -------------------------------------------------------------------------
@@ -1394,14 +1399,20 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ok: true };
   });
 
+  /** Who is guessing at a PIN: the paired device when there is one, else where the request came from. */
+  const pinClient = (req: FastifyRequest) => {
+    const d = deviceAsking(req);
+    return d ? `device:${d.id}` : `ip:${req.ip}`;
+  };
+
   /** Switch the TV to a profile. Returns the token to send as X-Profile-Token. */
   app.post("/api/profiles/:id/unlock", async (req: Req<{ id: string }, Record<string, string>, { pin?: string }>) => {
-    const token = ctx.profiles.unlock(req.params.id, req.body?.pin);
+    const token = ctx.profiles.unlock(req.params.id, req.body?.pin, pinClient(req));
     return { token, profile: ctx.profiles.get(req.params.id) };
   });
 
   /** The phone setup page asks for a grown-up's PIN once the lock is on. */
-  app.post("/api/profiles/admin-unlock", async (req: Req<Record<string, string>, Record<string, string>, { pin?: string }>) => ({ token: ctx.profiles.unlockAdmin(req.body?.pin) }));
+  app.post("/api/profiles/admin-unlock", async (req: Req<Record<string, string>, Record<string, string>, { pin?: string }>) => ({ token: ctx.profiles.unlockAdmin(req.body?.pin, pinClient(req)) }));
 
   // -------------------------------------------------------------------------
   // Library

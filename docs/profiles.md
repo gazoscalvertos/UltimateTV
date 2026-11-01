@@ -96,5 +96,6 @@ Set a 4-digit PIN on the adult profile (**Settings › Profiles and PIN › Fami
 - Once any adult profile has a PIN, every adult profile needs one. An adult profile without its own PIN takes the household PIN (the first one set).
 - The setup page asks for the PIN before it changes anything.
 - When the TV is turned on, it goes to the profile picker if a PIN is set, so the TV is never left on an adult profile.
+- Five wrong PINs lock that profile out for a minute, and each further wrong try doubles the wait up to an hour. The count is kept per profile and per device (or address), survives a Hub restart, and is forgotten after an hour without a wrong try or as soon as the right PIN goes in. The TV and the phone show "Too many tries, wait N minutes" while it lasts.
 
-Forgotten the PIN? On the Hub, run `docker compose exec hub node hub/dist/reset-pins.js`, which clears every PIN.
+Forgotten the PIN? On the Hub, run `docker compose exec hub node hub/dist/reset-pins.js`, which clears every PIN and any lockout.
