@@ -27,7 +27,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-01
 
-- **Favourites for each profile** ([docs/profiles.md](docs/profiles.md#favourites)): every profile now has its own favourite films, shows and channels. Press Blue on a film's page, Green while watching, or hold OK on a channel in the guide; the phone remote and the Android app have a heart button too. The guide's Favourites list follows the profile watching, Home has a Favourites row, and Films and TV Shows can show just your favourites. Channels that were favourites before are now favourites on every profile. Android app 0.4.0. (#132)
+- **Favourites for each profile** ([docs/profiles.md](docs/profiles.md#favourites)): every profile now has its own favourite films, shows and channels. Press Blue on a film's page, Green while watching, or hold OK on a channel in the guide; the phone remote and the Android app have a heart button too. The guide's Favourites list follows the profile watching, Home has a Favourites row, and Films and TV Shows can show just your favourites. Channels that were favourites before are now favourites on every profile. Android app 0.4.0. (#135)
 - **Screen pairing code stays put**: a screen waiting to be let in (such as the desktop app) keeps the same four-letter code until it's let in or the code runs out after fifteen minutes. Before, two waiting screens that reached the Hub from one address kept replacing each other's code every few seconds. (#122)
 
 ## 2026-10-31
