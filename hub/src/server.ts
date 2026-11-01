@@ -184,6 +184,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/screensaver/photos", "paired"],
     ["GET /api/screensaver/photos/:id", "paired"],
     ["POST /api/watchlist", "paired"],
+    // Which list a profile's guide opens on is theirs to pick, Kids included (see the route), but
+    // it is a saved setting, so anything unpaired stays out.
+    ["PUT /api/guides/default", "paired"],
+    ["POST /api/kids-time/report", "paired"],
     ["POST /api/subtitles/download", "paired"],
     ["DELETE /api/watchlist/:id", "paired"],
     ["POST /api/favourites", "paired"],
@@ -200,6 +204,15 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/weather/refresh", "paired"],
     ["POST /api/weather/show", "paired"],
     ["POST /api/recordings/:id/adscan", "paired"],
+    // Making a recording, a series link or a reminder is "paired", not adult-only: the phone
+    // remote and the TV offer them to any paired device (Kids profiles included), while deleting
+    // one stays in ADMIN_ROUTES below. Keeping them here means a paired phone needs no PIN to
+    // press Record, and an unpaired browser on the network still gets nothing.
+    ["POST /api/recordings", "paired"],
+    ["POST /api/recordings/:id/watched", "paired"],
+    ["POST /api/series-links", "paired"],
+    ["POST /api/reminders", "paired"],
+    ["DELETE /api/reminders/:id", "paired"],
     ["POST /api/cast/share/:id/answer", "tv"],
     ["POST /api/cast/share/:id/refuse", "tv"],
     ["POST /api/cast/share/:id/end", "tv"],
@@ -281,6 +294,36 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "PUT /api/adskip",
     "PUT /api/cast/settings",
   ]);
+  /**
+   * Write routes that deliberately ask for nothing, each with the reason. This list is for the
+   * reader and for `tools/hub/route-auth.mjs`: the auth hook above never consults it, so a route
+   * lands here by saying why it is open, not by being added to a bypass.
+   *
+   * Most are open because they are how a device or a page becomes trusted in the first place, or
+   * because the handler checks a secret of its own that the hook cannot see (a pairing code, a
+   * PIN, the X-Move-Key) and still applies the profile's Kids-time and content filters.
+   */
+  const PUBLIC_WRITE_ROUTES: [string, string][] = [
+    ["POST /api/pair", "redeems a pairing code: the code is the credential, so there is no token yet"],
+    ["POST /api/pair/screen", "a screen asking to join: the first one is let in, the rest wait for approval"],
+    ["POST /api/pair/screen/:id", "picks up a screen's pairing: it proves itself with the secret it was given"],
+    ["POST /api/pair/forget", "unpairs the asking device and nothing else, so it can run harmlessly unpaired"],
+    ["POST /api/profiles/:id/unlock", "profile PIN entry, needed before a profile token exists"],
+    ["POST /api/profiles/admin-unlock", "the adult PIN itself is the credential here, so no pairing can be required"],
+    ["POST /api/play", "the TV box and apps start playback; the handler applies the profile filter and Kids time"],
+    ["POST /api/play/prefetch", "warms a stream for playback, filtered by the asking profile like /api/play"],
+    ["POST /api/progress", "the player reports where it got to; the box sends it without a token and it changes no settings"],
+    ["POST /api/offline", "the Android app asks what it may download; the handler applies the profile filter and Kids time"],
+    ["POST /api/offline/allowed", "tells a profile which of the box's downloads it may see, filtered by that profile"],
+    ["POST /api/diagnostics/box", "the box sends a crash report before pairing is settled; body limit and cleaning apply"],
+    ["POST /api/probe-reports", "the probe page posts a speed report; the report is cleaned and only read by an adult"],
+    ["POST /api/cast/share", "a laptop with no device key offers its screen: the share id is unguessable"],
+    ["DELETE /api/cast/share/:id", "that laptop withdraws its own offer; only the id holder can, and it grants nothing"],
+    ["POST /api/kids-time/:id/extra", "asks for extra time with the adult PIN in the body, which the handler checks itself"],
+    ["POST /api/hub/move-in", "moving house: checks the X-Move-Key header, and takes nothing without it"],
+    ["PUT /api/hub/move-file", "moving files: checks the X-Move-Key and keeps every path inside the NAS root"],
+    ["DELETE /api/hub/move", "cancels a move: checks the X-Move-Key like the rest of that plugin"],
+  ];
   app.addHook("preHandler", async (req) => {
     const route = `${req.method} ${req.routeOptions.url}`;
     const need = NEEDS.get(route) ?? (ADMIN_ROUTES.has(route) ? "paired" : undefined);

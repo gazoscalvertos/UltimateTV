@@ -154,6 +154,7 @@ Two deliberate limits:
 - Everything stays on the home network: the Hub is not exposed to the internet, and the Android app only works at home (by choice, see [android-client.md](android-client.md)).
 - Phones and screens pair by scanning a code on the TV ([pairing.md](pairing.md)). Browsers keep an HttpOnly cookie, the Android apps send `X-Device-Token`, and Home Assistant uses `X-Api-Key` for pop-ups, news flashes, keys and the media player (`/api/ha/state`, `/api/ha/command`) only. The TV reports playback to `/api/ha/state` and the Hub posts playback events to a webhook (`homeassistant.ts`).
 - Adult-only routes (settings, Save to NAS, deleting things) check the profile; Kids never get Settings, Music, scares or downloads they aren't allowed.
+- Every write route says what it needs. `hub/src/server.ts` lists them in `NEEDS` (a paired screen, any paired device, or the API key), `ADMIN_ROUTES` (an adult, and the PIN once it's set) and `PUBLIC_WRITE_ROUTES` (deliberately open, one line saying why — pairing, a PIN or the move key checked in the handler, or the box's own reports). One hook enforces the first two; the third is never consulted, so being open takes a written reason. `node tools/hub/route-auth.mjs` prints the whole table and `--check` fails a write route that declares nothing, and `hub/test/routes.test.ts` runs the same check, so a new write route can't land without saying what it needs.
 - Logs and diagnostics cut URLs to their host, so IPTV logins and API keys never appear.
 
 ## Build and CI
