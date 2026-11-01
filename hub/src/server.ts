@@ -32,6 +32,7 @@ import type { HubConfig } from "./config.js";
 import { ConnectionBusyError } from "./connections.js";
 import { HubContext } from "./context.js";
 import { demoArt, seedDemo } from "./demo.js";
+import { hubHealth } from "./health.js";
 import { BoxReportStore, cleanBoxReport, renderDiagnostics, RollingFile, type LogRing } from "./diagnostics.js";
 import { phoneReachable } from "./lan.js";
 import { Library, NotAllowedError } from "./library.js";
@@ -308,7 +309,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // -------------------------------------------------------------------------
   // Health, status, probes
 
-  app.get("/api/health", async () => ({ ok: true, version: HUB_VERSION, ...HUB_BUILD, ...(movedAway(ctx.db) ? { movedAway: true } : {}) }));
+  // Health (#96): Docker's HEALTHCHECK, the box's Hub-down screen, the update scripts and CI all
+  // read this. It always answers 200 so a degraded Hub is still reachable (the update script and
+  // the TV app need the version and commit); `ok` is what a restarting watchdog reads.
+  app.get("/api/health", async () => {
+    const health = await hubHealth(ctx, { dataDir: config.dataDir });
+    return { ok: health.ok, version: HUB_VERSION, ...HUB_BUILD, ...(movedAway(ctx.db) ? { movedAway: true } : {}), status: health.status, checks: health.checks, reasons: health.reasons };
+  });
   app.get("/api/system", async () => getSystem());
   app.get("/api/clips", async () => ({ clips: await listClips(config.clipsDir) }));
 

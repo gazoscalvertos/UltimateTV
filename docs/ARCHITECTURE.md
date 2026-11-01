@@ -96,6 +96,59 @@ The box holds no household state, so a new one only needs the installer and the 
 
 **Trips.** `tools/hub/travel.sh away` builds a second Hub on the box from `docker-compose.box.yml`, pulls the home Hub's data (`/api/hub/move-out`) and the music videos, and points the TV at it. The home Hub stands by so the two never share the IPTV connection. `travel.sh home` sends the data and new files back (`/api/hub/move-in`).
 
+## Health and auto-restart
+
+`GET /api/health` answers with the version and build beside `ok`, `status` (`ok` or `degraded`), a
+`checks` object and plain-sentence `reasons` (`hub/src/health.ts`, #96):
+
+| Check | What it does | Why it can go red |
+|-------|--------------|-------------------|
+| `db` | Runs `SELECT 1` on the SQLite database | The database is locked or its file is gone |
+| `disk` | Free space on the volume holding `DATA_DIR`, via `statfs` | Under 2 GB free: recordings and art have nowhere to go |
+| `scheduler` | How long since the recording loop last ticked (`Scheduler.lastTickAt`) | No tick for two minutes while the loop is running and nothing is recording |
+| `dataDir` | Writes and deletes a temporary file in `DATA_DIR` | The data volume is read-only or full, so settings can't be saved |
+
+It never throws and answers in well under a second: a check that fails becomes `ok: false` with a
+reason, not a 500. The route always answers **200**, because the TV app, the update scripts and CI
+all read the body (the version and commit) whether the Hub is well or not; `ok` is what a watchdog
+reads. Only faults a restart can fix make it unhealthy: an unmounted recording share is a job for
+the alerts page, not for a restart loop.
+
+The image declares a `HEALTHCHECK` in the `Dockerfile` that runs `node` (the slim image has no curl)
+against `127.0.0.1:$PORT/api/health`, so `docker ps` shows `healthy`/`unhealthy`. Docker does not
+restart an unhealthy container by itself. To get that, start the opt-in `autoheal` service that
+`docker-compose.yml` defines:
+
+```bash
+docker compose --profile autoheal up -d autoheal
+```
+
+It watches containers carrying the `ultimatetv-autoheal` label (the Hub has it), and restarts one
+that has been unhealthy for around a minute and a half. It's off by default: on a fault only a
+person at home can fix (a full disk, a NAS that isn't mounted) a restart every half minute would
+only make the logs harder to read. `restart: unless-stopped` on the Hub still covers the case that
+matters most, the process dying or the machine rebooting.
+
+**Restarts are counted, and an alert says when they repeat.** Each time a real Hub starts it adds
+its boot time to `hub-boots` in the database (`hub/src/restarts.ts`); `DEMO=1` doesn't count, since
+it's restarted freely while the app is being worked on. The list lives in the database rather than in
+memory because the restart worth noticing is the one that wipes the process that would have
+remembered it. Boots older than six hours are dropped as the next one is written. Three restarts
+inside six hours raise **The Hub keeps restarting** through the usual alerts path, so it goes to the
+Home Assistant webhook or ntfy like the others, and to the card on the TV; it becomes `bad` at six
+restarts, and clears by itself once they age out of the window. That covers #96's third criterion,
+which used to be a note on this page.
+
+Two deliberate limits:
+
+- **A recording is never cut off.** While the recorder has a recording running, a scheduler that
+  looks late doesn't make the Hub unhealthy (the recorder's own loop reconnects); only a fault the
+  recording can't survive anyway (the database not answering) still does.
+- **The restart count says when something is wrong, not what.** It's a prompt to look: the reasons
+  are the `reasons` on `/api/health`, the entries in `data/logs/hub.log`, and
+  `docker inspect ultimatetv-hub --format '{{.RestartCount}}'` for what Docker has seen. The Hub's
+  uptime is in Settings › About.
+
 ## Security model
 
 - Everything stays on the home network: the Hub is not exposed to the internet, and the Android app only works at home (by choice, see [android-client.md](android-client.md)).

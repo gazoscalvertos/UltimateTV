@@ -73,5 +73,9 @@ ARG BUILD_DATE=""
 ENV GIT_COMMIT=$GIT_COMMIT BUILD_DATE=$BUILD_DATE
 EXPOSE 8080 8443
 VOLUME ["/data"]
-HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+# Docker asks the Hub how it is (#96): the image has no curl, so node reads /api/health, which is
+# 200 with "ok": false when the Hub is degraded. Three misses in a row (a minute and a half, after
+# the first minute) mark it unhealthy; docker-compose.yml's autoheal service restarts it then.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/health').then(r=>r.json()).then(b=>process.exit(b.ok?0:1),()=>process.exit(1))"
 CMD ["node", "hub/dist/index.js"]

@@ -58,7 +58,12 @@ describe("hub API", () => {
     await start();
     const res = await app.inject("/api/health");
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true, version: HUB_VERSION });
+    // The checks and reasons come on top of what the TV app, the scripts and CI already read (#96).
+    const body = res.json();
+    expect(body).toMatchObject({ ok: true, version: HUB_VERSION, status: "ok", reasons: [] });
+    expect(body.checks.db).toEqual({ ok: true });
+    expect(body.checks.disk.ok).toBe(true);
+    expect(body.checks.dataDir).toEqual({ ok: true, writable: true });
   });
 
   it("returns the system report", async () => {

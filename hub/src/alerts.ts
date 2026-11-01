@@ -8,6 +8,7 @@ import { statfs } from "node:fs/promises";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { cleanAlertSettings, daysFromNow, DEFAULT_ALERT_SETTINGS, type Alert, type AlertLevel, type AlertSettings, type AlertState, type BoxSoftware } from "@ultimatetv/shared";
 import type { HubContext } from "./context.js";
+import { readBoots, restartAlert } from "./restarts.js";
 
 const CHECK_MS = 30 * 60_000;
 /** Problems that come from a single event (a failed recording) stay listed this long. */
@@ -28,6 +29,8 @@ export interface AlertInputs {
   diskFreeBytes?: number;
   /** The nightly backup (backup.ts): when the last good one was, and why the latest failed. */
   backup?: { enabled: boolean; lastOkAt?: number; error?: string; since: number };
+  /** When the Hub started, newest last, so repeated restarts can be spotted (restarts.ts). */
+  boots?: number[];
   /** Problems reported by events, still in force. */
   events: Alert[];
 }
@@ -70,6 +73,10 @@ export function currentAlerts(input: AlertInputs): Omit<Alert, "since">[] {
       const days = Math.floor((now - (b.lastOkAt ?? b.since)) / 86_400_000);
       out.push({ key: "backup-stale", level: "warn", title: "The Hub hasn't backed up", message: b.lastOkAt ? `The last backup was ${days} days ago.` : `There's been no backup in ${days} days of running.` });
     }
+  }
+  if (input.boots) {
+    const restarting = restartAlert(input.boots, now);
+    if (restarting) out.push(restarting);
   }
   out.push(...input.events.map((e) => ({ key: e.key, level: e.level, title: e.title, message: e.message })));
   return out.sort((a, b) => RANK[b.level] - RANK[a.level]);
@@ -246,6 +253,7 @@ export class Alerts {
       ...(epg ? { epgUpdatedAt: epg } : {}),
       ...(diskFreeBytes !== undefined ? { diskFreeBytes } : {}),
       ...(this.backups ? { backup: this.backups() } : {}),
+      boots: readBoots(this.ctx.db),
       events: this.events(now),
     };
     const before = new Map(this.list().map((a) => [a.key, a]));
