@@ -129,16 +129,25 @@ person at home can fix (a full disk, a NAS that isn't mounted) a restart every h
 only make the logs harder to read. `restart: unless-stopped` on the Hub still covers the case that
 matters most, the process dying or the machine rebooting.
 
+**Restarts are counted, and an alert says when they repeat.** Each time a real Hub starts it adds
+its boot time to `hub-boots` in the database (`hub/src/restarts.ts`); `DEMO=1` doesn't count, since
+it's restarted freely while the app is being worked on. The list lives in the database rather than in
+memory because the restart worth noticing is the one that wipes the process that would have
+remembered it. Boots older than six hours are dropped as the next one is written. Three restarts
+inside six hours raise **The Hub keeps restarting** through the usual alerts path, so it goes to the
+Home Assistant webhook or ntfy like the others, and to the card on the TV; it becomes `bad` at six
+restarts, and clears by itself once they age out of the window. That covers #96's third criterion,
+which used to be a note on this page.
+
 Two deliberate limits:
 
 - **A recording is never cut off.** While the recorder has a recording running, a scheduler that
   looks late doesn't make the Hub unhealthy (the recorder's own loop reconnects); only a fault the
   recording can't survive anyway (the database not answering) still does.
-- **Repeated restarts are visible, not yet an alert.** The restart count is in
-  `docker inspect ultimatetv-hub --format '{{.RestartCount}}'`, `docker ps` shows the health status,
-  the Hub's uptime is in Settings › About, and each failed check's reason is in `data/logs`. Raising
-  an alert on repeated restarts (#96's third criterion) needs a hook in `hub/src/alerts.ts` and is
-  left for a follow-up.
+- **The restart count says when something is wrong, not what.** It's a prompt to look: the reasons
+  are the `reasons` on `/api/health`, the entries in `data/logs/hub.log`, and
+  `docker inspect ultimatetv-hub --format '{{.RestartCount}}'` for what Docker has seen. The Hub's
+  uptime is in Settings › About.
 
 ## Security model
 

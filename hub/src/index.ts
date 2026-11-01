@@ -3,6 +3,7 @@ import { loadConfig } from "./config.js";
 import { LogRing, RollingFile } from "./diagnostics.js";
 import { applyPendingRestore, movedAway } from "./move.js";
 import { startHttps } from "./cast.js";
+import { recordBoot } from "./restarts.js";
 import { buildServer } from "./server.js";
 
 const config = loadConfig();
@@ -23,6 +24,14 @@ await app.listen({ port: config.port, host: config.host });
 app.log.info({ clipsDir: config.clipsDir, dataDir: config.dataDir, demo: config.demo }, "UltimateTV Hub ready");
 // The same Hub over HTTPS, for laptops sharing their screen (browsers insist on a secure page).
 if (config.httpsPort) void startHttps(app, config.dataDir, config.httpsPort, config.publicUrl ? [new URL(config.publicUrl).hostname] : []);
+
+// Count this boot, so a Hub Docker keeps restarting can say so (#96). The count lives in the
+// database, because the restart worth noticing is the one that wipes this process. DEMO=1 doesn't
+// count: it's restarted freely while the app is being worked on, and nothing is ever wrong.
+if (!config.demo) {
+  const boots = recordBoot(ctx.db);
+  app.log.info({ boots: boots.length }, "Hub start counted, for the restart alert");
+}
 
 // The forecast refreshes every half hour wherever the Hub is (it needs no sources).
 app.jobs.weather.start();
