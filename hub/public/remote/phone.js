@@ -745,7 +745,7 @@
       <input type="file" id="sc-pack-input" accept=".utvpack,application/json,application/octet-stream" hidden>
       <div class="link-row"><input class="field" id="sc-pack-url" placeholder="Or paste a pack's link" autocomplete="off" inputmode="url"><button id="sc-pack-link">Add</button></div>
       <h3>Your uploads</h3>
-      <p class="meta" id="sc-none">No uploads yet${scary ? ", so with no packs either the TV draws (and screams) its own scare" : ""}. Add a short video, a picture (a transparent GIF, PNG or SVG works best) or a sound from your phone.</p>
+      <p class="meta" id="sc-none">No uploads yet${scary ? ", so with no packs either the TV draws (and screams) its own scare" : ""}. Add a short video, a picture (a transparent GIF, PNG or SVG works best) or a sound from your phone. Filmed on a green screen? Tap Green screen on it and only what's in front of the green shows (a name with "green screen" in it does that by itself).</p>
       <div id="sc-clips"></div>
       <div class="actions"><button id="sc-add">Add a clip</button></div>
       <input type="file" id="sc-file" accept="video/*,image/*,audio/*" hidden>
@@ -879,6 +879,22 @@
       $("sc-clips").innerHTML = own.map(clipHtml).join("");
       $("sc-none").hidden = own.length > 0;
       for (const b of $("sc-clips").querySelectorAll("[data-play]")) b.onclick = () => void post("/api/scares/now", { clipId: b.dataset.play }).then(() => toast("On the TV now"), (e) => toast(e.message, true));
+      for (const b of $("sc-clips").querySelectorAll("[data-green]")) {
+        b.onclick = async () => {
+          const on = b.getAttribute("aria-pressed") !== "true";
+          try {
+            const d = await send(`/api/scares/clips/${encodeURIComponent(b.dataset.green)}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ greenScreen: on }),
+            });
+            showClips(d.clips || []);
+            toast(on ? "The TV will take the green out" : "Shown as it is");
+          } catch (e) {
+            toast(e.message, true);
+          }
+        };
+      }
       for (const b of $("sc-clips").querySelectorAll("[data-drop]")) {
         b.onclick = async () => {
           try {
@@ -908,7 +924,7 @@
           body: file,
         });
         showClips(d.clips || []);
-        toast("Clip added");
+        toast(d.clip?.greenScreen ? "Clip added: green screen, the TV takes the green out" : "Clip added");
       } catch (err) {
         toast(err.message, true);
       }
@@ -936,7 +952,9 @@
   const SPOT_NAMES = { "top-left": "top left", top: "top", "top-right": "top right", left: "left", center: "middle", right: "right", "bottom-left": "bottom left", bottom: "bottom", "bottom-right": "bottom right", full: "full screen", overlay: "over everything" };
   const MOTION_NAMES = { still: "", "walk-left": "walks left", "walk-right": "walks right", "hop-left": "hops left", "hop-right": "hops right", "fly-left": "flies left", "fly-right": "flies right", rise: "floats up", drop: "drops in", peek: "peeks up" };
   function clipHtml(c) {
-    return `<div class="clip"><span>${esc(c.name)}<br><small>${KIND_NAMES[c.kind] || "Clip"} · ${kb(c.sizeBytes)}</small></span><button type="button" data-play="${esc(c.id)}">${c.kind === "audio" ? "Play" : "Show"}</button><button type="button" data-drop="${esc(c.id)}">Delete</button></div>`;
+    // A video or picture filmed on a green screen: the TV keys the green out so only what's in front shows.
+    const green = c.kind === "audio" ? "" : `<button type="button" class="${c.greenScreen ? "on" : ""}" data-green="${esc(c.id)}" aria-pressed="${c.greenScreen ? "true" : "false"}" title="Filmed on a green screen: the TV takes the green out">${c.greenScreen ? "Green screen ✓" : "Green screen"}</button>`;
+    return `<div class="clip"><span>${esc(c.name)}<br><small>${KIND_NAMES[c.kind] || "Clip"} · ${kb(c.sizeBytes)}${c.greenScreen ? " · green keyed out" : ""}</small></span><button type="button" data-play="${esc(c.id)}">${c.kind === "audio" ? "Play" : "Show"}</button>${green}<button type="button" data-drop="${esc(c.id)}">Delete</button></div>`;
   }
   function mixHtml(m, clips) {
     const name = (id) => clips.find((c) => c.id === id)?.name;

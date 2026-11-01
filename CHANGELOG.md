@@ -27,6 +27,8 @@ pop up what's new after an update. So:
 
 ## 2026-11-01
 
+- **Green-screen jump scares** ([docs/halloween.md](docs/halloween.md#green-screen-clips-a-zombie-over-the-film)): a video filmed on a green screen, such as a zombie, can have the green taken out so only the zombie appears and the film, TV or menu keeps playing behind it. Add it on the phone remote's Clips tab and tap Green screen on it (a file with "green screen" in its name is done by itself).
+- **Jump scare sound during films**: a scare's sound now plays over films with Dolby or DTS sound, not just live TV. The film's sound is decoded for the few seconds the clip is on, then goes back to passthrough.
 - **The desktop app works with a mouse** ([docs/desktop.md](docs/desktop.md#using-it)): point at something to select it, click to choose it, right-click or the mouse's back button to go back, and the wheel to scroll pages, rows and the guide. The coloured key hints along the bottom are buttons, and the player has a seek bar to click or drag, buttons for play and pause, volume, audio and subtitles and full screen, and double-click for full screen. The pointer hides when you stop moving it. The TV box is unchanged. (#138)
 - **Live TV in the desktop app's guide preview**: the preview at the top of the guide now shows the channel, as on the TV box, rather than staying black with only the sound. It uses no extra IPTV connection. (#138)
 - **Recent searches**: Search remembers what each profile searched for and shows it before you type, and as suggestions while you type; press OK on one to search again. Clear removes one, Clear all the lot. The phone remote's Search shows the same list. (#137)

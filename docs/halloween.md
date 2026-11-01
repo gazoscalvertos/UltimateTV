@@ -97,6 +97,36 @@ A two-to-four second clip works best: a face, a slam, a scream. Random scares pi
 scares and your pictures and videos; a sound on its own only plays as part of a built scare or
 when you press its **Play** button.
 
+### Green-screen clips (a zombie over the film)
+
+A video filmed on a green screen, such as a zombie lurching at the camera, can have its green
+taken out, so only the zombie shows and the film, TV or menu carries on behind it.
+
+1. On the phone remote, open the **Clips** tab and tap **Add a clip** under **Your uploads**.
+   Pick the video (MP4, WebM or MOV, up to 200 MB). A file with "green screen", "green" or
+   "chroma" in its name is set up as a green-screen clip by itself.
+2. Otherwise tap **Green screen** on the clip in the list. It turns green and the clip says
+   "green keyed out". Tap it again to show the clip as it is.
+3. Tap **Show** to try it on the TV. It's in the random jump scares from then on, or use it in
+   **Build a clip** to place it in a corner, make it smaller, or walk it across the screen.
+
+Full screen or placed, a green-screen clip has nothing behind it (no black), and its own sound
+plays. The TV does the keying itself as it plays (a small WebGL shader in
+`ui/src/components/GreenScreen.tsx`), so there's nothing to convert first. Any fairly even
+green works, a home-made one in shadow included; green clothes on the zombie would go see-through
+too. Pictures (a JPEG of a zombie on green) can be keyed the same way.
+
+From a script: `POST /api/scares/clips?name=Zombie&greenScreen=1` uploads one keyed, and
+`PATCH /api/scares/clips/:id` with `{"greenScreen":true}` or `false` switches it.
+
+### Sound over a film
+
+A film's Dolby Digital or DTS sound goes to the TV untouched (passthrough), and while it does
+nothing else can be heard: that's why scares had sound on live TV (whose sound is usually decoded)
+but not in films. Now, when a clip with sound lands on a film whose sound is passed through, the
+box decodes the film's sound for as long as the clip is on, then passes it through again. You may
+hear a moment's quiet in the film just before the scare and just after it.
+
 ### Building your own
 
 **Build a scare** on the Scares tab puts clips together:
@@ -141,6 +171,7 @@ curl -X POST "http://hub:8095/api/scares/clips?name=Doorway" -H "X-Api-Key: $KEY
 | `PUT /api/scares` | Changes any of the settings above. |
 | `POST /api/scares/now` | Scares the TV now; `{"mixId":"…"}` picks a built scare and `{"clipId":"…"}` a clip, otherwise one at random. |
 | `POST /api/scares/clips?name=…` | Uploads a clip (the body is the file). |
+| `PATCH /api/scares/clips/:id` | Renames a clip or keys out its green screen: `{"name","greenScreen"}`. |
 | `DELETE /api/scares/clips/:id` | Deletes one. |
 | `POST /api/scares/mixes` | Builds a scare: `{"name","visualId","audioId","spot","size","muteVideo","seconds"}`. `spot` is `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right` or `full`; `size` is `small`, `medium` or `large`. |
 | `DELETE /api/scares/mixes/:id` | Deletes a built scare. |

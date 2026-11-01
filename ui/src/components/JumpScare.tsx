@@ -9,7 +9,9 @@
 
 import { createSignal, onCleanup, onMount, Show, type JSX } from "solid-js";
 import { DEFAULT_SCARE_SETTINGS, mixTheme, scareFrom, type ClipTheme, type Scare, type ScareSpot, type ScareState } from "@ultimatetv/shared";
+import { agent, agentHas } from "../agent";
 import { hub } from "../api";
+import { GreenScreenImage, GreenScreenVideo } from "./GreenScreen";
 import { onHubEvent } from "../events";
 import { addOverlayKeys } from "../keys";
 import { isLive, playerState } from "../player";
@@ -74,6 +76,26 @@ function screech(volume: number): void {
   }
 }
 
+/** Whether a scare makes any sound: its own, its video's, or the screech. */
+const hasSound = (scare: Scare): boolean =>
+  scare.volume > 0 && (Boolean(scare.audio) || (scare.clip?.kind === "video" ? !scare.muted : (scare.theme ?? "halloween") === "halloween"));
+
+// A film's Dolby or DTS goes to the TV untouched (passthrough), which holds the box's sound output
+// for mpv alone: a clip's sound, played from this page, can't be heard over it. Live TV's sound is
+// usually decoded already, which is why scares were heard on TV but not in films. So while a clip
+// with sound is on, the box decodes the film's sound instead, and passthrough comes back after.
+let clipSoundOn = false;
+async function clipSound(on: boolean): Promise<void> {
+  if (on === clipSoundOn || !agentHas("setClipSound")) return;
+  if (on && !playerState().audio?.passthrough) return;
+  clipSoundOn = on;
+  const done = agent.setClipSound!(on).catch(() => undefined);
+  if (!on) return;
+  // Wait for mpv and PipeWire to let go of the output, but never hold a scare up for long.
+  await Promise.race([done, new Promise((r) => window.setTimeout(r, 1500))]);
+  await new Promise((r) => window.setTimeout(r, 250));
+}
+
 export function JumpScare() {
   const [state, setState] = createSignal<ScareState>({ settings: DEFAULT_SCARE_SETTINGS, clips: [], mixes: [] });
   const settings = () => state().settings;
@@ -95,6 +117,7 @@ export function JumpScare() {
         if (!s.looping && was) {
           window.clearTimeout(loopTimer);
           setShowing(null);
+          void clipSound(false);
         }
       },
       () => undefined,
@@ -105,6 +128,7 @@ export function JumpScare() {
     hideTimer = undefined;
     setShowing(null);
     if (state().looping) nextInLoop();
+    else void clipSound(false);
   };
 
   /** While looping, the next clip comes after a short pause. */
@@ -119,15 +143,40 @@ export function JumpScare() {
     }, min! + Math.random() * (max! - min!));
   };
 
+  let starting = false;
   const show = (scare: Scare) => {
     // Reduce motion (Settings › Accessibility): no frights at all, even ones sent from a phone.
-    if (isKids() || document.hidden || reducedMotion()) return;
+    if (isKids() || document.hidden || reducedMotion() || starting) return;
     lastAt = Date.now();
+    if (hasSound(scare) && !clipSoundOn && agentHas("setClipSound") && playerState().audio?.passthrough) {
+      // A film with Dolby or DTS: let its sound make room first (a moment's quiet, then the fright).
+      starting = true;
+      void clipSound(true).then(() => {
+        starting = false;
+        if (!isKids() && !document.hidden) appear(scare);
+        else void clipSound(false);
+      });
+      return;
+    }
+    appear(scare);
+  };
+
+  const appear = (scare: Scare) => {
     setShowing(scare);
     // A sound of its own plays from the page; otherwise a Halloween picture (or nothing at all) screeches.
     if (!scare.audio && (!scare.clip || scare.clip.kind === "image") && (scare.theme ?? "halloween") === "halloween") screech(scare.volume);
     window.clearTimeout(hideTimer);
     hideTimer = window.setTimeout(hide, Math.max(1, scare.seconds) * 1000);
+  };
+
+  const setupVideo = (el: HTMLVideoElement, scare: Scare) => {
+    el.volume = Math.max(0, Math.min(1, scare.volume));
+    el.muted = Boolean(scare.muted);
+    // A clip shorter than the setting ends the scare when it finishes, unless a sound of its own
+    // is still going, when the video loops until it's time.
+    if (scare.audio) el.loop = true;
+    else el.onended = hide;
+    void el.play().catch(() => undefined);
   };
 
   /** True when a random scare would be welcome right now. */
@@ -178,6 +227,7 @@ export function JumpScare() {
       setState({ ...state(), looping: null });
       window.clearTimeout(loopTimer);
       setShowing(null);
+      void clipSound(false);
       void hub.stopClipLoop().catch(() => undefined);
       return true;
     }
@@ -193,6 +243,7 @@ export function JumpScare() {
     window.clearTimeout(hideTimer);
     window.clearTimeout(loopTimer);
     offKeys();
+    void clipSound(false);
   });
 
   return (
@@ -200,7 +251,7 @@ export function JumpScare() {
       {(scare) => (
         <div
           class={`jump-scare scare-spot-${scare().spot ?? "full"} scare-size-${scare().size ?? "medium"} ${scare().motion ? `moving motion-${scare().motion} row-${rowOf(scare().spot)} col-${colOf(scare().spot)}` : ""}`}
-          classList={{ placed: (scare().spot ?? "full") !== "full", overlay: scare().spot === "overlay" }}
+          classList={{ placed: (scare().spot ?? "full") !== "full", overlay: scare().spot === "overlay", keyed: Boolean(scare().clip?.greenScreen) }}
           style={{ "--clip-secs": `${Math.max(1, scare().seconds)}s` }}
           role="presentation"
           data-key="ok"
@@ -251,22 +302,17 @@ export function JumpScare() {
           >
             {(clip) => (
               <Moving on={Boolean(scare().motion)}>
-              <Show when={clip().kind === "video"} fallback={<img class="scare-media" src={clip().url} alt="" />}>
-                <video
-                  class="scare-media"
-                  src={clip().url}
-                  autoplay
-                  playsinline
-                  ref={(el) => {
-                    el.volume = Math.max(0, Math.min(1, scare().volume));
-                    el.muted = Boolean(scare().muted);
-                    // A clip shorter than the setting ends the scare when it finishes, unless a
-                    // sound of its own is still going, when the video loops until it's time.
-                    if (scare().audio) el.loop = true;
-                    else el.onended = hide;
-                    void el.play().catch(() => undefined);
-                  }}
-                />
+              <Show
+                when={clip().kind === "video"}
+                fallback={clip().greenScreen ? <GreenScreenImage src={clip().url} /> : <img class="scare-media" src={clip().url} alt="" />}
+              >
+                <Show
+                  when={clip().greenScreen}
+                  fallback={<video class="scare-media" src={clip().url} autoplay playsinline ref={(el) => setupVideo(el, scare())} />}
+                >
+                  {/* Filmed on a green screen: only what's in front of the green shows. */}
+                  <GreenScreenVideo src={clip().url} setup={(el) => setupVideo(el, scare())} />
+                </Show>
               </Show>
               </Moving>
             )}

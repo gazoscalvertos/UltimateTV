@@ -472,10 +472,33 @@ export class Player {
     for (const [name, value] of subtitleProps(style)) await this.mpv.set(name, value).catch((e: Error) => this.log(`mpv ${name}: ${e.message}`));
   }
 
+  private nightMode = false;
+  private clipSound = false;
+
+  /**
+   * Passthrough (Dolby and DTS sent to the TV untouched) holds the HDMI output for mpv alone, so
+   * nothing else can be heard over it. Night mode and a projected clip's sound need it decoded.
+   */
+  private async applySpdif(): Promise<void> {
+    if (!this.desktop) await this.mpv.set("audio-spdif", this.nightMode || this.clipSound ? "" : "ac3,eac3,dts").catch(() => undefined);
+  }
+
   /** Night mode decodes the audio (no passthrough) and evens out loud and quiet parts. */
   async setNightMode(on: boolean): Promise<void> {
-    if (!this.desktop) await this.mpv.set("audio-spdif", on ? "" : "ac3,eac3,dts").catch(() => undefined);
+    this.nightMode = on;
+    await this.applySpdif();
     await this.mpv.set("af", on ? "lavfi=[acompressor=threshold=-24dB:ratio=4:attack=5:release=200:makeup=6dB],lavfi=[dynaudnorm=f=250:g=15]" : "").catch(() => undefined);
+  }
+
+  /**
+   * A jump scare or projected clip with sound is on screen: decode the film's Dolby or DTS while it
+   * is, so the clip's sound (played by the UI page through PipeWire) can mix in over it. Off again
+   * afterwards puts passthrough back, unless night mode wants it decoded anyway.
+   */
+  async setClipSound(on: boolean): Promise<void> {
+    if (this.clipSound === on) return;
+    this.clipSound = on;
+    await this.applySpdif();
   }
 
   /** The volume, 0–100: the sleep timer fades out with it (passthrough sound can't be faded). */

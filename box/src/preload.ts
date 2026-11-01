@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld("ultimatetv", {
   setAudioTrack: call("setAudioTrack"),
   setSubtitleTrack: call("setSubtitleTrack"),
   setNightMode: call("setNightMode"),
+  setClipSound: call("setClipSound"),
   setLayout: call("setLayout"),
   toggleFullscreen: call("toggleFullscreen"),
   stats: call("stats"),
