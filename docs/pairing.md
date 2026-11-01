@@ -43,6 +43,11 @@ Any other screen, such as the TV app opened in a laptop's browser, shows a four-
 waits. It appears at the top of the list on the TV and on the phone's settings page as *"Laptop
 wants to join"*: let it in only if it shows the same code.
 
+The code stays the same for fifteen minutes, through a reload of the page or the Hub missing a
+beat, and each waiting screen keeps its own, even when several reach the Hub from one address
+(two desktops behind Docker's proxy, or a browser tab beside the desktop app). After fifteen
+minutes it runs out and the screen shows a new one.
+
 ## Home Assistant and scripts
 
 Pop-ups, news flashes and key presses from Home Assistant or a script need the Hub's **API key**,
@@ -71,7 +76,7 @@ Hub's event socket, which carries what the phones ask of the TV, only accepts pa
 | --- | --- | --- |
 | `GET /api/pair` | anyone | Whether the asker is paired |
 | `POST /api/pair` `{code, name}` | anyone | Pairs a phone with the TV's code; sets the cookie and answers the token |
-| `POST /api/pair/screen` `{name}` | anyone | A screen asks to join: paired at once if it's the first, otherwise `202` with a code to show |
+| `POST /api/pair/screen` `{name, id?, secret?}` | anyone | A screen asks to join: paired at once if it's the first, otherwise `202` with a code to show. With the `id` and `secret` of a request still waiting, it answers that same request |
 | `POST /api/pair/screen/:id` `{secret}` | the waiting screen | Collects its key once it's let in (`202` while waiting) |
 | `GET /api/pair/code` | a paired screen | The code and the address for the QR code |
 | `GET /api/devices` | paired | Paired devices and screens waiting |

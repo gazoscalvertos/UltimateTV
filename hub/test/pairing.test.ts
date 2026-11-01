@@ -73,6 +73,22 @@ describe("pairing phones and screens", () => {
     expect((await app.inject({ method: "POST", url: `/api/pair/screen/${pending.id}`, payload: { secret } })).statusCode).toBe(404);
   });
 
+  it("keeps a waiting screen's code when it asks again, and each screen its own", async () => {
+    await pairTv();
+    const ask = async (payload: Record<string, unknown>) => (await app.inject({ method: "POST", url: "/api/pair/screen", payload })).json();
+    const first = await ask({ name: "Desktop" });
+    // Asked again with its own request (a reload, or the Hub missed a poll): the same code.
+    const again = await ask({ name: "Desktop", id: first.pending.id, secret: first.secret });
+    expect(again.pending).toMatchObject({ id: first.pending.id, code: first.pending.code });
+    // A wrong secret doesn't take over someone else's request.
+    const other = await ask({ name: "Desktop", id: first.pending.id, secret: "guess" });
+    expect(other.pending.id).not.toBe(first.pending.id);
+    // Both screens (from one address, as every request in a test is) keep waiting with their codes.
+    for (const w of [first, other]) {
+      expect((await app.inject({ method: "POST", url: `/api/pair/screen/${w.pending.id}`, payload: { secret: w.secret } })).statusCode).toBe(202);
+    }
+  });
+
   it("can turn a waiting screen away", async () => {
     const tv = await pairTv();
     const { pending, secret } = (await app.inject({ method: "POST", url: "/api/pair/screen", payload: { name: "Stranger" } })).json();
