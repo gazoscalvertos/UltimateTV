@@ -237,9 +237,13 @@ echo pulse8-cec > /etc/modules-load.d/ultimatetv-cec.conf
 install -Dm644 "$files/cec-keymap.toml" /etc/rc_keymaps/ultimatetv-cec.toml
 install -Dm644 "$files/70-ultimatetv-cec.rules" /etc/udev/rules.d/70-ultimatetv-cec.rules
 install -Dm644 "$files/ultimatetv-cec-attach@.service" /etc/systemd/system/ultimatetv-cec-attach@.service
+install -Dm755 "$files/ultimatetv-cec-keymap" /usr/local/bin/ultimatetv-cec-keymap
 systemctl daemon-reload
 udevadm control --reload-rules
 udevadm trigger --subsystem-match=tty --subsystem-match=rc --subsystem-match=cec || true
+# An adapter that's already plugged in gets the (possibly new) key map now; the app's session
+# restarts after an install, so KWin then sees the new keys.
+if grep -qs cec /sys/class/rc/rc*/protocols; then /usr/local/bin/ultimatetv-cec-keymap >/dev/null 2>&1 || true; fi
 
 # --------------------------------------------------------------------------------------------
 # Spotify: go-librespot makes the box a Spotify Connect speaker (the app's name in the Spotify app)

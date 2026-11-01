@@ -2,6 +2,9 @@
 SUBSYSTEM=="tty", KERNEL=="ttyACM[0-9]*", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="1001", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ultimatetv-cec-attach@%k.service"
 SUBSYSTEM=="tty", KERNEL=="ttyACM[0-9]*", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="1002", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ultimatetv-cec-attach@%k.service"
 # The CEC device is usable by the tv user, and any CEC remote (the Pulse-Eight, or CEC built into
-# the box) loads our keymap.
+# the box) loads our key map.
 SUBSYSTEM=="cec", KERNEL=="cec[0-9]*", GROUP="video", MODE="0660"
-ACTION=="add", SUBSYSTEM=="rc", ATTR{protocols}=="*cec*", RUN+="/usr/bin/ir-keytable -s $name -c -w /etc/rc_keymaps/ultimatetv-cec.toml"
+# The key map has to be on before KWin opens the remote's input device: libinput reads which keys
+# a device has once, when it opens it, and drops any other key from then on. So it's loaded on
+# the input device's own add event, which udev only announces (to KWin) after RUN has finished.
+ACTION=="add", SUBSYSTEM=="input", KERNEL=="event*", SUBSYSTEMS=="rc", ATTRS{protocols}=="*cec*", RUN+="/usr/local/bin/ultimatetv-cec-keymap"
