@@ -27,8 +27,8 @@ pop up what's new after an update. So:
 
 ## 2026-11-01
 
-- **The desktop app works with a mouse** ([docs/desktop.md](docs/desktop.md#using-it)): point at something to select it, click to choose it, right-click or the mouse's back button to go back, and the wheel to scroll pages, rows and the guide. The coloured key hints along the bottom are buttons, and the player has a seek bar to click or drag, buttons for play and pause, volume, audio and subtitles and full screen, and double-click for full screen. The pointer hides when you stop moving it. The TV box is unchanged. (#PRNUM)
-- **Live TV in the desktop app's guide preview**: the preview at the top of the guide now shows the channel, as on the TV box, rather than staying black with only the sound. It uses no extra IPTV connection. (#PRNUM)
+- **The desktop app works with a mouse** ([docs/desktop.md](docs/desktop.md#using-it)): point at something to select it, click to choose it, right-click or the mouse's back button to go back, and the wheel to scroll pages, rows and the guide. The coloured key hints along the bottom are buttons, and the player has a seek bar to click or drag, buttons for play and pause, volume, audio and subtitles and full screen, and double-click for full screen. The pointer hides when you stop moving it. The TV box is unchanged. (#138)
+- **Live TV in the desktop app's guide preview**: the preview at the top of the guide now shows the channel, as on the TV box, rather than staying black with only the sound. It uses no extra IPTV connection. (#138)
 
 - **Screen pairing code stays put**: a screen waiting to be let in (such as the desktop app) keeps the same four-letter code until it's let in or the code runs out after fifteen minutes. Before, two waiting screens that reached the Hub from one address kept replacing each other's code every few seconds. (#122)
 
