@@ -75,6 +75,26 @@ describe("jump scares", () => {
     expect((await app.inject({ url: clip.url })).statusCode).toBe(404);
   });
 
+  it("keys out a green screen: by the clip's name, or switched on and off from the phone", async () => {
+    const up = await app.inject({ method: "POST", url: "/api/scares/clips?name=Zombie%20green%20screen", headers: { "content-type": "video/mp4" }, payload: MP4 });
+    const zombie = (up.json() as { clip: { id: string; greenScreen?: boolean } }).clip;
+    expect(zombie.greenScreen).toBe(true);
+    const plain = (await app.inject({ method: "POST", url: "/api/scares/clips?name=Doorway", headers: { "content-type": "video/mp4" }, payload: MP4 })).json() as { clip: { id: string; greenScreen?: boolean } };
+    expect(plain.clip.greenScreen).toBeUndefined();
+
+    const on = await app.inject({ method: "PATCH", url: `/api/scares/clips/${plain.clip.id}`, payload: { greenScreen: true } });
+    expect((on.json() as { clip: { greenScreen?: boolean } }).clip.greenScreen).toBe(true);
+    const off = await app.inject({ method: "PATCH", url: `/api/scares/clips/${zombie.id}`, payload: { greenScreen: false } });
+    expect((off.json() as { clip: { greenScreen?: boolean } }).clip.greenScreen).toBeUndefined();
+
+    // The TV is told, with the clip it's sent.
+    const events: HubEvent[] = [];
+    app.hub.events.on((e) => events.push(e));
+    await app.inject({ method: "POST", url: "/api/scares/now", payload: { clipId: plain.clip.id } });
+    const scare = events.find((e) => e.type === "scare");
+    expect(scare?.type === "scare" && scare.scare.clip?.greenScreen).toBe(true);
+  });
+
   it("scares with no clip at all, and says no to a clip that has gone", async () => {
     const events: HubEvent[] = [];
     app.hub.events.on((e) => events.push(e));

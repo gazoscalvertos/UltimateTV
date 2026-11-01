@@ -359,6 +359,11 @@ export interface BoxAgent {
   tvStandby(): Promise<void>;
   /** The player's volume, 0–100 (for fading out). */
   setVolume(percent: number): Promise<void>;
+  /**
+   * A projected clip's sound is playing: decode the film's Dolby/DTS rather than pass it through,
+   * so the clip can be heard over it. Older box shells lack it: check with agentHas.
+   */
+  setClipSound?(on: boolean): Promise<void>;
 
   // Subtitles. Older box shells lack these: check with agentHas first.
   /** Adds a subtitle file (one fetched from OpenSubtitles) to what's playing, and shows it. */

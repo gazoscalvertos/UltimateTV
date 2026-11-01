@@ -80,7 +80,12 @@ export interface ClipUse {
   season?: SeasonId | "any";
   motion?: ProjectionMotion;
   communityId?: string;
+  /** Key out the green behind it (see ScareClip.greenScreen). */
+  greenScreen?: boolean;
 }
+
+/** A clip whose name says it was filmed on a green screen ("zombie green screen", "chroma-key ghost"). */
+export const looksGreenScreen = (name: string): boolean => /green[\s_-]*screen|chroma|\bgreen\b|greenscreen/i.test(name);
 
 /** The clip library, shared by jump scares, built clips and seasonal projections. */
 export interface ClipStore {
@@ -98,6 +103,8 @@ export function cleanUse(input: Record<string, unknown>): ClipUse {
   if (flag !== undefined) use.projection = flag === true || flag === "1" || flag === "true";
   if (input.season !== undefined) use.season = SEASON_IDS.includes(input.season as SeasonId) ? (input.season as SeasonId) : "any";
   if (PROJECTION_MOTIONS.includes(input.motion as ProjectionMotion)) use.motion = input.motion as ProjectionMotion;
+  const green = input.greenScreen;
+  if (green !== undefined) use.greenScreen = green === true || green === "1" || green === "true";
   return use;
 }
 
@@ -173,6 +180,7 @@ export async function registerScares(app: FastifyInstance, ctx: HubContext, data
       ...(packId ? { packId } : {}),
       ...(use.projection ? { projection: true, season: use.season ?? "any", motion: use.motion ?? "across-top" } : {}),
       ...(use.communityId ? { communityId: use.communityId } : {}),
+      ...(kind !== "audio" && (use.greenScreen ?? looksGreenScreen(name)) ? { greenScreen: true } : {}),
     };
   };
 
@@ -211,6 +219,10 @@ export async function registerScares(app: FastifyInstance, ctx: HubContext, data
     if (!clip) return undefined;
     const name = patch.name?.replace(/\s+/g, " ").trim().slice(0, 60);
     if (name) clip.name = name;
+    if (patch.greenScreen !== undefined && clip.kind !== "audio") {
+      if (patch.greenScreen) clip.greenScreen = true;
+      else delete clip.greenScreen;
+    }
     if (patch.projection !== undefined) {
       if (patch.projection) {
         clip.projection = true;
@@ -293,7 +305,7 @@ export async function registerScares(app: FastifyInstance, ctx: HubContext, data
     await removePack(pack.id);
     const made: StoredClip[] = [];
     try {
-      for (const c of pack.clips) made.push(await store(c.data, c.type, c.name, pack.id));
+      for (const c of pack.clips) made.push(await store(c.data, c.type, c.name, pack.id, c.greenScreen ? { greenScreen: true } : {}));
     } catch (e) {
       for (const c of made) await removeFile(c);
       throw e;
@@ -348,7 +360,7 @@ export async function registerScares(app: FastifyInstance, ctx: HubContext, data
     for (const id of used) {
       const c = all.find((x) => x.id === id);
       if (!c) continue;
-      files.push({ key: c.id, name: c.name, type: typeOfFile(c.file), data: await readFile(path.join(clipDir, c.file)) });
+      files.push({ key: c.id, name: c.name, type: typeOfFile(c.file), data: await readFile(path.join(clipDir, c.file)), ...(c.greenScreen ? { greenScreen: true } : {}) });
     }
     const total = files.reduce((a, f) => a + f.data.length, 0);
     if (total * 1.34 > MAX_PACK_BYTES) throw new BadPack("Those clips are too big for one pack: pick fewer, or shorter videos");
@@ -487,7 +499,7 @@ small{color:var(--muted)}
       return { ok: true, clips: state().clips, mixes: state().mixes };
     });
 
-    /** Renames a clip, or makes it a seasonal projection: { name, projection, season, motion }. */
+    /** Renames a clip, keys out its green screen, or makes it a seasonal projection: { name, greenScreen, projection, season, motion }. */
     scope.patch("/api/scares/clips/:id", async (req: Req, reply) => {
       const b = objectBody(req) as Record<string, unknown> & { name?: string };
       const clip = update(req.params.id ?? "", { ...cleanUse(b), ...(typeof b.name === "string" ? { name: b.name } : {}) });

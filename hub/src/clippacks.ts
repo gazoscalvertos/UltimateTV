@@ -111,6 +111,8 @@ export interface PackClip {
   type: string;
   kind: ScareClip["kind"];
   data: Buffer;
+  /** Filmed on a green screen (see ScareClip.greenScreen). */
+  greenScreen?: boolean;
 }
 
 /** A pack's built clip, checked against the pack's own clips. */
@@ -200,7 +202,7 @@ export function checkPack(raw: Buffer | string | unknown): CheckedPack {
     } catch (e) {
       throw new BadPack(`"${key}" in the pack: ${(e as Error).message}`);
     }
-    clips.push({ key, name: line(c.name, 60) || key, type: checked.type, kind: checked.kind, data });
+    clips.push({ key, name: line(c.name, 60) || key, type: checked.type, kind: checked.kind, data, ...(c.greenScreen === true && checked.kind !== "audio" ? { greenScreen: true } : {}) });
   }
 
   const mixes: PackMix[] = pack.mixes.map((m, i) => {
@@ -240,7 +242,7 @@ export function checkPack(raw: Buffer | string | unknown): CheckedPack {
 }
 
 /** Writes a pack file from clips and built clips (the other way from checkPack). */
-export function packFile(info: { id: string; name: string; theme: ClipTheme; description?: string; author?: string }, clips: { key: string; name: string; type: string; data: Buffer }[], mixes: ClipPackFile["mixes"]): ClipPackFile {
+export function packFile(info: { id: string; name: string; theme: ClipTheme; description?: string; author?: string }, clips: { key: string; name: string; type: string; data: Buffer; greenScreen?: boolean }[], mixes: ClipPackFile["mixes"]): ClipPackFile {
   return {
     format: "ultimatetv.clips",
     version: 1,
@@ -250,7 +252,7 @@ export function packFile(info: { id: string; name: string; theme: ClipTheme; des
     ...(info.description ? { description: info.description } : {}),
     ...(info.author ? { author: info.author } : {}),
     createdAt: new Date().toISOString(),
-    clips: clips.map((c) => ({ key: c.key, name: c.name, type: c.type, data: c.data.toString("base64") })),
+    clips: clips.map((c) => ({ key: c.key, name: c.name, type: c.type, data: c.data.toString("base64"), ...(c.greenScreen ? { greenScreen: true } : {}) })),
     mixes,
   };
 }

@@ -1093,6 +1093,11 @@ export interface ScareClip {
   communityId?: string;
   /** The pack it came with; removing the pack removes it. */
   packId?: string;
+  /**
+   * Filmed on a green screen: the TV keys the green out (chroma key) so only what's in front of
+   * it shows, over the programme. Videos and pictures; set from the phone, or by "green" in the name.
+   */
+  greenScreen?: boolean;
 }
 
 /** The occasion a clip is for. "everyday" clips are for no occasion in particular. */
@@ -1205,7 +1210,7 @@ export interface ScareMix {
 /** One clip on its way to the TV. Without a clip or a sound the TV draws (and screams) its own scare. */
 export interface Scare {
   id: string;
-  clip?: Pick<ScareClip, "id" | "name" | "kind" | "url">;
+  clip?: Pick<ScareClip, "id" | "name" | "kind" | "url" | "greenScreen">;
   /** A sound to play with it. */
   audio?: Pick<ScareClip, "id" | "name" | "url">;
   /** Where the picture goes; "full" (the default) covers the screen on black. */
@@ -1279,7 +1284,7 @@ export function scareFrom(
   const { settings, clips, mixes } = state;
   const id = `${Date.now().toString(36)}${Math.floor(rand() * 1e6).toString(36)}`;
   const base = { id, seconds: settings.seconds, volume: settings.volume, byHand };
-  const asClip = (c: ScareClip) => ({ id: c.id, name: c.name, kind: c.kind, url: c.url });
+  const asClip = (c: ScareClip) => ({ id: c.id, name: c.name, kind: c.kind, url: c.url, ...(c.greenScreen ? { greenScreen: true } : {}) });
   const fromMix = (m: ScareMix): Scare => {
     const visual = clips.find((c) => c.id === m.visualId && c.kind !== "audio");
     const audio = clips.find((c) => c.id === m.audioId && c.kind === "audio");
@@ -1354,7 +1359,7 @@ export interface ClipPackFile {
   description?: string;
   author?: string;
   createdAt?: string;
-  clips: { key: string; name: string; type: string; data: string }[];
+  clips: { key: string; name: string; type: string; data: string; greenScreen?: boolean }[];
   mixes: {
     name: string;
     visual?: string;

@@ -3702,6 +3702,28 @@ html.high-contrast .guide-grid:focus .gg-cell.selected {
   from { transform: scale(0.4); opacity: 0; }
 }
 
+/* A green-screen clip (components/GreenScreen.tsx): the green is keyed out, so
+   even full screen there's no black behind it, just the zombie over whatever is
+   on. The video itself plays out of sight; the canvas shows it keyed. */
+.jump-scare.keyed {
+  background: transparent;
+}
+.green-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+canvas.scare-media {
+  display: block;
+}
+.jump-scare:not(.placed):not(.moving) canvas.scare-media {
+  width: 100vw;
+  height: 100vh;
+  object-fit: contain;
+}
+
 /* An overlay (falling snow, rising hearts, fireworks): a transparent picture
    over the whole screen, with the programme showing through. */
 .jump-scare.overlay {
