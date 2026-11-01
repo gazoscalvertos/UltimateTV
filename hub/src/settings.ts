@@ -30,7 +30,6 @@ export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
       avoidDvProfile5: true,
       autoplayNext: true,
       startOn: "home",
-      tvAppsMethod: "both",
       subtitleStyle: { ...DEFAULT_SUBTITLE_STYLE },
     },
     numbering: "uk",
@@ -138,13 +137,18 @@ export function dedupeSources(sources: IptvSource[]): IptvSource[] {
   });
 }
 
+/** Only the keys `shape` has: settings saved by older versions can hold ones that were since retired. */
+function knownKeys<T extends object>(shape: T, value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([k]) => k in shape)) as T;
+}
+
 function mergeSettings(base: Settings, patch: Partial<Settings>): Settings {
   return {
     ...base,
     ...patch,
     library: { ...base.library, ...patch.library },
     recording: { ...base.recording, ...patch.recording },
-    playback: { ...base.playback, ...patch.playback },
+    playback: knownKeys(base.playback, { ...base.playback, ...patch.playback }),
     screensaver: { ...base.screensaver, ...patch.screensaver },
   };
 }

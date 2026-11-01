@@ -164,15 +164,16 @@ describe("in the demo Hub", () => {
     expect((await app.inject("/api/subtitles/files/..%2Fhub.db")).statusCode).toBe(404);
   });
 
-  it("saves subtitle style, the TV apps method and OpenSubtitles without showing the password", async () => {
-    const s = (await app.inject({ method: "PUT", url: "/api/settings", payload: { playback: { subtitleStyle: { size: "huge", colour: "purple" }, tvAppsMethod: "home" }, omdbApiKey: "abc", openSubtitles: { apiKey: "os", username: "gary", password: "secret" } } })).json<PublicSettings>();
+  it("saves subtitle style and OpenSubtitles without showing the password", async () => {
+    const s = (await app.inject({ method: "PUT", url: "/api/settings", payload: { playback: { subtitleStyle: { size: "huge", colour: "purple" } }, omdbApiKey: "abc", openSubtitles: { apiKey: "os", username: "gary", password: "secret" } } })).json<PublicSettings>();
     expect(s.playback.subtitleStyle).toEqual({ ...DEFAULT_SUBTITLE_STYLE, size: "huge" });
-    expect(s.playback.tvAppsMethod).toBe("home");
     expect(s.omdb).toBe(true);
     expect(s.openSubtitles).toEqual({ configured: true, signedIn: true });
     expect(JSON.stringify(s)).not.toContain("secret");
-    const bad = (await app.inject({ method: "PUT", url: "/api/settings", payload: { playback: { tvAppsMethod: "explode" } } })).json<PublicSettings>();
-    expect(bad.playback.tvAppsMethod).toBe("home");
+    // Keys the playback settings no longer have (a retired setting sent by an old app) are dropped.
+    const old = (await app.inject({ method: "PUT", url: "/api/settings", payload: { playback: { retiredSetting: "home" } } })).json<PublicSettings>();
+    expect(old.playback).not.toHaveProperty("retiredSetting");
+    expect(old.playback.subtitleStyle.size).toBe("huge");
     // A new key alone keeps the login.
     const again = (await app.inject({ method: "PUT", url: "/api/settings", payload: { openSubtitles: { apiKey: "os2" } } })).json<PublicSettings>();
     expect(again.openSubtitles).toEqual({ configured: true, signedIn: true });

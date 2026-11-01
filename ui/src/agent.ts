@@ -260,10 +260,6 @@ class BrowserAgent implements BoxAgent {
   }
   async tvStandby(): Promise<void> {}
   async setVolume(): Promise<void> {}
-  // There's no TV to hand back to in a browser: the TV app says to press Home on the TV's remote.
-  async tvApps(): Promise<boolean> {
-    return false;
-  }
   async addSubtitle(sub: { url: string; lang: string; label: string }): Promise<void> {
     const id = Math.max(0, ...this.state.subtitleTracks.map((t) => t.id)) + 1;
     this.emit({ ...this.state, subtitleTracks: [...this.state.subtitleTracks.map((t) => ({ ...t, selected: false })), { id, lang: sub.lang, title: sub.label, external: true, selected: true }] });
