@@ -240,6 +240,11 @@ export interface TitleRef {
   logo?: string;
   /** 0–1 for Continue Watching. */
   progress?: number;
+  /**
+   * A series' episode to carry on with (`s2e5`): in Continue watching, the one part watched or
+   * the next one; on the details page, the one Play/Resume starts.
+   */
+  episodeId?: string;
   badges?: string[];
   subtitle?: string;
   /** Used to filter titles for Kids profiles. */
@@ -740,6 +745,8 @@ export type HubEvent =
   | { type: "queue.changed" }
   /** A profile's watchlist changed (saved from the phone, say): fetch /api/watchlist again. */
   | { type: "watchlist.changed"; profileId: string | null }
+  /** Something stopped playing, so Continue watching has changed: fetch /api/home again. */
+  | { type: "progress.changed" }
   /** A new alert, or one cleared (Settings › Alerts, and a pop-up for adults when that's on). */
   | { type: "alerts.changed"; alert?: Alert }
   /** A laptop asks to share its screen; the TV asks before it accepts. */

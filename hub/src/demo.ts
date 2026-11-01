@@ -294,7 +294,7 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   };
   ctx.db.run("DELETE FROM progress");
   ctx.progress.save({ key: "title:demo:movie:copper-sky", positionMs: 48 * 60_000, durationMs: 128 * 60_000, title: ref("copper-sky") }, now - 3_600_000);
-  ctx.progress.save({ key: "title:demo:series:northern-line", positionMs: 21 * 60_000, durationMs: 58 * 60_000, title: { ...ref("northern-line"), subtitle: "S1 E4 · The Last Stop" } }, now - 86_400_000);
+  ctx.progress.save({ key: "title:demo:series:northern-line|s1e4", episodeId: "s1e4", positionMs: 21 * 60_000, durationMs: 58 * 60_000, title: { ...ref("northern-line"), subtitle: "S1 E4 · The Last Stop" } }, now - 86_400_000);
   ctx.progress.save({ key: "title:demo:movie:paper-moons", positionMs: 30 * 60_000, durationMs: 96 * 60_000, title: ref("paper-moons") }, now - 2 * 86_400_000);
 
   // Recordings, a series link, a reminder and a clash.

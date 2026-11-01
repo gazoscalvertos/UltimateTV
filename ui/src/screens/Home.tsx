@@ -17,8 +17,9 @@ import { HomeWeather } from "../components/HomeWeather";
 
 export function Home() {
   const [home, { refetch }] = createResource(() => hub.home());
-  // Refreshed only when a recording finishes, so the rails don't shift under the remote.
-  onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" ? void refetch() : undefined)));
+  // Refreshed only when a recording finishes, the watchlist changes or something stops playing
+  // (Continue watching), so the rails don't shift under the remote otherwise.
+  onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" || e.type === "progress.changed" ? void refetch() : undefined)));
 
   // The colour keys are shortcuts on Home, as on Sky.
   const castOk = () => !isKids() || castSettings().gamesForKids;
@@ -60,7 +61,7 @@ export function Home() {
                     class="btn btn-primary btn-large"
                     data-focus
                     data-autofocus
-                    onClick={() => (hero().action === "resume" ? void play({ kind: "title", id: hero().id }, { title: hero() }) : nav.push({ name: "details", id: hero().id }))}
+                    onClick={() => (hero().action === "resume" ? void play({ kind: "title", id: hero().id, ...(hero().episodeId ? { episodeId: hero().episodeId! } : {}) }, { title: hero() }) : nav.push({ name: "details", id: hero().id }))}
                   >
                     <Icon name="play" />
                     {hero().action === "resume" ? "Resume" : "Watch"}
