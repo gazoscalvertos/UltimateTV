@@ -1,10 +1,17 @@
 # UltimateTV: Product & Technical Plan
 
-> Status: **Draft v5** (2026-10-24). Phase 0 (server side) is built. This draft moves the app off the TV and onto a Linux mini PC.
+> ⚠️ Historical — this is the original design record (Oct 2026). For what the app does today see [FEATURES.md](FEATURES.md), [ARCHITECTURE.md](ARCHITECTURE.md) and [ROADMAP.md](ROADMAP.md).
 >
-> **Update 2026-10-29:** this plan is kept as the record of why things were chosen. For what is built now, see [FEATURES.md](FEATURES.md), [ARCHITECTURE.md](ARCHITECTURE.md) and [ROADMAP.md](ROADMAP.md). Since this draft, profiles with PINs and two Android apps (the phone remote and a watching client) were added, so the "out of scope" line below no longer holds.
+> **Status when written:** Draft v5 (2026-10-24). Phase 0 (server side) was built; this draft moved the app off the TV and onto a Linux mini PC.
 > Target display: **Hisense 85" 85U7STUK** (2026 U7 Mini-LED), driven over HDMI by a **Linux mini PC** running our own app.
 > North star: **the best picture and sound the TV can show, wrapped in a UI that passes the Wife Acceptance Factor (WAF).**
+
+**Decisions that changed after this draft** (the "out of scope" line below is out of date):
+
+- **Profiles with PINs were built**, not left to v2. Each person has a profile that can carry a PIN, a locked-down Kids profile can be given TV time and a bedtime, and favourites are per profile ([FEATURES.md](FEATURES.md#profiles), [profiles.md](profiles.md)).
+- **Mobile apps were built, and there are two of them**: the phone remote (`android/app`, `/api/remote/app.apk`) and a separate app that watches live TV, catch-up, recordings and downloads on a phone or tablet at home (`android/client`, `/api/client/app.apk`) ([android-client.md](android-client.md)).
+- **Casting was built**: a Cast & games screen with AirPlay from a phone, a laptop sharing its screen from the browser, links and photos, and games ([casting-and-games.md](casting-and-games.md)).
+- The reasoning is recorded in [ADR 0003](adr/0003-profiles-and-mobile-apps-in-scope.md).
 
 ---
 
