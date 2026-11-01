@@ -27,6 +27,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-01
 
+- **Continue watching remembers where you were**: stopping a film or episode part way puts it first on Home, with its progress bar, whether it played from Jellyfin, IPTV or online. A series shows once, on the episode you were on, and Resume carries on from there. When you finish an episode the next one shows instead, and finished films drop off. (#136)
 - **Screen pairing code stays put**: a screen waiting to be let in (such as the desktop app) keeps the same four-letter code until it's let in or the code runs out after fifteen minutes. Before, two waiting screens that reached the Hub from one address kept replacing each other's code every few seconds. (#122)
 
 ## 2026-10-31
