@@ -1,7 +1,7 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
 import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
-import type { AdSkipSettings, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
+import type { AdSkipSettings, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
 const store = {
@@ -190,6 +190,12 @@ export const hub = {
   favourites: () => api<Favourites>("/api/favourites"),
   favourite: (input: FavouriteInput) => api<FavouriteResult>("/api/favourites", { method: "POST", body: input }),
   unsave: (id: string) => api<{ ok: boolean; items: WatchItem[] }>(`/api/watchlist/${enc(id)}`, { method: "DELETE" }),
+
+  // Recent searches, per profile.
+  recentSearches: () => api<{ searches: RecentSearch[] }>("/api/search/history"),
+  rememberSearch: (q: string) => api<{ searches: RecentSearch[] }>("/api/search/history", { method: "POST", body: { q } }),
+  forgetSearch: (q: string) => api<{ searches: RecentSearch[] }>(`/api/search/history?q=${enc(q)}`, { method: "DELETE" }),
+  clearSearches: () => api<{ searches: RecentSearch[] }>("/api/search/history", { method: "DELETE" }),
 
   // Alerts.
   alerts: () => api<AlertState>("/api/alerts"),

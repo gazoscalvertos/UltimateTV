@@ -27,6 +27,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-01
 
+- **Recent searches**: Search remembers what each profile searched for and shows it before you type, and as suggestions while you type; press OK on one to search again. Clear removes one, Clear all the lot. The phone remote's Search shows the same list. (#137)
 - **Continue watching remembers where you were**: stopping a film or episode part way puts it first on Home, with its progress bar, whether it played from Jellyfin, IPTV or online. A series shows once, on the episode you were on, and Resume carries on from there. When you finish an episode the next one shows instead, and finished films drop off. (#136)
 - **Favourites for each profile** ([docs/profiles.md](docs/profiles.md#favourites)): every profile now has its own favourite films, shows and channels. Press Blue on a film's page, Green while watching, or hold OK on a channel in the guide; the phone remote and the Android app have a heart button too. The guide's Favourites list follows the profile watching, Home has a Favourites row, and Films and TV Shows can show just your favourites. Channels that were favourites before are now favourites on every profile. Android app 0.4.0. (#135)
 - **TV apps button removed**: the TV apps tab along the top, its setting in Picture and sound and on the setup page, its line in the help screen and the phone remote's Go to the TV's apps button are gone. Netflix and the TV's other apps are still on the Hisense's own Home button. Saved settings from before load as normal. (#125)
