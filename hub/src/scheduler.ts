@@ -37,11 +37,18 @@ export class Scheduler {
   private warned = new Set<string>();
   private catchupRunning = false;
   private lastHousekeeping = 0;
+  /** When the loop last ran. /api/health reads it to tell a working Hub from a stuck one (#96). */
+  lastTickAt: number | undefined;
 
   constructor(private d: SchedulerDeps) {}
 
   private now(): number {
     return (this.d.now ?? Date.now)();
+  }
+
+  /** Whether the clock is running: a Hub standing by after a move-out has never started it. */
+  get running(): boolean {
+    return this.timer !== null;
   }
 
   start(intervalMs = 10_000): void {
@@ -247,6 +254,7 @@ export class Scheduler {
 
   async tick(): Promise<void> {
     const now = this.now();
+    this.lastTickAt = now;
 
     for (const r of this.d.store.withStatus("scheduled")) {
       if (r.method === "catchup") {

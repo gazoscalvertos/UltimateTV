@@ -5,10 +5,11 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 ## 1. Hub (Docker LXC 107)
 
 1. `bash /containers/UltimateTV/tools/hub/update.sh` (pulls, rebuilds and checks the Hub is up)
-2. Open `http://192.168.0.19:8095/api/health`: it should say ok.
-3. Open `http://192.168.0.19:8095/setup/` on your phone. Add the IPTV login (Xtream or M3U plus EPG URL), then **Refresh**. Channels and the guide should fill within a minute or two.
-4. Add Jellyfin (Quick Connect), AIOStreams (the manifest URL) and TorBox (the API key).
-5. Open `http://192.168.0.19:8095/app/` in Chrome on a laptop. This is the TV app, with the keyboard as the remote; video that Chrome can't play shows artwork instead.
+2. Open `http://192.168.0.19:8095/api/health`: it should say ok, with `"status":"ok"` and a `checks` block whose `db`, `disk`, `scheduler` and `dataDir` are all ok too.
+3. `docker ps` should show the Hub as `healthy` after a minute. To see it go the other way, freeze the process for a minute (`docker kill --signal=STOP ultimatetv-hub`): the check should mark it `unhealthy`, and with `docker compose --profile autoheal up -d autoheal` running it should restart by itself ([ARCHITECTURE.md](ARCHITECTURE.md#health-and-auto-restart)). The degraded reasons themselves (a stuck recording loop, a full disk, a read-only `/data`) are covered by `hub/test/health.test.ts` rather than by breaking the real Hub.
+4. Open `http://192.168.0.19:8095/setup/` on your phone. Add the IPTV login (Xtream or M3U plus EPG URL), then **Refresh**. Channels and the guide should fill within a minute or two.
+5. Add Jellyfin (Quick Connect), AIOStreams (the manifest URL) and TorBox (the API key).
+6. Open `http://192.168.0.19:8095/app/` in Chrome on a laptop. This is the TV app, with the keyboard as the remote; video that Chrome can't play shows artwork instead.
 
 ## 2. Box (before the CEC adapter)
 

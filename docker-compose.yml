@@ -10,6 +10,9 @@ services:
     image: ultimatetv-hub:latest
     container_name: ultimatetv-hub
     restart: unless-stopped
+    # Only containers with this label are restarted by the opt-in autoheal service below.
+    labels:
+      ultimatetv-autoheal: "true"
     # docker logs roll over too (the Hub's detailed log is in the data volume: data/logs).
     logging:
       driver: json-file
@@ -40,6 +43,33 @@ services:
     group_add:
       # Group that owns /dev/dri/renderD128 inside the Docker LXC (check with: ls -ln /dev/dri).
       - "${RENDER_GID:-104}"
+    # Docker's own view of the Hub (#96). The image's HEALTHCHECK does the probe; these timings are
+    # here so they can be tuned from the compose file without a rebuild. A Hub that is degraded
+    # (database not answering, recording loop stuck, data disk nearly full) is unhealthy.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/health').then(r=>r.json()).then(b=>process.exit(b.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  # Opt-in: restarts an unhealthy Hub. Docker only restarts a container when its process exits, so
+  # a Hub whose health check fails but whose process is alive stays up - that's what this watches.
+  # Start it with `docker compose --profile autoheal up -d autoheal` (see docs/ARCHITECTURE.md,
+  # "Health and auto-restart"). Left out by default: a restart loops on a fault that only the person
+  # at home can fix, such as an unmounted NAS or a full disk.
+  autoheal:
+    image: willfarrell/autoheal:latest
+    profiles: ["autoheal"]
+    container_name: ultimatetv-autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: ultimatetv-autoheal
+      AUTOHEAL_START_PERIOD: 60
+      AUTOHEAL_INTERVAL: 30
+    volumes:
+      # Read-write: autoheal restarts containers through this socket.
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   hub-data:
