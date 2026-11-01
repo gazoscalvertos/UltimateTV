@@ -165,16 +165,27 @@ export class Pairing {
 
   /**
    * A screen running the TV app asks to join. The first one is let in at once; later ones wait
-   * for a paired device to let them in and collect their token with `collect`.
+   * for a paired device to let them in and collect their token with `collect`. A screen that asks
+   * again with the request it already has (it reloaded, or the Hub didn't answer for a moment)
+   * keeps that request and its code, so the code on screen doesn't change while someone types it.
    */
-  requestScreen(rawName: unknown, ip?: string): { token: string; device: PairedDevice } | { pending: PendingScreen; secret: string } {
+  requestScreen(
+    rawName: unknown,
+    ip?: string,
+    resume?: { id?: unknown; secret?: unknown },
+  ): { token: string; device: PairedDevice } | { pending: PendingScreen; secret: string } {
     const name = cleanName(rawName, "TV");
     if (!this.load().some((d) => d.kind === "tv")) return this.add(name, "tv", ip);
     this.expire();
+    const old = typeof resume?.id === "string" ? this.pending.get(resume.id) : undefined;
+    if (old && !old.token && safeEqual(old.secretHash, hash(String(resume?.secret ?? "")))) {
+      const { secretHash: _s, token: _t, ...shown } = old;
+      return { pending: shown, secret: String(resume?.secret) };
+    }
     const secret = newToken();
     const pending: Pending = { id: randomBytes(6).toString("hex"), name, code: randomCode(4), at: this.now(), secretHash: hash(secret), ...(ip ? { ip } : {}) };
-    // One wait per address: a screen that reloads replaces its own request.
-    for (const [id, p] of this.pending) if (ip && p.ip === ip && !p.token) this.pending.delete(id);
+    // Each screen keeps its own request: screens behind one address (two desktops behind Docker's
+    // proxy, or a browser tab next to the desktop app) mustn't keep throwing each other's code away.
     this.pending.set(pending.id, pending);
     while (this.pending.size > 10) this.pending.delete(this.pending.keys().next().value as string);
     this.onChange();

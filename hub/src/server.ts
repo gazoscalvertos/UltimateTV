@@ -674,10 +674,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return keepToken(reply, token).send({ token, device });
   });
   /** A screen running the TV app asks to join: let in at once if it's the first, otherwise it waits. */
-  app.post("/api/pair/screen", async (req: Req<Record<string, string>, Record<string, string>, { name?: string }>, reply) => {
+  app.post("/api/pair/screen", async (req: Req<Record<string, string>, Record<string, string>, { name?: string; id?: string; secret?: string }>, reply) => {
     const already = deviceAsking(req);
     if (already?.kind === "tv") return { device: already };
-    const r = pairing.requestScreen(req.body?.name, req.ip);
+    const r = pairing.requestScreen(req.body?.name, req.ip, req.body);
     if ("pending" in r) return reply.code(202).send(r);
     log.info({ device: r.device.name, ip: req.ip }, "Screen paired");
     return keepToken(reply, r.token).send(r);

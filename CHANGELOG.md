@@ -25,6 +25,10 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-01
+
+- **Screen pairing code stays put**: a screen waiting to be let in (such as the desktop app) keeps the same four-letter code until it's let in or the code runs out after fifteen minutes. Before, two waiting screens that reached the Hub from one address kept replacing each other's code every few seconds. (#122)
+
 ## 2026-10-31
 
 - **TV remote over the Pulse-Eight adapter**: the box now tells the adapter its HDMI address (from the TV's EDID) so the TV sends it the remote's buttons, and sets the adapter up again if it's plugged in after the app has started. (#120)
