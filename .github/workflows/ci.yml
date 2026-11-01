@@ -13,8 +13,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -30,7 +30,7 @@ jobs:
   box-scripts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: shellcheck tools/box/*.sh tools/pxe/*.sh tools/hub/*.sh tools/desktop/*.sh
       - name: Installer files are where the installer expects them
         run: |
@@ -43,10 +43,10 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - name: Build Hub image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
@@ -76,10 +76,10 @@ jobs:
   pxe-server:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - name: Build the PXE server image (compiles iPXE)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: tools/pxe
           push: false
@@ -109,8 +109,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -118,7 +118,7 @@ jobs:
         env:
           BRANCH: main
         run: bash tools/desktop/build-appimage.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ultimatetv-desktop-appimage
           path: |
@@ -140,22 +140,22 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: The Hub's app-version.json matches the app
         run: |
           code="$(sed -n 's/^ *versionCode \([0-9]*\)$/\1/p' android/app/build.gradle)"
           grep -q "\"versionCode\": $code," hub/public/remote/app-version.json || { echo "Update hub/public/remote/app-version.json to versionCode $code"; exit 1; }
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.10.2"
       - name: Build the phone remote APK
         working-directory: android
         run: gradle --no-daemon :app:assembleDebug
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ultimatetv-remote-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
@@ -176,22 +176,22 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: The Hub's client-app.json matches the app
         run: |
           code="$(sed -n 's/^ *versionCode \([0-9]*\)$/\1/p' android/client/build.gradle)"
           grep -q "\"versionCode\": $code," hub/public/setup/client-app.json || { echo "Update hub/public/setup/client-app.json to versionCode $code"; exit 1; }
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.10.2"
       - name: Build the Android client APK
         working-directory: android
         run: gradle --no-daemon :client:assembleDebug
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ultimatetv-client-apk
           path: android/client/build/outputs/apk/debug/client-debug.apk
