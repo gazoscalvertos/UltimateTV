@@ -27,6 +27,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-01
 
+- **TV apps button removed**: the TV apps tab along the top, its setting in Picture and sound and on the setup page, its line in the help screen and the phone remote's Go to the TV's apps button are gone. Netflix and the TV's other apps are still on the Hisense's own Home button. Saved settings from before load as normal. (#125)
 - **Screen pairing code stays put**: a screen waiting to be let in (such as the desktop app) keeps the same four-letter code until it's let in or the code runs out after fifteen minutes. Before, two waiting screens that reached the Hub from one address kept replacing each other's code every few seconds. (#122)
 
 ## 2026-10-31

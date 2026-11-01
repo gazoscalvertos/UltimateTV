@@ -1,38 +1,6 @@
-# TV apps, trailers, scores and subtitles
+# Trailers, scores and subtitles
 
-Four things that help decide what to watch and then watch it comfortably. All of them are built and pass their tests against the demo Hub; none has run on the box or the Hisense yet.
-
-## TV apps (Netflix, Prime Video, Disney+)
-
-Netflix, Prime Video, Disney+, YouTube and BBC iPlayer stay on the Hisense's own Home, where they play in 4K with Dolby Vision. On Linux their copy protection would keep them to low resolution, so UltimateTV doesn't try to play them itself.
-
-**TV apps** along the top of every screen hands the screen back to the TV:
-
-1. Whatever is playing stops and the music pauses.
-2. A note says how to come back, for a couple of seconds.
-3. The box tells the TV over HDMI-CEC that it's stepping down (`<Inactive Source>`), then presses the TV's Home key for it (the CEC "root menu" key).
-
-To come back, press **Input** on the TV remote and pick **UltimateTV**. The TV tells the box it's been picked, and the app opens on Home (or Who's watching if a PIN is set), as it does when the TV is switched on.
-
-The same button is on the phone remote's **Cast** sheet (Go to the TV's apps).
-
-Kids profiles see the button too. The TV remote's own Home and Netflix buttons get there anyway, so the lock that matters is a Kids profile in Netflix, Prime Video and Disney+ themselves.
-
-![TV apps without CEC](screenshots/106-tv-apps.png)
-
-**Needs the Pulse-Eight USB-CEC adapter.** Without it (or on a box that hasn't been updated) the button explains instead: press the Home button on the TV remote, and Input to come back.
-
-**If the TV stays on UltimateTV**, try the other ways in Settings › Picture and sound › TV apps button (or on the phone's setup page):
-
-| Setting | What the box sends |
-|---------|--------------------|
-| Step down, then Home (the default) | `<Inactive Source>`, then the Home key |
-| Step down only | `<Inactive Source>`: many TVs go back to their last app |
-| Press Home only | The Home key |
-
-By hand on the box: `cec-ctl -d /dev/cec0 --to 0 --inactive-source phys-addr=1.0.0.0` (the box's address is in its log at start-up) and `cec-ctl -d /dev/cec0 --to 0 --user-control-pressed ui-cmd=root-menu`.
-
-While the TV shows its own apps the box doesn't suspend, even with `SUSPEND_WHEN_TV_OFF=1`, so it's there when Input picks it again. It still suspends once the TV goes to standby.
+Three things that help decide what to watch and then watch it comfortably. All of them are built and pass their tests against the demo Hub; none has run on the box or the Hisense yet.
 
 ## Trailers and review scores
 
@@ -140,7 +108,6 @@ intro jump and the credits hand-over have only run against the demo Hub. Check w
 
 | Part | Where |
 |------|-------|
-| CEC hand-over | `box/src/cec.ts` (`tvApps`, `tvAppsCommands`), `ui/src/tvapps.ts` |
 | Trailers | `hub/src/services/tmdb.ts` (`trailer`, `pickTrailer`) |
 | Scores | `hub/src/services/omdb.ts` |
 | More like this, Because you watched | `hub/src/library.ts` (`extras`, `similarTo`, `playable`, `becauseYouWatched`), `GET /api/titles/:id/extras` |
@@ -149,4 +116,4 @@ intro jump and the credits hand-over have only run against the demo Hub. Check w
 | Skip markers, Up Next in the credits | `shared/src/segments.ts` (`skipMarkersFrom`, `creditsHandover`), `hub/src/services/jellyfin.ts` (`segments`), `ui/src/screens/Player.tsx` |
 | Intro Skipper install and check | `tools/jellyfin/intro-skipper.mjs` |
 
-The TV app checks for the box's new methods (`tvApps`, `addSubtitle`, `setSubtitleStyle`) before using them, so an older box keeps working until it updates: TV apps explains which button to press, and fetched subtitles and the style wait for the update.
+The TV app checks for the box's new methods (`addSubtitle`, `setSubtitleStyle`) before using them, so an older box keeps working until it updates: fetched subtitles and the style wait for the update.

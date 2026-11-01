@@ -58,7 +58,6 @@ contextBridge.exposeInMainWorld("ultimatetv", {
   launchApp: call("launchApp"),
   stopApp: call("stopApp"),
   tvStandby: call("tvStandby"),
-  tvApps: call("tvApps"),
   addSubtitle: call("addSubtitle"),
   setSubtitleStyle: call("setSubtitleStyle"),
   setVolume: call("setVolume"),

@@ -15,7 +15,7 @@ Gary asked for the whole app to be built before testing on the real hardware, so
 | 3. Unified films and TV | Built. Jellyfin playback has run on the box. |
 | 4. AIOStreams, TorBox, NAS pipeline, phone remote | Built. The phone remote is in daily use; TorBox and Save to NAS are untested. |
 | 5. Polish and WAF | Mostly built (profiles, screensaver, automatic box updates, nightly Hub backup, a screen for when the Hub is down). Automatic rollback is built but untested on the box; the WAF test remains. |
-| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, button hints and help, sleep timer, alerts, Save for later, advert skip, seasonal clips, projected clip packs, weather, TV apps, trailers and scores, More like this, OpenSubtitles, Skip intro everywhere, accessibility: built, mostly untested. |
+| Beyond the plan | Music video channels, Music tab, Android app, pairing, pop-ups, queue, Halloween, trips, box downloads, themes, Cast and games, button hints and help, sleep timer, alerts, Save for later, advert skip, seasonal clips, projected clip packs, weather, trailers and scores, More like this, OpenSubtitles, Skip intro everywhere, accessibility: built, mostly untested. |
 
 ## Tested or untested, feature by feature
 
@@ -55,7 +55,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Seasonal clips, projected clip packs, community list | #60, #61 | Untested |
 | Nightly Hub backup, box screen when the Hub is down | #63 | Untested |
 | Weather | #64 | Untested |
-| TV apps button, trailers and scores, More like this, OpenSubtitles | #65 | Untested (TV apps needs the Pulse-Eight) |
+| Trailers and scores, More like this, OpenSubtitles | #65 | Untested |
 | What's new (change log in every app) | #112 | Untested |
 | Home Assistant both ways (media player, playback events) | #113 | Untested |
 | Kids TV time and bedtime | #114 | Untested |
@@ -80,7 +80,7 @@ First bring the box and the Hub up to date: run `tools/hub/update.sh`, then reru
 
 - **The Hisense itself:** 4K HDR10 switching, HLG, 24p and 50 Hz matching, scale ×1, and how the UI looks over HDR video.
 - **Sound:** Dolby Digital Plus / Atmos and DTS reaching the TV speakers.
-- **The TV remote:** waits for the Pulse-Eight USB-CEC adapter (the box has no HDMI-CEC of its own). Check every key, TV off stopping playback, TV on switching to the box, and the TV apps button reaching the Hisense's Home.
+- **The TV remote:** waits for the Pulse-Eight USB-CEC adapter (the box has no HDMI-CEC of its own). Check every key, TV off stopping playback, and TV on switching to the box.
 - **Boot time:** under 15 seconds to Who's watching.
 - **IPTV:** live TV, pause live, the guide, catch-up (never tried with this provider) and sharing the one connection.
 - **Recording:** a week of series links without misses, clashes, recordings showing up in Jellyfin.
@@ -117,7 +117,7 @@ First bring the box and the Hub up to date: run `tools/hub/update.sh`, then reru
 The [gap list](https://claude.ai/artifact/PSEpcgrMkhKp4Se1Gp51gK) ranks these against Sky Q, Apple TV, Plex and the rest. Its picks 2 to 6 (button hints, sleep timer, alerts, Save for later, advert skip) are now built. Next, in its order:
 
 1. ~~Nightly Hub backup~~: built in #63 ([backup.md](backup.md)).
-2. **A "TV apps" button** that hands the screen back to the Hisense over CEC for Netflix, Disney+ and Prime. Needs the Pulse-Eight first.
+2. ~~A button that hands the screen back to the Hisense's own apps~~: built in #65, then removed in #125 as not needed (the TV remote's Home button does the same).
 3. **Trailers and review scores** on the details page (TMDB trailers through yt-dlp, IMDb and Rotten Tomatoes from OMDb).
 4. **More like this** on the details page and a Home row. The Hub already has a TMDB recommendations call that nothing uses.
 5. **Subtitles**: fetch missing ones from OpenSubtitles, a default per profile, size and background settings.

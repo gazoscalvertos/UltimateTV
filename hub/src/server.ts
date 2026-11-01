@@ -23,7 +23,7 @@ import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
 import { ChangelogFile, registerChangelog } from "./changelog.js";
 import type { AccessibilitySettings, BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
-import { cleanAppName, cleanSubtitleStyle, TV_APPS_METHODS, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
+import { cleanAppName, cleanSubtitleStyle, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
@@ -81,7 +81,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   const getSystem = deps.systemReport ?? systemReport;
   app.addHook("onClose", async () => ctx.close());
 
-  /** TV apps listening on the event socket: the phone's box controls need one. */
+  /** TV app clients listening on the event socket: the phone's box controls need one. */
   let tvSockets = 0;
   const deviceSockets = new Map<string, Set<{ close(code?: number, reason?: string): void }>>();
   const hubBase = (req: FastifyRequest) => config.publicUrl ?? `${req.protocol}://${req.headers.host ?? `${req.hostname}:${config.port}`}`;
@@ -448,7 +448,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (body.recording) patch.recording = { ...s.recording, ...body.recording };
     if (body.playback) {
       const b = body.playback;
-      patch.playback = { ...s.playback, ...b, subtitleStyle: cleanSubtitleStyle(b.subtitleStyle, s.playback.subtitleStyle), tvAppsMethod: TV_APPS_METHODS.includes(b.tvAppsMethod) ? b.tvAppsMethod : s.playback.tvAppsMethod };
+      patch.playback = { ...s.playback, ...b, subtitleStyle: cleanSubtitleStyle(b.subtitleStyle, s.playback.subtitleStyle) };
     }
     if (body.numbering) patch.numbering = body.numbering;
     if (body.appName !== undefined) patch.appName = cleanAppName(body.appName);
@@ -790,7 +790,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "tvApps", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay"]);
   /** Asks the TV app something and waits for its answer (12 s at most). */
   const callTv = (method: TvMethod, args: unknown) =>
     new Promise<{ result?: unknown; error?: string }>((resolve) => {

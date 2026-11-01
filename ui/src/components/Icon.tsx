@@ -28,14 +28,6 @@ const PATHS: Record<string, () => JSX.Element> = {
   edit: () => <path d="M5 19l1-4L16 5l3 3L9 18zM14 7l3 3" />,
   move: () => <path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4" />,
   check: () => <path d="M5 12.5l4.5 4.5L19 7.5" />,
-  apps: () => (
-    <>
-      <rect x="4.5" y="4.5" width="6" height="6" rx="1.5" />
-      <rect x="13.5" y="4.5" width="6" height="6" rx="1.5" />
-      <rect x="4.5" y="13.5" width="6" height="6" rx="1.5" />
-      <rect x="13.5" y="13.5" width="6" height="6" rx="1.5" />
-    </>
-  ),
   trailer: () => (
     <>
       <rect x="3.5" y="5.5" width="17" height="13" rx="2" />

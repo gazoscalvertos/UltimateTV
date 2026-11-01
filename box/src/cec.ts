@@ -1,14 +1,12 @@
 // HDMI-CEC through cec-ctl (v4l-utils) on the Pulse-Eight adapter's /dev/cec device. The remote's
 // buttons don't come through here: the kernel turns them into key presses (see
 // tools/box/cec-keymap.toml). This side registers the box as a playback device, wakes the TV,
-// watches for the TV going to standby or switching to another input, and hands the screen back
-// to the TV's own Home (TV apps: Netflix, Disney+, Prime) when asked.
+// watches for the TV going to standby or switching to another input.
 
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
-import type { TvAppsMethod } from "@ultimatetv/shared";
 
 const run = promisify(execFile);
 
@@ -66,16 +64,6 @@ export function powerFrom(msg: CecMessage, ours: string | null): boolean | null 
   }
 }
 
-/** The cec-ctl calls (after `-d <device>`) that hand the screen back to the TV. */
-export function tvAppsCommands(method: TvAppsMethod, physAddr: string | null): string[][] {
-  const out: string[][] = [];
-  // <Inactive Source>: most TVs go back to their own Home or last app when the active source steps down.
-  if (method !== "home" && physAddr) out.push(["--to", "0", "--inactive-source", `phys-addr=${physAddr}`]);
-  // The TV's Home ("Root Menu") key, pressed and let go, for TVs that stay on the box's input.
-  if (method !== "inactive") out.push(["--to", "0", "--user-control-pressed", "ui-cmd=root-menu"], ["--to", "0", "--user-control-released"]);
-  return out;
-}
-
 /**
  * The HDMI physical address ("2.0.0.0") the TV gave this HDMI input, from the TV's EDID: the HDMI
  * vendor block (IEEE OUI 00-0C-03) in a CTA-861 extension. Null when the EDID has none.
@@ -124,8 +112,6 @@ export class Cec {
   private listeners = new Set<(active: boolean) => void>();
   connected = false;
   tvOn: boolean | undefined;
-  /** The box handed the screen to the TV's apps and hasn't been picked again yet (so it mustn't suspend). */
-  handedOver = false;
 
   constructor(
     private readonly device: string,
@@ -189,13 +175,9 @@ export class Cec {
     const handle = (msg: CecMessage | null) => {
       if (!msg) return;
       const active = powerFrom(msg, this.physAddr);
-      if (msg.opcode === "STANDBY") {
-        this.tvOn = false;
-        this.handedOver = false;
-      }
+      if (msg.opcode === "STANDBY") this.tvOn = false;
       if (msg.opcode === "SET_STREAM_PATH" || msg.opcode === "ACTIVE_SOURCE") this.tvOn = true;
       if (active === null) return;
-      if (active) this.handedOver = false;
       this.log(`CEC ${msg.opcode} → ${active ? "showing the box" : "not showing the box"}`);
       for (const l of this.listeners) l(active);
       // The TV asked for us: say we're the active source so it switches input and stays there.
@@ -227,21 +209,6 @@ export class Cec {
   async standby(): Promise<void> {
     if (!this.connected) return;
     await run("cec-ctl", ["-d", this.device, "--to", "0", "--standby"], { timeout: 5000 }).catch((e: Error) => this.log(e.message));
-  }
-
-  /**
-   * Gives the screen back to the TV's own Home, for its apps. Returns false when there's no CEC
-   * adapter, so the TV app can say to press Home on the TV's remote instead.
-   */
-  async tvApps(method: TvAppsMethod = "both"): Promise<boolean> {
-    if (!this.connected) return false;
-    this.handedOver = true;
-    let ok = false;
-    for (const args of tvAppsCommands(method, this.physAddr)) {
-      ok = (await run("cec-ctl", ["-d", this.device, ...args], { timeout: 5000 }).then(() => true, (e: Error) => (this.log(e.message), false))) || ok;
-    }
-    this.log(`CEC: handed the screen to the TV's apps (${method})${ok ? "" : ", but cec-ctl failed"}`);
-    return ok;
   }
 
   private async activeSource(): Promise<void> {

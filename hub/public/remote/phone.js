@@ -559,8 +559,6 @@
     const air = st?.airplay;
     openSheet(`<h2>Cast to the TV</h2>
       ${fg ? `<div class="actions"><button class="primary" id="ca-back">Back to the TV app (close ${esc(fg.name)})</button></div>` : ""}
-      <h3>Netflix, Prime and the TV's other apps</h3>
-      <div class="actions"><button id="ca-tvapps">Go to the TV's apps</button></div>
       <h3>Play a link</h3>
       <p class="meta">A YouTube video, or a link to a video file or stream.</p>
       <input class="field" id="ca-url" type="url" placeholder="https://…" autocomplete="off" value="${esc(shared?.url ?? "")}">
@@ -582,7 +580,6 @@
         toast("Long-press the box and choose Paste", true);
       }
     };
-    $("ca-tvapps").onclick = () => void call("tvApps").then((r) => (closeSheet(), toast(r?.ok ? "Over to the TV's apps. Input on the TV remote comes back" : "Press Home on the TV remote")), (e) => toast(e.message, true));
     $("ca-photo").onclick = () => $("ca-file").click();
     $("ca-file").onchange = (e) => {
       const f = e.target.files[0];
@@ -1380,7 +1377,7 @@
   }
 
   // Signing in to Spotify and Deezer on the TV, from the phone: the first thing the Music page shows
-  // until both are done (TV apps from before musicStatus show the library straight away).
+  // until both are done (TV app versions from before musicStatus show the library straight away).
   function musicSetupHtml(st) {
     const sp = st.spotify || {};
     const name = esc(sp.deviceName || "the TV");

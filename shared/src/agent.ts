@@ -70,12 +70,6 @@ export interface PlayOptions {
   crops?: string[];
 }
 
-/**
- * How the box hands the screen back to the TV for its own apps (Netflix, Disney+, Prime): say over
- * CEC that it's no longer the source, press the TV's Home key for it, or both (the default).
- */
-export type TvAppsMethod = "inactive" | "home" | "both";
-
 /** How subtitles look on the TV (mpv's sub-scale, sub-color, sub-border-style and sub-pos). */
 export interface SubtitleStyle {
   size: "small" | "medium" | "large" | "huge";
@@ -104,7 +98,6 @@ export function cleanSubtitleStyle(input: unknown, base: SubtitleStyle = DEFAULT
 }
 
 export const SUBTITLE_MODES: SubtitleMode[] = ["off", "on", "foreign"];
-export const TV_APPS_METHODS: TvAppsMethod[] = ["both", "inactive", "home"];
 
 /** When subtitles come on: never, always, or only for speech in another language (and forced ones). */
 export type SubtitleMode = "off" | "on" | "foreign";
@@ -362,9 +355,7 @@ export interface BoxAgent {
   /** The player's volume, 0–100 (for fading out). */
   setVolume(percent: number): Promise<void>;
 
-  // TV apps and subtitles. Older box shells lack these: check with agentHas first.
-  /** Hands the screen back to the TV's own Home over CEC; false when there's no CEC adapter. */
-  tvApps(method?: TvAppsMethod): Promise<boolean>;
+  // Subtitles. Older box shells lack these: check with agentHas first.
   /** Adds a subtitle file (one fetched from OpenSubtitles) to what's playing, and shows it. */
   addSubtitle(sub: { url: string; lang: string; label: string }): Promise<void>;
   setSubtitleStyle(style: SubtitleStyle): Promise<void>;
