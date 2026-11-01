@@ -100,6 +100,8 @@ const PATHS: Record<string, () => JSX.Element> = {
     </>
   ),
   bookmark: () => <path d="M7 4h10v16l-5-3.5L7 20z" />,
+  heart: () => <path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z" />,
+  hearted: () => <path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z" fill="currentColor" />,
   bookmarked: () => <path d="M7 4h10v16l-5-3.5L7 20z" fill="currentColor" />,
   laptop: () => <path d="M5 6.5A1.5 1.5 0 0 1 6.5 5h11A1.5 1.5 0 0 1 19 6.5V15H5zM3 18h18" />,
   phone: () => <path d="M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2" />,

@@ -142,6 +142,16 @@ class Hub(private val prefs: Prefs) {
     suspend fun deleteRecording(id: String) = raw("/api/recordings/${enc(id)}", "DELETE")
     suspend fun markWatched(id: String, watched: Boolean) = raw("/api/recordings/${enc(id)}/watched", "POST", mapOf("watched" to watched))
     suspend fun profiles(): Profiles = get("/api/profiles")
+    suspend fun favourites(): FavouriteState = get("/api/favourites")
+    /** Stars or unstars a film or show for this profile; the rating and genres let a Kids profile keep it. */
+    suspend fun favouriteTitle(d: TitleDetails, on: Boolean): FavouriteState = post(
+        "/api/favourites",
+        mapOf(
+            "on" to on,
+            "title" to mapOf("id" to d.id, "kind" to d.kind, "name" to d.name, "year" to d.year, "poster" to d.poster, "backdrop" to d.backdrop, "certification" to d.certification, "genres" to d.genres).filterValues { it != null },
+        ),
+    )
+    suspend fun favouriteChannel(id: String, on: Boolean): FavouriteState = post("/api/favourites", mapOf("channel" to id, "on" to on))
     suspend fun unlock(id: String, pin: String?): String = post<Map<String, Any?>>("/api/profiles/${enc(id)}/unlock", mapOf("pin" to pin))["token"] as String
 
     /** Resolves something to play. `force` takes the IPTV connection from whoever has it. */

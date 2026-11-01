@@ -16,6 +16,7 @@ import { ScreensaverLayer } from "./components/Screensaver";
 import { Notices } from "./components/Notices";
 import { StartingCard } from "./components/Starting";
 import { startEvents, onHubEvent } from "./events";
+import { startFavourites } from "./favourites";
 import { activeLayer, current, focus, focusFirst } from "./focus";
 import { onAnyKey, onBack, useKeys } from "./keys";
 import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, starting, cancelStarting, stopPlayback } from "./player";
@@ -199,6 +200,7 @@ export function App() {
     startCast();
     startSleep();
     startKidsTime();
+    startFavourites();
     startSaveNotices();
     startWeather();
     startHomeAssistant();

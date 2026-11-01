@@ -15,11 +15,13 @@ import kotlinx.coroutines.launch
 import tv.ultimate.client.ApiError
 import tv.ultimate.client.App
 import tv.ultimate.client.FeatureState
+import tv.ultimate.client.Favourites
 import tv.ultimate.client.Offline
 import tv.ultimate.client.OfflineMeta
 import tv.ultimate.client.PlaybackInfo
 import tv.ultimate.client.PlaybackRequest
 import tv.ultimate.client.PlayerActivity
+import tv.ultimate.client.TitleDetails
 import tv.ultimate.client.TitleRef
 
 data class Ask(val title: String, val message: String, val yes: String, val no: String, val answer: CompletableDeferred<Boolean>)
@@ -117,6 +119,24 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
         scope.launch {
             runCatching { hub.playOnTv(req, title) }
                 .onSuccess { say("Playing on the TV") }
+                .onFailure { say(explain(it)) }
+        }
+    }
+
+    /** Stars or unstars a film or show for this profile. */
+    fun favouriteTitle(d: TitleDetails, on: Boolean) {
+        scope.launch {
+            runCatching { Favourites.setTitle(d, on) }
+                .onSuccess { say(if (on) "${d.name} added to Favourites" else "${d.name} taken out of Favourites") }
+                .onFailure { say(explain(it)) }
+        }
+    }
+
+    /** Stars or unstars a guide channel for this profile; [after] runs once the Hub has it. */
+    fun favouriteChannel(id: String, name: String, on: Boolean, after: () -> Unit = {}) {
+        scope.launch {
+            runCatching { Favourites.setChannel(id, on) }
+                .onSuccess { say(if (on) "$name added to Favourites" else "$name taken out of Favourites"); after() }
                 .onFailure { say(explain(it)) }
         }
     }

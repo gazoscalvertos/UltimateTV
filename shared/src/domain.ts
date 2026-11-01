@@ -44,6 +44,10 @@ export interface Channel {
   /** XMLTV channel id used to join guide data. */
   epgId?: string;
   feeds: ChannelFeed[];
+  /**
+   * A favourite of whoever is asking: the profile's own favourites when a profile is chosen
+   * (see /api/favourites), the household's star otherwise.
+   */
   favourite: boolean;
   hidden: boolean;
   /** Highest feed height, for the UHD tab and badges. */
@@ -740,6 +744,8 @@ export type HubEvent =
   | { type: "queue.changed" }
   /** A profile's watchlist changed (saved from the phone, say): fetch /api/watchlist again. */
   | { type: "watchlist.changed"; profileId: string | null }
+  /** A profile's favourites changed (a title or channel starred on the TV, phone or Android app): fetch /api/favourites, the channels and the guide lists again. */
+  | { type: "favourites.changed"; profileId: string | null }
   /** A new alert, or one cleared (Settings › Alerts, and a pop-up for adults when that's on). */
   | { type: "alerts.changed"; alert?: Alert }
   /** A laptop asks to share its screen; the TV asks before it accepts. */
@@ -844,7 +850,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha";
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {
