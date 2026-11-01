@@ -27,6 +27,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-01
 
+- **Recent searches**: Search remembers what each profile searched for and shows it before you type, and as suggestions while you type; press OK on one to search again. Clear removes one, Clear all the lot. The phone remote's Search shows the same list. (#137)
 - **Screen pairing code stays put**: a screen waiting to be let in (such as the desktop app) keeps the same four-letter code until it's let in or the code runs out after fifteen minutes. Before, two waiting screens that reached the Hub from one address kept replacing each other's code every few seconds. (#122)
 
 ## 2026-10-31
