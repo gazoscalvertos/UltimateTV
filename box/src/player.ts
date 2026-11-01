@@ -483,6 +483,11 @@ export class Player {
     await this.mpv.set("volume", Math.max(0, Math.min(100, Math.round(percent)))).catch(() => undefined);
   }
 
+  /** Desktop mode: mpv's video window full screen or not (the TV is always full screen). */
+  async toggleFullscreen(): Promise<void> {
+    if (this.desktop) await this.mpv.command("cycle", "fullscreen").catch((e: Error) => this.log(e.message));
+  }
+
   async setLayout(layout: VideoLayout): Promise<void> {
     if (this.desktop) {
       // mpv's window can't be placed inside the guide's preview (Wayland has no window positions),

@@ -286,6 +286,11 @@ export interface BoxAgent {
   setSubtitleTrack(id: number | null): Promise<void>;
   setNightMode(on: boolean): Promise<void>;
   setLayout(layout: VideoLayout): Promise<void>;
+  /**
+   * Full screen or not, from the player's button or a double-click: a desktop's mpv window, or a
+   * browser's page. The TV is always full screen. Older box shells lack it: check with agentHas.
+   */
+  toggleFullscreen?(): Promise<void>;
   /** Stats for the overlay; null when nothing is playing. */
   stats(): Promise<PlaybackStats | null>;
   onState(listener: (state: PlayerState) => void): () => void;

@@ -6,6 +6,11 @@ import { currentHints, everywhere, type Hint, type HintKey } from "../hints";
 import { appName, nav, openDialog } from "../store";
 import { DialogFrame } from "./Dialog";
 
+/** The key a hint stands for when clicked (mouse.ts); arrows and digits aren't one key. */
+export function hintAction(k: HintKey): string | undefined {
+  return k === "play" ? "playPause" : ["arrows", "updown", "leftright", "digits"].includes(k) ? undefined : k;
+}
+
 const LABELS: Partial<Record<HintKey, string>> = { ok: "OK", back: "Back", info: "Info", guide: "Guide", play: "▶❙❙", record: "●", arrows: "◀▲▼▶", updown: "▲▼", leftright: "◀▶", digits: "0–9" };
 
 export function Key(props: { k: HintKey }) {
@@ -24,13 +29,13 @@ export function KeyHints() {
       <div class="key-hints" aria-hidden="true">
         <For each={shown()}>
           {(h) => (
-            <span>
+            <span data-key={hintAction(h.key)}>
               <Key k={h.key} />
               {h.label}
             </span>
           )}
         </For>
-        <span class="key-hints-help">
+        <span class="key-hints-help" data-key="info">
           <kbd>Info</kbd>
           Help
         </span>

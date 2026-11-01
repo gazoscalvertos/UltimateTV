@@ -301,6 +301,7 @@ async function main(): Promise<void> {
     setSubtitleTrack: (id: never) => player.setSubtitleTrack(id),
     setNightMode: (on: never) => player.setNightMode(on),
     setLayout: (l: never) => player.setLayout(l),
+    toggleFullscreen: () => player.toggleFullscreen(),
     stats: () => player.stats(),
     wakeTv: () => cec.wakeTv(),
     reload: async () => win?.webContents.reloadIgnoringCache(),
@@ -465,8 +466,10 @@ async function main(): Promise<void> {
     log("UI unresponsive; reloading");
     win?.webContents.forcefullyCrashRenderer();
   });
-  // The cursor never shows on the TV; on a desktop the UI works with the mouse too.
-  win.webContents.on("dom-ready", () => void win?.webContents.insertCSS(DESKTOP ? "*{cursor:auto!important}" : "*{cursor:none!important}"));
+  // The pointer never shows on the TV. On a desktop the UI works with the mouse too and shows and
+  // hides the pointer itself (ui/src/mouse.ts).
+  // (A Hub too old to have mouse.ts serves a UI that hides it everywhere: show it there.)
+  win.webContents.on("dom-ready", () => void win?.webContents.insertCSS(DESKTOP ? "html:not(.mouse) *{cursor:auto!important}" : "*{cursor:none!important}"));
   await carryPairing();
   // Straight to the box's own screen when the Hub's down, rather than waiting on a dead address.
   if (await hubAnswers(HUB_URL)) await win.loadURL(`${HUB_URL}/app/`).catch(() => undefined);

@@ -8,9 +8,10 @@
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import type { Channel, GuideChoice, GuideWindow, Programme, ProgrammeMark } from "@ultimatetv/shared";
 import { clockTime, dayLabel, digitOf, episodeLabel } from "@ultimatetv/shared";
-import { agent } from "../agent";
+import { agent, onDesktop } from "../agent";
 import { hub } from "../api";
 import { Icon } from "../components/Icon";
+import { LivePreview, previewUrl } from "../components/LivePreview";
 import { openProgramme, recordFlow, timeRange } from "../components/ProgrammeCard";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
@@ -18,6 +19,7 @@ import { focus, move } from "../focus";
 import { useHints } from "../hints";
 import { featureOn } from "../features";
 import { useKeys } from "../keys";
+import { pointerMoved, wheelSteps } from "../mouse";
 import { channels as allChannels, guideList, liveChannelId, nowPlaying, play, setGuideList, setListChannels, stopPlayback } from "../player";
 import { errorToast, isKids, nav, now, profile, toast } from "../store";
 import { isFavouriteChannel, toggleFavouriteChannel } from "../favourites";
@@ -218,6 +220,33 @@ export function Guide() {
     window.removeEventListener("keyup", okUp);
     window.clearTimeout(okTimer);
   });
+  // The mouse (mouse.ts): pointing at a programme selects it, as the arrows would; clicking it
+  // watches it or opens it, as OK does. Only where the guide wouldn't scroll under the pointer.
+  const pointAt = (c: Channel, p?: Programme) => {
+    if (!pointerMoved()) return;
+    const i = channels().indexOf(c);
+    if (i < 0) return;
+    if (i !== row()) setRow(i);
+    if (!p || selected()?.id === p.id) return;
+    const t = Math.max(p.start, winStart());
+    if (t < winStart() + SPAN - SLOT && t < p.end) setAnchor(t);
+  };
+  const clickAt = (c: Channel, p?: Programme) => {
+    const i = channels().indexOf(c);
+    if (i < 0) return;
+    focus(grid);
+    setRow(i);
+    activate(p);
+  };
+  // The wheel goes up and down the channels (never out of the grid); sideways, or with Shift, through time.
+  const wheel = wheelSteps();
+  const onWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    const { x, y } = wheel(e);
+    if (document.activeElement !== grid) focus(grid);
+    if (y) setRow(Math.max(0, Math.min(channels().length - 1, row() + y)));
+    for (let i = 0; i < Math.abs(x); i++) step(x > 0 ? 1 : -1);
+  };
 
   let digitTimer: number | undefined;
   const jumpTo = (n: number) => {
@@ -345,9 +374,17 @@ export function Guide() {
     <div class="screen guide" data-layer>
       <TopBar />
       <div class="guide-top">
-        <div class="guide-preview" ref={preview}>
-          <Show when={!nowPlaying()}>
-            <div class="preview-empty">Live TV</div>
+        <div class="guide-preview" classList={{ "guide-preview-own": onDesktop }} ref={preview}>
+          <Show
+            when={onDesktop}
+            fallback={
+              <Show when={!nowPlaying()}>
+                <div class="preview-empty">Live TV</div>
+              </Show>
+            }
+          >
+            {/* A desktop's mpv plays in its own window: the picture is drawn here (LivePreview.tsx). */}
+            <LivePreview url={nowPlaying()?.info.live ? previewUrl(nowPlaying()!.info.url) : null} fallback={nowPlaying() ? "Sound only here · OK for the picture" : "Live TV"} />
           </Show>
         </div>
         <div class="guide-info">
@@ -412,7 +449,7 @@ export function Guide() {
         </Show>
       </div>
 
-      <div class="guide-grid" tabindex="-1" data-focus data-autofocus ref={grid}>
+      <div class="guide-grid" tabindex="-1" data-focus data-autofocus ref={grid} onWheel={onWheel}>
         <div class="gg-header">
           <div class="gg-day">
             <span>{dayLabel(anchor())}</span>
@@ -437,7 +474,7 @@ export function Guide() {
               const isRow = () => channel()?.id === c.id;
               return (
                 <div class="gg-row" classList={{ "gg-row-active": isRow() }}>
-                  <div class="gg-channel">
+                  <div class="gg-channel" onMouseMove={() => pointAt(c)} onClick={() => clickAt(c)}>
                     <span class="gg-number">{c.number}</span>
                     <Show when={c.logo}>
                       <img class="gg-logo" src={c.logo} alt="" onError={(e) => (e.currentTarget.style.display = "none")} />
@@ -457,7 +494,7 @@ export function Guide() {
                     </span>
                   </div>
                   <div class="gg-line">
-                    <Show when={cellsOf(c)} fallback={<div class="gg-cell gg-empty" classList={{ selected: isRow() }} style={{ left: "0%", width: "100%" }}><span>No information</span></div>}>
+                    <Show when={cellsOf(c)} fallback={<div class="gg-cell gg-empty" classList={{ selected: isRow() }} style={{ left: "0%", width: "100%" }} onMouseMove={() => pointAt(c)} onClick={() => clickAt(c)}><span>No information</span></div>}>
                       <For each={cellsOf(c)!}>
                         {(p) => {
                           const l = () => Math.max(0, left(p.start));
@@ -468,6 +505,8 @@ export function Guide() {
                               class="gg-cell"
                               classList={{ selected: isRow() && selected()?.id === p.id, past: p.end <= now(), "gg-on-now": p.start <= now() && p.end > now(), continues: p.start < winStart() }}
                               style={{ left: `${l()}%`, width: `calc(${w()}% - 0.25rem)` }}
+                              onMouseMove={() => pointAt(c, p)}
+                              onClick={() => clickAt(c, p)}
                             >
                               <span class="gg-cell-title">{p.title}</span>
                               <Show when={mark()}>
@@ -496,19 +535,19 @@ export function Guide() {
       </div>
 
       <footer class="legend">
-        <span>
+        <span data-key="red">
           <kbd class="key-red" /> Record
         </span>
-        <span>
+        <span data-key="green">
           <kbd class="key-green" /> −24 hours
         </span>
-        <span>
+        <span data-key="yellow">
           <kbd class="key-yellow" /> +24 hours
         </span>
-        <span>
+        <span data-key="blue">
           <kbd class="key-blue" /> Next list
         </span>
-        <span>
+        <span data-key="ok">
           <kbd>OK</kbd> Watch or details
         </span>
         <span>

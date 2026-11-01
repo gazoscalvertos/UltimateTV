@@ -19,6 +19,7 @@ import { startEvents, onHubEvent } from "./events";
 import { startFavourites } from "./favourites";
 import { activeLayer, current, focus, focusFirst } from "./focus";
 import { onAnyKey, onBack, useKeys } from "./keys";
+import { onMouse } from "./mouse";
 import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, starting, cancelStarting, stopPlayback } from "./player";
 import { activeMusic, musicPlayPause, pauseAllMusic, startMusic } from "./music";
 import { Browse } from "./screens/Browse";
@@ -150,6 +151,8 @@ export function App() {
     // Typing into a box counts too, though those keys never reach dispatch.
     window.addEventListener("keydown", onKey, true);
     const offAnyKey = onAnyKey(onKey);
+    // So does the mouse: hovering moves the focus, which mustn't be pulled back to the autofocus item.
+    const offMouse = onMouse(onKey);
     createEffect(on(nav.stack, () => (touched = false)));
     const check = () => {
       scheduled = false;
@@ -175,6 +178,7 @@ export function App() {
       observer.disconnect();
       window.removeEventListener("keydown", onKey, true);
       offAnyKey();
+      offMouse();
     });
   });
 

@@ -62,6 +62,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Skip intro everywhere (Intro Skipper), accessibility settings | #116 | Untested (the plugin isn't on the Jellyfin LXC yet) |
 | Desktop app (AppImage) for Fedora, Omarchy and other Linux | #118 | Partly: built and run in a virtual screen with a test video; untested on real desktops |
 | Features on each screen (switch parts off per TV, desktop or phone) | #133 | Untested |
+| Desktop app: mouse support, live TV in the guide's preview (issues #126, #131) | #138 | Partly: checked in Chromium against the demo Hub; untested in the real AppImage |
 
 ### What has run on real hardware
 

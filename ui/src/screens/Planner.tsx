@@ -320,7 +320,7 @@ export function Planner(props: { tab?: PlannerTab }) {
         <span>
           <kbd>OK</kbd> Options
         </span>
-        <span>
+        <span data-key="blue">
           <kbd class="key-blue" /> Next tab
         </span>
       </footer>

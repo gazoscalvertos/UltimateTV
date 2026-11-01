@@ -259,7 +259,13 @@ class BrowserAgent implements BoxAgent {
     return () => undefined;
   }
   async tvStandby(): Promise<void> {}
-  async setVolume(): Promise<void> {}
+  async setVolume(percent: number): Promise<void> {
+    this.video.volume = Math.max(0, Math.min(1, percent / 100));
+  }
+  async toggleFullscreen(): Promise<void> {
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
+    else await document.documentElement.requestFullscreen().catch(() => undefined);
+  }
   async addSubtitle(sub: { url: string; lang: string; label: string }): Promise<void> {
     const id = Math.max(0, ...this.state.subtitleTracks.map((t) => t.id)) + 1;
     this.emit({ ...this.state, subtitleTracks: [...this.state.subtitleTracks.map((t) => ({ ...t, selected: false })), { id, lang: sub.lang, title: sub.label, external: true, selected: true }] });

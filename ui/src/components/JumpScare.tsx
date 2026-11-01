@@ -203,6 +203,7 @@ export function JumpScare() {
           classList={{ placed: (scare().spot ?? "full") !== "full", overlay: scare().spot === "overlay" }}
           style={{ "--clip-secs": `${Math.max(1, scare().seconds)}s` }}
           role="presentation"
+          data-key="ok"
         >
           <Show when={scare().audio}>
             {(a) => (

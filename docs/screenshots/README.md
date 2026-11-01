@@ -78,3 +78,4 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 124 | Search before anything is typed: the profile's recent searches, with Clear on each and Clear all |
 | 125 | Phone remote › Watch › Search: the same recent searches as the TV, with Clear and Clear all |
 | kids-time-settings, kids-time-up, kids-time-phone | Kids TV time and bedtime: the settings on the TV, asking for more time at Who's watching? once it's bedtime, and the same settings with today's time and the more-time buttons on the phone's settings page |
+| desktop-guide-preview, desktop-mouse-home, desktop-mouse-player | The desktop app with a mouse: the guide preview playing live TV (a test pattern here) with the programme under the pointer selected, a row with its scroll arrow while pointed at, and the player's mouse buttons and seek bar being dragged ([desktop.md](../desktop.md#using-it)) |

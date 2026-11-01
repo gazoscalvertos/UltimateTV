@@ -30,6 +30,7 @@ describe("desktop mode", () => {
     expect(desktop).not.toContain("--audio-spdif=ac3,eac3,dts");
     expect(desktop.some((a) => a.startsWith("--background-color"))).toBe(false);
     expect(DESKTOP_INPUT_CONF).toContain("CLOSE_WIN stop");
+    expect(DESKTOP_INPUT_CONF).toContain("MBTN_BACK stop");
     const tv = mpvArgs({ socket: "/run/s" });
     expect(tv).toContain("--force-window=yes");
     expect(tv).toContain("--osc=no");

@@ -11,7 +11,8 @@ import { askText, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { focus, move } from "../focus";
 import { useHints } from "../hints";
-import { useKeys } from "../keys";
+import { dispatch, useKeys } from "../keys";
+import { pointerMoved, wheelSteps } from "../mouse";
 import { setGuideList } from "../player";
 import { errorToast, nav, profile, toast } from "../store";
 
@@ -239,8 +240,40 @@ export function GuideEditor(props: { id?: string }) {
     return false;
   });
 
-  const Row = (p: { c: Channel; on: boolean; selected: boolean; position?: number }) => (
-    <div class="ge-row" classList={{ selected: p.selected, "ge-moving": p.selected && moving() && p.position !== undefined }}>
+  // The mouse (mouse.ts): pointing at a row selects it, clicking it is OK, the wheel is up and down.
+  const point = (side: "left" | "right", i: number) => {
+    if (!pointerMoved() || (side === "right" && moving())) return;
+    const el = side === "left" ? leftEl : rightEl;
+    if (document.activeElement !== el) focus(el);
+    (side === "left" ? setLi : setRi)(i);
+  };
+  const press = (side: "left" | "right", i: number) => {
+    const el = side === "left" ? leftEl : rightEl;
+    if (document.activeElement !== el) focus(el);
+    if (!(side === "right" && moving())) (side === "left" ? setLi : setRi)(i);
+    dispatch("ok");
+  };
+  const wheel = wheelSteps();
+  const onWheel = (side: "left" | "right") => (e: WheelEvent) => {
+    e.preventDefault();
+    const { y } = wheel(e);
+    if (!y) return;
+    const el = side === "left" ? leftEl : rightEl;
+    if (document.activeElement !== el) focus(el);
+    // Moving a channel: the wheel carries it, as up and down do. Never up out of the list.
+    for (let n = 0; n < Math.abs(y); n++) {
+      if (y < 0 && (side === "left" ? li() : ri()) === 0) break;
+      dispatch(y > 0 ? "down" : "up");
+    }
+  };
+
+  const Row = (p: { c: Channel; on: boolean; selected: boolean; position?: number; side: "left" | "right"; index: number }) => (
+    <div
+      class="ge-row"
+      classList={{ selected: p.selected, "ge-moving": p.selected && moving() && p.position !== undefined }}
+      onMouseMove={() => point(p.side, p.index)}
+      onClick={() => press(p.side, p.index)}
+    >
       <span class="ge-pos">{p.position ?? ""}</span>
       <span class="ge-number">{p.c.number}</span>
       <Show when={p.c.logo}>
@@ -288,10 +321,10 @@ export function GuideEditor(props: { id?: string }) {
             {filter().label}
             <span class="ge-sub">{left().length} channels · OK adds or removes</span>
           </h2>
-          <div class="ge-list" tabindex="-1" data-focus data-autofocus ref={leftEl} onFocus={() => setPane("left")}>
+          <div class="ge-list" tabindex="-1" data-focus data-autofocus ref={leftEl} onFocus={() => setPane("left")} onWheel={onWheel("left")}>
             <div class="ge-rows" ref={fitRows}>
               <Show when={!all.loading} fallback={<div class="spinner" />}>
-                <For each={left().slice(lTop(), lTop() + rows())}>{(c, i) => <Row c={c} on={pickedSet().has(c.id)} selected={pane() === "left" && lTop() + i() === li()} />}</For>
+                <For each={left().slice(lTop(), lTop() + rows())}>{(c, i) => <Row c={c} on={pickedSet().has(c.id)} selected={pane() === "left" && lTop() + i() === li()} side="left" index={lTop() + i()} />}</For>
               </Show>
             </div>
           </div>
@@ -301,10 +334,10 @@ export function GuideEditor(props: { id?: string }) {
             In this guide
             <span class="ge-sub">{mine().length} channels · {moving() ? "up and down move it, OK puts it down" : "OK picks one up to move it"}</span>
           </h2>
-          <div class="ge-list" tabindex="-1" data-focus ref={rightEl} onFocus={() => setPane("right")}>
+          <div class="ge-list" tabindex="-1" data-focus ref={rightEl} onFocus={() => setPane("right")} onWheel={onWheel("right")}>
             <div class="ge-rows">
               <Show when={mine().length} fallback={<p class="ge-empty">Pick channels on the left. They appear here in the order the guide will show them.</p>}>
-                <For each={mine().slice(rTop(), rTop() + rows())}>{(c, i) => <Row c={c} on position={rTop() + i() + 1} selected={pane() === "right" && rTop() + i() === ri()} />}</For>
+                <For each={mine().slice(rTop(), rTop() + rows())}>{(c, i) => <Row c={c} on position={rTop() + i() + 1} selected={pane() === "right" && rTop() + i() === ri()} side="right" index={rTop() + i()} />}</For>
               </Show>
             </div>
           </div>
@@ -312,16 +345,16 @@ export function GuideEditor(props: { id?: string }) {
       </div>
 
       <footer class="legend">
-        <span>
+        <span data-key="ok">
           <kbd>OK</kbd> Add or move
         </span>
-        <span>
+        <span data-key="red">
           <kbd class="key-red" /> Take out
         </span>
-        <span>
+        <span data-key="yellow">
           <kbd class="key-yellow" /> Add all shown
         </span>
-        <span>
+        <span data-key="blue">
           <kbd class="key-blue" /> Category
         </span>
         <span>
