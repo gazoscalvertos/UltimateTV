@@ -259,7 +259,13 @@ class BrowserAgent implements BoxAgent {
     return () => undefined;
   }
   async tvStandby(): Promise<void> {}
-  async setVolume(): Promise<void> {}
+  async setVolume(percent: number): Promise<void> {
+    this.video.volume = Math.max(0, Math.min(1, percent / 100));
+  }
+  async toggleFullscreen(): Promise<void> {
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
+    else await document.documentElement.requestFullscreen().catch(() => undefined);
+  }
   // There's no TV to hand back to in a browser: the TV app says to press Home on the TV's remote.
   async tvApps(): Promise<boolean> {
     return false;

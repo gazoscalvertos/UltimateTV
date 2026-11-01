@@ -14,7 +14,8 @@ import { Icon } from "../components/Icon";
 import { MusicCaption } from "../components/MusicCaption";
 import { openProgramme, recordFlow } from "../components/ProgrammeCard";
 import { Progress } from "../components/Rail";
-import { useKeys } from "../keys";
+import { dispatch, useKeys } from "../keys";
+import { mouseMode, onMouse } from "../mouse";
 import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
 import { queue } from "../queue";
@@ -31,6 +32,23 @@ interface UpNext {
   overview?: string;
   /** From the play queue, rather than the next episode. */
   queued: boolean;
+}
+
+/** The volume the mouse controls last set, 0–100 (the box starts each video at full). */
+const [volume, setVolumeSignal] = createSignal(100);
+let unmuted = 100;
+function setVolume(v: number): void {
+  const pct = Math.max(0, Math.min(100, Math.round(v)));
+  if (pct > 0) unmuted = pct;
+  setVolumeSignal(pct);
+  void agent.setVolume(pct).catch(() => undefined);
+}
+
+/** Full screen or not: a desktop's mpv window, or the browser's page. */
+function toggleFullscreen(): void {
+  if (agentHas("toggleFullscreen")) void agent.toggleFullscreen!().catch(() => undefined);
+  else if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+  else void document.documentElement.requestFullscreen().catch(() => undefined);
 }
 
 function fmt(ms: number): string {
@@ -81,6 +99,56 @@ function StatsOverlay() {
   );
 }
 
+/** The film's bar with the mouse: click to go there, or drag and let go. */
+function SeekBar(props: { duration: number; position: number; onDrag: (ms: number) => void; onSeek: (ms: number) => void }) {
+  const [drag, setDrag] = createSignal<number | null>(null);
+  const [hover, setHover] = createSignal<{ x: number; ms: number } | null>(null);
+  let el!: HTMLDivElement;
+  const at = (e: PointerEvent) => {
+    const r = el.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - r.left) / Math.max(1, r.width)));
+    return { x: frac * r.width, ms: Math.round(frac * props.duration) };
+  };
+  return (
+    <div
+      class="seek-bar"
+      ref={el}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        el.setPointerCapture(e.pointerId);
+        const p = at(e);
+        setDrag(p.ms);
+        props.onDrag(p.ms);
+      }}
+      onPointerMove={(e) => {
+        const p = at(e);
+        setHover(p);
+        if (drag() !== null) {
+          setDrag(p.ms);
+          props.onDrag(p.ms);
+        }
+      }}
+      onPointerUp={(e) => {
+        if (drag() === null) return;
+        const p = at(e);
+        setDrag(null);
+        props.onSeek(p.ms);
+      }}
+      onPointerCancel={() => setDrag(null)}
+      onPointerLeave={() => setHover(null)}
+    >
+      <Progress value={(drag() ?? props.position) / props.duration} class="osd-progress" />
+      <Show when={hover()}>
+        {(h) => (
+          <span class="seek-tip" style={{ left: `${h().x}px` }}>
+            {fmt(drag() ?? h().ms)}
+          </span>
+        )}
+      </Show>
+    </div>
+  );
+}
+
 export function Player() {
   const live = () => nowPlaying()?.info.live ?? false;
   // Until the first frame shows, the "starting" card stands in for the picture.
@@ -126,6 +194,8 @@ export function Player() {
     if (title) void chooseVersion(title, episodeId);
   };
   const [osd, setOsd] = createSignal(true);
+  /** Where the seek bar is being dragged to, while it is. */
+  const [dragMs, setDragMs] = createSignal<number | null>(null);
   const [browse, setBrowse] = createSignal<string | null>(null);
   const [showNext, setShowNext] = createSignal(false);
   const [digits, setDigits] = createSignal("");
@@ -200,6 +270,8 @@ export function Player() {
     void agent.setLayout({ mode: "fullscreen" });
     poke();
   });
+  // The mouse (a desktop or a browser): moving it brings the controls up, as a key does.
+  if (mouseMode) onCleanup(onMouse(() => poke()));
   onCleanup(() => {
     clearTimeout(hideTimer);
     clearTimeout(digitTimer);
@@ -520,7 +592,14 @@ export function Player() {
   const progress = (start: number, end: number) => (now() - start) / (end - start);
 
   return (
-    <div class="screen player" data-layer>
+    <div
+      class="screen player"
+      data-layer
+      onDblClick={(e) => {
+        // A double-click on the picture, as in any video player (not on the controls).
+        if (mouseMode && !(e.target as HTMLElement).closest("button, .mouse-controls, .seek-bar, .dialog-backdrop")) toggleFullscreen();
+      }}
+    >
       <Show when={opening() && nowPlaying()}>
         {(np) => (
           <div class="player-spinner">
@@ -590,7 +669,9 @@ export function Player() {
             </Show>
             <span class="banner-name">{channelById(bannerChannelId())?.name}</span>
             <Show when={browsing()}>
-              <span class="flag">Press OK to watch</span>
+              <span class="flag" data-key="ok">
+                Press OK to watch
+              </span>
             </Show>
           </div>
           <Show when={banner()} fallback={<div class="banner-body">{nowPlaying()?.info.subtitle ?? ""}</div>}>
@@ -628,10 +709,10 @@ export function Player() {
             <span>
               <kbd>▲▼</kbd> Other channels
             </span>
-            <span>
+            <span data-key="red">
               <kbd class="key-red" /> Record
             </span>
-            <span>
+            <span data-key="yellow">
               <kbd class="key-yellow" /> Options
             </span>
           </div>
@@ -654,9 +735,11 @@ export function Player() {
               </div>
               <div class="osd-bar">
                 <Icon name={st().status === "paused" ? "pause" : "play"} class="osd-state" />
-                <span class="osd-time">{fmt(st().positionMs)}</span>
-                <Progress value={duration() ? st().positionMs / duration() : 0} class="osd-progress" />
-                <span class="osd-time">{duration() ? `-${fmt(duration() - st().positionMs)}` : ""}</span>
+                <span class="osd-time">{fmt(dragMs() ?? st().positionMs)}</span>
+                <Show when={mouseMode && duration()} fallback={<Progress value={duration() ? st().positionMs / duration() : 0} class="osd-progress" />}>
+                  <SeekBar duration={duration()} position={st().positionMs} onDrag={(ms) => (setDragMs(ms), poke(8000))} onSeek={(ms) => (setDragMs(null), void agent.seek(ms, "absolute"), poke())} />
+                </Show>
+                <span class="osd-time">{duration() ? `-${fmt(duration() - (dragMs() ?? st().positionMs))}` : ""}</span>
               </div>
               <div class="osd-meta">
                 <Show when={np()?.info.source}>
@@ -674,7 +757,7 @@ export function Player() {
                 <span>
                   <kbd>◀▶</kbd> Skip back and forward
                 </span>
-                <span>
+                <span data-key="yellow">
                   <kbd class="key-yellow" /> Audio and subtitles{savable() ? ", Save to NAS" : ""}
                 </span>
               </div>
@@ -684,14 +767,75 @@ export function Player() {
       </Show>
 
       <Show when={!live() && skip() && !showNextCard()}>
-        <button class="skip-button" data-focus>
+        <button class="skip-button" data-focus onClick={() => skip() && void agent.seek(skip()!.endMs, "absolute")}>
           Skip {skip()!.kind === "credits" ? "credits" : skip()!.kind} <kbd>OK</kbd>
         </button>
       </Show>
 
+      {/* The mouse's controls, along the top while the banner or bar is up (mouse.ts). */}
+      <Show when={mouseMode && osd() && nowPlaying() && playerState().status !== "error"}>
+        {/* Buttons don't take the focus (keys stay with the player); the volume slider has to, to drag. */}
+        <div class="mouse-controls" onMouseDown={(e) => !(e.target instanceof HTMLInputElement) && e.preventDefault()}>
+          <button class="mc-btn" title="Back" onClick={() => void stopAndBack()}>
+            <Icon name="back" />
+          </button>
+          <button class="mc-btn" title={playerState().status === "paused" ? "Play" : "Pause"} onClick={() => dispatch("playPause")}>
+            <Icon name={playerState().status === "paused" ? "play" : "pause"} />
+          </button>
+          <Show
+            when={live()}
+            fallback={
+              <>
+                <button class="mc-btn" title="Back 10 seconds" onClick={() => dispatch("left")}>
+                  <Icon name="rewind" />
+                </button>
+                <button class="mc-btn" title="Forward 30 seconds" onClick={() => dispatch("right")}>
+                  <Icon name="forward" />
+                </button>
+              </>
+            }
+          >
+            <button class="mc-btn" title="Channel down" onClick={() => dispatch("channelDown")}>
+              <Icon name="minus" />
+            </button>
+            <button class="mc-btn" title="Channel up" onClick={() => dispatch("channelUp")}>
+              <Icon name="plus" />
+            </button>
+            <button class="mc-btn" title="TV guide" onClick={() => dispatch("guide")}>
+              <Icon name="list" />
+            </button>
+          </Show>
+          <span class="mc-volume">
+            <button class="mc-btn" title={volume() ? "Mute" : "Unmute"} onClick={() => setVolume(volume() ? 0 : unmuted)}>
+              <Icon name="speaker" class={volume() ? "" : "mc-muted"} />
+            </button>
+            <input
+              class="mc-slider"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={volume()}
+              aria-label="Volume"
+              onInput={(e) => {
+                setVolume(Number(e.currentTarget.value));
+                poke(8000);
+              }}
+              onChange={(e) => e.currentTarget.blur()}
+            />
+          </span>
+          <button class="mc-btn" title="Audio and subtitles" onClick={() => void options()}>
+            <Icon name="subtitles" />
+          </button>
+          <button class="mc-btn" title="Full screen" onClick={toggleFullscreen}>
+            <Icon name="fullscreen" />
+          </button>
+        </div>
+      </Show>
+
       <Show when={showNextCard() && upNext()}>
         {(next) => (
-          <div class="up-next">
+          <div class="up-next" onClick={() => playNext()}>
             <Show when={next().image}>
               <img class="up-next-image" src={next().image} alt="" />
             </Show>

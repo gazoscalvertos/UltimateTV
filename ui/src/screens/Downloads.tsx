@@ -168,7 +168,7 @@ export function DownloadsScreen() {
           <kbd>OK</kbd> Play
         </span>
         <Show when={!isKids()}>
-          <span>
+          <span data-key="red">
             <kbd class="key-red" /> Delete
           </span>
         </Show>

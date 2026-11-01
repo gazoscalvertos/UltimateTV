@@ -24,9 +24,11 @@ export interface MpvOptions {
 
 /**
  * Keys for desktop mode's video window, on top of mpv's own: leaving it stops playback (back to the
- * app) rather than quitting mpv, which the app would have to restart.
+ * app) rather than quitting mpv, which the app would have to restart. The mouse's back button is
+ * Back too, as in the app; mpv's own mouse controls (its on-screen bar, double-click for full
+ * screen, right-click to pause, the wheel) stay.
  */
-export const DESKTOP_INPUT_CONF = ["q stop", "Q stop", "ESC stop", "CLOSE_WIN stop", "BS stop", ""].join("\n");
+export const DESKTOP_INPUT_CONF = ["q stop", "Q stop", "ESC stop", "CLOSE_WIN stop", "BS stop", "MBTN_BACK stop", "MBTN_FORWARD ignore", ""].join("\n");
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void };
 

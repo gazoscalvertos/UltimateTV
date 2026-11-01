@@ -161,7 +161,7 @@ function NoticeCard(props: { notice: TvNotice }) {
   const n = () => props.notice;
   const words = () => Boolean(n().title || n().text);
   return (
-    <div class={`notice notice-${n().kind} notice-${n().size}`} classList={{ "notice-media-only": !words() }} role="alert">
+    <div class={`notice notice-${n().kind} notice-${n().size}`} classList={{ "notice-media-only": !words() }} role="alert" data-key={blocking(n()) ? "ok" : undefined}>
       <Show when={n().video} fallback={<Show when={n().image}>{(src) => <img class="notice-media" src={src()} alt="" />}</Show>}>
         {(src) => <video class="notice-media" src={src()} autoplay loop playsinline muted={n().muted} poster={n().image} />}
       </Show>

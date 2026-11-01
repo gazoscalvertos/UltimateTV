@@ -74,3 +74,4 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 115–117 | What's new on the phone: the remote's banner after an update, the list it opens, and the settings page's section |
 | 123 | The desktop app (AppImage) in a 1536×864 window on a 1920×1080 screen, against the demo Hub ([desktop.md](../desktop.md)) |
 | kids-time-settings, kids-time-up, kids-time-phone | Kids TV time and bedtime: the settings on the TV, asking for more time at Who's watching? once it's bedtime, and the same settings with today's time and the more-time buttons on the phone's settings page |
+| desktop-guide-preview, desktop-mouse-home, desktop-mouse-player | The desktop app with a mouse: the guide preview playing live TV (a test pattern here) with the programme under the pointer selected, a row with its scroll arrow while pointed at, and the player's mouse buttons and seek bar being dragged ([desktop.md](../desktop.md#using-it)) |
