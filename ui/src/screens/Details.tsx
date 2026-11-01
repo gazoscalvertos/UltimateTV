@@ -23,6 +23,12 @@ import { errorToast, isKids, nav, openDialog, toast } from "../store";
 
 const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
 
+/** Season and episode from "s2e5". */
+function episodeNumbers(id?: string): { season: number; episode: number } | undefined {
+  const m = id ? /^s(\d+)e(\d+)$/i.exec(id) : null;
+  return m ? { season: Number(m[1]), episode: Number(m[2]) } : undefined;
+}
+
 function refOf(d: TitleDetails): TitleRef {
   const ref: TitleRef = { id: d.id, kind: d.kind, name: d.name };
   if (d.year) ref.year = d.year;
@@ -140,9 +146,12 @@ export function Details(props: { id: string }) {
       errorToast(err);
     }
   };
+  // The series the episode to carry on with is in (else the first proper one).
+  const carryOn = () => episodeNumbers(d()?.episodeId);
   createEffect(() => {
     const s = d()?.seasons;
-    if (s?.length && season() === null) setSeason(s.find((x) => x.season > 0)?.season ?? s[0]!.season);
+    const want = carryOn()?.season;
+    if (s?.length && season() === null) setSeason(want !== undefined && s.some((x) => x.season === want) ? want : (s.find((x) => x.season > 0)?.season ?? s[0]!.season));
   });
   const [episodes] = createResource(
     () => (d() && season() !== null ? { id: d()!.id, n: season()! } : null),
@@ -159,17 +168,28 @@ export function Details(props: { id: string }) {
   const playMain = (fromStart = false) => {
     const title = d()!;
     if (title.kind === "series") {
-      const eps = episodes() ?? [];
-      const ep = eps.find((e) => !e.watched) ?? eps[0];
-      if (ep) playEpisode(ep);
+      // Where the series is up to (Resume), else the first unwatched episode.
+      if (title.episodeId && !fromStart) {
+        void play({ kind: "title", id: title.id, episodeId: title.episodeId }, { title: refOf(title) });
+        return;
+      }
+      const ep = nextEpisode();
+      if (ep) void play({ kind: "title", id: title.id, episodeId: `s${ep.season}e${ep.episode}` }, { title: refOf(title), fromStart });
       return;
     }
     void play({ kind: "title", id: title.id }, { title: refOf(title), fromStart });
   };
   // The episode Play starts (the first unwatched), and the one the remote is on, for Versions.
+  // "Resume S1 E4 (21 min)", "Play S1 E5" for a series carrying on; "Resume (1 h 2 min)" for a film.
+  const playLabel = (t: TitleDetails) => {
+    const c = t.kind === "series" ? carryOn() : undefined;
+    const which = c ? ` ${episodeLabel(c.season, c.episode)}` : "";
+    return t.resumeMs ? `Resume${which} (${durationLabel(t.resumeMs)})` : `Play${which}`;
+  };
   const nextEpisode = () => {
     const eps = episodes() ?? [];
-    return eps.find((e) => !e.watched) ?? eps[0];
+    const c = carryOn();
+    return (c && eps.find((e) => e.season === c.season && e.episode === c.episode)) || eps.find((e) => !e.watched) || eps[0];
   };
   const [focusedEpisode, setFocusedEpisode] = createSignal<Episode | null>(null);
   const episodeVersions = (e: Episode | undefined | null) => {
@@ -360,7 +380,7 @@ export function Details(props: { id: string }) {
                 </Show>
                 <div class="details-actions" data-focus-group>
                   <button class="btn btn-primary btn-large" data-focus data-autofocus onClick={() => playMain()}>
-                    <Icon name="play" /> {t().resumeMs ? `Resume (${durationLabel(t().resumeMs!)})` : "Play"}
+                    <Icon name="play" /> {playLabel(t())}
                   </button>
                   <Show when={t().resumeMs}>
                     <button class="btn btn-large" data-focus onClick={() => playMain(true)}>

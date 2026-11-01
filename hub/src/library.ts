@@ -18,6 +18,7 @@ import type {
 } from "@ultimatetv/shared";
 import { episodeLabel, normaliseTitle, parseQuality, qualityBadges, rankStreams, startOfDay } from "@ultimatetv/shared";
 import type { HubContext } from "./context.js";
+import { MIN_RESUME_MS, type ProgressEntry } from "./progress.js";
 import { demoSeasons } from "./demo.js";
 import type { VodEntry } from "./ingest/index.js";
 import { type ContentFilter, NO_FILTER } from "./profiles.js";
@@ -101,12 +102,7 @@ export class Library {
     const latestMovies = latestRaw.filter((i) => f.ref(jf!.toTitleRef(i)));
     const trending = trendingRaw.filter((t) => f.ref(t));
 
-    const continueItems: TitleRef[] = [
-      ...resume.map((i) => ({ ...jf!.toTitleRef(i), id: `jellyfin:${i.Type === "Episode" ? i.SeriesId : i.Id}` })),
-      ...this.ctx.progress.continueWatching(12).map((p) => ({ ...p.title!, progress: p.durationMs ? p.positionMs / p.durationMs : 0 })),
-    ]
-      .filter((t) => f.ref(t))
-      .slice(0, 16);
+    const continueItems = this.continueWatching(resume, f);
 
     const rails: Rail[] = [];
     if (liveChannels.length) rails.push({ id: "live", title: "Live now", kind: "channels", items: [], channels: this.nowNextFor(liveChannels, now) });
@@ -116,7 +112,11 @@ export class Library {
     if (recent.length) rails.push({ id: "recordings", title: "Recently recorded", kind: "recordings", items: [], recordings: recent });
     const because = await this.becauseYouWatched(f).catch(() => null);
     if (because) rails.push(because);
-    const nextUpRefs = nextUp.map((i) => ({ ...jf!.toTitleRef(i), id: `jellyfin:${i.SeriesId}` })).filter((t) => f.ref(t));
+    // A series already in Continue watching (with its next episode) isn't repeated in Next up.
+    const continuing = new Set(continueItems.map(titleKey));
+    const nextUpRefs = nextUp
+      .map((i) => ({ ...jf!.toTitleRef(i), id: `jellyfin:${i.SeriesId}`, episodeId: `s${i.ParentIndexNumber ?? 0}e${i.IndexNumber ?? 0}` }))
+      .filter((t) => f.ref(t) && !continuing.has(titleKey(t)));
     if (nextUpRefs.length) rails.push({ id: "nextup", title: "Next up", kind: "titles", items: nextUpRefs });
     if (kidsFilms.length) rails.push({ id: "kids-films", title: "Family films", kind: "titles", items: kidsFilms.filter((t) => f.ref(t)) });
     if (kidsSeries.length) rails.push({ id: "kids-series", title: "Cartoons and kids' shows", kind: "titles", items: kidsSeries.filter((t) => f.ref(t)) });
@@ -149,9 +149,44 @@ export class Library {
       if (d?.overview) home.hero.overview = d.overview;
       if (d?.logo && !home.hero.logo) home.hero.logo = d.logo;
       const meta = [d?.year, d?.certification, d?.genres.slice(0, 2).join(", ")].filter(Boolean).join(" · ");
-      if (meta) home.hero.subtitle = meta;
+      // A series carrying on keeps which episode ("S1 E4 · …") ahead of the rest.
+      const episode = heroSource.episodeId && home.hero.action === "resume" ? heroSource.subtitle : undefined;
+      if (meta || episode) home.hero.subtitle = [episode, meta].filter(Boolean).join(" · ");
     }
     return home;
+  }
+
+  /**
+   * Continue watching: Jellyfin's resume list and the Hub's own progress (IPTV, online streams,
+   * and Jellyfin items Jellyfin leaves out), newest first, one card per film or series. A series
+   * shows the episode to carry on with, or the next one when the last was finished.
+   */
+  private continueWatching(resume: JfItem[], f: ContentFilter): TitleRef[] {
+    const jf = this.ctx.jellyfin();
+    const rows: { at: number; ref: TitleRef }[] = [];
+    const inResume = new Set(resume.map((i) => i.Id));
+    for (const i of jf ? resume : []) {
+      const ref: TitleRef = { ...jf!.toTitleRef(i), id: `jellyfin:${i.Type === "Episode" ? i.SeriesId : i.Id}` };
+      if (i.Type === "Episode") ref.episodeId = `s${i.ParentIndexNumber ?? 0}e${i.IndexNumber ?? 0}`;
+      const own = this.ctx.progress.get(`jellyfin:${i.Id}`);
+      const at = Math.max(Date.parse(i.UserData?.LastPlayedDate ?? "") || 0, own?.updatedAt ?? 0);
+      rows.push({ at, ref });
+    }
+    for (const c of this.ctx.progress.continueWatching(24)) {
+      // Jellyfin's own resume entry for the same file has the better artwork and the same place.
+      if (c.entry.key.startsWith("jellyfin:") && c.mode === "resume" && inResume.has(c.entry.key.slice(9))) continue;
+      rows.push({ at: c.entry.updatedAt, ref: c.title });
+    }
+    rows.sort((a, b) => b.at - a.at);
+    const seen = new Set<string>();
+    const out: TitleRef[] = [];
+    for (const { ref } of rows) {
+      const keys = [ref.id, titleKey(ref)];
+      if (keys.some((k) => seen.has(k)) || !f.ref(ref)) continue;
+      keys.forEach((k) => seen.add(k));
+      out.push(ref);
+    }
+    return out.slice(0, 16);
   }
 
   /**
@@ -302,7 +337,36 @@ export class Library {
     }
     const d = await this.lookup(id);
     if (!f.title(d) && !(id.startsWith("programme:") && f.kids)) throw new NotAllowedError();
-    return d;
+    return d.kind === "series" ? this.withProgress(d) : d;
+  }
+
+  /**
+   * A series with where it's up to: each episode's progress from the Hub's own record (IPTV and
+   * online episodes, which Jellyfin knows nothing about), and the episode Play carries on with.
+   */
+  private withProgress(d: TitleDetails): TitleDetails {
+    const own = this.ctx.progress.episodes(d.id);
+    const out: TitleDetails = { ...d };
+    if (d.seasons && own.size) out.seasons = d.seasons.map((s) => this.seasonWithProgress(s, own));
+    const resume = this.ctx.progress.seriesResume(d.id);
+    if (resume) {
+      out.episodeId = resume.episodeId;
+      if (resume.positionMs) out.resumeMs = resume.positionMs;
+      else delete out.resumeMs;
+    }
+    return out;
+  }
+
+  private seasonWithProgress(s: Season, own: Map<string, ProgressEntry>): Season {
+    return {
+      ...s,
+      episodes: s.episodes.map((e) => {
+        const p = own.get(`s${e.season}e${e.episode}`);
+        if (!p || e.watched || e.progress) return e;
+        if (p.watched) return { ...e, watched: true };
+        return p.durationMs && p.positionMs >= MIN_RESUME_MS ? { ...e, progress: p.positionMs / p.durationMs } : e;
+      }),
+    };
   }
 
   private async lookup(id: string): Promise<TitleDetails> {
@@ -325,6 +389,7 @@ export class Library {
       const item = await jf.item(rest[0]!);
       const episodes = item.Type === "Series" ? await jf.episodes(item.Id) : [];
       const d = jf.toDetails(item, episodes);
+      this.jellyfinFallbackResume(d, item);
       await this.addAvailability(d);
       return d;
     }
@@ -340,7 +405,8 @@ export class Library {
         if (item) {
           const episodes = item.Type === "Series" ? await jf.episodes(item.Id).catch(() => []) : [];
           const local = jf.toDetails(item, episodes);
-          d = { ...d, inLibrary: true, ...(local.resumeMs ? { resumeMs: local.resumeMs } : {}) };
+          this.jellyfinFallbackResume(local, item);
+          d = { ...d, inLibrary: true, ...(local.resumeMs ? { resumeMs: local.resumeMs } : {}), ...(local.episodeId ? { episodeId: local.episodeId } : {}) };
           if (local.seasons?.length) d.seasons = mergeSeasons(d.seasons ?? [], local.seasons);
           if (!d.poster && local.poster) d.poster = local.poster;
           if (!d.backdrop && local.backdrop) d.backdrop = local.backdrop;
@@ -373,6 +439,13 @@ export class Library {
     throw new Error(`Unknown title ${id}`);
   }
 
+  /** Jellyfin keeps no place for a film stopped in its first 5%; the Hub's own record does. */
+  private jellyfinFallbackResume(d: TitleDetails, item: JfItem): void {
+    if (d.resumeMs || item.Type !== "Movie" || item.UserData?.Played) return;
+    const own = this.ctx.progress.get(`jellyfin:${item.Id}`);
+    if (own && !own.watched && own.positionMs >= MIN_RESUME_MS) d.resumeMs = own.positionMs;
+  }
+
   private async addAvailability(d: TitleDetails): Promise<void> {
     const kinds = new Set(d.availability);
     if (d.inLibrary) kinds.add("jellyfin");
@@ -388,7 +461,10 @@ export class Library {
     const existing = d.seasons?.find((s) => s.season === season);
     if (existing?.episodes.length) return existing;
     const tmdb = this.ctx.tmdb();
-    if (tmdb && d.tmdbId) return tmdb.season(d.tmdbId, season);
+    if (tmdb && d.tmdbId) {
+      const fetched = await tmdb.season(d.tmdbId, season);
+      return fetched ? this.seasonWithProgress(fetched, this.ctx.progress.episodes(d.id)) : fetched;
+    }
     return existing;
   }
 
@@ -567,4 +643,9 @@ function mergeSeasons(remote: Season[], local: Season[]): Season[] {
     map.set(s.season, r && r.episodes.length > s.episodes.length ? r : { ...s, name: r?.name ?? s.name });
   }
   return [...map.values()].sort((a, b) => (a.season === 0 ? 1 : b.season === 0 ? -1 : a.season - b.season));
+}
+
+/** The same film or series whichever source it came from (Jellyfin, TMDB, IPTV ids differ). */
+function titleKey(t: TitleRef): string {
+  return `${t.kind}|${t.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`;
 }

@@ -37,7 +37,13 @@ export const [guideList, setGuideList] = createSignal<{ profileId: string | null
 /** The channels in that list, so channel up/down on live TV stays within it, as on Sky. */
 export const [listChannels, setListChannels] = createSignal<Channel[]>([]);
 
-agent.onState((s) => setPlayerState(s));
+let lastPlace: { since: number; positionMs: number; durationMs?: number } | null = null;
+agent.onState((s) => {
+  setPlayerState(s);
+  // The last real place, for the stop report: mpv can say 0 once a file has ended or stopped.
+  const np = nowPlaying();
+  if (np && !np.info.live && s.positionMs > 0 && s.status !== "loading" && s.status !== "idle") lastPlace = { since: np.since, positionMs: s.positionMs, ...(s.durationMs ? { durationMs: s.durationMs } : {}) };
+});
 
 let reportTimer: number | undefined;
 
@@ -184,15 +190,19 @@ async function report(event: "start" | "progress" | "stop"): Promise<void> {
   // A link from a phone has nowhere to keep its place.
   if (!np || np.info.live || np.info.progressKey.startsWith("link:")) return;
   const st = playerState();
+  const last = lastPlace?.since === np.since ? lastPlace : null;
+  const durationMs = st.durationMs ?? last?.durationMs ?? np.info.durationMs;
+  // At the end the place is the end (mpv may already say 0); otherwise the latest real place.
+  const positionMs = st.status === "ended" && durationMs ? durationMs : st.positionMs > 0 ? st.positionMs : (last?.positionMs ?? 0);
   // The box keeps a download's place itself, as the Hub (or Jellyfin) may be out of reach.
-  if (np.downloadId) void agent.downloadPosition(np.downloadId, st.positionMs, st.durationMs ?? np.info.durationMs).catch(() => undefined);
+  if (np.downloadId) void agent.downloadPosition(np.downloadId, positionMs, durationMs).catch(() => undefined);
   await hub
     .progress({
       key: np.info.progressKey,
-      positionMs: st.positionMs,
+      positionMs,
       event,
       paused: st.status === "paused",
-      ...(st.durationMs ?? np.info.durationMs ? { durationMs: st.durationMs ?? np.info.durationMs } : {}),
+      ...(durationMs ? { durationMs } : {}),
       ...(np.title ? { title: np.title } : {}),
     })
     .catch(() => undefined);
