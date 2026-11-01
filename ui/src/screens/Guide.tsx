@@ -14,6 +14,7 @@ import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
 import { focus, move } from "../focus";
 import { useHints } from "../hints";
+import { featureOn } from "../features";
 import { useKeys } from "../keys";
 import { channels as allChannels, guideList, liveChannelId, nowPlaying, play, setGuideList, setListChannels, stopPlayback } from "../player";
 import { errorToast, isKids, nav, now, profile, toast } from "../store";
@@ -70,7 +71,8 @@ export function Guide() {
     }),
   );
 
-  const channels = createMemo<Channel[]>(() => data()?.channels ?? []);
+  // Music video channels leave the guide when they're switched off on this screen (features.ts).
+  const channels = createMemo<Channel[]>(() => (data()?.channels ?? []).filter((c) => !c.mix || featureOn("mix")));
   createEffect(() => setListChannels(channels()));
   const currentChoice = () => choices().find((c) => c.id === category());
   const isDefault = () => (lists()?.default ?? "") === category();

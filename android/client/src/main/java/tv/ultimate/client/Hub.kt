@@ -48,6 +48,10 @@ class Prefs(context: Context) {
     var changesSeen: String?
         get() = sp.getString("changesSeen", null)
         set(v) = sp.edit().putString("changesSeen", v).apply()
+    /** Features switched off on this phone (Settings › Features on this phone), kept for when the Hub is away. */
+    var featuresOff: Set<String>
+        get() = sp.getStringSet("featuresOff", null)?.toSet() ?: emptySet()
+        set(v) = sp.edit().putStringSet("featuresOff", v.toSet()).apply()
     /** Downloads wait for Wi-Fi (on by default: a film is several gigabytes). */
     var wifiOnly: Boolean
         get() = sp.getBoolean("wifiOnly", true)
@@ -176,6 +180,11 @@ class Hub(private val prefs: Prefs) {
     /** Kids time limits: "still playing" every half minute; the answer says how long is left (hub/src/kidstime.ts). */
     suspend fun kidsReport(playing: Boolean): Map<String, Any?>? =
         post<Map<String, Any?>>("/api/kids-time/report", mapOf("playing" to playing), timeoutMs = 8000)["status"] as? Map<String, Any?>
+
+    /** What's switched off on this phone; it needs pairing for the Hub to tell phones apart. */
+    suspend fun features(): FeatureState = get("/api/features?client=android", 5000)
+    suspend fun setFeatures(device: String, off: List<String>): List<String> =
+        (post<Map<String, Any?>>("/api/features/${enc(device)}", mapOf("off" to off), method = "PUT")["off"] as? List<*>)?.filterIsInstance<String>().orEmpty()
 
     suspend fun appName(): String? = (get<Map<String, Any?>>("/api/settings", 5000)["appName"] as? String)?.takeIf { it.isNotBlank() }
 

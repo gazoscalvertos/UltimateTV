@@ -13,6 +13,7 @@ import { onHubEvent } from "./events";
 import { pauseAllMusic } from "./music";
 import { nowPlaying, playerState, playLink } from "./player";
 import { isKids, toast } from "./store";
+import { featureOn } from "./features";
 
 const NONE: CastState = { airplay: { installed: false, enabled: false, running: false, connected: false, name: "" }, apps: [], foreground: null };
 const [castState, setCastState] = createSignal<CastState>(NONE);
@@ -154,6 +155,11 @@ export function startCast(): void {
       const fg = s.foreground;
       document.documentElement.classList.toggle("mirroring", fg?.kind === "airplay");
       if (fg && !was) {
+        if (fg.kind === "airplay" && !featureOn("cast")) {
+          void backToTv();
+          toast("Casting is switched off on this screen", "bad");
+          return;
+        }
         if (fg.kind === "airplay" && isKids()) {
           // Nobody casts onto the Kids profile.
           void backToTv();
@@ -168,12 +174,16 @@ export function startCast(): void {
   }
   onHubEvent((e) => {
     if (e.type === "hello" || e.type === "settings.changed") void refreshCast();
-    if (e.type === "cast.share") void offered(e.offer);
+    if (e.type === "cast.share") {
+      if (featureOn("cast")) void offered(e.offer);
+      else void hub.refuseShare(e.offer.id, "Casting is switched off on the TV").catch(() => undefined);
+    }
     if (e.type === "cast.share.end" && share()?.id === e.id) {
       endShare(false);
       toast("The laptop stopped sharing", "good");
     }
     if (e.type === "cast.link") {
+      if (!featureOn("cast")) return;
       if (isKids()) return toast("Links can't be sent to the Kids profile", "bad");
       if (castState().foreground || share()) return toast("A link came in while something else is on the screen", "bad");
       const title = e.link.title || linkTitle(e.link.url);

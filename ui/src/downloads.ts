@@ -7,10 +7,13 @@ import type { BoxDownload, BoxDownloadRequest, BoxDownloads, Episode, PlaybackRe
 import { clockTime, dayLabel, episodeLabel, formatBytes } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
 import { api, hub } from "./api";
+import { featureOn } from "./features";
 import { isKids, profile, toast } from "./store";
 
 /** The box shell can download (an older shell can't until it's updated). */
-export const canDownload = () => onBox && agentHas("downloads");
+const boxDownloads = () => onBox && agentHas("downloads");
+/** Whether downloading to the box is offered here: the box can, and Downloads isn't switched off (features.ts). */
+export const canDownload = () => boxDownloads() && featureOn("downloads");
 
 const [all, setAll] = createSignal<BoxDownloads | null>(null);
 /** For a Kids profile, the downloads it may see (null: all of them). */
@@ -18,7 +21,8 @@ const [allowedIds, setAllowedIds] = createSignal<Set<string> | null>(null);
 export { all as boxDownloads };
 
 export function startDownloads(): void {
-  if (!canDownload()) return;
+  // Downloads already going carry on while the feature is switched off; they're just not shown.
+  if (!boxDownloads()) return;
   agent.onDownloads((d) => setAll(d));
   void agent.downloads().then(setAll, () => undefined);
   // Kids see what their profile allows: the Hub decides from the certificate kept with each download.

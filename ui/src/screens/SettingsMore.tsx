@@ -2,14 +2,15 @@
 // and what's new.
 // Typing an address on the TV is slow, so the alert URLs can be set from the phone too.
 
-import { createResource, For, Show } from "solid-js";
-import type { AlertSettings, ProjectionSettings, SeasonId, WeatherSettings } from "@ultimatetv/shared";
+import { createResource, createSignal, For, Show } from "solid-js";
+import type { FeatureId, AlertSettings, ProjectionSettings, SeasonId, WeatherSettings } from "@ultimatetv/shared";
 import { daysFromNow, formatBytes, releaseLabel, SEASONS } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { canCast, castSettings, castState, refreshCast, saveCastSettings, setAirplay, shareUrl } from "../cast";
 import { askText, choose } from "../components/Dialog";
 import { cycle, Row, Status } from "../components/SettingRow";
 import { onHubEvent } from "../events";
+import { featureChoices, featureLabel, featureOn, featureState, saveFeatures } from "../features";
 import { setWeatherState, weather, weatherLine } from "../weather";
 import { errorToast, nav, toast } from "../store";
 import { markChangesSeen } from "../whatsnew";
@@ -292,6 +293,43 @@ export function WhatsNewSection() {
             )}
           </For>
         </Show>
+      </Show>
+    </>
+  );
+}
+
+/** Settings › Features on this screen (issue #124): switch parts of the app off here only. */
+export function FeaturesSection() {
+  const [busy, setBusy] = createSignal(false);
+  const toggle = async (id: FeatureId) => {
+    const device = featureState()?.device;
+    if (!device || busy()) return;
+    const was = featureState()?.off ?? [];
+    setBusy(true);
+    try {
+      const off = await saveFeatures(device, was.includes(id) ? was.filter((x) => x !== id) : [...was, id]);
+      toast(`${featureLabel(id)} ${off.includes(id) ? "switched off" : "switched on"} on this screen`, "good");
+    } catch (err) {
+      errorToast(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <h2>Features on this screen</h2>
+      <p class="hint">
+        Switch off what this screen doesn't need. It goes from the top menu, Home, the colour keys and the help screen here, and nothing opens it, but every other screen keeps it. The phone remote follows the TV it works. Every paired
+        screen and app can be set from the Hub's settings page too, under Phones and remotes.
+      </p>
+      <Show when={featureState()} fallback={<div class="spinner" />}>
+        {(st) => (
+          <Show when={st().device} fallback={<Row label="This screen isn't paired" hint="Pairing is off on the Hub (PAIRING=off), so screens can't be told apart. Turn pairing on to use this." />}>
+            <For each={featureChoices()}>
+              {(f) => <Row label={f.label} hint={f.detail} value={<Status ok={featureOn(f.id)} text={featureOn(f.id) ? "On" : "Off"} />} onSelect={() => void toggle(f.id)} />}
+            </For>
+          </Show>
+        )}
       </Show>
     </>
   );

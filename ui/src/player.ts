@@ -10,7 +10,8 @@ import { playRefused } from "./kidstime";
 import { startedPlaying } from "./queue";
 import { autoSubtitles, subtitleModeFor } from "./subtitles";
 import { autoAudioDescription } from "./accessibility";
-import { errorToast, nav } from "./store";
+import { errorToast, nav, toast } from "./store";
+import { blockedPlayback, featureLabel } from "./features";
 
 export interface NowPlaying {
   req: PlaybackRequest;
@@ -108,6 +109,12 @@ interface PlayOpts {
 let playCount = 0;
 
 export async function play(req: PlaybackRequest, opts: PlayOpts = {}): Promise<boolean> {
+  // Live TV, recordings, films or TV shows switched off on this screen (features.ts).
+  const off = blockedPlayback(req, opts.title);
+  if (off) {
+    toast(`${featureLabel(off)} is switched off on this screen`, "bad");
+    return false;
+  }
   const since = Date.now();
   const n = ++playCount;
   // Live channels answer at once; titles may ask every source first, so say what's happening.

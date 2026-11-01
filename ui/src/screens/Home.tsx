@@ -14,9 +14,15 @@ import { play } from "../player";
 import { isKids, nav } from "../store";
 import { castSettings } from "../cast";
 import { HomeWeather } from "../components/HomeWeather";
+import { featureOn, shownRails, titleShown } from "../features";
 
 export function Home() {
   const [home, { refetch }] = createResource(() => hub.home());
+  // What's switched off on this screen (features.ts) leaves Home too.
+  const hero = () => {
+    const h = home()?.hero;
+    return h && titleShown(h) && (h.action !== "live" || featureOn("live")) ? h : undefined;
+  };
   // Refreshed only when a recording finishes, so the rails don't shift under the remote.
   onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" ? void refetch() : undefined)));
 
@@ -34,7 +40,7 @@ export function Home() {
 
   return (
     <div class="screen home" data-layer>
-      <Show when={home()?.hero}>
+      <Show when={hero()}>
         {(hero) => (
           <div class="hero-bg">
             <img src={hero().backdrop} alt="" />
@@ -45,7 +51,7 @@ export function Home() {
       <div class="page" data-scroll-y="120">
         <HomeWeather />
         <Show when={home()} fallback={<div class="spinner" />}>
-          <Show when={home()!.hero}>
+          <Show when={hero()}>
             {(hero) => (
               <section class="hero" data-row>
                 <Show when={hero().logo} fallback={<h1 class="hero-title">{hero().name}</h1>}>
@@ -74,7 +80,7 @@ export function Home() {
             )}
           </Show>
           <QueueRow />
-          <For each={home()!.rails}>{(rail) => <RailRow rail={rail} />}</For>
+          <For each={shownRails(home()!.rails)}>{(rail) => <RailRow rail={rail} />}</For>
         </Show>
       </div>
     </div>

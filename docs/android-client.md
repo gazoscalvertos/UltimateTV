@@ -31,6 +31,10 @@ Tap **Download** on a film, the download button on an episode (or **Download all
 - Live TV can't be downloaded: record it, then download the recording.
 - The **Downloads** tab is the one that works away from home. Where you got to is kept on the phone and sent to the Hub (and Jellyfin) the next time the phone is home, so the TV carries on from there.
 
+## Features on this phone
+
+Settings › Features on this phone switches Live TV, Films, TV shows, Recordings, Downloads or Search off on this phone only (the phone has to be paired with the TV). The Hub's settings page can set it too. See [features-per-screen.md](features-per-screen.md).
+
 ## Away from home
 
 The Hub is only reachable on the home network, so away from home only downloads play. Streaming away from home would need a VPN such as Tailscale on the Docker LXC; that isn't set up.

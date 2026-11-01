@@ -295,7 +295,7 @@
 
   <section id="devices">
     <h2>Phones and remotes <span class="pill" id="devices-pill"></span></h2>
-    <p class="hint">Only phones and screens paired with the TV can work it. To add a phone, scan the code in Settings › Phones and remotes on the TV. Remove anything you don't recognise.</p>
+    <p class="hint">Only phones and screens paired with the TV can work it. To add a phone, scan the code in Settings › Phones and remotes on the TV. Remove anything you don't recognise. Features under each screen switch parts of the app off on that screen only.</p>
     <ul class="list" id="devices-list"></ul>
     <h2 style="margin-top:18px">Home Assistant and scripts</h2>
     <p class="hint">Pop-ups, news flashes, key presses and the media player controls (play, pause, stop, volume, channels, standby) from Home Assistant or a script need this key, sent as the header <code>X-Api-Key</code> (or <code>Authorization: Bearer …</code>). It can't change settings. docs/notifications.md has the Home Assistant set-up.</p>
@@ -623,8 +623,51 @@ const ago = (t) => {
   if (mins < 24 * 60) return `${Math.round(mins / 60)} hours ago`;
   return new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 };
+// Features switched off on each paired screen or app (issue #124). Stays open while the list redraws.
+const openFeatures = new Set();
+const CLIENT_NAMES = { box: "TV box", desktop: "Desktop app", browser: "Browser", android: "Android app", remote: "Phone remote" };
+function featuresFor(dev, entry, catalogue) {
+  const box = document.createElement("details");
+  box.className = "a11y";
+  box.style.flexBasis = "100%";
+  const client = entry?.client || (dev.kind === "tv" ? "box" : null);
+  const off = entry?.off || [];
+  const offNames = catalogue.filter((f) => off.includes(f.id)).map((f) => f.label.toLowerCase());
+  box.innerHTML = `<summary>Features <small></small></summary>`;
+  if (dev.kind === "phone" && client !== "android") {
+    // The phone remote (and this page) have nothing of their own to switch off: the remote follows the TV.
+    box.querySelector("summary small").textContent = "follows the TV";
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = "The phone remote hides what's switched off on the TV it works, so set the TV box instead.";
+    box.append(p);
+  } else {
+    box.querySelector("summary small").textContent = `${CLIENT_NAMES[client] || "Screen"} · ${offNames.length ? `off: ${offNames.join(", ")}` : "everything on"}`;
+    for (const f of catalogue.filter((f) => f.clients.includes(client))) {
+      const row = document.createElement("label");
+      row.className = "opt";
+      row.innerHTML = `<span><b style="font-weight:inherit"></b><small></small></span><input type="checkbox">`;
+      row.querySelector("b").textContent = f.label;
+      row.querySelector("small").textContent = f.detail;
+      const input = row.querySelector("input");
+      input.checked = !off.includes(f.id);
+      input.onchange = () => {
+        const next = input.checked ? off.filter((x) => x !== f.id) : [...off, f.id];
+        api(`/api/features/${encodeURIComponent(dev.id)}`, { method: "PUT", body: { off: next } })
+          .then(() => { toast(`${f.label} ${input.checked ? "on" : "off"} on ${dev.name}`); loadDevices(); })
+          .catch((e) => { input.checked = !input.checked; toast(e.message, true); });
+      };
+      box.append(row);
+    }
+  }
+  box.open = openFeatures.has(dev.id);
+  box.ontoggle = () => (box.open ? openFeatures.add(dev.id) : openFeatures.delete(dev.id));
+  return box;
+}
 async function loadDevices() {
   const d = await api("/api/devices");
+  // An older Hub has no per-screen features: the rest of the list still works.
+  const feats = await api("/api/features/devices").catch(() => null);
   $("#devices-pill").textContent = d.enforced ? `${d.devices.length} paired` : "Pairing off";
   $("#devices-pill").className = "pill" + (d.enforced ? " ok" : " bad");
   const list = $("#devices-list");
@@ -652,6 +695,10 @@ async function loadDevices() {
         try { await api(`/api/devices/${encodeURIComponent(dev.id)}`, { method: "DELETE" }); toast(`${dev.name} removed`); dev.id === d.me ? location.reload() : loadDevices(); } catch (e) { toast(e.message, true); }
       }),
     );
+    if (feats) {
+      li.style.flexWrap = "wrap";
+      li.append(featuresFor(dev, feats.devices.find((x) => x.id === dev.id), feats.catalogue));
+    }
     list.append(li);
   }
 }

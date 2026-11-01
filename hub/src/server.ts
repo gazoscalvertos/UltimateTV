@@ -23,7 +23,7 @@ import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
 import { ChangelogFile, registerChangelog } from "./changelog.js";
 import type { AccessibilitySettings, BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
-import { cleanAppName, cleanSubtitleStyle, TV_APPS_METHODS, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
+import { FEATURES, featuresFor, isClientKind, type ClientFeatureState, cleanAppName, cleanSubtitleStyle, TV_APPS_METHODS, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
@@ -34,6 +34,7 @@ import { BoxReportStore, cleanBoxReport, renderDiagnostics, RollingFile, type Lo
 import { phoneReachable } from "./lan.js";
 import { Library, NotAllowedError } from "./library.js";
 import { Pairing, PairingError } from "./pairing.js";
+import { ClientFeatures } from "./features.js";
 import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
 import { ContentFilter } from "./profiles.js";
@@ -153,6 +154,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/box/reload", "paired"],
     ["POST /api/box/stats", "paired"],
     ["GET /api/devices", "paired"],
+    ["GET /api/features/devices", "paired"],
+    ["PUT /api/features/:id", "paired"],
     ["PATCH /api/devices/:id", "paired"],
     ["DELETE /api/devices/:id", "paired"],
     ["POST /api/devices/pending/:id", "paired"],
@@ -222,6 +225,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   /** Anything that changes the household's setup or deletes things needs an adult (and the PIN once it's set). */
   const ADMIN_ROUTES = new Set([
     "PUT /api/settings",
+    "PUT /api/features/:id",
     "POST /api/settings/iptv",
     "DELETE /api/settings/iptv/:id",
     "POST /api/refresh",
@@ -715,7 +719,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   /** Unpairs the asking device. */
   app.post("/api/pair/forget", async (req, reply) => {
     const device = deviceAsking(req);
-    if (device) pairing.revoke(device.id);
+    if (device) {
+      pairing.revoke(device.id);
+      features.forget(device.id);
+    }
     return reply.header("Set-Cookie", `${DEVICE_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict`).send({ ok: true });
   });
   /** The key for Home Assistant and scripts: X-Api-Key or Authorization: Bearer. */
@@ -729,8 +736,24 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
   app.delete("/api/devices/:id", async (req: Req<{ id: string }>, reply) => {
     if (!pairing.revoke(req.params.id)) return reply.code(404).send({ error: "That device has been removed" });
+    features.forget(req.params.id);
     for (const s of deviceSockets.get(req.params.id) ?? []) s.close(4401, "Unpaired");
     return { ok: true };
+  });
+  // Features switched off per screen (see features.ts). The phone remote follows the TV it controls.
+  const features = new ClientFeatures(ctx.db, (device) => ctx.events.emit({ type: "features.changed", device }));
+  app.get("/api/features", async (req: Req<Record<string, string>, { client?: string }>): Promise<ClientFeatureState> => {
+    const device = deviceAsking(req);
+    const asked = isClientKind(req.query.client) ? req.query.client : null;
+    if (device && asked) features.noteClient(device.id, asked);
+    const client = asked ?? (device ? features.client(device.id) : null);
+    const off = client === "remote" ? features.forRemote(pairing.devices()) : device ? features.off(device.id) : [];
+    return { device: device?.id ?? null, client, off, features: featuresFor(client) };
+  });
+  app.get("/api/features/devices", async () => ({ devices: features.list(pairing.devices()), catalogue: FEATURES }));
+  app.put("/api/features/:id", async (req: Req<{ id: string }, Record<string, string>, { off?: unknown }>, reply) => {
+    if (!pairing.devices().some((d) => d.id === req.params.id)) return reply.code(404).send({ error: "That device has been removed" });
+    return { id: req.params.id, off: features.set(req.params.id, req.body?.off) };
   });
   app.post("/api/devices/pending/:id", async (req: Req<{ id: string }>, reply) => {
     const d = pairing.approve(req.params.id);

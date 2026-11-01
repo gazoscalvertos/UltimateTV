@@ -1498,4 +1498,41 @@
     });
     q.focus();
   }
+
+  // ---------------------------------------------------------------------------
+  // Features switched off on the TV (issue #124): the remote follows the TV it works, so what's
+  // off there goes from here too. The TV refuses them anyway; this just doesn't offer them.
+
+  const FEATURE_PARTS = {
+    live: ['[data-key="guide"]', '[data-browse="guide"]', '[data-key="channelUp"]', '[data-key="channelDown"]'],
+    films: ['[data-browse="movie"]'],
+    shows: ['[data-browse="series"]'],
+    recordings: ['[data-browse="recordings"]', '[data-key="record"]'],
+    downloads: ['[data-browse="downloads"]'],
+    music: ['[data-browse="music"]'],
+    weather: ['[data-browse="weather"]'],
+    search: ['[data-browse="search"]', "#text"],
+    cast: ["#cast-btn"],
+    clips: ["#scare-btn"],
+    notifications: ["#news-btn", "#notify-btn"],
+  };
+  async function loadFeatures() {
+    const r = await fetch("/api/features?client=remote").catch(() => null);
+    if (!r || !r.ok) return;
+    const off = new Set((await r.json().catch(() => ({}))).off || []);
+    for (const [id, parts] of Object.entries(FEATURE_PARTS)) {
+      for (const sel of parts) for (const el of document.querySelectorAll(sel)) el.toggleAttribute("data-feature-off", off.has(id));
+    }
+    // The Watch tab opens on the first list still showing.
+    if (document.querySelector(`[data-browse="${current}"]`)?.hasAttribute("data-feature-off")) {
+      const first = [...document.querySelectorAll("[data-browse]")].find((c) => !c.hasAttribute("data-feature-off"));
+      if (first) {
+        for (const x of document.querySelectorAll("[data-browse]")) x.classList.toggle("on", x === first);
+        current = first.dataset.browse;
+        if (browsed) show(current);
+      }
+    }
+  }
+  void loadFeatures();
+  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && void loadFeatures());
 })();

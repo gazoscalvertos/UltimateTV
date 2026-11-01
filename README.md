@@ -56,7 +56,8 @@ Guides for each feature are linked from the steps below.
 15. **Everyday extras:** button hints, the sleep timer, alerts before things break, Save for later, advert skipping and seasonal clips ([docs/everyday-extras.md](docs/everyday-extras.md)).
 16. **Backups and the Hub being down:** the Hub copies its data to the NAS every night, and the box shows the time, downloads and games when the Hub is down ([docs/backup.md](docs/backup.md)).
 17. **Accessibility:** per profile, audio description, text up to 150%, a bold focus ring and less movement ([docs/accessibility.md](docs/accessibility.md)). Skip intro and credits for the whole library with Jellyfin's Intro Skipper plugin ([docs/watching-extras.md](docs/watching-extras.md#skip-intro-everywhere)).
-18. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
+18. **Features on each screen:** switch parts of the app off on one screen or phone only ([docs/features-per-screen.md](docs/features-per-screen.md)).
+19. **When something goes wrong:** the Hub collects the box's log, playback samples and screen details at `/api/diagnostics?format=text` ([docs/diagnostics.md](docs/diagnostics.md)).
 
 ## Development
 

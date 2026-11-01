@@ -15,7 +15,7 @@ import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, previewTheme, profile, setProfile, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 import { Row, Status } from "../components/SettingRow";
-import { AdvertRows, AlertsSection, CastSection, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
+import { AdvertRows, AlertsSection, FeaturesSection, CastSection, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
 
 /** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
 const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
@@ -559,6 +559,7 @@ export function Settings(props: { section?: string }) {
     { id: "profiles", label: "Profiles and PIN" },
     { id: "playback", label: "Picture and sound" },
     { id: "accessibility", label: "Accessibility" },
+    { id: "features", label: "Features on this screen" },
     { id: "theme", label: "Theme" },
     { id: "screensaver", label: "Screensaver" },
     { id: "weather", label: "Weather" },
@@ -814,6 +815,10 @@ export function Settings(props: { section?: string }) {
                   );
                 }}
               </Show>
+            </Show>
+
+            <Show when={section() === "features"}>
+              <FeaturesSection />
             </Show>
 
             <Show when={section() === "seasonal"}>

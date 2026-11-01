@@ -80,7 +80,7 @@ fun Header(title: String, nav: NavHostController, back: Boolean = false) {
         navigationIcon = { if (back) IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
         actions = {
             if (!wide) {
-                IconButton(onClick = { go(nav, "search") }) { Icon(Icons.Default.Search, "Search") }
+                if (LocalUi.current.on("search")) IconButton(onClick = { go(nav, "search") }) { Icon(Icons.Default.Search, "Search") }
                 IconButton(onClick = { go(nav, "settings") }) { Icon(Icons.Default.Settings, "Settings") }
             }
         },
@@ -99,7 +99,8 @@ fun HomeScreen(nav: NavHostController) {
         Header(ui.appName, nav)
         Loaded(home) { h ->
             LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-                h.hero?.let { hero ->
+                // What's switched off on this phone leaves Home too.
+                h.hero?.takeIf { ui.titleShown(it.kind) && (it.action != "live" || ui.on("live")) }?.let { hero ->
                     item {
                         Box(Modifier.fillMaxWidth().aspectRatio(if (isWide()) 2.4f else 16f / 9f).clickable { details(nav, hero.id) }) {
                             Picture(hero.backdrop ?: hero.poster, Modifier.fillMaxSize())
@@ -119,7 +120,10 @@ fun HomeScreen(nav: NavHostController) {
                         }
                     }
                 }
-                for (rail in h.rails.orEmpty()) {
+                val rails = h.rails.orEmpty()
+                    .filter { !(it.kind == "channels" && !ui.on("live")) && !(it.kind == "recordings" && !ui.on("recordings")) }
+                    .map { r -> if (r.items != null) r.copy(items = r.items.filter { ui.titleShown(it.kind) }) else r }
+                for (rail in rails) {
                     item {
                         when (rail.kind) {
                             "channels" -> if (!rail.channels.isNullOrEmpty()) {

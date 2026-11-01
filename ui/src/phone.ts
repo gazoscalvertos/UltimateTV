@@ -2,12 +2,13 @@
 // to play something, seek, pick a track, drive the music, download to the box or save to the NAS. The Hub relays each call as a
 // "tv.call" event and waits for the answer posted back to /api/tv/reply/:id.
 
-import type { GameAppId, HaCommand, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
+import type { FeatureId, GameAppId, HaCommand, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
 import { backToTv, canCast, castSettings, castState, gamesAllowed, openGame, refreshCast, setAirplay, shareUrl } from "./cast";
 import { api, hub } from "./api";
 import { allEpisodes, canDownload, downloadToBox, episodeRequest, episodesOf, filmRequest, recordingRequest, removeFromBox, visibleDownloads } from "./downloads";
 import { onHubEvent } from "./events";
+import { featureLabel, featureOn } from "./features";
 import { haCommand } from "./homeassistant";
 import { music, spotify, spotifySetup, webApp } from "./music";
 import { channels, liveChannelId, nowPlaying, play, playerState } from "./player";
@@ -176,11 +177,29 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
   },
 };
 
+/** Phone requests that belong to a feature: refused while it's switched off on this screen (features.ts). */
+const METHOD_FEATURES: Partial<Record<TvMethod, FeatureId>> = {
+  musicLibrary: "music",
+  musicTracks: "music",
+  musicPlay: "music",
+  musicControl: "music",
+  musicStatus: "music",
+  musicSetup: "music",
+  downloads: "downloads",
+  download: "downloads",
+  downloadRemove: "downloads",
+  cast: "cast",
+  castApp: "cast",
+  castAirplay: "cast",
+};
+
 export function startPhoneBridge(): void {
   onHubEvent((e) => {
     if (e.type !== "tv.call") return;
-    const handler = handlers[e.method] as ((args: unknown) => Promise<unknown>) | undefined;
-    if (!handler) return;
+    const known = handlers[e.method] as ((args: unknown) => Promise<unknown>) | undefined;
+    if (!known) return;
+    const feature = METHOD_FEATURES[e.method];
+    const handler = feature && !featureOn(feature) ? async () => Promise.reject(new Error(`${featureLabel(feature)} is switched off on the TV`)) : known;
     void (async () => {
       // A TV app open in a browser (development) answers too; let the box's answer win.
       if (!onBox) await new Promise((r) => setTimeout(r, 400));

@@ -2,7 +2,7 @@
 // and the help screen Info opens: the remote drawn with every button labelled.
 
 import { For, Show } from "solid-js";
-import { currentHints, EVERYWHERE, type Hint, type HintKey } from "../hints";
+import { currentHints, everywhere, type Hint, type HintKey } from "../hints";
 import { appName, nav, openDialog } from "../store";
 import { DialogFrame } from "./Dialog";
 
@@ -102,7 +102,7 @@ export function openHelp(): Promise<unknown> {
             <HintList hints={here} />
           </Show>
           <h4>Everywhere</h4>
-          <HintList hints={EVERYWHERE} />
+          <HintList hints={everywhere()} />
           <p class="hint">Netflix, Prime and the TV's other apps: TV apps along the top. Input on the TV remote, then {appName()}, comes back here.</p>
           <p class="hint">Lost? Press Home to go back to the start. The {appName()} phone remote does everything this remote does, and you can talk to it.</p>
         </div>
