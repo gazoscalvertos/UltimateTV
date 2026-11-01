@@ -23,8 +23,9 @@ export function Home() {
     const h = home()?.hero;
     return h && titleShown(h) && (h.action !== "live" || featureOn("live")) ? h : undefined;
   };
-  // Refreshed only when a recording finishes, so the rails don't shift under the remote.
-  onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" || e.type === "favourites.changed" ? void refetch() : undefined)));
+  // Refreshed only when a recording finishes, the watchlist or favourites change, or something stops playing
+  // (Continue watching), so the rails don't shift under the remote otherwise.
+  onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" || e.type === "favourites.changed" || e.type === "progress.changed" ? void refetch() : undefined)));
 
   // The colour keys are shortcuts on Home, as on Sky.
   const castOk = () => !isKids() || castSettings().gamesForKids;
@@ -66,7 +67,7 @@ export function Home() {
                     class="btn btn-primary btn-large"
                     data-focus
                     data-autofocus
-                    onClick={() => (hero().action === "resume" ? void play({ kind: "title", id: hero().id }, { title: hero() }) : nav.push({ name: "details", id: hero().id }))}
+                    onClick={() => (hero().action === "resume" ? void play({ kind: "title", id: hero().id, ...(hero().episodeId ? { episodeId: hero().episodeId! } : {}) }, { title: hero() }) : nav.push({ name: "details", id: hero().id }))}
                   >
                     <Icon name="play" />
                     {hero().action === "resume" ? "Resume" : "Watch"}

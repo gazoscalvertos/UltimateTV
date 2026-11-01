@@ -36,6 +36,9 @@ export interface PlayContext {
 }
 
 export class Playback {
+  /** What each title being played is (which episode, and the one after), by progress key, for report(). */
+  private playing = new Map<string, { episodeId?: string; next?: { episodeId: string; name?: string }; subtitle?: string }>();
+
   constructor(
     private ctx: HubContext,
     private library: Library,
@@ -282,6 +285,11 @@ export class Playback {
         const item = await jf.item(itemId);
         const resume = item.UserData?.PlaybackPositionTicks;
         if (resume) info.startMs = ticksToMs(resume);
+        else {
+          // Jellyfin keeps no place under 5% of the runtime; the Hub's own record does.
+          const p = this.ctx.progress.get(`jellyfin:${itemId}`);
+          if (p && !p.watched && !item.UserData?.Played) info.startMs = p.positionMs;
+        }
         if (item.RunTimeTicks) info.durationMs = ticksToMs(item.RunTimeTicks);
         const src = item.MediaSources?.find((m) => m.Id === mediaSourceId) ?? item.MediaSources?.[0];
         const video = src?.MediaStreams?.find((m) => m.Type === "Video");
@@ -304,6 +312,12 @@ export class Playback {
       const p = this.ctx.progress.get(info.progressKey);
       if (p && !p.watched) info.startMs = p.positionMs;
     }
+    const about: { episodeId?: string; next?: { episodeId: string; name?: string }; subtitle?: string } = {};
+    if (ep) about.episodeId = `s${ep.season}e${ep.episode}`;
+    if (ep && info.subtitle) about.subtitle = info.subtitle;
+    if (info.next?.episodeId) about.next = { episodeId: info.next.episodeId, name: info.next.name };
+    if (this.playing.size > 200) this.playing.clear();
+    this.playing.set(info.progressKey, about);
     if (!info.fps) {
       const fps = /\b(23\.976|24|25|29\.97|50|59\.94|60) ?fps\b/i.exec(chosen.detail ?? "");
       if (fps?.[1]) info.fps = Number(fps[1]);
@@ -311,12 +325,19 @@ export class Playback {
     return info;
   }
 
-  /** Saves progress, and passes it on to Jellyfin for library items. */
+  /**
+   * Saves progress, and passes it on to Jellyfin for library items (kept here too, for Continue
+   * watching). A stop tells the TV, so Home shows it in Continue watching straight away.
+   */
   async report(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused = false, ref?: TitleRef): Promise<void> {
+    await this.save(key, positionMs, durationMs, event, paused, ref);
+    if (event === "stop") this.ctx.events.emit({ type: "progress.changed" });
+  }
+
+  private async save(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused: boolean, ref?: TitleRef): Promise<void> {
     if (key.startsWith("jellyfin:")) {
       const jf = this.ctx.jellyfin();
       if (jf) await jf.reportProgress(key.slice(9), positionMs, event, paused).catch((err) => this.ctx.log.warn({ err: String(err) }, "Jellyfin progress failed"));
-      return;
     }
     if (key.startsWith("channel:")) return;
     if (key.startsWith("recording:")) {
@@ -328,11 +349,23 @@ export class Playback {
       }
       return;
     }
-    const entry: Parameters<HubContext["progress"]["save"]>[0] = { key, positionMs };
+    // The start report comes before the player knows where it is, and a player that has just
+    // stopped or reached the end can say 0: neither may wipe the place already saved.
+    if (event === "start" || (positionMs < 1000 && this.ctx.progress.get(key))) return;
+    const { subtitle, ...about } = this.playing.get(key) ?? {};
+    const entry: Parameters<HubContext["progress"]["save"]>[0] = { key, positionMs, ...about };
     if (durationMs) entry.durationMs = durationMs;
-    if (ref) entry.title = ref;
+    // The episode's "S1 E4 · Name" goes with it, for its card.
+    if (ref) entry.title = { ...stripRef(ref), ...(subtitle ? { subtitle } : {}) };
     this.ctx.progress.save(entry);
   }
+}
+
+/** The title as Continue watching keeps it, without what's worked out each time it's shown. */
+function stripRef(ref: TitleRef): TitleRef {
+  const out: TitleRef = { id: ref.id, kind: ref.kind, name: ref.name };
+  for (const k of ["year", "poster", "backdrop", "logo", "genres", "certification"] as const) if (ref[k] !== undefined) (out as unknown as Record<string, unknown>)[k] = ref[k];
+  return out;
 }
 
 /** Season and episode numbers from an episode request id: "s2e5" (what the UI sends) or a TMDB episode id. */

@@ -32,7 +32,7 @@ export interface JfItem {
   IndexNumber?: number;
   ParentIndexNumber?: number;
   PremiereDate?: string;
-  UserData?: { PlaybackPositionTicks?: number; Played?: boolean; PlayedPercentage?: number };
+  UserData?: { PlaybackPositionTicks?: number; Played?: boolean; PlayedPercentage?: number; LastPlayedDate?: string };
   People?: { Name: string; Type: string }[];
   MediaSources?: JfMediaSource[];
   Path?: string;
@@ -357,7 +357,15 @@ export class JellyfinClient {
     if (item.ProviderIds?.Imdb) details.imdbId = item.ProviderIds.Imdb;
     const resume = item.UserData?.PlaybackPositionTicks;
     if (resume) details.resumeMs = Math.round(resume / TICKS_PER_MS);
-    if (item.Type === "Series") details.seasons = groupSeasons(episodes, (e) => this.toEpisode(e));
+    if (item.Type === "Series") {
+      details.seasons = groupSeasons(episodes, (e) => this.toEpisode(e));
+      const carryOn = resumeEpisode(episodes);
+      if (carryOn) {
+        details.episodeId = `s${carryOn.ParentIndexNumber ?? 0}e${carryOn.IndexNumber ?? 0}`;
+        const at = carryOn.UserData?.Played ? 0 : (carryOn.UserData?.PlaybackPositionTicks ?? 0);
+        if (at) details.resumeMs = Math.round(at / TICKS_PER_MS);
+      }
+    }
     return details;
   }
 
@@ -389,4 +397,21 @@ export function groupSeasons<T>(episodes: T[], map: (e: T) => Episode): Season[]
 
 export function ticksToMs(ticks: number): number {
   return Math.round(ticks / TICKS_PER_MS);
+}
+
+/**
+ * The episode of a series to carry on with: the one played last if it was stopped part way, else
+ * the one after it. Undefined when none has been played (Play then starts the first unwatched).
+ */
+export function resumeEpisode(episodes: JfItem[]): JfItem | undefined {
+  let last = -1;
+  let lastAt = 0;
+  episodes.forEach((e, i) => {
+    const at = Date.parse(e.UserData?.LastPlayedDate ?? "") || 0;
+    if (at > lastAt) [last, lastAt] = [i, at];
+  });
+  if (last < 0) return undefined;
+  const e = episodes[last]!;
+  if (!e.UserData?.Played) return e;
+  return episodes.slice(last + 1).find((n) => !n.UserData?.Played && (n.ParentIndexNumber ?? 0) > 0);
 }
