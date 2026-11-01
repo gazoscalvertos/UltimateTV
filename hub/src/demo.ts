@@ -267,6 +267,13 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   if (!ctx.guides.list().length) ctx.guides.create({ name: "Evenings", channels: ["sky-atlantic", "bbc-one", "channel-4", "film4", "sky-sports-main-event", "dave"] });
   ctx.db.setKv("epgUpdatedAt", now);
   ctx.db.setKv("sourcesUpdatedAt", now);
+  // A few recent searches, so the Search screen shows them before anything is typed.
+  if (!ctx.db.getKv("search-history:default")) {
+    ctx.db.setKv(
+      "search-history:default",
+      ["Harbour Lights", "bbc one", "bake off", "football", "Lakeside"].map((q, i) => ({ q, at: now - i * 3600_000 })),
+    );
+  }
 
   // Library.
   const vod: VodEntry[] = TITLES.map((t, i) => ({

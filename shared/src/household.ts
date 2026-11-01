@@ -61,6 +61,30 @@ export interface FavouriteResult extends Favourites {
   on: boolean;
 }
 
+// Recent searches
+
+/** Something searched for on one profile (newest first on the Hub, at most 20). */
+export interface RecentSearch {
+  q: string;
+  at: number;
+}
+
+/**
+ * The recent searches to offer for what's typed so far: all of them before anything is typed,
+ * then those with a word starting with the letters typed ("du" finds "Dune" and "Mad Dune"),
+ * leaving out the one already typed in full.
+ */
+export function matchSearches(list: RecentSearch[], typed: string, max = 8): RecentSearch[] {
+  const t = typed.replace(/\s+/g, " ").trim().toLowerCase();
+  if (!t) return list.slice(0, max);
+  return list
+    .filter((s) => {
+      const q = s.q.toLowerCase();
+      return q !== t && (q.startsWith(t) || q.includes(` ${t}`));
+    })
+    .slice(0, max);
+}
+
 // ---------------------------------------------------------------------------
 // Sleep timer
 

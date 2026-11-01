@@ -19,6 +19,7 @@ import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { FavouriteStore, registerFavourites } from "./favourites.js";
+import { registerSearchHistory, SearchHistory } from "./searchhistory.js";
 import { registerSubtitles } from "./subtitles.js";
 import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
@@ -184,6 +185,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/subtitles/download", "paired"],
     ["DELETE /api/watchlist/:id", "paired"],
     ["POST /api/favourites", "paired"],
+    ["GET /api/search/history", "paired"],
+    ["POST /api/search/history", "paired"],
+    ["DELETE /api/search/history", "paired"],
     ["GET /api/backup", "paired"],
     ["GET /api/alerts", "paired"],
     ["POST /api/alerts/check", "paired"],
@@ -852,6 +856,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // Home Assistant both ways: the TV as a media player, and playback events to a webhook (see homeassistant.ts).
   const homeAssistant = new HomeAssistant(ctx, () => tvSockets > 0);
   registerHomeAssistant(app, homeAssistant, { callTv, tvConnected: () => tvSockets > 0, hubBase });
+
+  // Recent searches, per profile. The phone remote knows no profile, so it asks for the TV's.
+  registerSearchHistory(app, new SearchHistory(ctx.db, ctx.events), (req) => {
+    const own = viewer(req).profile?.id ?? null;
+    if (own || (req.query as { tv?: string } | undefined)?.tv !== "1") return own;
+    return homeAssistant.tvProfileId();
+  });
 
   // -------------------------------------------------------------------------
   // Software: the Hub updates through a helper on the Docker LXC; the box through the TV app.

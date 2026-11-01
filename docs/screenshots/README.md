@@ -75,4 +75,6 @@ Captured from the demo Hub (`DEMO=1`) in headless Chromium at 1920×1080, driven
 | 123 | The desktop app (AppImage) in a 1536×864 window on a 1920×1080 screen, against the demo Hub ([desktop.md](../desktop.md)) |
 | favourites-details, favourites-home, favourites-browse | Favourites per profile: the button on a film's page (Blue), the Favourites row on Home, and Films narrowed to Favourites (`node tools/screenshots/favourites.mjs`) |
 | favourites-guide, favourites-live-banner, favourites-programme-card, favourites-phone | The guide's Favourites list with a heart beside each starred channel, Green on the live banner, the button on the programme card, and the phone remote's button on a film's sheet |
+| 124 | Search before anything is typed: the profile's recent searches, with Clear on each and Clear all |
+| 125 | Phone remote › Watch › Search: the same recent searches as the TV, with Clear and Clear all |
 | kids-time-settings, kids-time-up, kids-time-phone | Kids TV time and bedtime: the settings on the TV, asking for more time at Who's watching? once it's bedtime, and the same settings with today's time and the more-time buttons on the phone's settings page |

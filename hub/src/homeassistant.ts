@@ -46,6 +46,11 @@ export class HomeAssistant {
     return events;
   }
 
+  /** The profile on the TV now, as it last reported (null with none, or the box off). */
+  tvProfileId(): string | null {
+    return this.tvConnected() ? (this.last?.profile?.id ?? null) : null;
+  }
+
   state(hubBase?: string): HaState {
     return haState(this.last, { reportedAt: this.reportedAt, connected: this.tvConnected(), appName: this.appName(), ...(hubBase ? { hubBase } : {}) });
   }

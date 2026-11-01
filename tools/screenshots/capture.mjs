@@ -180,6 +180,12 @@ try {
   await shot("56-queue-actions");
   await key("Escape");
 
+  // A few recent searches on each profile, newest last.
+  for (const p of (await (await fetch(`${base}/api/profiles`, { headers: asTv })).json()).profiles ?? []) {
+    for (const q of ["Lakeside", "football", "bake off", "bbc one", "Harbour Lights"]) {
+      await fetch(`${base}/api/search/history`, { method: "POST", headers: { ...asTv, "X-Profile": p.id, "Content-Type": "application/json" }, body: JSON.stringify({ q }) });
+    }
+  }
   await page.locator(".tab-icon").first().focus();
   await key("Enter");
   await wait(600);
@@ -189,6 +195,13 @@ try {
   await page.locator(".key").first().focus();
   await wait(1500);
   await shot("13-search");
+  // Recent searches before anything is typed, with Clear on each and Clear all.
+  await page.locator(".search-box input").fill("");
+  await page.locator(".search-box input").dispatchEvent("input");
+  await wait(400);
+  await page.locator(".recent-clear").nth(1).focus();
+  await wait(600);
+  await shot("124-search-recent");
 
   await page.goto(`${base}/app/`);
   await wait(1500);
@@ -752,6 +765,11 @@ try {
   await phone.waitForTimeout(2000);
   await phone.screenshot({ path: path.join(out, "36-phone-music-sign-in.png") });
   console.log("  36-phone-music-sign-in.png");
+  // The phone's Search shows the same recent searches as the TV.
+  await phone.click('[data-browse="search"]');
+  await phone.waitForSelector(".recent-row", { timeout: 5000 });
+  await phone.screenshot({ path: path.join(out, "125-phone-search-recent.png") });
+  console.log("  125-phone-search-recent.png");
   await page.goto(`${base}/app/`);
   await wait(1500);
   await phone.click('[data-tab="remote"]');
