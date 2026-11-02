@@ -30,10 +30,13 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **What you watch away from home reaches Jellyfin when you get back** ([docs/travel.md](docs/travel.md#back-home-travelsh-home), [docs/downloads.md](docs/downloads.md#watching)): while Jellyfin can't be reached the Hub keeps the place for its films and episodes, and sends them on when it can — home from a trip, at startup, when Jellyfin is set up, or on the hourly tick. If Jellyfin was played somewhere else more recently, its place is the one kept. The queue lives in the Hub's database, so `travel.sh home` carries it back with everything else, and the Android app's own offline queue now says when it watched something so the same rule applies. (#80)
+  Household: a film watched on a trip shows the right place, and the right Continue watching, back at home.
+
 - **Adverts are found even when comskip misses them** ([docs/FEATURES.md](docs/FEATURES.md)): when comskip finds no breaks in a recording over 20 minutes, ffmpeg looks for black frames either side of silence and the stretches that fit become the breaks. Settings › Recording says how many breaks comskip found, how many the fallback found and how many recordings had none, and so does the text diagnostics. (#73)
   Household: the Skip adverts button now turns up on more recordings.
 
-- **Reminders have a list of their own** ([docs/everyday-extras.md](docs/everyday-extras.md)): Recordings has a Reminders tab, and so does the phone remote, so a reminder set in the TV guide can be seen and taken back without hunting for the programme again. The phone's guide can set one too. (#73)
+- **Reminders have a list of their own** ([docs/everyday-extras.md](docs/everyday-extras.md)): Recordings has a Reminders tab, and so does the phone remote, so a reminder set in the TV guide can be seen and taken back without hunting for the programme again. The phone's guide can set one too. (#159)
   Household: you can see every reminder you've set, and cancel one, on the TV and on a phone.
 - **A recording clash can be settled on the TV** ([docs/FEATURES.md](docs/FEATURES.md)): the clash banner in Recordings is a button now — OK lists the programmes that clash with their channel and time, and keeping one cancels the rest. "Keep them all" records what the connection allows and cancels nothing. (#161)
   Household: when two recordings clash, you can choose which one to keep instead of doing it by hand.

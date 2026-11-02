@@ -68,4 +68,9 @@ if (moved) {
   app.jobs.adSkipper.start();
   // A copy of the Hub's data on the NAS every night.
   app.jobs.backups.start();
+  // Places watched while the Hub was away from Jellyfin go to it now the Hub is home (#80), and
+  // again every hour in case Jellyfin was only out for a while.
+  const sendJellyfinProgress = () => void ctx.flushJellyfinProgress().catch((err) => app.log.warn({ err: String(err) }, "Couldn't send Jellyfin its places"));
+  sendJellyfinProgress();
+  setInterval(sendJellyfinProgress, HOUR);
 }
