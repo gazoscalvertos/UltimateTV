@@ -17,6 +17,16 @@ The app looks for the Hub at `http://192.168.0.19:8095`. Change it in Settings i
 - The **player** is ExoPlayer: it plays the Hub's live TV, MKV and HEVC files directly, and an FFmpeg decoder covers Dolby Digital, Dolby Digital Plus, DTS and TrueHD sound. It has subtitles and audio tracks (the gear button), Skip intro, Next episode and picture-in-picture when you leave the app.
 - **On the TV** (the TV button) starts the same thing on the TV instead.
 - **Favourites**: the heart on a title's page, and beside each channel in the TV Guide, stars it for the profile the app is on. Films & TV has **Everything / Favourites** chips; the guide's Favourites list and Home's Favourites row are that profile's ([profiles.md](profiles.md#favourites)).
+- **Save to NAS** is on a title's page for films the sources have a TorBox or addon copy of, and on a title's **Versions** list for that exact copy, with how far each save has got underneath ("S1 E2 · 42%", then "Saved, and in Jellyfin"). Grown-ups only.
+
+### Saved for later and the queue
+
+Both lists are the household's, kept on the Hub, so the TV shows the same things within a moment.
+
+- **Save for later** on a film's or show's page keeps it for another evening. It shows on Home under **Saved for later** on the TV, and the phone remote's Saved tab; a title that's on the channels in the next fortnight says where and when ("On Film4 · Sat 21:00") and has a record button beside it ([everyday-extras.md](everyday-extras.md#save-for-later)).
+- **Add to queue** puts a film on the end of the play queue, or an episode of a show: the button says which one ("Queue S2 E4"), and the episode that plays next is the one that goes on. The queue plays on the TV, one after another, and survives restarts ([FEATURES.md](FEATURES.md#films-and-tv)).
+- **Saved** and **Queue** are two buttons at the top of Home: Saved lists what's kept for later with play, add to queue and remove on each row, and Queue lists what's lined up in order with play here, play on the TV, move up, take off and **Clear the queue**.
+- Kids profiles see only what a Kids profile may watch: the Hub leaves the rest out of both lists, and the Hub itself refuses Save to NAS for Kids.
 
 ### One IPTV connection
 

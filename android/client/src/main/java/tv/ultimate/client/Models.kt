@@ -3,6 +3,8 @@
 
 package tv.ultimate.client
 
+import com.google.gson.annotations.SerializedName
+
 data class Channel(
     val id: String,
     val number: Int,
@@ -91,6 +93,79 @@ data class FavouriteState(val titles: List<FavouriteTitle>?, val channels: List<
 }
 
 data class Season(val season: Int, val name: String, val episodes: List<Episode>?)
+
+/**
+ * The next time a saved title turns up on the household's channels (shared/src/household.ts).
+ * `when` already reads "On Film4 · Sat 21:00", so the app never formats a date itself.
+ */
+data class NextAiring(
+    val programmeId: String,
+    val channelId: String,
+    val channelName: String,
+    val channelNumber: Int,
+    val start: Long,
+    val end: Long,
+    // `when` is a Kotlin keyword; the Hub's name for it is kept exactly so the JSON matches.
+    @SerializedName("when") val whenText: String?,
+)
+
+/** Something on the household's Saved for later list (shared/src/household.ts), shared with the TV. */
+data class WatchItem(
+    val id: String,
+    val name: String,
+    val year: Int?,
+    val kind: String,
+    val title: TitleRef?,
+    val addedAt: Long?,
+    val from: String?,
+    val next: NextAiring?,
+)
+
+data class WatchlistState(val items: List<WatchItem>?) {
+    fun has(titleId: String) = items.orEmpty().any { it.title?.id == titleId || it.id == titleId }
+}
+
+/** What saving or removing gave back: the list as it now stands, and the row that changed. */
+data class WatchlistChange(val item: WatchItem?, val items: List<WatchItem>?)
+
+/** Something lined up to play next on the household's queue (shared/src/domain.ts). */
+data class QueueItem(
+    val id: String,
+    val req: PlaybackRequest,
+    val title: TitleRef?,
+    val name: String,
+    val subtitle: String?,
+    val image: String?,
+    val addedAt: Long?,
+)
+
+data class QueueState(val queue: List<QueueItem>?)
+
+/** Adding to the queue answers with the row it made, so the app can say where it landed. */
+data class QueueChange(val item: QueueItem?, val queue: List<QueueItem>?)
+
+/** A copy the Hub is keeping on the NAS for Jellyfin (shared/src/domain.ts Download). */
+data class Download(
+    val id: String,
+    val title: String,
+    val kind: String,
+    val year: Int?,
+    val season: Int?,
+    val episode: Int?,
+    val status: String,
+    val progress: Double?,
+    val bytesDone: Long?,
+    val bytesTotal: Long?,
+    val speedBps: Long?,
+    val path: String?,
+    val error: String?,
+    val jellyfin: JellyfinResult?,
+    val createdAt: Long?,
+)
+
+data class JellyfinResult(val added: Boolean?, val note: String?)
+
+data class DownloadsState(val downloads: List<Download>?)
 
 data class TitleDetails(
     val id: String,

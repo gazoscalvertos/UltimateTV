@@ -101,6 +101,8 @@ fun HomeScreen(nav: NavHostController) {
     val home = rememberLoad(ui.online) { hub.home() }
     Column {
         Header(ui.appName, nav)
+        // What's saved and what's queued, at the top where the TV has its queue row too.
+        ListsBar(nav)
         Loaded(home) { h ->
             LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                 // What's switched off on this phone leaves Home too.

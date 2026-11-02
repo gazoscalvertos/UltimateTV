@@ -208,6 +208,8 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
                         composable("recordings") { RecordingsScreen(nav) }
                         composable("downloads") { DownloadsScreen(nav) }
                         composable("search") { SearchScreen(nav) }
+                        composable("saved") { SavedScreen(nav) }
+                        composable("queue") { QueueScreen(nav) }
                         composable("settings") { SettingsScreen(nav) }
                         composable("profiles") { ProfilesScreen(nav) }
                         composable("whatsnew") { WhatsNewScreen(nav) }

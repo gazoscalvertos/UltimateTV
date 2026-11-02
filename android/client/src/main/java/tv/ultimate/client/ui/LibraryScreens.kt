@@ -25,6 +25,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
@@ -69,10 +72,12 @@ import androidx.navigation.NavHostController
 import tv.ultimate.client.App
 import tv.ultimate.client.Episode
 import tv.ultimate.client.Favourites
+import tv.ultimate.client.NasSaves
 import tv.ultimate.client.Offline
 import tv.ultimate.client.OfflineEntry
 import tv.ultimate.client.OfflineMeta
 import tv.ultimate.client.PlaybackRequest
+import tv.ultimate.client.SavedForLater
 import tv.ultimate.client.StreamCandidate
 import tv.ultimate.client.TitleDetails
 
@@ -185,6 +190,55 @@ fun DetailsScreen(nav: NavHostController, id: String) {
                                 else Icon(Icons.Default.FavoriteBorder, "Add to Favourites")
                             }
                         }
+                        // Saved for later and the queue are the household's, on the Hub, so the TV
+                        // shows the same things a moment later (Home › Saved for later, and the queue).
+                        val saved by SavedForLater.items.collectAsState()
+                        LaunchedEffect(d.id) { SavedForLater.load() }
+                        val isSaved = saved.any { it.title?.id == d.id || it.id == d.id }
+                        // What goes on the queue: a film, or the episode you'd watch next.
+                        val queueEpisode = if (d.kind == "series") nextEpisode(seasonLoad.state) else null
+                        Spacer(Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(onClick = { ui.saveForLater(d.ref(), !isSaved) }) {
+                                if (isSaved) Icon(Icons.Default.Bookmark, null) else Icon(Icons.Default.BookmarkBorder, null)
+                                Text(if (isSaved) "Saved for later" else "Save for later")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    if (queueEpisode != null) {
+                                        ui.addToQueue(
+                                            PlaybackRequest("title", d.id, "s${queueEpisode.season}e${queueEpisode.episode}"),
+                                            d.ref(),
+                                            d.name,
+                                            "S${queueEpisode.season} E${queueEpisode.episode} · ${queueEpisode.name}",
+                                            queueEpisode.still ?: d.backdrop ?: d.poster,
+                                        )
+                                    } else {
+                                        ui.addToQueue(PlaybackRequest("title", d.id), d.ref(), d.name, d.year?.toString(), d.poster ?: d.backdrop)
+                                    }
+                                },
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null)
+                                Text(if (d.kind == "series" && queueEpisode != null) "Queue S${queueEpisode.season} E${queueEpisode.episode}" else "Add to queue")
+                            }
+                            // TorBox and addon copies can be kept on the NAS for good, with Jellyfin
+                            // told about them; grown-ups only, since the Hub refuses it for Kids. A
+                            // show keeps the episode that plays next; every episode has one in its
+                            // Versions sheet.
+                            if (App.instance.prefs.profileKind != "kids" && (d.kind == "movie" || queueEpisode != null)) {
+                                SaveToNasButton(d, queueEpisode)
+                            }
+                        }
+                        // How far the saves for this title have got ("S1 E2 · 42%").
+                        val saves by NasSaves.items.collectAsState()
+                        LaunchedEffect(d.id) { NasSaves.load() }
+                        val mine = saves.filter { it.title == d.name && it.kind == d.kind }
+                        if (mine.isNotEmpty()) Column(Modifier.padding(top = 6.dp)) {
+                            mine.take(3).forEach { s ->
+                                val what = if (s.season != null && s.episode != null) "S${s.season} E${s.episode}" else "On the NAS"
+                                Text("$what · ${NasSaves.status(s)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                         if (d.kind == "movie") {
                             Text("Other versions", Modifier.clickable { choose = Choose(false, null) }.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.primary)
                         }
@@ -255,6 +309,23 @@ fun episodeMeta(d: TitleDetails, e: Episode) = OfflineMeta(
 )
 
 fun movieMeta(d: TitleDetails) = OfflineMeta(kind = "movie", title = d.name, subtitle = d.year?.toString(), titleId = d.id, artwork = d.backdrop ?: d.poster, ref = d.ref())
+
+/**
+ * Keeps a TorBox or addon copy on the NAS for good, with Jellyfin told about it. The Hub picks the
+ * best copy to keep, so there's nothing to choose here; the versions sheet has the per-copy buttons.
+ */
+@Composable
+private fun SaveToNasButton(d: TitleDetails, episode: Episode?) {
+    val ui = LocalUi.current
+    // There's nothing to keep when the household already has it on the NAS or in Jellyfin.
+    if (d.availability.orEmpty().none { it == "torbox" || it == "addon" }) return
+    val name = if (episode != null) "${d.name} S${episode.season} E${episode.episode}" else d.name
+    OutlinedButton(onClick = { ui.saveToNas(d.id, episode?.let { "s${it.season}e${it.episode}" }, null, name) }) {
+        Icon(Icons.Default.Save, null)
+        Spacer(Modifier.width(6.dp))
+        Text("Save to NAS")
+    }
+}
 
 @Composable
 private fun DownloadButton(entry: OfflineEntry?, onClick: () -> Unit) {

@@ -136,7 +136,6 @@ Also from the plan, or raised along the way:
 - **The full TV app without the Hub:** the box now has its own screen for when the Hub is down (downloads, games, AirPlay), but the guide, library and live TV still need the Hub.
 - **A second-box install test**, and the Debian 13 fallback, which has never been tried.
 - **Jellyfin progress from the box's offline downloads** isn't sent back to Jellyfin while away.
-- **The Android app** has no Save to NAS, play queue or Save for later yet.
 - **A real browser client:** `/app/` in a laptop browser is a development stand-in; live TV and most MKV files don't play there without the Hub repackaging to HLS.
 - **Watching away from home:** Jellyfin and older recordings need a way home on trips (a VPN such as Tailscale was suggested, not set up). The Android app stays home-only by Gary's choice.
 - **Quick Sync on the server:** the N150's iGPU needs a newer Proxmox kernel (`proxmox-kernel-6.14`). Optional, as the box decodes everything.

@@ -138,6 +138,8 @@ class Hub(private val prefs: Prefs) {
     suspend fun programme(id: String): ProgrammeInfo = get("/api/programmes/${enc(id)}")
     suspend fun recordings(): List<Recording> = get<Map<String, List<Recording>>>("/api/recordings")["recordings"].orEmpty()
     suspend fun record(programmeId: String) = raw("/api/recordings", "POST", mapOf("programmeId" to programmeId))
+    /** Remind me: the Hub tells this phone when a saved title is about to be on. */
+    suspend fun remind(programmeId: String) = raw("/api/reminders", "POST", mapOf("programmeId" to programmeId))
     suspend fun seriesLink(programmeId: String) = raw("/api/series-links", "POST", mapOf("programmeId" to programmeId))
     suspend fun deleteRecording(id: String) = raw("/api/recordings/${enc(id)}", "DELETE")
     suspend fun markWatched(id: String, watched: Boolean) = raw("/api/recordings/${enc(id)}/watched", "POST", mapOf("watched" to watched))
@@ -162,6 +164,55 @@ class Hub(private val prefs: Prefs) {
     suspend fun saveToNas(titleId: String, episodeId: String?, streamId: String?): Map<String, Any?> =
         post("/api/downloads", listOfNotNull("titleId" to titleId, episodeId?.let { "episodeId" to it }, streamId?.let { "streamId" to it }).toMap())
     suspend fun playOnTv(req: PlaybackRequest, title: TitleRef?) = raw("/api/tv/call/play", "POST", mapOf("req" to req, "title" to title))
+
+    // --- Saved for later and the queue: one list for the household, so the TV and the phone see
+    // --- the same things (hub/src/watchlist.ts and hub/src/queue.ts). Reading and writing both
+    // --- send the profile, so Kids only ever sees what Kids may watch.
+
+    suspend fun watchlist(): WatchlistState = get("/api/watchlist")
+
+    /**
+     * Saves a film or show to the household's list. The Hub keeps a copy of the title itself, so
+     * the TV can draw the row without looking anything up; saving one already on the list moves it
+     * back to the top.
+     */
+    suspend fun saveForLater(t: TitleRef): WatchlistChange = post(
+        "/api/watchlist",
+        mapOf(
+            "title" to mapOf("id" to t.id, "kind" to t.kind, "name" to t.name, "year" to t.year, "poster" to t.poster, "backdrop" to t.backdrop).filterValues { it != null },
+            "from" to "app",
+        ),
+    )
+
+    /** Takes something off Saved for later: by its list row, or by the title's own id. */
+    suspend fun unsave(id: String): WatchlistChange = gson.fromJson(raw("/api/watchlist/${enc(id)}", "DELETE"), WatchlistChange::class.java)
+
+    suspend fun queue(): QueueState = get("/api/queue")
+
+    /**
+     * Puts a film or episode on the end of the queue. An episode says which one in `episodeId`
+     * ("s1e3"), and `subtitle` is what the queue screen shows underneath the show's name.
+     */
+    suspend fun addToQueue(req: PlaybackRequest, title: TitleRef?, name: String, subtitle: String?, image: String?): QueueChange {
+        val body = mutableMapOf<String, Any>("req" to playBody(req, false), "name" to name)
+        if (title != null) body["title"] = title
+        if (!subtitle.isNullOrBlank()) body["subtitle"] = subtitle
+        if (!image.isNullOrBlank()) body["image"] = image
+        return post("/api/queue", body)
+    }
+
+    /** Moves a queued thing up or down; the queue plays in order. */
+    suspend fun moveInQueue(id: String, to: Int): QueueChange = post("/api/queue/${enc(id)}/move", mapOf("to" to to))
+
+    suspend fun unqueue(id: String): QueueChange = gson.fromJson(raw("/api/queue/${enc(id)}", "DELETE"), QueueChange::class.java)
+
+    suspend fun clearQueue(): QueueChange = gson.fromJson(raw("/api/queue", "DELETE"), QueueChange::class.java)
+
+    /** Everything the Hub is keeping on the NAS, newest first (GET /api/downloads). */
+    suspend fun downloads(): List<Download> =
+        gson.fromJson(raw("/api/downloads"), DownloadsState::class.java)?.downloads.orEmpty()
+
+    suspend fun cancelDownload(id: String) = raw("/api/downloads/${enc(id)}", "DELETE")
 
     /** Whether the Hub knows this phone as paired. */
     suspend fun paired(): Boolean = get<Map<String, Any?>>("/api/pair", 5000)["paired"] == true
