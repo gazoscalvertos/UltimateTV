@@ -2,7 +2,7 @@
 
 import { createSignal, type JSX } from "solid-js";
 import { blockedRoute, featureLabel } from "./features";
-import { cleanAccessibility, DEFAULT_APP_NAME, isThemeName, themeInfo, type AccessibilitySettings, type MusicItem, type Profile, type ThemeName } from "@ultimatetv/shared";
+import { cleanAccessibility, DEFAULT_APP_NAME, featureOfRoute, guestAllows, isGuestProfile, isThemeName, themeInfo, type AccessibilitySettings, type FeatureId, type MusicItem, type Profile, type ThemeName } from "@ultimatetv/shared";
 
 export type Route =
   | { name: "profiles" }
@@ -30,10 +30,31 @@ const [stack, setStack] = createSignal<Route[]>([{ name: "profiles" }]);
  * A screen whose feature is switched off on this screen (features.ts) doesn't open, whichever
  * shortcut, colour key, phone request or link asked for it.
  */
+function offHere(route: Route): FeatureId | undefined {
+  return blockedRoute(route);
+}
+
 function refused(route: Route): boolean {
-  const off = blockedRoute(route);
-  if (off) toast(`${featureLabel(off)} is switched off on this screen`, "bad");
-  return Boolean(off);
+  const off = offHere(route);
+  if (off) {
+    toast(`${featureLabel(off)} is switched off on this screen`, "bad");
+    return true;
+  }
+  const why = guestOff(route);
+  if (why) toast(why, "bad");
+  return Boolean(why);
+}
+
+/**
+ * A Guest only opens the sections it was given, and never Settings (issue #101). Returns the
+ * reason to toast, or undefined when the route is fine.
+ */
+function guestOff(route: Route): string | undefined {
+  if (!isGuestProfile(profile())) return undefined;
+  if (route.name === "settings") return "Settings are for grown-ups on this profile";
+  if (route.name === "planner" || route.name === "downloads") return "That isn't on a Guest profile";
+  const section = featureOfRoute(route);
+  return section !== undefined && !guestAllows(profile(), section) ? "That isn't on a Guest profile" : undefined;
 }
 
 export const nav = {
@@ -54,7 +75,7 @@ export const nav = {
   /** Drops screens whose feature has just been switched off, landing on Home if nothing's left. */
   prune(): void {
     setStack((s) => {
-      const kept = s.filter((r) => !blockedRoute(r));
+      const kept = s.filter((r) => !offHere(r) && !guestOff(r));
       return kept.length === s.length ? s : kept.length ? kept : [{ name: "home" }];
     });
   },
@@ -136,6 +157,12 @@ export function previewTheme(name: ThemeName | null): void {
 const [profile, setProfileSignal] = createSignal<Profile | null>(null);
 export { profile };
 export const isKids = () => profile()?.kind === "kids";
+/** A Guest: here for a visit, rated up to its own limit and kept out of settings and recordings. */
+export const isGuest = () => isGuestProfile(profile());
+/** Kids and Guest both: the profiles that are kept to a part of the TV. */
+export const isLimited = () => isKids() || isGuest();
+/** Whether the current profile may use a section (a Guest may only use the ones it was given). */
+export const allowsSection = (section: FeatureId) => (!isGuest() ? true : guestAllows(profile(), section));
 
 // Accessibility (Settings › Accessibility) belongs to the profile watching. The last one worn is
 // remembered, so the profile picker and the offline screen keep the bigger text.

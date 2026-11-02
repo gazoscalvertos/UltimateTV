@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { GuideWindow, HomeScreen, Profile, SearchResult } from "@ultimatetv/shared";
 import type { HubConfig } from "../src/config.js";
 import { Db } from "../src/db.js";
+import { GUEST_SECTIONS, guestAllows, guestRouteSection, guestSections } from "../src/guest.js";
 import { certificationRank, clearPinLockouts, ContentFilter, PIN_FIRST_LOCKOUT_MS, PIN_FORGET_MS, PIN_MAX_LOCKOUT_MS, PIN_MAX_TRIES, PinLimiter, ProfileStore } from "../src/profiles.js";
 import { buildServer } from "../src/server.js";
 import { pairAsTv } from "./helpers.js";
@@ -170,6 +171,68 @@ describe("ProfileStore", () => {
     expect(new ContentFilter(null).title({ certification: "18", genres: [] })).toBe(true);
     expect(certificationRank("GB-15")).toBe(4);
   });
+
+  it("gives a Guest a 12 limit, and no Kids time", () => {
+    const store = new ProfileStore(new Db(":memory:"));
+    const guest = store.create({ name: "Visitor", kind: "guest" });
+    expect(guest).toMatchObject({ name: "Visitor", kind: "guest", maxCertification: "12", channelCategories: [] });
+    // Nothing picked yet: the usual Guest sections apply.
+    expect(guestSections(guest)).toEqual([...GUEST_SECTIONS]);
+    expect(store.update(guest.id, { guestFeatures: ["live", "films"] })?.guestFeatures).toEqual(["live", "films"]);
+    // A Guest never gets the adult's key.
+    expect(store.resolve(guest.id, undefined).admin).toBe(false);
+  });
+
+  it("filters only adult-rated titles out for a Guest", () => {
+    const guest: Profile = { id: "g", name: "Guest", kind: "guest", colour: "#fff", hasPin: false, maxCertification: "12", channelCategories: [], allowedChannels: [] };
+    const f = new ContentFilter(guest);
+    expect(f.title({ certification: "U", genres: [] })).toBe(true);
+    expect(f.title({ certification: "PG", genres: [] })).toBe(true);
+    expect(f.title({ certification: "12", genres: [] })).toBe(true);
+    expect(f.title({ certification: "12A", genres: [] })).toBe(false);
+    expect(f.title({ certification: "15", genres: [] })).toBe(false);
+    expect(f.title({ certification: "18", genres: [] })).toBe(false);
+    // Unrated isn't adult-rated, so it stays.
+    expect(f.title({ genres: ["Drama"] })).toBe(true);
+    expect(f.ref({ id: "x", kind: "movie", name: "X", certification: "18" })).toBe(false);
+    // Guests see every channel, unlike Kids.
+    expect(f.channel({ id: "bbc-one", category: "entertainment" } as never)).toBe(true);
+    expect(f.jellyfinMaxRating()).toBe("12");
+  });
+});
+
+describe("Guest sections", () => {
+  it("keeps settings, recordings and downloads off the list whatever else is allowed", () => {
+    for (const route of ["/api/settings", "/api/settings/iptv", "/api/recordings", "/api/recordings/abc/watched", "/api/downloads", "/api/downloads/x", "/api/series-links", "/api/reminders", "/api/continue/x/hide", "/api/watchlist", "/api/favourites", "/api/search/history", "/api/queue"]) {
+      expect(guestRouteSection(route), route).toBe("never");
+    }
+  });
+
+  it("maps the sections a Guest may be given back to their API routes", () => {
+    expect(guestRouteSection("/api/guide")).toBe("live");
+    expect(guestRouteSection("/api/channels/bbc-one/programmes")).toBe("live");
+    expect(guestRouteSection("/api/programmes/p1")).toBe("live");
+    expect(guestRouteSection("/api/browse/movie")).toBe("films");
+    expect(guestRouteSection("/api/browse/series")).toBe("shows");
+    expect(guestRouteSection("/api/music/login")).toBe("music");
+    expect(guestRouteSection("/api/search")).toBe("search");
+    expect(guestRouteSection("/api/cast")).toBe("cast");
+    expect(guestRouteSection("/api/weather")).toBe("weather");
+    expect(guestRouteSection("/api/mix-channels")).toBe("mix");
+    expect(guestRouteSection("/api/clips")).toBe("clips");
+    expect(guestRouteSection("/api/home")).toBeNull();
+  });
+
+  it("falls back to the usual sections when a Guest has none of its own", () => {
+    expect(guestSections(undefined)).toEqual([...GUEST_SECTIONS]);
+    expect(guestSections({ guestFeatures: [] })).toEqual([...GUEST_SECTIONS]);
+    expect(guestSections({ guestFeatures: ["live"] })).toEqual(["live"]);
+    expect(guestAllows({ guestFeatures: ["live"] }, "live")).toBe(true);
+    expect(guestAllows({ guestFeatures: ["live"] }, "films")).toBe(false);
+    // Settings, recordings and downloads are never on the list.
+    expect(GUEST_SECTIONS).not.toContain("recordings");
+    expect(GUEST_SECTIONS).not.toContain("downloads");
+  });
 });
 
 describe("PinLimiter", () => {
@@ -292,6 +355,88 @@ describe("profiles over the API", () => {
     expect(list.admin).toBe(false);
     expect(list.profiles.find((p) => p.id === "family")?.hasPin).toBe(true);
     expect(JSON.stringify(list)).not.toMatch(/pinHash|pinSalt/);
+  });
+
+  // Adding or changing a profile still needs an adult; the PIN went on in the test above.
+  const asAdult = async () => ({ "x-profile-token": (await app.inject({ method: "POST", url: "/api/profiles/admin-unlock", payload: { pin: "2468" } })).json<{ token: string }>().token });
+
+  it("keeps a Guest to a 12 limit and out of settings, recordings and downloads", async () => {
+    const created = await app.inject({ method: "POST", url: "/api/profiles", payload: { name: "Visitor", kind: "guest" }, headers: await asAdult() });
+    expect(created.statusCode).toBe(201);
+    const visitor = created.json<Profile>();
+    expect(visitor).toMatchObject({ name: "Visitor", kind: "guest", maxCertification: "12" });
+    const guest = { "x-profile": visitor.id };
+
+    // The Hub says no, rather than the screens hiding the buttons.
+    expect((await app.inject({ method: "PUT", url: "/api/settings", payload: {}, headers: guest })).statusCode).toBe(403);
+    expect((await app.inject({ method: "GET", url: "/api/recordings", headers: guest })).statusCode).toBe(403);
+    expect((await app.inject({ method: "GET", url: "/api/downloads", headers: guest })).statusCode).toBe(403);
+    expect((await app.inject({ method: "DELETE", url: "/api/recordings/whatever", headers: guest })).statusCode).toBe(403);
+    expect((await app.inject({ method: "POST", url: "/api/downloads", payload: { kind: "title", id: "demo:movie:copper-sky" }, headers: guest })).statusCode).toBe(403);
+
+    // Every channel plays, unlike Kids.
+    expect((await app.inject({ method: "POST", url: "/api/play", payload: { kind: "channel", id: "bbc-one" }, headers: guest })).statusCode).toBe(200);
+
+    const items = [
+      { id: "a", title: { id: "t1", kind: "movie", name: "Paper Moons", certification: "U" } },
+      { id: "b", title: { id: "t2", kind: "movie", name: "Copper Sky", certification: "15" } },
+      { id: "c", channelId: "cbeebies" },
+      { id: "d", channelId: "bbc-one" },
+      { id: "e", title: { id: "t3", kind: "movie", name: "Unrated", genres: ["Drama"] } },
+      { id: "f" },
+    ];
+    const allowed = (await app.inject({ method: "POST", url: "/api/offline/allowed", payload: { items }, headers: guest })).json<{ allowed: string[] }>();
+    // "f" has neither a title nor a channel to rate, so it stays off, as it does for Kids.
+    expect(allowed.allowed).toEqual(["a", "c", "d", "e"]);
+  });
+
+  it("keeps a Guest's own pick of sections, and never lets recordings or downloads in", async () => {
+    const created = (await app.inject({ method: "POST", url: "/api/profiles", payload: { name: "Visitor", kind: "guest" }, headers: await asAdult() })).json<Profile>();
+    // Settings › Profiles offers the sections that are not forbidden; the Hub drops any that are.
+    const patched = await app.inject({ method: "PATCH", url: `/api/profiles/${created.id}`, payload: { guestFeatures: ["films", "recordings", "downloads", "nonsense"] }, headers: await asAdult() });
+    expect(patched.statusCode).toBe(200);
+    expect(patched.json<Profile>().guestFeatures).toEqual(["films"]);
+    // An empty pick goes back to the usual ones rather than to nothing at all.
+    expect((await app.inject({ method: "PATCH", url: `/api/profiles/${created.id}`, payload: { guestFeatures: [] }, headers: await asAdult() })).json<Profile>().guestFeatures).toBeUndefined();
+    // An adult's sections are nobody else's business, and a Guest can't change its own.
+    const guest = { "x-profile": created.id };
+    expect((await app.inject({ method: "PATCH", url: `/api/profiles/${created.id}`, payload: { guestFeatures: ["live"] }, headers: guest })).statusCode).toBe(403);
+  });
+
+  it("only gives a Guest the sections it was given", async () => {
+    const created = (await app.inject({ method: "POST", url: "/api/profiles", payload: { name: "Babysitter", kind: "guest" }, headers: await asAdult() })).json<Profile>();
+    expect((await app.inject({ method: "PATCH", url: `/api/profiles/${created.id}`, payload: { guestFeatures: ["live"] }, headers: await asAdult() })).statusCode).toBe(200);
+    const guest = { "x-profile": created.id };
+    expect((await app.inject({ url: "/api/guide", headers: guest })).statusCode).toBe(200);
+    expect((await app.inject({ url: "/api/browse/movie", headers: guest })).statusCode).toBe(403);
+    expect((await app.inject({ url: "/api/search?q=copper", headers: guest })).statusCode).toBe(403);
+  });
+
+  it("never adds a Guest's watching to the household's history", async () => {
+    const created = (await app.inject({ method: "POST", url: "/api/profiles", payload: { name: "Visitor", kind: "guest" }, headers: await asAdult() })).json<Profile>();
+    const guest = { "x-profile": created.id };
+    const before = (await app.inject({ url: "/api/home" })).json<HomeScreen>();
+    const continueRail = before.rails.find((r) => r.id === "continue");
+    expect(continueRail).toBeDefined();
+
+    // The player reports where it got to, as it always does...
+    const key = "title:demo:movie:copper-sky";
+    const household = app.hub.progress.get(key);
+    expect(household?.positionMs).toBe(48 * 60_000);
+    expect((await app.inject({ method: "POST", url: "/api/progress", payload: { key, positionMs: 60_000, durationMs: 600_000, event: "progress" }, headers: guest })).statusCode).toBe(200);
+    // ...and for a Guest nothing is written, so there is nothing to clear later and the
+    // household's own place is left alone.
+    expect(app.hub.progress.get(key)).toEqual(household);
+
+    // A Guest sees no Continue watching or "Because you watched", even though the household has some.
+    const after = (await app.inject({ url: "/api/home", headers: guest })).json<HomeScreen>();
+    expect(after.rails.map((r) => r.id)).not.toContain("continue");
+    expect(after.rails.map((r) => r.id)).not.toContain("because");
+    expect(after.rails.map((r) => r.id)).not.toContain("recordings");
+
+    // The household's own Continue watching is untouched.
+    const family = (await app.inject({ url: "/api/home" })).json<HomeScreen>();
+    expect(family.rails.find((r) => r.id === "continue")?.items).toEqual(continueRail?.items);
   });
 
   // Last: it leaves the TV locked out, which would get in the way of the tests above.

@@ -8,6 +8,7 @@ import { adSkipSettings } from "./adskip.js";
 import { catchupUrl } from "./catchup.js";
 import type { HubContext } from "./context.js";
 import { type Library, NotAllowedError } from "./library.js";
+import { guestAllows, guestPlaybackSection } from "./guest.js";
 import { type ContentFilter, NO_FILTER } from "./profiles.js";
 import { LiveRelay } from "./relay.js";
 import { ticksToMs } from "./services/jellyfin.js";
@@ -45,7 +46,7 @@ export class Playback {
   ) {}
 
   async resolve(req: PlaybackRequest & { force?: boolean }, hubBase: string, f: ContentFilter = NO_FILTER, pc: PlayContext = {}): Promise<PlaybackInfo> {
-    if (f.kids) this.check(req, f);
+    if (f.limited) this.check(req, f);
     switch (req.kind) {
       case "channel":
         return this.channel(req.id, hubBase, req.force ?? false, pc);
@@ -94,8 +95,13 @@ export class Playback {
     await this.titleStreams(req.id, req.episodeId);
   }
 
-  /** Kids profiles can only play allowed channels, and programmes and recordings from them. */
+  /** Kids and Guests can only play allowed channels, and programmes and recordings from them. */
   private check(req: PlaybackRequest, f: ContentFilter): void {
+    if (f.guest) {
+      // Recordings are out, and so is any section this Guest wasn't given.
+      const section = guestPlaybackSection(req.kind);
+      if (section === "never" || (section !== null && !guestAllows(f.profile, section))) throw new NotAllowedError();
+    }
     let channelId: string | undefined;
     if (req.kind === "channel") channelId = req.id;
     else if (req.kind === "catchup") channelId = this.ctx.guide.get(req.id)?.channelId;
@@ -219,13 +225,18 @@ export class Playback {
   }
 
   private async title(req: PlaybackRequest, hubBase: string, f: ContentFilter, force = false, pc: PlayContext = {}): Promise<PlaybackInfo> {
-    if (f.kids) await this.library.details(req.id, f);
+    if (f.limited) await this.library.details(req.id, f);
     const ep = req.episodeId ? episodeNumbers(req.episodeId) : undefined;
     const streams = await this.titleStreams(req.id, req.episodeId);
     const chosen = req.streamId ? streams.find((s) => s.id === req.streamId) : (streams.find((s) => s.ready) ?? streams[0]);
     if (!chosen) throw new PlaybackError("Nothing to play this from yet. Try again later, or check your sources in Settings.", "unavailable");
 
     const details = await this.library.details(req.id);
+    if (f.guest) {
+      // A Guest only gets the sections it was given: films, shows, or neither.
+      const section = guestPlaybackSection(req.kind, details.kind === "series" ? "series" : "movie");
+      if (section === "never" || (section !== null && !guestAllows(f.profile, section))) throw new NotAllowedError();
+    }
     const info: PlaybackInfo = {
       url: chosen.url,
       title: details.name,
@@ -317,6 +328,8 @@ export class Playback {
     if (ep && info.subtitle) about.subtitle = info.subtitle;
     if (info.next?.episodeId) about.next = { episodeId: info.next.episodeId, name: info.next.name };
     if (this.playing.size > 200) this.playing.clear();
+    // Nothing it watches is kept, and nothing it is shown is the household's place either.
+    if (f.guest) info.startMs = 0;
     this.playing.set(info.progressKey, about);
     if (!info.fps) {
       const fps = /\b(23\.976|24|25|29\.97|50|59\.94|60) ?fps\b/i.exec(chosen.detail ?? "");
@@ -329,7 +342,9 @@ export class Playback {
    * Saves progress, and passes it on to Jellyfin for library items (kept here too, for Continue
    * watching). A stop tells the TV, so Home shows it in Continue watching straight away.
    */
-  async report(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused = false, ref?: TitleRef, at?: number): Promise<void> {
+  async report(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused = false, ref?: TitleRef, at?: number, keepHistory = true): Promise<void> {
+    // A Guest leaves no history: no row here, nothing passed on to Jellyfin, no Continue watching.
+    if (!keepHistory) return;
     await this.save(key, positionMs, durationMs, event, paused, ref, at);
     if (event === "stop") this.ctx.events.emit({ type: "progress.changed" });
   }

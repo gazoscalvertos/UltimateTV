@@ -1,12 +1,34 @@
 # Profiles and the Kids lock
 
-The TV starts with two profiles, **Family** (adult) and **Kids**. Add, rename or remove them in **Settings › Profiles and PIN**.
+The TV starts with two profiles, **Family** (adult) and **Kids**. Add, rename or remove them in **Settings › Profiles and PIN**, where a profile can also be a **Guest** (see below).
 
 ## What Kids can see
 
 - **Channels:** only channels in kids' categories (CBBC, CBeebies and the like, from the IPTV playlist's groups). Others are hidden from the guide, Home, search and channel numbers, and can't be tuned.
 - **Films and TV:** only titles rated up to the profile's limit (PG by default, and anything up to 15 in the profile's options). Titles with no rating are shown only if their genres include Kids or Family. Jellyfin titles use Jellyfin's own parental rating.
 - **No settings, no deleting recordings, no downloads, no series link changes.** The Hub refuses these for a Kids profile even if someone tries from a browser.
+
+## A Guest profile
+
+A Guest is for visitors and babysitters: someone who should be able to watch without explaining the
+PIN or filling an adult profile with their viewing. Add one in **Settings › Profiles and PIN › Add a
+profile › Guest**. It shows in **Who's watching?** as **Guest · up to 12**.
+
+- **Rated like a Kids profile, but for adults:** titles rated up to its limit (12 to start, and
+  anything up to 15 in its options). Unlike Kids, anything unrated is allowed, and every channel is
+  in the guide.
+- **Its own sections:** **Settings › Profiles and PIN › [the Guest] › What a Guest can use** picks
+  which sections it has, out of everything except Recordings and Downloads, which a Guest never has.
+  **Use the usual sections again** puts back the default list (live TV, films, shows, music, search,
+  cast, weather, music video channels and clips).
+- **Nothing it watches is kept.** The player still reports where it got to, as it always does, but
+  for a Guest nothing is written: no Continue watching, no "Because you watched", no Jellyfin
+  progress, and its Home leaves the household's history rails out. Marking something watched
+  doesn't stick. There is nothing to clear at the end of the visit because nothing was ever saved.
+- **No settings, and no recordings or downloads:** the Hub refuses them for a Guest even if someone
+  tries from a browser or the phone, exactly as it does for Kids.
+
+If a profile that was a Guest is changed back to an adult, its section pick is ignored.
 
 ## TV time and bedtime
 
