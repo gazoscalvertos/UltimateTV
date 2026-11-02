@@ -1,13 +1,16 @@
 package tv.ultimate.remote;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -57,6 +60,7 @@ public class MainActivity extends Activity {
     private static final int BG = Color.rgb(7, 11, 20);
     private static final int VOICE_REQUEST = 1;
     private static final int FILE_REQUEST = 2;
+    private static final int NOTIFICATION_REQUEST = 3;
 
     private SharedPreferences prefs;
     private WebView web;
@@ -75,6 +79,27 @@ public class MainActivity extends Activity {
         hub = prefs.getString("hub", null);
         if (hub == null) showSetup(null);
         else showRemote();
+        askForNotifications();
+    }
+
+    /**
+     * Android 13+ hides notifications until the phone's owner agrees, so ask once, when the app is
+     * first opened. Refusing only costs the shade's player: the tile and the widget still work.
+     */
+    private void askForNotifications() {
+        if (Build.VERSION.SDK_INT < 33) return;
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return;
+        try {
+            requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
+        } catch (Exception ignored) {
+            // Some phones' settings forbid it; the app works without.
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == NOTIFICATION_REQUEST) NowPlayingService.start(this);
     }
 
     private void showSetup(String error) {
@@ -200,9 +225,19 @@ public class MainActivity extends Activity {
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) showSetup("Couldn't open the remote at " + hub + ". Is the Hub running?");
             }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                // The Hub has now given this phone its cookie: keep a copy the notification, the tile
+                // and the widget can use when the page isn't open.
+                Hub.rememberCookie(MainActivity.this);
+                RemoteWidget.refresh(MainActivity.this, NowPlayingService.last());
+            }
         });
         web.loadUrl(page);
         setContentView(web);
+        // Have the shade show what the TV is playing from now on, even after leaving the app.
+        NowPlayingService.start(this);
     }
 
     /** Lets the remote page offer "Change Hub" and voice control. */
@@ -289,6 +324,8 @@ public class MainActivity extends Activity {
         super.onPause();
         // The pairing cookie is written to disk now rather than later, in case the app is closed.
         CookieManager.getInstance().flush();
+        // And a copy of it for the notification, tile and widget, which run without this page.
+        Hub.rememberCookie(this);
     }
 
     private void startListening() {

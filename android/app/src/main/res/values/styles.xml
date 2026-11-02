@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The d-pad and the other keys: a dark key that reads at a glance on a home screen. -->
+    <style name="WidgetKey">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minWidth">44dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:paddingLeft">8dp</item>
+        <item name="android:paddingRight">8dp</item>
+        <item name="android:background">#3A4A63</item>
+        <item name="android:layout_margin">2dp</item>
+    </style>
+
+    <!-- A colour key: the colour is set per view. -->
+    <style name="WidgetDot">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">18dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_margin">2dp</item>
+    </style>
+</resources>

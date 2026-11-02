@@ -3,6 +3,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- What's playing in the shade (Android 13+ asks the phone's owner for this). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- The notification lives as long as the TV is playing. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <!-- Voice control hands off to the phone's speech recogniser (Android 11+ hides it otherwise). -->
     <queries>
@@ -28,5 +33,35 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- What the TV is playing, in the phone's shade. -->
+        <service
+            android:name=".NowPlayingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Play/pause in the Quick Settings shade. -->
+        <service
+            android:name=".RemoteTile"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- The remote, on the home screen. -->
+        <receiver
+            android:name=".RemoteWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
     </application>
 </manifest>
