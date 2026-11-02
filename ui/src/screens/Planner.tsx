@@ -2,7 +2,7 @@
 // downloads to the NAS.
 
 import { createMemo, createResource, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js";
-import type { Download, Recording, Reminder, SeriesLink } from "@ultimatetv/shared";
+import type { Conflict, Download, Recording, Reminder, SeriesLink } from "@ultimatetv/shared";
 import { clockTime, dayLabel, episodeLabel, formatBytes } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { choose, confirm } from "../components/Dialog";
@@ -10,6 +10,7 @@ import { Icon } from "../components/Icon";
 import { Progress } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
+import { clashOptions, clashTitle, clashCancel, KEEP_ALL, type ClashPick } from "../clashes";
 import { canDownload, downloadLabel, downloadOf, downloadToBox, recordingRequest } from "../downloads";
 import { useHints } from "../hints";
 import { useKeys } from "../keys";
@@ -96,6 +97,29 @@ export function Planner(props: { tab?: PlannerTab }) {
     if (await confirm(`Remove the reminder for ${r.programme.title}?`, `It's on ${reminderWhen(r).toLowerCase()} on ${r.channelName}. You can set it again from the TV guide.`, "Remove reminder")) {
       await act(() => hub.deleteReminder(r.id), "Reminder removed");
     }
+  };
+
+  /**
+   * A clash says "choose which one to keep", so this is the choosing: pick the recording to keep and
+   * cancel the rest, or keep them all and let the Hub record what it can.
+   */
+  const clashMenu = async (c: Conflict) => {
+    const pick = await choose<ClashPick>({
+      title: clashTitle(c),
+      message: c.message,
+      options: clashOptions(c),
+    });
+    if (pick === undefined) return;
+    if (pick === KEEP_ALL) {
+      toast("Kept all of them: the Hub records as many as the connection allows");
+      return;
+    }
+    const keep = c.recordings.find((r) => r.id === pick);
+    const going = clashCancel(c, [pick]);
+    if (!keep || !going.length) return;
+    if (!(await confirm(`Keep ${keep.programme.title}?`, `${going.length === 1 ? "The other recording is" : `The other ${going.length} recordings are`} cancelled. You can set them again from the TV guide.`, "Keep this one", true))) return;
+    for (const id of going) await act(() => hub.deleteRecording(id));
+    toast(`Keeping ${keep.programme.title}`);
   };
 
   /** How many episodes of a link to keep: what the planner shows, and what housekeeping enforces. */
@@ -186,13 +210,14 @@ export function Planner(props: { tab?: PlannerTab }) {
 
         <For each={data()?.conflicts ?? []}>
           {(c) => (
-            <div class="conflict" data-row>
+            <button class="conflict" data-row data-focus onClick={() => void clashMenu(c)}>
               <Icon name="info" />
               <div>
                 <strong>Clash at {clockTime(c.start)} {dayLabel(c.start).toLowerCase()}</strong>
                 <p>{c.message}</p>
               </div>
-            </div>
+              <span class="list-side">Choose</span>
+            </button>
           )}
         </For>
 
