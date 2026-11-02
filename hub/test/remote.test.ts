@@ -51,6 +51,19 @@ describe("the phone remote's pages", () => {
     expect(js.slice(js.indexOf("async function savedFor"), js.indexOf("async function showRecordings"))).toContain("hasPin");
   });
 
+  it("says on the row when a saved title is next on, and offers Record and Remind", () => {
+    const saved = js.slice(js.indexOf("async function showSaved"), js.indexOf("async function showRecordings"));
+    // The Hub works the airing out and sends it ready to show: "On Film4 · Sat 21:00".
+    expect(saved, "the Saved row no longer shows the next airing").toContain("s.next");
+    expect(saved, "the airing should be shown as the Hub words it").toMatch(/esc\(on\.when\)/);
+    // One press records it or sets a reminder, through the routes the TV uses, so Kids limits and
+    // the music-channel rule are applied by the Hub rather than by the phone.
+    expect(saved, "Record should post the airing's programme").toMatch(/post\("\/api\/recordings",\s*\{\s*programmeId:\s*on\.programmeId\s*\}\)/);
+    expect(saved, "Remind should post the airing's programme").toMatch(/post\("\/api\/reminders",\s*\{\s*programmeId:\s*on\.programmeId\s*\}\)/);
+    // A title with nothing coming up keeps the row exactly as it was.
+    expect(saved).toContain("Looking for it…");
+  });
+
   it("hides the Saved tab when the household turns the list's features off", () => {
     const recordings = js.slice(js.indexOf("recordings: ["), js.indexOf("downloads: ["));
     expect(recordings, "the Saved button is not in the feature-off map").toContain('[data-browse="saved"]');

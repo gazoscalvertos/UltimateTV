@@ -17,7 +17,9 @@ import { continueOptions, undoLabel, type ContinuePick } from "../continueWatchi
 import { castSettings } from "../cast";
 import { HomeWeather } from "../components/HomeWeather";
 import { featureOn, shownRails, titleShown } from "../features";
-import type { TitleRef } from "@ultimatetv/shared";
+import type { TitleRef, WatchItem } from "@ultimatetv/shared";
+
+type SavedPick = "record" | "remind" | "open";
 
 export function Home() {
   const [home, { refetch }] = createResource(() => hub.home());
@@ -54,6 +56,50 @@ export function Home() {
         await hub.hideFromContinue(t.id, true);
         toast(undoLabel(t), "good", { label: "Undo", run: () => void hub.hideFromContinue(t.id, false) });
       } else return;
+      void refetch();
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+
+  // Options on a Saved for later card (issue #74): when the guide knows the title is on again the
+  // menu offers one-press Record and Remind, so the list turns into something that records itself.
+  // The airing lives on the saved item rather than the card, so it's fetched when the menu opens
+  // (Details has its own Save toggle, which is where a title with nothing coming up goes).
+  const pickSaved = async (t: TitleRef) => {
+    // A Saved for later card only ever carries a subtitle when the Hub found an airing for it, so
+    // anything else opens the title as it always did, without an ask.
+    if (!t.subtitle?.startsWith("On ")) return nav.push({ name: "details", id: t.id });
+    let item: WatchItem | undefined;
+    try {
+      item = (await hub.watchlist()).items.find((i) => i.title?.id === t.id);
+    } catch (err) {
+      errorToast(err);
+      return;
+    }
+    const next = item?.next;
+    if (!next) return nav.push({ name: "details", id: t.id });
+    const pick = await choose<SavedPick>({
+      title: t.name,
+      message: next.when,
+      ...(t.backdrop ?? t.poster ? { image: (t.backdrop ?? t.poster)! } : {}),
+      options: [
+        { label: "Record it", value: "record", icon: "record", detail: `${next.channelName} · Red` },
+        { label: "Remind me", value: "remind", icon: "bell", detail: `${next.when} · Green` },
+        { label: "Open", value: "open", icon: "info" },
+      ],
+      // Red records, Green reminds, as the rest of the app does for a programme (#74).
+      keys: { red: "record", green: "remind" },
+    });
+    try {
+      if (pick === "record") {
+        await hub.record(next.programmeId);
+        toast(`${t.name} is set to record on ${next.channelName}.`, "good");
+      } else if (pick === "remind") {
+        await hub.remind(next.programmeId);
+        toast(`We'll remind you about ${t.name} · ${next.when.replace(/^On /, "")}.`, "good");
+      } else if (pick === "open") nav.push({ name: "details", id: t.id });
+      else return;
       void refetch();
     } catch (err) {
       errorToast(err);
@@ -103,7 +149,15 @@ export function Home() {
           </Show>
           <QueueRow />
           <For each={shownRails(home()!.rails)}>
-            {(rail) => (rail.id === "continue" ? <RailRow rail={rail} onPick={(t) => void pickContinue(t)} /> : <RailRow rail={rail} />)}
+            {(rail) =>
+              rail.id === "continue" ? (
+                <RailRow rail={rail} onPick={(t) => void pickContinue(t)} />
+              ) : rail.id === "watchlist" ? (
+                <RailRow rail={rail} onPick={(t) => void pickSaved(t)} />
+              ) : (
+                <RailRow rail={rail} />
+              )
+            }
           </For>
         </Show>
       </div>

@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **Save for later says when a saved title is next on TV** ([docs/everyday-extras.md](docs/everyday-extras.md#save-for-later)): the Hub matches each saved title against the next fortnight of the guide and the card says where and when ("On Film4 · Sat 21:00") where the year normally goes, on Home and on the phone's Saved tab. Pressing the card on the TV offers Record it and Remind me in one press, and the phone row grows a record and a bell button. Matching is on the title and, when both sides know it, the year, so a saved Dune (2021) doesn't claim Dune: Part Two; only channels that profile could watch are suggested, and music video channels are left out. (#74)
+  Household: the Saved for later list now tells you when something is on telly, and records it for you in one press.
+
 - **Home shows the rows each profile wants, in its own order** ([docs/profiles.md](docs/profiles.md#rows-on-home)): Settings › Rows on Home lists every Home row with a switch and up and down, with Simple Home (Live now, Continue watching and Recently recorded) and Everything to start from. The same list is on a phone at `/setup/`, where you also pick which profile you're changing. Each profile's list is kept on the Hub and forgotten when the profile goes. A row that's switched off is never fetched — no Continue watching row means no ask to Jellyfin for it — so Home opens faster. (#99)
   Household: everyone can choose the rows they see on Home, and take away the ones they never watch.
 

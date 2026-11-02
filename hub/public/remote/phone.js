@@ -1392,7 +1392,8 @@
 
   // Saved for later: the household's list and the TV profile's own, which the Hub sends as one
   // list, already filtered like the TV's when that's a Kids profile. Tap a row to open it, ▶ plays
-  // it on the TV, + adds it to the queue and ✕ takes it off the list.
+  // it on the TV, + adds it to the queue and ✕ takes it off the list. When the guide knows the
+  // title is on again the row says so ("On Film4 · Sat 21:00") and offers Record and Remind.
   async function showSaved() {
     const profile = await savedFor();
     const { items } = await get("/api/watchlist", profile);
@@ -1403,7 +1404,9 @@
       .map((s, i) => {
         const t = s.title;
         const art = t?.poster ?? t?.backdrop;
-        return `<div class="ep-row"><button class="item" data-wi="${i}"><span class="logo">${art ? `<img src="${esc(art)}" alt="" loading="lazy" style="object-fit:cover;width:100%;height:100%">` : "♡"}</span><span class="text"><b>${esc(s.name)}</b>${s.year ? `<span>${esc(s.year)}</span>` : ""}<small>${t ? "Tap to open" : "Looking for it…"}</small></span></button>${t ? `<button class="qbtn" data-wplay="${i}" aria-label="Play on TV">▶</button><button class="qbtn" data-wq="${i}" aria-label="Add to queue">+</button>` : ""}<button class="qbtn danger" data-wx="${i}" aria-label="Take off the list">✕</button></div>`;
+        const on = s.next;
+        const sub = on ? esc(on.when) : t ? "Tap to open" : "Looking for it…";
+        return `<div class="ep-row"><button class="item" data-wi="${i}"><span class="logo">${art ? `<img src="${esc(art)}" alt="" loading="lazy" style="object-fit:cover;width:100%;height:100%">` : "♡"}</span><span class="text"><b>${esc(s.name)}</b>${s.year ? `<span>${esc(s.year)}</span>` : ""}<small>${sub}</small></span></button>${on ? `<button class="qbtn" data-wrec="${i}" aria-label="Record ${esc(on.when)}">●</button><button class="qbtn" data-wrem="${i}" aria-label="Remind me ${esc(on.when)}">🔔</button>` : ""}${t ? `<button class="qbtn" data-wplay="${i}" aria-label="Play on TV">▶</button><button class="qbtn" data-wq="${i}" aria-label="Add to queue">+</button>` : ""}<button class="qbtn danger" data-wx="${i}" aria-label="Take off the list">✕</button></div>`;
       })
       .join("")}</div>`;
     const act = (fn) => fn().then(showSaved, (e) => toast(e.message, true));
@@ -1419,6 +1422,14 @@
       const t = items[Number(b.dataset.wq)].title;
       const art = t.poster ?? t.backdrop;
       b.onclick = () => queueIt({ req: { kind: "title", id: t.id }, title: t, name: t.name, ...(t.year ? { subtitle: String(t.year) } : {}), ...(art ? { image: art } : {}) });
+    }
+    for (const b of body.querySelectorAll("[data-wrec]")) {
+      const on = items[Number(b.dataset.wrec)].next;
+      b.onclick = () => act(() => post("/api/recordings", { programmeId: on.programmeId }).then(() => toast(`${items[Number(b.dataset.wrec)].name} is set to record`)));
+    }
+    for (const b of body.querySelectorAll("[data-wrem]")) {
+      const on = items[Number(b.dataset.wrem)].next;
+      b.onclick = () => act(() => post("/api/reminders", { programmeId: on.programmeId }).then(() => toast(`We'll remind you about ${items[Number(b.dataset.wrem)].name}`)));
     }
     for (const b of body.querySelectorAll("[data-wx]")) b.onclick = () => act(() => del(`/api/watchlist/${encodeURIComponent(items[Number(b.dataset.wx)].id)}`, profile));
   }

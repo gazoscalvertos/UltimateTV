@@ -44,9 +44,18 @@ export interface ChoiceOption<T> {
   detail?: string;
 }
 
-export function choose<T>(o: { title: string; message?: string; image?: string; options: ChoiceOption<T>[] }): Promise<T | undefined> {
+/** `keys` makes a colour key pick an option, for the few menus whose options have a button of their own. */
+export function choose<T>(o: { title: string; message?: string; image?: string; options: ChoiceOption<T>[]; keys?: Partial<Record<Action, T>> }): Promise<T | undefined> {
   return openDialog<T>((close) => (
-    <DialogFrame close={() => close()}>
+    <DialogFrame
+      close={() => close()}
+      onKey={(a) => {
+        const pick = o.keys?.[a];
+        if (pick === undefined) return false;
+        close(pick);
+        return true;
+      }}
+    >
       <Show when={o.image}>
         <img class="dialog-image" src={o.image} alt="" />
       </Show>

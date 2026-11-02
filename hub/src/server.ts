@@ -1210,6 +1210,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       return { profileId: who.profile?.id ?? null, filter: who.filter };
     },
     (q, f) => library.search(q, Date.now(), f),
+    ctx.nextAirings,
   );
 
   // Taking a title off Continue watching, for this profile: the TV's Options menu and the phone.
@@ -1504,7 +1505,16 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const showing = ctx.homeRows.visible(profileId);
     const home = await library.home(Date.now(), who.filter, showing);
     // The watchlist ("Save for later") goes after Continue watching, or first when there's none.
-    const saved = showing.includes("watchlist") ? watchlist.list(profileId).filter((i) => i.title && who.filter.ref(i.title)).map((i) => i.title!) : [];
+    // Each saved card says when the title is next on telly ("On Film4 · Sat 21:00", #74): the
+    // airing rides on a copy of the title's subtitle, and the stored one is never touched.
+    const savedItems = showing.includes("watchlist") ? watchlist.list(profileId) : [];
+    const nextByItem = ctx.nextAirings.find(savedItems, who.filter);
+    const saved = savedItems
+      .filter((i) => i.title && who.filter.ref(i.title))
+      .map((i) => {
+        const when = nextByItem.get(i.id)?.when;
+        return when ? { ...i.title!, subtitle: when } : i.title!;
+      });
     if (saved.length) {
       const at = home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0);
       home.rails.splice(at, 0, { id: "watchlist", title: "Saved for later", kind: "titles", items: saved.slice(0, 30) });

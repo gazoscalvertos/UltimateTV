@@ -162,6 +162,23 @@ export class GuideStore {
     return this.db.json<Programme>("SELECT data FROM programmes WHERE start >= ? AND start < ? ORDER BY start", from, to);
   }
 
+  /**
+   * Programmes on channels that aren't hidden whose title normalises to one of `titles`, earliest
+   * first. Exact matching on `title_norm` rather than a LIKE: a saved "Dune" must not claim
+   * "Dune: Part Two" as its next airing (#74).
+   */
+  byTitles(titles: string[], from: number, to: number, limit = 4000): Programme[] {
+    if (!titles.length) return [];
+    const marks = titles.map(() => "?").join(", ");
+    return this.db.json<Programme>(
+      `SELECT p.data FROM programmes p JOIN channels c ON c.id = p.channel_id WHERE c.hidden = 0 AND p.title_norm IN (${marks}) AND p.start >= ? AND p.start < ? ORDER BY p.start LIMIT ?`,
+      ...titles,
+      from,
+      to,
+      limit,
+    );
+  }
+
   search(query: string, from: number, to: number, limit = 40): Programme[] {
     const q = `%${normaliseTitle(query)}%`;
     return this.db.json<Programme>(

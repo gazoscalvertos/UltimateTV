@@ -11,6 +11,7 @@ import type { SearchResult, TitleRef, WatchItem, WatchlistInput } from "@ultimat
 import type { Db } from "./db.js";
 import { newId } from "./db.js";
 import type { EventBus } from "./events.js";
+import type { NextAirings } from "./nextairing.js";
 import type { ContentFilter } from "./profiles.js";
 
 const MAX_ITEMS = 200;
@@ -147,11 +148,14 @@ export function registerWatchlist(
   watchlist: Watchlist,
   who: (req: FastifyRequest) => { profileId: string | null; filter: ContentFilter },
   search: (q: string, f: ContentFilter) => Promise<SearchResult[]>,
+  nextAirings?: NextAirings,
 ): void {
   type Req<B> = FastifyRequest<{ Body: B; Params: { id: string } }>;
   const list = (req: FastifyRequest) => {
     const { profileId, filter } = who(req);
-    return { items: visible(watchlist.list(profileId), filter) };
+    const items = visible(watchlist.list(profileId), filter);
+    // When something saved next turns up on telly, so the phone can say "On Film4 · Sat 21:00".
+    return { items: nextAirings ? nextAirings.attach(items, filter) : items };
   };
   app.get("/api/watchlist", async (req) => {
     const { profileId, filter } = who(req);

@@ -56,6 +56,14 @@ rating allows). A name saved before any source has it ("that film from work") wa
 the title once a search finds it. The phone remote's **Saved** tab shows the same list, with each row
 ready to play on the TV, add to the queue or take off the list ([phone-remote.md](phone-remote.md#watch-on-the-tv)).
 
+When the guide knows a saved title is on again in the next fortnight, the card says so where the
+year normally goes ("On Film4 · Sat 21:00"), and the same line appears on the phone's Saved tab.
+Pressing the card on the TV then offers **Record it** and **Remind me** in one press, and the phone
+tab grows a ● and a 🔔 beside each such row. Only channels that profile could watch count, so a
+Kids profile is told about CBeebies and not Film4, and music video channels are left out. Matching
+is on the title and, when both sides know it, the year: a saved *Dune* (2021) doesn't claim a
+*Dune: Part Two* or the 1984 one.
+
 ## Skip the adverts in recordings
 
 The Hub runs [comskip](https://github.com/erikkaashoek/Comskip) over each new recording (it's built
