@@ -5,7 +5,7 @@
 
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { AccessibilitySettings, Certification, Channel, ChannelCategory, FeatureId, Profile, Programme, TitleDetails, TitleRef } from "@ultimatetv/shared";
-import { CERTIFICATIONS, cleanAccessibility, cleanFeatureList, cleanKidsLimits, DEFAULT_ACCESSIBILITY, GUEST_NEVER, hasKidsLimits, isDefaultAccessibility, SUBTITLE_MODES } from "@ultimatetv/shared";
+import { CERTIFICATIONS, cleanAccessibility, cleanFeatureList, cleanKidsLimits, DEFAULT_ACCESSIBILITY, GUEST_NEVER, hasKidsLimits, isDefaultAccessibility, kidsAllowSays, NO_KIDS_ALLOW_LOOKUP, SUBTITLE_MODES, type KidsAllowKind, type KidsAllowLookup } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 import { newId } from "./db.js";
 
@@ -118,6 +118,9 @@ export class PinLimiter {
     return Math.max(left(profileScope(profileId)), client ? left(clientScope(client)) : 0);
   }
 
+  /** Told about each lockout a wrong PIN causes, so the weekly summary can mention it (issue #110). */
+  onLockout?: (profileId: string, minutes: number, now: number) => void;
+
   /** A wrong PIN counts against the profile and the client. Returns the lockout it caused (0 when none yet). */
   fail(profileId: string, client: string | undefined, now = this.clock()): number {
     const all = this.load(now);
@@ -136,6 +139,7 @@ export class PinLimiter {
       all[key] = a;
     }
     this.save(all);
+    if (wait > 0) this.onLockout?.(profileId, Math.ceil(wait / 60_000), now);
     return wait;
   }
 
@@ -377,6 +381,12 @@ export class ContentFilter {
   constructor(
     readonly profile: Profile | null,
     private readonly favouriteChannels?: ReadonlySet<string>,
+    /**
+     * A parent's allow/block list for this Kids profile (kidsallow.ts). It wins over the rating
+     * either way: an allowed title is shown even when the certificate says no, and a blocked one
+     * is kept back even when the certificate says yes. Adults have none, so this is left out.
+     */
+    private readonly allowList: KidsAllowLookup = NO_KIDS_ALLOW_LOOKUP,
   ) {}
 
   get kids(): boolean {
@@ -398,6 +408,8 @@ export class ContentFilter {
 
   channel(c: Channel): boolean {
     if (!this.limited) return true;
+    const said = kidsAllowSays(this.allowList, "channel", c.id, c.name);
+    if (said) return said === "allow";
     // Kids with no categories picked means kids' channels; a Guest with none means all of them.
     const cats: ChannelCategory[] = this.profile!.channelCategories.length ? this.profile!.channelCategories : this.kids ? ["kids"] : [];
     if (!cats.length) return true;
@@ -419,8 +431,16 @@ export class ContentFilter {
    * Titles need a rating within the limit. Kids also want a family/animation genre when unrated
    * (anything unrated could be an adult cartoon); a Guest is stricter only about what is rated.
    */
-  title(d: Pick<TitleDetails, "certification" | "genres">): boolean {
+  title(d: Pick<TitleDetails, "certification" | "genres"> & Partial<Pick<TitleDetails, "id" | "kind" | "name">>): boolean {
     if (!this.limited) return true;
+    // The parent's say-so comes first: it's the answer to "the rating got this one wrong". A
+    // programme id is one showing of something, so it only matches by name — the parent meant the
+    // title, not that airing of it.
+    if (d.id) {
+      const kind: KidsAllowKind = d.kind === "series" ? "series" : "movie";
+      const said = kidsAllowSays(this.allowList, kind, d.id, d.name);
+      if (said) return said === "allow";
+    }
     const rank = certificationRank(d.certification);
     if (rank !== null) return rank <= this.maxRank;
     return this.guest || d.genres.some((g) => KIDS_GENRES.test(g));
@@ -429,7 +449,7 @@ export class ContentFilter {
   /** For lists where only references are known: keep those tagged as suitable. */
   ref(r: TitleRef): boolean {
     if (!this.limited) return true;
-    return this.title({ genres: r.genres ?? [], ...(r.certification ? { certification: r.certification } : {}) });
+    return this.title({ genres: r.genres ?? [], ...(r.certification ? { certification: r.certification } : {}), id: r.id, kind: r.kind, name: r.name });
   }
 
   /** Jellyfin's MaxOfficialRating query value for this profile. */

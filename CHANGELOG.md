@@ -30,6 +30,12 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **A parent can say yes or no to what Kids sees** ([docs/profiles.md](docs/profiles.md#what-a-parent-allows)): the rating limit is blunt — most IPTV titles carry no certificate, and the ones that do were written for another country — so an adult profile gets **Allow for Kids** and **Hide from Kids** on a film, series or channel's page. An allowed title plays even at 15 or 18 and a hidden one is kept back even at U; pressing the button again goes back to the rating. Both lists are on `/setup/` under each Kids profile, matched by the title's id where there is one and by name otherwise (a broadcast's id is one airing), and the Hub enforces them everywhere — Home, the guide, search, favourites, the watchlist and playback — not just on the screen that made the change. (#110)
+  Household: a parent can approve a film the rating would block, or hide one it would allow, for the Kids profile.
+
+- **The week a Kids profile watched, on the phone** ([docs/profiles.md](docs/profiles.md#the-week-a-kids-profile-watched)): `/setup/` shows, under each Kids profile, the last seven days — how long it watched each day, what it played, the week's total, and how many PIN lockouts there were. The minutes come from the same clock the TV time limits use and the titles from what the profile was playing, so a title only on for a minute still shows while the total stays honest. (#110)
+  Household: you can see what the Kids profile has been watching this week without turning the TV on.
+
 - **Save for later says when a saved title is next on TV** ([docs/everyday-extras.md](docs/everyday-extras.md#save-for-later)): the Hub matches each saved title against the next fortnight of the guide and the card says where and when ("On Film4 · Sat 21:00") where the year normally goes, on Home and on the phone's Saved tab. Pressing the card on the TV offers Record it and Remind me in one press, and the phone row grows a record and a bell button. Matching is on the title and, when both sides know it, the year, so a saved Dune (2021) doesn't claim Dune: Part Two; only channels that profile could watch are suggested, and music video channels are left out. (#74)
   Household: the Saved for later list now tells you when something is on telly, and records it for you in one press.
 

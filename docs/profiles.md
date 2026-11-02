@@ -56,6 +56,36 @@ A row that's switched off is **never fetched**, so Home loads faster: a Hub with
 
 Kids start with every row switched on but see fewer of them — its content filter leaves Because you watched, Trending this week and the other discovery rows empty.
 
+## What a parent allows
+
+The rating limit is blunt. Most IPTV films and series carry no certificate at all, the ratings that
+do exist were written for another country's TV, and a genre guess can let an odd title through or
+keep back something harmless. So a parent can say yes or no to one title or one channel, and that
+answer wins over the rating **both ways**.
+
+- **On the TV:** open a film, series or channel's details page as an adult profile and use **Allow
+  for Kids** or **Hide from Kids**. An allowed title is shown and plays even when its certificate is
+  15 or 18; a hidden one is kept back even when it's a U. Pressing the same button again puts it back
+  under the rating.
+- **From a phone:** `/setup/` › **Profiles** has the same two lists for each Kids profile, with
+  **Allow something** and **Hide something** to add by name and **Stop allowing** / **Stop hiding**
+  to take one off.
+- **How it matches:** by the title's own id where there is one, and by its name otherwise, because a
+  broadcast's id is a single airing (`programme:film4:1793600000000`) and the parent meant the film,
+  not that showing of it. The name match ignores case, accents, "The"/"A", "&" and a trailing
+  `(UK)`, `(HD)` or year — so *The Dune (UK)* meets *Dune*, but *Dune: Part Two* doesn't.
+- **Kept on the Hub**, one list per Kids profile, and forgotten when the profile is deleted. Adults
+  have no such lists.
+
+## The week a Kids profile watched
+
+The same `/setup/` page shows, under each Kids profile, **the last seven days**: how long it was
+watched each day, what was played, the week's total, and how many times a PIN was locked out after
+too many wrong tries (see [The PIN](#the-pin)). The titles come from what the profile was playing
+and the minutes from the same clock the TV time limits use, so a title that was only on for a minute
+still shows while the total stays honest. Nothing is sent anywhere unless you have Settings › Alerts
+pointing at Home Assistant or ntfy.
+
 ## TV time and bedtime
 
 Each Kids profile can have a daily allowance and a bedtime: **Settings › Profiles and PIN › Kids ›

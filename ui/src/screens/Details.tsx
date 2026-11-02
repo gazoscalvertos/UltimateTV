@@ -19,7 +19,7 @@ import { addToQueue } from "../queue";
 import { allEpisodes, canDownload, downloadLabel, downloadOf, downloadToBox, episodeRequest, episodesOf, filmRequest } from "../downloads";
 import { canSave, saveEpisodes, saveToNas } from "../save";
 import { isFavouriteTitle, toggleFavouriteTitle } from "../favourites";
-import { errorToast, isKids, nav, openDialog, toast } from "../store";
+import { errorToast, isKids, isLimited, nav, openDialog, toast } from "../store";
 
 const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
 
@@ -142,6 +142,33 @@ export function Details(props: { id: string }) {
         setSaved(r.item);
         toast(`${t.name} saved for later: it's on Home`, "good");
       }
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  // A parent's say-so on what Kids may see (#110). Only an adult profile gets these buttons; the
+  // Hub refuses the change from anyone else whatever the screen shows.
+  const [kidsLists, { refetch: refetchKidsLists }] = createResource(() => (isLimited() ? null : hub.kidsAllow().catch(() => null)));
+  const kidsList = () => kidsLists()?.profiles[0] ?? null;
+  const allowSays = (): "allow" | "block" | null => {
+    const t = d();
+    const list = kidsList()?.list;
+    if (!t || !list) return null;
+    if (list.allow.some((e) => e.id === t.id)) return "allow";
+    if (list.block.some((e) => e.id === t.id)) return "block";
+    return null;
+  };
+  /** What a title's list entry should say: a programme id is one airing, so the name carries it. */
+  const allowEntry = (t: TitleDetails) => ({ id: t.id, kind: t.kind, name: t.name });
+  const setKidsAllow = async (side: "allow" | "block") => {
+    const t = d();
+    const list = kidsList();
+    if (!t || !list) return;
+    try {
+      if (allowSays() === side) await hub.clearKidsAllow(list.profileId, t.kind, t.id);
+      else await hub.setKidsAllow(list.profileId, { side, ...allowEntry(t) });
+      await refetchKidsLists();
+      toast(allowSays() === side ? `${t.name} is ${side === "allow" ? "allowed for" : "hidden from"} ${list.profileName}` : `${t.name} goes by its rating again`, "good");
     } catch (err) {
       errorToast(err);
     }
@@ -422,6 +449,32 @@ export function Details(props: { id: string }) {
                   <button class="btn btn-large btn-favourite" classList={{ selected: liked() }} data-focus aria-pressed={liked()} onClick={toggleLiked}>
                     <Icon name={liked() ? "hearted" : "heart"} /> {liked() ? "Favourite" : "Add to Favourites"}
                   </button>
+                  <Show when={!isLimited() && kidsList()}>
+                    {(list) => (
+                      <button
+                        class="btn btn-large"
+                        classList={{ selected: allowSays() === "allow" }}
+                        data-focus
+                        onClick={() => void setKidsAllow("allow")}
+                        title={`Allow this for ${list().profileName} even if the rating says no`}
+                      >
+                        <Icon name={allowSays() === "allow" ? "check" : "plus"} /> {allowSays() === "allow" ? `Allowed for ${list().profileName}` : `Allow for ${list().profileName}`}
+                      </button>
+                    )}
+                  </Show>
+                  <Show when={!isLimited() && kidsList()}>
+                    {(list) => (
+                      <button
+                        class="btn btn-large"
+                        classList={{ selected: allowSays() === "block" }}
+                        data-focus
+                        onClick={() => void setKidsAllow("block")}
+                        title={`Hide this from ${list().profileName} even if the rating says yes`}
+                      >
+                        <Icon name={allowSays() === "block" ? "eye" : "lock"} /> {allowSays() === "block" ? `Hidden from ${list().profileName}` : `Hide from ${list().profileName}`}
+                      </button>
+                    )}
+                  </Show>
                   <Show when={canDownload() && !isKids() && !(t().kind === "movie" && filmDownload())}>
                     <button class="btn btn-large" data-focus onClick={() => void downloadIt()}>
                       <Icon name="download" /> Download to box

@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -93,6 +93,10 @@ export const hub = {
   kidsTimeOf: (id: string) => api<KidsTimeStatus>(`/api/kids-time/${enc(id)}`),
   kidsReport: (playing: boolean) => api<{ status: KidsTimeStatus | null }>("/api/kids-time/report", { method: "POST", body: { playing } }),
   kidsExtra: (id: string, minutes: number, pin?: string) => api<{ status: KidsTimeStatus }>(`/api/kids-time/${enc(id)}/extra`, { method: "POST", body: { minutes, ...(pin ? { pin } : {}) } }),
+  kidsAllow: () => api<KidsAllowReply>("/api/kids-allow"),
+  setKidsAllow: (id: string, body: { side: "allow" | "block"; id: string; kind: KidsAllowKind; name: string }) => api<{ list: KidsAllowList }>(`/api/kids-allow/${enc(id)}`, { method: "PATCH", body }),
+  clearKidsAllow: (id: string, kind: KidsAllowKind, titleId: string) => api<{ list: KidsAllowList }>(`/api/kids-allow/${enc(id)}/${kind}/${enc(titleId)}`, { method: "DELETE" }),
+  kidsSummary: (id?: string) => api<{ summaries: KidsSummary[] }>(`/api/kids-summary${id ? `?profile=${enc(id)}` : ""}`),
   updateProfile: (id: string, patch: Partial<Omit<Profile, "accessibility" | "limits">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null; limits?: Profile["limits"] | null }) => api<Profile>(`/api/profiles/${enc(id)}`, { method: "PATCH", body: patch }),
   deleteProfile: (id: string) => api<{ ok: true }>(`/api/profiles/${enc(id)}`, { method: "DELETE" }),
 
