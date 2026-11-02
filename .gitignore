@@ -6,6 +6,7 @@ dist/
 /test-clips/
 docker-compose.override.yml
 android/.gradle/
+android/.kotlin/
 android/**/build/
 android/local.properties
 tools/pxe/arch-cache/

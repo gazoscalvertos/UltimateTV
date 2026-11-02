@@ -1,12 +1,14 @@
 plugins {
     id "com.android.application"
-    id "org.jetbrains.kotlin.android"
     id "org.jetbrains.kotlin.plugin.compose"
 }
 
 android {
     namespace "tv.ultimate.client"
-    compileSdk 35
+    // androidx.core 1.19.1 declares minCompileSdk=37 in its AAR metadata, so the client
+    // has to compile against API 37. targetSdk stays 35: this only widens the APIs we
+    // may call, it does not opt the app in to new runtime behaviour.
+    compileSdk 37
 
     defaultConfig {
         applicationId "tv.ultimate.client"
@@ -44,9 +46,6 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
     }
     // Media3's download and extension APIs are marked unstable; we pin the version, so that's fine.
     lint {
