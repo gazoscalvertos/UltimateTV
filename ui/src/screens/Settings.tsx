@@ -15,7 +15,7 @@ import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, previewTheme, profile, setProfile, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 import { Row, Status } from "../components/SettingRow";
-import { AdvertRows, AlertsSection, FeaturesSection, CastSection, RecentChanges, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
+import { AdvertRows, AlertsSection, FeaturesSection, CastSection, HomeRowsSection, RecentChanges, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
 
 /** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
 const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
@@ -606,6 +606,7 @@ export function Settings(props: { section?: string }) {
 
   const SECTIONS = [
     { id: "profiles", label: "Profiles and PIN" },
+    { id: "home", label: "Rows on Home" },
     { id: "playback", label: "Picture and sound" },
     { id: "accessibility", label: "Accessibility" },
     { id: "features", label: "Features on this screen" },
@@ -858,6 +859,10 @@ export function Settings(props: { section?: string }) {
                   );
                 }}
               </Show>
+            </Show>
+
+            <Show when={section() === "home"}>
+              <HomeRowsSection />
             </Show>
 
             <Show when={section() === "features"}>

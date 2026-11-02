@@ -141,7 +141,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -307,10 +307,19 @@
     <form id="profile-add">
       <div class="row">
         <div><label>New profile's name</label><input name="name" autocomplete="off"></div>
-        <div><label>Type</label><select name="kind"><option value="kids">Kids</option><option value="adult">Adult</option></select></div>
+        <div><label>Type</label><select name="kind"><option value="kids">Kids</option><option value="guest">Guest</option><option value="adult">Adult</option></select></div>
       </div>
       <button>Add profile</button>
     </form>
+  </section>
+
+  <section id="homerows">
+    <h2>Rows on Home</h2>
+    <p class="hint">Which rows each profile sees on Home, and in what order. Rows switched off aren't fetched, so Home loads faster. The TV shows changes straight away.</p>
+    <div class="row"><div><label>Profile</label><select id="hr-profile"></select></div></div>
+    <div class="tabs"><button class="small" type="button" id="hr-simple">Simple Home</button><button class="secondary small" type="button" id="hr-everything">Everything</button></div>
+    <p class="hint" id="hr-preset" style="margin:10px 0 0"></p>
+    <ul class="list order" id="hr-list"></ul>
   </section>
 
   <section id="devices">
@@ -1319,6 +1328,64 @@ const arrows = (onUp, onDown) => el("span", { className: "arrows" }, button("↑
 const guideState = { lists: null, channels: [], profiles: [], open: new Set(), drafts: new Map() };
 const chLabel = (c) => `${c.number} ${c.name}`;
 
+// Home rows (#99): which rows each profile sees, and in what order.
+const homeRowsState = { profiles: [], rows: [], preset: "everything", profile: null };
+async function loadHomeRows() {
+  homeRowsState.profiles = (await api("/api/profiles")).profiles;
+  const sel = $("#hr-profile");
+  const keep = homeRowsState.profile || sel.value || homeRowsState.profiles[0]?.id;
+  sel.innerHTML = "";
+  for (const p of homeRowsState.profiles) sel.add(new Option(p.name, p.id, false, p.id === keep));
+  homeRowsState.profile = sel.value || null;
+  renderHomeRows();
+}
+async function renderHomeRows() {
+  const id = homeRowsState.profile;
+  if (!id) {
+    homeRowsState.rows = [];
+    return;
+  }
+  const view = await api(`/api/home/rows?profile=${encodeURIComponent(id)}`);
+  homeRowsState.rows = view.rows;
+  homeRowsState.preset = view.preset;
+  const ul = $("#hr-list");
+  ul.innerHTML = "";
+  const move = (i, d) => {
+    const j = i + d;
+    if (j < 0 || j >= homeRowsState.rows.length) return;
+    const order = homeRowsState.rows.map((r) => r.id);
+    [order[i], order[j]] = [order[j], order[i]];
+    saveHomeRows({ order });
+  };
+  homeRowsState.rows.forEach((r, i) => {
+    const on = el("input", { type: "checkbox", checked: r.on });
+    on.onchange = () => saveHomeRows({ hidden: homeRowsState.rows.filter((x) => (x.id === r.id ? !on.checked : !x.on)).map((x) => x.id) });
+    ul.append(
+      el(
+        "li",
+        { className: r.on ? "" : "off" },
+        el("div", { className: "ch-top" }, el("span", { className: "ch-name" }, r.label, el("small", { textContent: r.detail })), on),
+        el("div", { className: "ch-tools" }, arrows(() => move(i, -1), () => move(i, 1))),
+      ),
+    );
+  });
+  $("#hr-preset").textContent =
+    homeRowsState.preset === "simple" ? "This profile starts from Simple Home: Live, Continue watching and Recently recorded only." : homeRowsState.preset === "custom" ? "This profile has its own list, so Simple Home is off for it." : "Every row is switched on.";
+}
+function saveHomeRows(body) {
+  const id = homeRowsState.profile;
+  if (!id) return;
+  api("/api/home/rows", { method: "PATCH", body: { profile: id, ...body } })
+    .then(() => { toast("Saved"); return renderHomeRows(); })
+    .catch((e) => toast(e.message, true));
+}
+$("#hr-profile").onchange = (e) => {
+  homeRowsState.profile = e.target.value;
+  renderHomeRows().catch((err) => toast(err.message, true));
+};
+$("#hr-simple").onclick = () => saveHomeRows({ preset: "simple" });
+$("#hr-everything").onclick = () => saveHomeRows({ preset: "everything" });
+
 async function loadLists() {
   const [lists, ch, pr] = await Promise.all([api("/api/guides"), api("/api/channels?all=1"), api("/api/profiles")]);
   guideState.lists = lists;
@@ -1463,6 +1530,7 @@ function renderChannels() {
 async function load() {
   loadLists().catch(() => {});
   loadProfiles().catch(() => {});
+  loadHomeRows().catch(() => {});
   loadMix().catch(() => {});
   loadBackup().catch(() => pill("#backup-pill", "Couldn't check"));
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);

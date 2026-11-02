@@ -3,6 +3,7 @@
 
 import type {
   Channel,
+  HomeRowId,
   HomeScreen,
   NowNext,
   Rail,
@@ -83,7 +84,9 @@ export class Library {
     return this.ctx.addons().length ? this.ctx.tmdb() : null;
   }
 
-  async home(now = Date.now(), f: ContentFilter = NO_FILTER): Promise<HomeScreen> {
+  async home(now = Date.now(), f: ContentFilter = NO_FILTER, rows?: HomeRowId[]): Promise<HomeScreen> {
+    // Which rows this profile has switched on (#99): the ones that aren't shown are never fetched.
+    const showing = (id: HomeRowId) => !rows || rows.includes(id);
     const jf = this.ctx.jellyfin();
     const tmdb = this.discovery();
     const channels = f.channels(this.ctx.channels.list());
@@ -92,12 +95,12 @@ export class Library {
 
     const max = f.profile?.maxCertification;
     const [resume, nextUp, latestRaw, trendingRaw, kidsFilms, kidsSeries] = await Promise.all([
-      jf ? jf.resume(12).catch(() => []) : [],
-      jf ? jf.nextUp(12).catch(() => []) : [],
-      jf ? jf.latest("Movie", 16).catch(() => []) : [],
-      tmdb ? tmdb.trending(20).catch(() => []) : [],
-      tmdb && f.kids ? tmdb.discover("movie", "Family", 20, max).catch(() => []) : [],
-      tmdb && f.kids ? tmdb.discover("series", "Kids", 20).catch(() => []) : [],
+      jf && showing("continue") ? jf.resume(12).catch(() => []) : [],
+      jf && showing("nextup") ? jf.nextUp(12).catch(() => []) : [],
+      jf && showing("latest") ? jf.latest("Movie", 16).catch(() => []) : [],
+      tmdb && showing("trending") ? tmdb.trending(20).catch(() => []) : [],
+      tmdb && f.kids && showing("kids-films") ? tmdb.discover("movie", "Family", 20, max).catch(() => []) : [],
+      tmdb && f.kids && showing("kids-series") ? tmdb.discover("series", "Kids", 20).catch(() => []) : [],
     ]);
     const latestMovies = latestRaw.filter((i) => f.ref(jf!.toTitleRef(i)));
     const trending = trendingRaw.filter((t) => f.ref(t));
@@ -108,25 +111,25 @@ export class Library {
     const continueItems = guest ? [] : this.continueWatching(resume, f);
 
     const rails: Rail[] = [];
-    if (liveChannels.length) rails.push({ id: "live", title: "Live now", kind: "channels", items: [], channels: this.nowNextFor(liveChannels, now) });
-    if (continueItems.length) rails.push({ id: "continue", title: "Continue watching", kind: "titles", items: continueItems });
+    if (showing("live") && liveChannels.length) rails.push({ id: "live", title: "Live now", kind: "channels", items: [], channels: this.nowNextFor(liveChannels, now) });
+    if (showing("continue") && continueItems.length) rails.push({ id: "continue", title: "Continue watching", kind: "titles", items: continueItems });
     const allowed = new Set(channels.map((c) => c.id));
     const recent = guest ? [] : this.ctx.recordings.withStatus("completed").filter((r) => !r.watched && allowed.has(r.channelId)).sort((a, b) => b.programme.start - a.programme.start).slice(0, 16);
-    if (recent.length) rails.push({ id: "recordings", title: "Recently recorded", kind: "recordings", items: [], recordings: recent });
-    const because = guest ? null : await this.becauseYouWatched(f).catch(() => null);
+    if (showing("recordings") && recent.length) rails.push({ id: "recordings", title: "Recently recorded", kind: "recordings", items: [], recordings: recent });
+    const because = guest || !showing("because") ? null : await this.becauseYouWatched(f).catch(() => null);
     if (because) rails.push(because);
     // A series already in Continue watching (with its next episode) isn't repeated in Next up.
     const continuing = new Set(continueItems.map(titleKey));
     const nextUpRefs = (guest ? [] : nextUp)
       .map((i) => ({ ...jf!.toTitleRef(i), id: `jellyfin:${i.SeriesId}`, episodeId: `s${i.ParentIndexNumber ?? 0}e${i.IndexNumber ?? 0}` }))
       .filter((t) => f.ref(t) && !continuing.has(titleKey(t)));
-    if (nextUpRefs.length) rails.push({ id: "nextup", title: "Next up", kind: "titles", items: nextUpRefs });
-    if (kidsFilms.length) rails.push({ id: "kids-films", title: "Family films", kind: "titles", items: kidsFilms.filter((t) => f.ref(t)) });
-    if (kidsSeries.length) rails.push({ id: "kids-series", title: "Cartoons and kids' shows", kind: "titles", items: kidsSeries.filter((t) => f.ref(t)) });
+    if (showing("nextup") && nextUpRefs.length) rails.push({ id: "nextup", title: "Next up", kind: "titles", items: nextUpRefs });
+    if (showing("kids-films") && kidsFilms.length) rails.push({ id: "kids-films", title: "Family films", kind: "titles", items: kidsFilms.filter((t) => f.ref(t)) });
+    if (showing("kids-series") && kidsSeries.length) rails.push({ id: "kids-series", title: "Cartoons and kids' shows", kind: "titles", items: kidsSeries.filter((t) => f.ref(t)) });
 
     const evening = startOfDay(now) + 18 * 3_600_000;
     const films = this.ctx.guide.films(Math.max(now - 30 * 60_000, evening - 6 * 3_600_000), startOfDay(now) + 24 * 3_600_000, 16).filter((p) => allowed.has(p.channelId));
-    if (films.length) {
+    if (showing("films-tonight") && films.length) {
       rails.push({
         id: "films-tonight",
         title: "Films on TV today",
@@ -139,10 +142,10 @@ export class Library {
         }),
       });
     }
-    if (latestMovies.length) rails.push({ id: "latest", title: "Recently added", kind: "titles", items: latestMovies.map((i) => jf!.toTitleRef(i)) });
-    if (trending.length) rails.push({ id: "trending", title: "Trending this week", kind: "titles", items: trending });
+    if (showing("latest") && latestMovies.length) rails.push({ id: "latest", title: "Recently added", kind: "titles", items: latestMovies.map((i) => jf!.toTitleRef(i)) });
+    if (showing("trending") && trending.length) rails.push({ id: "trending", title: "Trending this week", kind: "titles", items: trending });
     const iptvRecent = this.vodRecent(16).filter((t) => f.ref(t));
-    if (iptvRecent.length) rails.push({ id: "iptv-vod", title: "New films from your IPTV", kind: "titles", items: iptvRecent });
+    if (showing("iptv-vod") && iptvRecent.length) rails.push({ id: "iptv-vod", title: "New films from your IPTV", kind: "titles", items: iptvRecent });
 
     const heroSource = continueItems.find((t) => t.backdrop) ?? trending.find((t) => t.backdrop) ?? latestMovies.map((i) => jf!.toTitleRef(i)).find((t) => t.backdrop);
     const home: HomeScreen = { rails };

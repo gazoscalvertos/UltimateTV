@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **Home shows the rows each profile wants, in its own order** ([docs/profiles.md](docs/profiles.md#rows-on-home)): Settings › Rows on Home lists every Home row with a switch and up and down, with Simple Home (Live now, Continue watching and Recently recorded) and Everything to start from. The same list is on a phone at `/setup/`, where you also pick which profile you're changing. Each profile's list is kept on the Hub and forgotten when the profile goes. A row that's switched off is never fetched — no Continue watching row means no ask to Jellyfin for it — so Home opens faster. (#99)
+  Household: everyone can choose the rows they see on Home, and take away the ones they never watch.
+
 - **What you watch away from home reaches Jellyfin when you get back** ([docs/travel.md](docs/travel.md#back-home-travelsh-home), [docs/downloads.md](docs/downloads.md#watching)): while Jellyfin can't be reached the Hub keeps the place for its films and episodes, and sends them on when it can — home from a trip, at startup, when Jellyfin is set up, or on the hourly tick. If Jellyfin was played somewhere else more recently, its place is the one kept. The queue lives in the Hub's database, so `travel.sh home` carries it back with everything else, and the Android app's own offline queue now says when it watched something so the same rule applies. (#80)
   Household: a film watched on a trip shows the right place, and the right Continue watching, back at home.
 

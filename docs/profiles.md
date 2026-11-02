@@ -30,6 +30,32 @@ profile › Guest**. It shows in **Who's watching?** as **Guest · up to 12**.
 
 If a profile that was a Guest is changed back to an adult, its section pick is ignored.
 
+## Rows on Home
+
+Home comes with these rows, top to bottom:
+
+| Row | What's in it |
+| --- | --- |
+| Live now | What's on the channels you watch most, right now |
+| Continue watching | Films and series you're part-way through |
+| Recently recorded | What the box recorded that you haven't watched |
+| Saved for later | Titles you saved with Red (and ones saved from a phone, which every profile sees) |
+| Favourites | Titles and channels you starred |
+| Next up | The next episode of the series you're watching |
+| Because you watched | Films and series like the ones you finished |
+| Family films | Kids profiles: family films from TMDB |
+| Cartoons and kids' shows | Kids profiles: kids' series from TMDB |
+| Films on TV today | Films in today's guide |
+| Recently added | New films in Jellyfin |
+| Trending this week | What's popular on TMDB |
+| New films from your IPTV | Recent additions to IPTV VOD |
+
+Each profile has its own list: **Settings › Rows on Home** on the TV, or **Rows on Home** on a phone at `/setup/`. Switch a row off, move it up or down, or start again from **Simple Home** (Live now, Continue watching and Recently recorded only) or **Everything**. The phone's list also shows which profile it's changing.
+
+A row that's switched off is **never fetched**, so Home loads faster: a Hub with no `Continue watching` row doesn't ask Jellyfin for its resume list at all. The list is kept on the Hub, so it follows the profile to every screen and app, and it's forgotten when the profile is deleted.
+
+Kids start with every row switched on but see fewer of them — its content filter leaves Because you watched, Trending this week and the other discovery rows empty.
+
 ## TV time and bedtime
 
 Each Kids profile can have a daily allowance and a bedtime: **Settings › Profiles and PIN › Kids ›
