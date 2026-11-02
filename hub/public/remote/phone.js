@@ -291,7 +291,7 @@
   // them out from CHANGELOG.md); tapping it lists them, and "Everything" lists every change.
 
   const SEEN_KEY = "utv-changelog-seen";
-  const changeHtml = (e) => `<div class="change"><b>${esc(e.title)}</b>${e.text ? `<small>${esc(e.text)}</small>` : ""}</div>`;
+  const changeHtml = (e) => `<div class="change"><b>${esc(e.title)}</b>${e.household || e.text ? `<small>${esc(e.household || e.text)}</small>` : ""}</div>`;
   const dayLabel = (r) => {
     const when = r.date ? new Date(`${r.date}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "";
     return r.version ? (when ? `${r.version} · ${when}` : r.version) : when;
