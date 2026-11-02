@@ -12,7 +12,7 @@ import { activeMusic, duration, likedSongs, music, musicPlayPause, musicSkip, op
 import { pairStamp } from "../pairing";
 import { stopPlayback } from "../player";
 import { radioPlaying } from "../radio";
-import { appName, errorToast, nav } from "../store";
+import { appName, errorToast, isKids, nav } from "../store";
 import { PodcastSection, RadioNowPlaying, RadioSection } from "./Radio";
 
 /** A ticking clock for progress bars, while the screen is open. */
@@ -306,7 +306,9 @@ function Services() {
 }
 
 export function Music() {
-  const signedIn = () => spotify().signedIn;
+  // Kids get radio and podcasts only: no Spotify account, no Deezer login, no playlists.
+  const grown = () => !isKids();
+  const signedIn = () => grown() && spotify().signedIn;
   const load = (kind: "playlists" | "albums" | "artists") => () => (signedIn() ? kind : false);
   const [playlists] = createResource(load("playlists"), (k) => music().spotifyLibrary(k, 0).catch(() => ({ items: [], total: 0 })));
   const [albums] = createResource(load("albums"), (k) => music().spotifyLibrary(k, 0).catch(() => ({ items: [], total: 0 })));
@@ -329,23 +331,25 @@ export function Music() {
       </Show>
       <TopBar />
       <div class="page" data-scroll-y="120">
-        <Show when={radioPlaying()} fallback={<Show when={activeMusic()} fallback={<Welcome />}><NowPlaying /></Show>}>
+        <Show when={radioPlaying()} fallback={<Show when={grown() && activeMusic()} fallback={grown() ? <Welcome /> : undefined}><NowPlaying /></Show>}>
           <RadioNowPlaying />
         </Show>
         <RadioSection />
         <PodcastSection />
-        <Switch>
-          <Match when={!signedIn()}>
-            <Services />
-            <SpotifySetup />
-          </Match>
-          <Match when={true}>
-            <Services />
-            <MusicRail title="Your playlists" items={playlistItems()} />
-            <MusicRail title="Albums" items={albums()?.items ?? []} />
-            <MusicRail title="Artists" items={artists()?.items ?? []} />
-          </Match>
-        </Switch>
+        <Show when={grown()}>
+          <Switch>
+            <Match when={!signedIn()}>
+              <Services />
+              <SpotifySetup />
+            </Match>
+            <Match when={true}>
+              <Services />
+              <MusicRail title="Your playlists" items={playlistItems()} />
+              <MusicRail title="Albums" items={albums()?.items ?? []} />
+              <MusicRail title="Artists" items={artists()?.items ?? []} />
+            </Match>
+          </Switch>
+        </Show>
       </div>
     </div>
   );

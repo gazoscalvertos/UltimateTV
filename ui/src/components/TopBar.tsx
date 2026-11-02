@@ -12,15 +12,16 @@ import { weather } from "../weather";
 import { Icon } from "./Icon";
 import { WeatherIcon } from "./WeatherIcon";
 
-type Tab = { label: string; route: Route; match: Route["name"]; adults?: boolean; when?: () => boolean; feature?: FeatureId };
+type Tab = { label: string; route: Route; match: Route["name"]; when?: () => boolean; feature?: FeatureId };
 
 const TABS: Tab[] = [
   { label: "Home", route: { name: "home" }, match: "home" },
   { label: "TV Guide", route: { name: "guide" }, match: "guide", feature: "live" },
   { label: "Films", route: { name: "browse", kind: "movie" }, match: "browse", feature: "films" },
   { label: "TV Shows", route: { name: "browse", kind: "series" }, match: "browse", feature: "shows" },
-  // Kids don't get the grown-ups' Spotify account (or its explicit songs).
-  { label: "Music", route: { name: "music" }, match: "music", adults: true, feature: "music" },
+  // Kids get radio and podcasts here, but not the grown-ups' Spotify account (or its explicit
+  // songs), which the Music screen leaves out for them.
+  { label: "Music", route: { name: "music" }, match: "music", feature: "music" },
   { label: "Recordings", route: { name: "planner" }, match: "planner", feature: "recordings" },
   // Once something is on the box's own disk (for a trip, say).
   { label: "Downloaded", route: { name: "downloads" }, match: "downloads", when: () => visibleDownloads().length > 0, feature: "downloads" },
@@ -42,7 +43,7 @@ export function TopBar() {
         <span class="brand-name">{appName()}</span>
       </div>
       <nav class="tabs">
-        <For each={TABS.filter((t) => !(t.adults && isKids()) && (!t.when || t.when()) && (!t.feature || featureOn(t.feature)))}>
+        <For each={TABS.filter((t) => (!t.when || t.when()) && (!t.feature || featureOn(t.feature)))}>
           {(t) => (
             <button class="tab" classList={{ active: isActive(t) }} data-focus data-tab onClick={() => !isActive(t) && nav.replace(t.route)}>
               {t.label}

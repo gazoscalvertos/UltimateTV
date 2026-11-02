@@ -199,8 +199,6 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/kids-time/report", "paired"],
     // Radio and podcasts: subscribing and following a show is something anyone paired can do, but
     // adding a station to the household's list is a settings change (ADMIN_ROUTES, below).
-    ["POST /api/podcasts", "paired"],
-    ["DELETE /api/podcasts/:id", "paired"],
     ["POST /api/podcasts/:id/position", "paired"],
     ["POST /api/subtitles/download", "paired"],
     ["DELETE /api/watchlist/:id", "paired"],
@@ -270,6 +268,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "PATCH /api/kids-allow/:id",
     "POST /api/radio",
     "DELETE /api/radio/:id",
+    "POST /api/podcasts",
+    "DELETE /api/podcasts/:id",
     "DELETE /api/kids-allow/:id/:kind/:titleId",
     "POST /api/settings/iptv",
     "DELETE /api/settings/iptv/:id",
