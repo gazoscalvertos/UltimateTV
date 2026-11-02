@@ -179,16 +179,24 @@ export interface Toast {
   id: number;
   message: string;
   tone: "info" | "good" | "bad";
+  /** An optional button: "Undo" after removing something from Continue watching (issue #100). */
+  action?: { label: string; run: () => void };
 }
 
 const [toasts, setToasts] = createSignal<Toast[]>([]);
 export { toasts };
 let toastId = 0;
 
-export function toast(message: string, tone: Toast["tone"] = "info"): void {
+export function toast(message: string, tone: Toast["tone"] = "info", action?: Toast["action"]): void {
   const id = ++toastId;
-  setToasts((t) => [...t.slice(-2), { id, message, tone }]);
-  setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4500);
+  setToasts((t) => [...t.slice(-2), { id, message, tone, ...(action ? { action } : {}) }]);
+  const ms = action ? 8000 : 4500;
+  setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), ms);
+}
+
+/** Closes a toast early, e.g. once its Undo has been used. */
+export function dropToast(id: number): void {
+  setToasts((t) => t.filter((x) => x.id !== id));
 }
 
 export function errorToast(err: unknown): void {

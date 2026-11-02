@@ -11,10 +11,13 @@ import { onHubEvent } from "../events";
 import { HOME_KEYS, useHints } from "../hints";
 import { useKeys } from "../keys";
 import { play } from "../player";
-import { isKids, nav } from "../store";
+import { errorToast, isKids, nav, toast } from "../store";
+import { choose } from "../components/Dialog";
+import { continueOptions, undoLabel, type ContinuePick } from "../continueWatching";
 import { castSettings } from "../cast";
 import { HomeWeather } from "../components/HomeWeather";
 import { featureOn, shownRails, titleShown } from "../features";
+import type { TitleRef } from "@ultimatetv/shared";
 
 export function Home() {
   const [home, { refetch }] = createResource(() => hub.home());
@@ -38,6 +41,24 @@ export function Home() {
     else return false;
     return true;
   });
+
+  // Options on a Continue watching card (issue #100): Resume, Mark as watched, Remove. Removing
+  // hides it for this profile and offers Undo for a few seconds, so a film abandoned after ten
+  // minutes stops sitting at the front of Home.
+  const pickContinue = async (t: TitleRef) => {
+    const pick = await choose<ContinuePick>({ title: t.name, ...(t.subtitle ? { message: t.subtitle } : {}), ...(t.backdrop ?? t.poster ? { image: (t.backdrop ?? t.poster)! } : {}), options: continueOptions(t) });
+    try {
+      if (pick === "play") void play({ kind: "title", id: t.id, ...(t.episodeId ? { episodeId: t.episodeId } : {}) }, { title: t });
+      else if (pick === "watched") await hub.markContinueWatched(t.id);
+      else if (pick === "hide") {
+        await hub.hideFromContinue(t.id, true);
+        toast(undoLabel(t), "good", { label: "Undo", run: () => void hub.hideFromContinue(t.id, false) });
+      } else return;
+      void refetch();
+    } catch (err) {
+      errorToast(err);
+    }
+  };
 
   return (
     <div class="screen home" data-layer>
@@ -81,7 +102,9 @@ export function Home() {
             )}
           </Show>
           <QueueRow />
-          <For each={shownRails(home()!.rails)}>{(rail) => <RailRow rail={rail} />}</For>
+          <For each={shownRails(home()!.rails)}>
+            {(rail) => (rail.id === "continue" ? <RailRow rail={rail} onPick={(t) => void pickContinue(t)} /> : <RailRow rail={rail} />)}
+          </For>
         </Show>
       </div>
     </div>

@@ -132,6 +132,10 @@ export const hub = {
   progress: (body: { key: string; positionMs: number; durationMs?: number; event?: "start" | "progress" | "stop"; paused?: boolean; title?: TitleRef }) =>
     api<{ ok: true }>("/api/progress", { method: "POST", body }),
 
+  // Continue watching card actions (issue #100).
+  hideFromContinue: (id: string, hidden: boolean) => api<{ ok: true; hidden: boolean }>(`/api/continue/${enc(id)}/hide`, { method: "POST", body: { hidden } }),
+  markContinueWatched: (id: string, watched = true) => api<{ ok: true; watched: boolean }>(`/api/continue/${enc(id)}/watched`, { method: "POST", body: { watched } }),
+
   downloads: () => api<{ downloads: Download[] }>("/api/downloads"),
   download: (titleId: string, episodeId?: string, streamId?: string) => api<Download>("/api/downloads", { method: "POST", body: { titleId, episodeId, streamId } }),
   deleteDownload: (id: string) => api<{ ok: true }>(`/api/downloads/${enc(id)}`, { method: "DELETE" }),

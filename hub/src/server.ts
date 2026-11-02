@@ -18,6 +18,7 @@ import { registerWeather, Weather } from "./weather.js";
 import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
+import { registerContinue } from "./continueroutes.js";
 import { FavouriteStore, registerFavourites } from "./favourites.js";
 import { registerSearchHistory, SearchHistory } from "./searchhistory.js";
 import { registerSubtitles } from "./subtitles.js";
@@ -210,6 +211,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     // press Record, and an unpaired browser on the network still gets nothing.
     ["POST /api/recordings", "paired"],
     ["POST /api/recordings/:id/watched", "paired"],
+    ["POST /api/continue/:id/hide", "paired"],
+    ["POST /api/continue/:id/watched", "paired"],
     ["POST /api/series-links", "paired"],
     ["POST /api/reminders", "paired"],
     ["DELETE /api/reminders/:id", "paired"],
@@ -1199,6 +1202,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     (q, f) => library.search(q, Date.now(), f),
   );
 
+  // Taking a title off Continue watching, for this profile: the TV's Options menu and the phone.
+  registerContinue(app, ctx, (req) => ({ profileId: viewer(req).profile?.id ?? null }));
+
   // The TV asks for the next episode while the current one plays; the answer comes straight back.
   app.post("/api/play/prefetch", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest>) => {
     void playback.prefetch(req.body, filterOf(req)).catch((err) => ctx.log.warn({ err: String(err) }, "Next episode lookup failed"));
@@ -1438,6 +1444,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.delete("/api/profiles/:id", async (req: Req<{ id: string }>) => {
     ctx.profiles.remove(req.params.id);
     favourites.forget(req.params.id);
+    ctx.continueHidden.forget(req.params.id);
     ctx.events.emit({ type: "profiles.changed" });
     return { ok: true };
   });

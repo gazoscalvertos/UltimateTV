@@ -95,7 +95,7 @@ export function RecordingCard(props: { recording: Recording }) {
   );
 }
 
-export function RailRow(props: { rail: RailData }) {
+export function RailRow(props: { rail: RailData; onPick?: (title: TitleRef) => void }) {
   const wide = () => props.rail.id === "continue" || props.rail.id === "nextup";
   return (
     <section class="rail" data-row>
@@ -109,7 +109,9 @@ export function RailRow(props: { rail: RailData }) {
             <For each={props.rail.recordings ?? []}>{(r) => <RecordingCard recording={r} />}</For>
           </Match>
           <Match when={true}>
-            <For each={props.rail.items}>{(t) => <Poster title={t} wide={wide()} />}</For>
+            <For each={props.rail.items}>
+              {(t) => <Poster title={t} wide={wide()} {...(props.onPick ? { onSelect: () => props.onPick!(t) } : {})} />}
+            </For>
           </Match>
         </Switch>
       </div>
