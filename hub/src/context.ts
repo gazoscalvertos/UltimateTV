@@ -18,6 +18,7 @@ import type { Logger } from "./log.js";
 import { MixManager } from "./mixchannels.js";
 import { ProfileStore } from "./profiles.js";
 import { ContinueHidden } from "./continuehide.js";
+import { drainQueue, JellyfinProgressQueue, type DrainResult } from "./jfprogress.js";
 import { ProgressStore } from "./progress.js";
 import { PlayQueue } from "./queue.js";
 import { Recorder, type Remux } from "./recorder.js";
@@ -70,6 +71,8 @@ export class HubContext {
   readonly ingest: Ingestor;
   readonly progress: ProgressStore;
   readonly continueHidden: ContinueHidden;
+  /** Jellyfin places saved while Jellyfin could not be reached (#80). */
+  readonly jellyfinProgress: JellyfinProgressQueue;
   readonly queue: PlayQueue;
   readonly profiles: ProfileStore;
   readonly guides: CustomGuideStore;
@@ -104,6 +107,7 @@ export class HubContext {
     this.recordings = new RecordingStore(this.db);
     this.progress = new ProgressStore(this.db);
     this.continueHidden = new ContinueHidden(this.db, this.events);
+    this.jellyfinProgress = new JellyfinProgressQueue(this.db);
     this.queue = new PlayQueue(this.db, this.events);
     this.profiles = new ProfileStore(this.db);
     this.guides = new CustomGuideStore(this.db);
@@ -180,10 +184,42 @@ export class HubContext {
     this.os = s.openSubtitles?.apiKey ? new OpenSubtitlesClient(s.openSubtitles, this.db, this.fetchImpl, this.log) : null;
     this.tb = s.torboxApiKey ? new TorboxClient(s.torboxApiKey, this.fetchImpl) : null;
     this.addonClients = s.addonUrls.map((u) => new AddonClient(u, this.fetchImpl));
+    // Jellyfin is reachable again (it was just set up, or the Hub is home from a trip): send what was
+    // watched while it wasn't (#80). Nothing to send is the usual case, so this costs nothing.
+    if (this.jf && this.jellyfinProgress.size()) void this.flushJellyfinProgress().catch((err) => this.log.warn({ err: String(err) }, "Couldn't send Jellyfin its places"));
   }
 
   jellyfin(): JellyfinClient | null {
     return this.jf;
+  }
+
+  /**
+   * Sends Jellyfin the places saved while it couldn't be reached (#80). Called when the Hub starts
+   * with Jellyfin configured, when Jellyfin is set up in Settings, and by the hourly tick. Jellyfin's
+   * own place wins when it was played somewhere else more recently.
+   */
+  async flushJellyfinProgress(): Promise<DrainResult> {
+    const jf = this.jf;
+    if (!jf) return { sent: 0, skipped: 0, left: this.jellyfinProgress.size() };
+    const out = await drainQueue({
+      list: () => this.jellyfinProgress.list(),
+      remove: (itemId) => this.jellyfinProgress.remove(itemId),
+      send: async (place) => {
+        await jf.reportProgress(place.itemId, place.positionMs, place.event, false);
+        // A finished title is marked played, the same as the TV's "Mark as watched" does.
+        if (place.played) await jf.markPlayed(place.itemId, true);
+      },
+      lookup: async (place) => {
+        const item = await jf.item(place.itemId);
+        const last = item.UserData?.LastPlayedDate ? Date.parse(item.UserData.LastPlayedDate) : 0;
+        return { lastPlayedAt: Number.isFinite(last) ? last : 0, played: Boolean(item.UserData?.Played) };
+      },
+    });
+    if (out.sent || out.skipped) {
+      this.log.info(out, "Sent Jellyfin the places watched while it was away");
+      this.events.emit({ type: "progress.changed" });
+    }
+    return out;
   }
 
   tmdb(): TmdbClient | null {

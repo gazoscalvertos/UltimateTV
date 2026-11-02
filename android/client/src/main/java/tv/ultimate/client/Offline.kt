@@ -288,7 +288,8 @@ object Offline {
                 left -= key
                 continue
             }
-            val ok = runCatching { hub.progress(key, p.positionMs, p.durationMs, "stop", false, p.ref) }.isSuccess
+            // Sent with when it was watched, so a place watched on the TV or Jellyfin since then wins (#80).
+            val ok = runCatching { hub.progress(key, p.positionMs, p.durationMs, "stop", false, p.ref, at = p.at) }.isSuccess
             if (ok) left -= key
         }
         positionsPrefs.edit().putString("__pending", gson.toJson(left)).apply()

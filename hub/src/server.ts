@@ -1250,9 +1250,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { allowed: allowed.map((i) => i.id) };
   });
 
-  app.post("/api/progress", async (req: Req<Record<string, string>, Record<string, string>, { key: string; positionMs: number; durationMs?: number; event?: "start" | "progress" | "stop"; paused?: boolean; title?: TitleRef }>) => {
+  app.post("/api/progress", async (req: Req<Record<string, string>, Record<string, string>, { key: string; positionMs: number; durationMs?: number; event?: "start" | "progress" | "stop"; paused?: boolean; title?: TitleRef; at?: number }>) => {
     const b = req.body;
-    await playback.report(b.key, b.positionMs, b.durationMs, b.event ?? "progress", b.paused ?? false, b.title);
+    // `at` is when it was watched, for a phone sending on what it played offline (#80): the newest
+    // timestamp wins when Jellyfin moved on somewhere else in the meantime.
+    await playback.report(b.key, b.positionMs, b.durationMs, b.event ?? "progress", b.paused ?? false, b.title, b.at);
     return { ok: true };
   });
 

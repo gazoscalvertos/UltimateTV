@@ -56,6 +56,8 @@ The box's Hub has its own address on the hotel network. The TV's QR codes (Setti
 
 With no internet at all, the box still plays what you downloaded to it (see below) and the music video channels. Films downloaded to a phone with the Android app still play there.
 
+What you watch away from home isn't lost: the box's Hub keeps the place for Jellyfin films and episodes while Jellyfin is out of reach, and `travel.sh home` brings that database back, so the home Hub tells Jellyfin where you got to (#80). If Jellyfin was played somewhere else meanwhile, the newer place wins. The Android app does the same from its own queue.
+
 ### Downloading to the box before you go
 
 At home, before the trip, choose **Download to box** on a film, a series (one episode, a whole series, or every series) or a recording (Recordings › OK). The phone remote does the same from its title pages (**Download to TV box**, or ⤓ beside an episode or recording), and its **On the box** tab shows what's there. The box fetches them one at a time onto its own disk, and the TV gets a **Downloaded** tab listing them. Press OK on one to play it. Anything downloaded plays from the box's disk wherever the Hub is, so it works in the hotel with no VPN home, and at home it starts straight away. See [downloads.md](downloads.md) for the details.
@@ -83,6 +85,7 @@ The box's Hub is left stopped, with its data still in Docker and the music video
 |---|---|
 | `tools/hub/travel.sh` | The script above. It keeps the trip's state in `/etc/ultimatetv/travel.env` (root only). |
 | `docker-compose.box.yml` | The Hub on the box. It uses host networking so it can tell phones the box's address, and it sees `/var/lib/ultimatetv/media/mnt/nas` as `/mnt/nas`, so the copied files keep their NAS paths. `travel.sh` adds it through `COMPOSE_FILE` in `/opt/ultimatetv/.env`. |
+| `hub/src/jfprogress.ts` | Keeps the place for Jellyfin titles watched while Jellyfin can't be reached, and sends it on when it can (#80). It lives in the database, so `travel.sh home` carries it back. |
 | `hub/src/move.ts` | `GET /api/hub/move-out` hands over the data. It needs a phone or script paired in the last 15 minutes, then the Hub stands by. `POST /api/hub/move-in` takes data back with the key `move-out` gave. `DELETE /api/hub/move` calls the move off. `GET /api/hub/move-files` and `GET /api/hub/move-file` lend the music video files, and `PUT /api/hub/move-file` takes new ones back (only into the NAS shares, never over an existing file). All of these need the key. The data is unpacked when the Hub starts. |
 | `hub/src/lan.ts` | Swaps `127.0.0.1` for the box's network address in QR codes and pairing links. |
 | `box/src/main.ts` | When the Hub's address changes, the TV keeps its pairing. |

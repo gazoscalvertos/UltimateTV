@@ -329,15 +329,27 @@ export class Playback {
    * Saves progress, and passes it on to Jellyfin for library items (kept here too, for Continue
    * watching). A stop tells the TV, so Home shows it in Continue watching straight away.
    */
-  async report(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused = false, ref?: TitleRef): Promise<void> {
-    await this.save(key, positionMs, durationMs, event, paused, ref);
+  async report(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused = false, ref?: TitleRef, at?: number): Promise<void> {
+    await this.save(key, positionMs, durationMs, event, paused, ref, at);
     if (event === "stop") this.ctx.events.emit({ type: "progress.changed" });
   }
 
-  private async save(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused: boolean, ref?: TitleRef): Promise<void> {
+  private async save(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused: boolean, ref?: TitleRef, at?: number): Promise<void> {
     if (key.startsWith("jellyfin:")) {
+      const itemId = key.slice(9);
       const jf = this.ctx.jellyfin();
-      if (jf) await jf.reportProgress(key.slice(9), positionMs, event, paused).catch((err) => this.ctx.log.warn({ err: String(err) }, "Jellyfin progress failed"));
+      // Away from home the Hub runs on the box and Jellyfin is out of reach, so the place is kept
+      // and sent when Jellyfin answers again (#80). It is kept on a failure too, not just when
+      // Jellyfin isn't set up at all.
+      const queued = { itemId, positionMs, ...(durationMs ? { durationMs } : {}), event, ...(finished(event, positionMs, durationMs) ? { played: true } : {}), ...(at !== undefined ? { at } : {}) };
+      if (!jf) {
+        this.ctx.jellyfinProgress.queue(queued);
+      } else {
+        await jf.reportProgress(itemId, positionMs, event, paused).catch((err) => {
+          this.ctx.log.warn({ err: String(err) }, "Jellyfin progress failed: kept to send later");
+          this.ctx.jellyfinProgress.queue(queued);
+        });
+      }
     }
     if (key.startsWith("channel:")) return;
     if (key.startsWith("recording:")) {
@@ -359,6 +371,11 @@ export class Playback {
     if (ref) entry.title = { ...stripRef(ref), ...(subtitle ? { subtitle } : {}) };
     this.ctx.progress.save(entry);
   }
+}
+
+/** Whether this report is the end of a title (past 92%, the same line recordings use). */
+function finished(event: "start" | "progress" | "stop", positionMs: number, durationMs: number | undefined): boolean {
+  return event === "stop" && Boolean(durationMs) && positionMs / durationMs! > 0.92;
 }
 
 /** The title as Continue watching keeps it, without what's worked out each time it's shown. */

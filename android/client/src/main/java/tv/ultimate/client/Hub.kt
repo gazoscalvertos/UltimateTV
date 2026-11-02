@@ -180,10 +180,12 @@ class Hub(private val prefs: Prefs) {
         return if (code.isNullOrEmpty()) base + path else "$base/api/pair/open?code=${enc(code)}&to=${enc(path)}"
     }
 
-    suspend fun progress(key: String, positionMs: Long, durationMs: Long?, event: String, paused: Boolean, title: TitleRef?) {
+    suspend fun progress(key: String, positionMs: Long, durationMs: Long?, event: String, paused: Boolean, title: TitleRef?, at: Long? = null) {
         val body = mutableMapOf<String, Any>("key" to key, "positionMs" to positionMs, "event" to event, "paused" to paused)
         if (durationMs != null && durationMs > 0) body["durationMs"] = durationMs
         if (title != null) body["title"] = title
+        // When it was watched, for a place sent on after being offline: the newest side wins (#80).
+        if (at != null) body["at"] = at
         raw("/api/progress", "POST", body, 8000)
     }
 

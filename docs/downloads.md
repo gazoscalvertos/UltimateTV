@@ -17,7 +17,7 @@ Kids profiles can't start downloads, but they see and play the downloads their p
 
 ## Watching
 
-Once something is downloaded, a **Downloaded** tab appears on the TV's top menu. Press OK on a download to play it, or Red to delete it. Playing a downloaded film from its own page also uses the download (the badge says **Downloaded**), unless you pick a version by hand. The box remembers where you got to, so it resumes even with the Hub's progress out of reach.
+Once something is downloaded, a **Downloaded** tab appears on the TV's top menu. Press OK on a download to play it, or Red to delete it. Playing a downloaded film from its own page also uses the download (the badge says **Downloaded**), unless you pick a version by hand. The box remembers where you got to, so it resumes even with the Hub's progress out of reach. When the Hub is back where Jellyfin can be reached — home from a trip, or Jellyfin set up again — the Hub sends Jellyfin the places you watched while it couldn't (#80), so Continue watching is right at home too. If Jellyfin was played somewhere else in the meantime, the newer place wins.
 
 ## Room and how long they're kept
 
@@ -34,6 +34,7 @@ Once something is downloaded, a **Downloaded** tab appears on the TV's top menu.
 | Where they go | `~tv/.local/share/ultimatetv/downloads`, or `DOWNLOADS_DIR` in `/etc/ultimatetv/box.env` |
 | `ui/src/downloads.ts` | The TV app's side: the buttons, the list, and playing from the disk. |
 | `POST /api/offline/allowed` | The Hub says which downloads a Kids profile may see, from the certificate saved with each one. |
+| `hub/src/jfprogress.ts` | Keeps the place for Jellyfin titles while Jellyfin can't be reached, and sends it on when it can (the same rule as the Android app's own queue). |
 | Phone remote | Asks the TV app through the Hub (`/api/tv/call/downloads`, `download` and `downloadRemove`). |
 
 The Hub and the box both need updating for this: the buttons only show once the box shell has it.
