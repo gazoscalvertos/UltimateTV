@@ -1,5 +1,10 @@
 # Automated dependency updates (#95): one pull request per ecosystem per week, with
 # the changes in a week grouped into a single PR so the checklist stays short.
+#
+# Major bumps are grouped apart from minor and patch ones (#146): they are the ones
+# that need a migration, and mixing them in meant a single bad major held back every
+# patch behind it. So each ecosystem gets two groups a week: minor+patch, which should
+# normally just be reviewed and merged, and major, which is read carefully.
 version: 2
 updates:
   # The npm workspaces (shared, hub, ui, box, tools/probe) and the root tooling.
@@ -12,13 +17,17 @@ updates:
     labels:
       - "dependencies"
     groups:
-      npm:
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      npm-major:
         patterns:
           - "*"
         update-types:
           - "major"
-          - "minor"
-          - "patch"
 
   # Both Android apps: the gradle files live under android/ (app/ is the phone remote,
   # client/ is the watching client).
@@ -31,13 +40,17 @@ updates:
     labels:
       - "dependencies"
     groups:
-      gradle:
+      gradle-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      gradle-major:
         patterns:
           - "*"
         update-types:
           - "major"
-          - "minor"
-          - "patch"
 
   # The GitHub Actions in .github/workflows/ci.yml (checkout, setup-node,
   # setup-buildx-action, build-push-action).
@@ -50,13 +63,17 @@ updates:
     labels:
       - "dependencies"
     groups:
-      github-actions:
+      github-actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      github-actions-major:
         patterns:
           - "*"
         update-types:
           - "major"
-          - "minor"
-          - "patch"
 
   # The Hub image's base images in the root Dockerfile.
   - package-ecosystem: "docker"
@@ -68,13 +85,17 @@ updates:
     labels:
       - "dependencies"
     groups:
-      docker:
+      docker-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      docker-major:
         patterns:
           - "*"
         update-types:
           - "major"
-          - "minor"
-          - "patch"
 
   # The PXE server image's base images in tools/pxe/Dockerfile.
   - package-ecosystem: "docker"
@@ -86,10 +107,14 @@ updates:
     labels:
       - "dependencies"
     groups:
-      docker-pxe:
+      docker-pxe-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      docker-pxe-major:
         patterns:
           - "*"
         update-types:
           - "major"
-          - "minor"
-          - "patch"

@@ -1590,7 +1590,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
         index: ["index.html"],
         // Pages are checked on every load, so the TV picks up a Hub update; the hashed assets they
         // point at never change.
-        setHeaders: (res, file) => res.setHeader("Cache-Control", /[\\/]assets[\\/]/.test(file) ? "public, max-age=31536000, immutable" : "no-cache"),
+        // @fastify/static v10 hands the callback the Fastify reply, not the raw ServerResponse.
+        setHeaders: (reply, file) => reply.header("Cache-Control", /[\\/]assets[\\/]/.test(file) ? "public, max-age=31536000, immutable" : "no-cache"),
       });
     } else {
       app.get(prefix, async (_request, reply) => reply.code(503).type("text/plain").send(missing));
