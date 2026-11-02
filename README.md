@@ -15,9 +15,9 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md).
 
 | Read this | For |
 |-----------|-----|
-| [docs/FEATURES.md](docs/FEATURES.md) | Everything it does today, and what's in open pull requests |
+| [docs/FEATURES.md](docs/FEATURES.md) | Everything it does today |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The Hub, the box, the phone remote and the Android app, and how data moves between them |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | What has run on real hardware, what's still to test, and what isn't built yet |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | What has run on real hardware and what's still to test (a snapshot of 30 October 2026) |
 | [docs/TESTING.md](docs/TESTING.md) | The end-to-end test run, step by step |
 | [docs/PLAN.md](docs/PLAN.md) | The original plan and why each choice was made (**historical**: for what exists now see FEATURES and ROADMAP) |
 | [docs/adr/](docs/adr/) | Decision records (VIDAA ruled out, the Linux mini PC chosen, profiles and mobile apps in scope) |
