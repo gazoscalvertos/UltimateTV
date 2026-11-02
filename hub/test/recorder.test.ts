@@ -1,8 +1,8 @@
-import { copyFile, mkdtemp, readFile, stat } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import type { Recording } from "@ultimatetv/shared";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Recording, SeriesLink } from "@ultimatetv/shared";
 import { ChannelStore } from "../src/channels.js";
 import { ConnectionGuard } from "../src/connections.js";
 import { Db } from "../src/db.js";
@@ -11,12 +11,13 @@ import { EventBus } from "../src/events.js";
 import { silentLogger } from "../src/log.js";
 import { Recorder } from "../src/recorder.js";
 import { RecordingStore, recordingPath } from "../src/recordings.js";
+import { PlayQueue } from "../src/queue.js";
 import { LiveRelay } from "../src/relay.js";
 import { Scheduler } from "../src/scheduler.js";
 import { defaultSettings, SettingsStore } from "../src/settings.js";
 import { channel, liveFetch, programme } from "./helpers.js";
 
-async function setup(fetchImpl: typeof fetch) {
+async function setup(fetchImpl: typeof fetch, extra: { refreshLibrary?: () => void | Promise<void> } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), "utv-"));
   const db = new Db(":memory:");
   const settings = new SettingsStore(db, defaultSettings(dir));
@@ -44,8 +45,12 @@ async function setup(fetchImpl: typeof fetch) {
       await copyFile(i, o);
     },
   });
-  const scheduler = new Scheduler({ store, guide, channels, recorder, guard, settings, events, log: silentLogger });
-  return { dir, db, settings, channels, guard, relay, store, guide, recorder, scheduler, remuxed, events };
+  const queue = new PlayQueue(db, events);
+  const scheduler = new Scheduler({
+    store, guide, channels, recorder, guard, settings, events, queue, log: silentLogger,
+    ...(extra.refreshLibrary ? { refreshLibrary: extra.refreshLibrary } : {}),
+  });
+  return { dir, db, settings, channels, guard, relay, store, guide, recorder, scheduler, remuxed, events, queue };
 }
 
 const cleanups: (() => void)[] = [];
@@ -160,5 +165,174 @@ describe("scheduler", () => {
     t.guide.upsert([p]);
     const r = t.scheduler.recordProgramme(p.id);
     expect(r).toMatchObject({ method: "catchup", status: "waiting-catchup" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Keeping only the latest N episodes of a series link (issue #98)
+
+type Setup = Awaited<ReturnType<typeof setup>>;
+
+/** A completed recording on disk, with the file and NFO a real one would leave. */
+async function completed(t: Setup, id: string, start: number, extra: Partial<Recording> = {}): Promise<Recording> {
+  const dir = path.join(t.dir, "Recordings", id);
+  await mkdir(dir, { recursive: true });
+  const file = path.join(dir, `${id}.mkv`);
+  await writeFile(file, "pretend mkv");
+  await writeFile(file.replace(/\.mkv$/, ".nfo"), "<episodedetails/>");
+  const r: Recording = {
+    id,
+    programme: programme("bbc2", start, 60, { title: "Show", episodeKey: id }),
+    channelId: "bbc2",
+    channelName: "BBC Two",
+    status: "completed",
+    method: "live",
+    start,
+    end: start + 60 * 60_000,
+    incomplete: false,
+    watched: false,
+    positionMs: 0,
+    createdAt: start,
+    path: file,
+    sizeBytes: 11,
+    ...extra,
+  };
+  t.store.save(r);
+  return r;
+}
+
+const seriesLink = (extra: Partial<SeriesLink> = {}): SeriesLink => ({
+  id: "l1",
+  seriesKey: "t:show",
+  title: "Show",
+  channelId: "bbc2",
+  channelName: "BBC Two",
+  scope: "any",
+  newOnly: false,
+  keepLatest: 2,
+  paddingBeforeMin: 2,
+  paddingAfterMin: 5,
+  createdAt: 0,
+  ...extra,
+});
+
+const there = (p: string | undefined): Promise<boolean> =>
+  p ? stat(p).then((s) => s.isFile(), () => false) : Promise.resolve(false);
+
+describe("series link housekeeping", () => {
+  const HOUR = 3_600_000;
+  const T0 = Date.UTC(2026, 9, 20, 20, 0);
+
+  it("keeps the newest N completed episodes and deletes the older file and NFO", async () => {
+    const t = await setup(liveFetch().impl);
+    t.store.saveLink(seriesLink({ keepLatest: 2 }));
+    const old1 = await completed(t, "e1", T0, { seriesLinkId: "l1" });
+    const old2 = await completed(t, "e2", T0 + HOUR, { seriesLinkId: "l1" });
+    await completed(t, "e3", T0 + 2 * HOUR, { seriesLinkId: "l1" });
+    await completed(t, "e4", T0 + 3 * HOUR, { seriesLinkId: "l1" });
+
+    await t.scheduler.tick();
+
+    const done = t.store.forLink("l1").filter((r) => r.status === "completed");
+    expect(done.map((r) => r.id).sort()).toEqual(["e3", "e4"]);
+    expect(await there(old1.path)).toBe(false);
+    expect(await there(old1.path!.replace(/\.mkv$/, ".nfo"))).toBe(false);
+    expect(await there(old2.path)).toBe(false);
+    // The stub stays so the planner doesn't record the episode again.
+    expect(t.store.get("e1")).toMatchObject({ status: "cancelled", seriesLinkId: "l1" });
+    expect(t.store.get("e1")!.path).toBeUndefined();
+    expect(await there(t.store.get("e3")!.path)).toBe(true);
+  });
+
+  it("does not touch an episode that is still recording, even when it is the oldest", async () => {
+    const t = await setup(liveFetch().impl);
+    t.store.saveLink(seriesLink({ keepLatest: 1 }));
+    const active = await completed(t, "e1", T0, { seriesLinkId: "l1", status: "recording" });
+    await completed(t, "e2", T0 + HOUR, { seriesLinkId: "l1" });
+    await completed(t, "e3", T0 + 2 * HOUR, { seriesLinkId: "l1" });
+
+    await t.scheduler.tick();
+
+    expect(t.store.get("e1")).toMatchObject({ status: "recording" });
+    expect(await there(active.path)).toBe(true);
+    // The newest finished episode is kept and the middle one goes; the unfinished one is untouched.
+    expect(t.store.get("e3")!.status).toBe("completed");
+    expect(t.store.get("e2")!.status).toBe("cancelled");
+  });
+
+  it("leaves recordings that aren't part of a series link alone", async () => {
+    const t = await setup(liveFetch().impl);
+    t.store.saveLink(seriesLink({ keepLatest: 1 }));
+    const single = await completed(t, "single", T0 - 5 * HOUR, { programme: programme("bbc1", T0 - 5 * HOUR, 60, { title: "Film" }) });
+    await completed(t, "e1", T0, { seriesLinkId: "l1" });
+    await completed(t, "e2", T0 + HOUR, { seriesLinkId: "l1" });
+
+    await t.scheduler.tick();
+
+    expect(t.store.get("single")).toMatchObject({ status: "completed" });
+    expect(await there(single.path)).toBe(true);
+    expect(t.store.forLink("l1").filter((r) => r.status === "completed").map((r) => r.id)).toEqual(["e2"]);
+  });
+
+  it("keeps everything when the link says keep all", async () => {
+    const t = await setup(liveFetch().impl);
+    t.store.saveLink(seriesLink({ keepLatest: 0 }));
+    for (let i = 0; i < 4; i += 1) await completed(t, `e${i}`, T0 + i * HOUR, { seriesLinkId: "l1" });
+
+    await t.scheduler.tick();
+
+    expect(t.store.forLink("l1").filter((r) => r.status === "completed")).toHaveLength(4);
+  });
+
+  it("keeps an episode that is still in the play queue", async () => {
+    const t = await setup(liveFetch().impl);
+    t.store.saveLink(seriesLink({ keepLatest: 1 }));
+    const queued = await completed(t, "e1", T0, { seriesLinkId: "l1" });
+    t.queue.add({ req: { kind: "recording", id: "e1" }, name: "Show" });
+    await completed(t, "e2", T0 + HOUR, { seriesLinkId: "l1" });
+    await completed(t, "e3", T0 + 2 * HOUR, { seriesLinkId: "l1" });
+
+    await t.scheduler.tick();
+
+    expect(t.store.get("e1")).toMatchObject({ status: "completed" });
+    expect(await there(queued.path)).toBe(true);
+    expect(t.store.get("e2")!.status).toBe("cancelled");
+    expect(t.store.forLink("l1").filter((r) => r.status === "completed").map((r) => r.id)).toEqual(["e1", "e3"]);
+  });
+
+  it("prunes the link as soon as a recording finishes, without waiting for the hourly sweep", async () => {
+    const t = await setup(liveFetch().impl);
+    t.store.saveLink(seriesLink({ keepLatest: 1 }));
+    await completed(t, "e1", T0, { seriesLinkId: "l1" });
+    const newest = await completed(t, "e2", T0 + HOUR, { seriesLinkId: "l1" });
+
+    t.events.emit({ type: "recording.finished", recording: newest });
+
+    await vi.waitFor(() => expect(t.store.get("e1")).toMatchObject({ status: "cancelled" }));
+    expect(await there(t.store.get("e1")!.path)).toBe(false);
+    expect(t.store.get("e2")!.status).toBe("completed");
+  });
+
+  it("asks Jellyfin to refresh once for the whole batch of deletions", async () => {
+    const refreshed: number[] = [];
+    const t = await setup(liveFetch().impl, { refreshLibrary: () => void refreshed.push(Date.now()) });
+    t.store.saveLink(seriesLink({ keepLatest: 1 }));
+    await completed(t, "e1", T0, { seriesLinkId: "l1" });
+    await completed(t, "e2", T0 + HOUR, { seriesLinkId: "l1" });
+    await completed(t, "e3", T0 + 2 * HOUR, { seriesLinkId: "l1" });
+    await completed(t, "e4", T0 + 3 * HOUR, { seriesLinkId: "l1" });
+
+    await t.scheduler.tick();
+    expect(refreshed).toHaveLength(1);
+  });
+
+  it("does not ask Jellyfin to refresh when nothing was deleted", async () => {
+    const refreshed: number[] = [];
+    const t = await setup(liveFetch().impl, { refreshLibrary: () => void refreshed.push(Date.now()) });
+    t.store.saveLink(seriesLink({ keepLatest: 3 }));
+    await completed(t, "e1", T0, { seriesLinkId: "l1" });
+
+    await t.scheduler.tick();
+    expect(refreshed).toHaveLength(0);
   });
 });

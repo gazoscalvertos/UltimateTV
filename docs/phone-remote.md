@@ -53,7 +53,8 @@ subtitle tracks. For Spotify they skip to the previous or next song.
 The **Watch** tab at the bottom chooses what the TV plays, without using the TV's menus:
 
 - **Guide**: what's on now and next on every channel. Tap one to watch it, or record this or the
-  next programme.
+  next programme. A programme that's part of a series also has **Record series**, which asks
+  whether to keep every episode or only the latest 3, 5 or 10.
 - **Films** and **TV**: the same rails as the TV's home. Tap a poster to play, resume or start
   again, or pick a season and episode.
 - **Recordings**: newest first.

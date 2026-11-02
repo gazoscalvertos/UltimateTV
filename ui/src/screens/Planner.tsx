@@ -89,6 +89,22 @@ export function Planner(props: { tab?: PlannerTab }) {
     }
   };
 
+  /** How many episodes of a link to keep: what the planner shows, and what housekeeping enforces. */
+  const keepMenu = async (l: SeriesLink) => {
+    const pick = await choose<number>({
+      title: "How many episodes to keep?",
+      message: l.keepLatest ? `${l.title} keeps the latest ${l.keepLatest}. The older ones are deleted once they've recorded.` : `${l.title} keeps every episode.`,
+      options: [
+        { label: "Keep every episode", value: 0 },
+        { label: "Keep the latest 3", value: 3 },
+        { label: "Keep the latest 5", value: 5 },
+        { label: "Keep the latest 10", value: 10 },
+      ],
+    });
+    if (pick === undefined) return;
+    await act(() => hub.updateSeriesLink(l.id, { keepLatest: pick }), "Series link updated");
+  };
+
   const linkMenu = async (l: SeriesLink) => {
     const pick = await choose({
       title: l.title,
@@ -96,13 +112,13 @@ export function Planner(props: { tab?: PlannerTab }) {
       options: [
         { label: l.scope === "any" ? `Only on ${l.channelName}` : "On any channel", value: "scope" },
         { label: l.newOnly ? "Record repeats too" : "New episodes only", value: "new" },
-        { label: l.keepLatest ? "Keep every episode" : "Keep the latest 5", value: "keep" },
+        { label: "How many episodes to keep", value: "keep", detail: l.keepLatest ? `Keeping the latest ${l.keepLatest}` : "Keeping every episode" },
         { label: "Cancel series link", value: "delete", tone: "danger" },
       ],
     });
     if (pick === "scope") await act(() => hub.updateSeriesLink(l.id, { scope: l.scope === "any" ? "this" : "any" }), "Series link updated");
     if (pick === "new") await act(() => hub.updateSeriesLink(l.id, { newOnly: !l.newOnly }), "Series link updated");
-    if (pick === "keep") await act(() => hub.updateSeriesLink(l.id, { keepLatest: l.keepLatest ? 0 : 5 }), "Series link updated");
+    if (pick === "keep") await keepMenu(l);
     if (pick === "delete") await cancelLink(l);
   };
 
