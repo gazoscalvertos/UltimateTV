@@ -91,6 +91,9 @@ export function featureOfPlayback(req: { kind: string; id?: string }, title?: { 
   if (req.kind === "channel" && req.id?.startsWith("mix:")) return "mix";
   if (req.kind === "channel" || req.kind === "catchup") return "live";
   if (req.kind === "recording") return "recordings";
+  // Radio stations and podcast episodes play as plain streams (their ids say which they are), so
+  // they belong to Music: switching the tab off stops them coming from the phone or by voice too.
+  if (req.kind === "stream" && (req.id?.startsWith("radio:") || req.id?.startsWith("podcast:"))) return "music";
   if (req.kind === "title") return title?.kind === "series" ? "shows" : title?.kind === "movie" ? "films" : undefined;
   return undefined;
 }

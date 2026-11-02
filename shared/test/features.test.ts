@@ -28,6 +28,9 @@ describe("features per screen", () => {
     expect(featureOfPlayback({ kind: "title" }, { kind: "series" })).toBe("shows");
     expect(featureOfPlayback({ kind: "title" }, { kind: "movie" })).toBe("films");
     expect(featureOfPlayback({ kind: "stream" })).toBeUndefined();
+    // Radio and podcasts play as streams: they are the Music tab's, so its switch stops them.
+    expect(featureOfPlayback({ kind: "stream", id: "radio:radio:bbc-radio-2" })).toBe("music");
+    expect(featureOfPlayback({ kind: "stream", id: "podcast:ep-1" })).toBe("music");
   });
 
   it("offers each app only the features it has", () => {
