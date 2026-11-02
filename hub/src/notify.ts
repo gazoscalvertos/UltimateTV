@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, rm, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { BoxTarget } from "@ultimatetv/shared";
 import { NOTICE_KINDS, NOTICE_POSITIONS, NOTICE_SIZES, NOTICE_SOUNDS, type NoticeKind, type NoticePosition, type NoticeSize, type NoticeSound, type TvNotice } from "@ultimatetv/shared";
 import type { HubContext } from "./context.js";
 import { sendFile } from "./streaming.js";
@@ -54,6 +55,8 @@ interface NoticeInput {
   pause?: unknown;
   wake?: unknown;
   seconds?: unknown;
+  /** Which TV box to show it on (issue #103): an id, a name, "all", or nothing for the main box. */
+  box?: unknown;
 }
 
 type Req = FastifyRequest<{ Params: { id?: string }; Querystring: Record<string, string | undefined>; Body: unknown }>;
@@ -89,7 +92,13 @@ function sniff(b: Buffer): string | undefined {
   return undefined;
 }
 
-export async function registerNotices(app: FastifyInstance, ctx: HubContext, dataDir: string): Promise<void> {
+export async function registerNotices(
+  app: FastifyInstance,
+  ctx: HubContext,
+  dataDir: string,
+  /** Works out which box(es) a notice is for (issue #103); with none, every notice goes to the main one. */
+  resolveBox: (raw: unknown) => BoxTarget = () => null,
+): Promise<void> {
   const mediaDir = path.join(dataDir, "notify-media");
   // Pictures from before a restart belong to notices that are gone.
   await rm(mediaDir, { recursive: true, force: true });
@@ -199,7 +208,8 @@ export async function registerNotices(app: FastifyInstance, ctx: HubContext, dat
       notices.set(id, notice);
       while (notices.size > MAX_NOTICES) notices.delete(notices.keys().next().value as string);
       const sent = live().find((n) => n.id === id)!;
-      ctx.events.emit({ type: "notice", notice: sent });
+      const box = resolveBox(input.box);
+      ctx.events.emit({ type: "notice", notice: sent, ...(box !== null ? { box } : {}) });
       return { notice: sent, ...(warnings.length ? { warnings } : {}) };
     });
 

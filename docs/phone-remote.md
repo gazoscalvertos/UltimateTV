@@ -70,6 +70,19 @@ picture and sound quality, and a progress bar you can drag to jump. The buttons 
 forward 30 seconds, pause, stop, jump back to live on a live channel, and pick the audio and
 subtitle tracks. For Spotify they skip to the previous or next song.
 
+## Two TVs
+
+A second box in another room is a second screen on the same Hub: give it a name when it pairs (TV
+Settings › Phones and remotes, or the `setup/` page) and it appears in a picker at the top of the
+phone remote. Each room keeps its own now-playing card, sleep timer and pop-ups, so the bedroom
+remote comes back controlling the bedroom. The picker only appears once there are two boxes, and
+what it is set to is remembered per phone.
+
+The main box — the one everything goes to when nobody says otherwise — is the one that was paired
+first. Both boxes can watch different channels; IPTV connections are counted per box, so the second
+room asking for the same channel shares the relay rather than taking it away, and a clash warning
+says which room it is talking about.
+
 ## Watch on the TV
 
 The **Watch** tab at the bottom chooses what the TV plays, without using the TV's menus:

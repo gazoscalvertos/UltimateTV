@@ -60,6 +60,8 @@
   .install.show { display: block; }
   .hint { text-align: center; color: var(--muted); font-size: 12px; margin: 0; }
   .head-right { display: flex; align-items: center; gap: 10px; }
+  /* Which room this remote is for, when the Hub has more than one box (issue #103). */
+  .box-pick { height: 30px; max-width: 130px; border-radius: 9px; background: var(--panel); color: var(--fg); border: 1px solid rgb(var(--hi) / .12); padding: 0 6px; font: inherit; font-size: 12px; }
   .gear { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--panel); color: var(--fg); }
   .gear svg { width: 22px; height: 22px; }
   .r4 .mic { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); }
@@ -302,6 +304,7 @@
 <header>
   <div class="brand"><span class="mark" id="brand-mark">U</span><span id="brand-name">TV Remote</span></div>
   <div class="head-right">
+    <select class="box-pick" id="box-pick" aria-label="Which TV" hidden></select>
     <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">Connecting…</span><button id="change-hub" hidden style="height:30px;padding:0 10px;font-size:12px;margin-left:6px">Change Hub</button></div>
     <a class="gear" href="/setup/" id="settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
   </div>
@@ -416,9 +419,11 @@ async function send(path, body) {
     setConn("bad", "Can't reach the Hub");
   }
 }
+// Which box the keys go to (issue #103): phone.js puts this in place once it knows the boxes.
+const boxArg = () => (typeof window.utvBoxArg === "function" ? window.utvBoxArg() : {});
 const press = (action) => {
   if (navigator.vibrate) navigator.vibrate(12);
-  void send("/api/remote/key", { action });
+  void send("/api/remote/key", { action, ...boxArg() });
 };
 
 // Buttons: press on touch down (feels instant); arrows repeat while held. The pressed look is its
@@ -459,7 +464,7 @@ document.getElementById("text").addEventListener("submit", (e) => {
     void sendVoice(input.value);
     input.value = "";
   } else {
-    void send("/api/remote/text", { text: input.value });
+    void send("/api/remote/text", { text: input.value, ...boxArg() });
   }
   input.blur();
 });
@@ -481,7 +486,7 @@ async function sendVoice(text) {
   if (!text) return;
   showHeard(`“${text}”`, "…");
   try {
-    const res = await fetch("/api/remote/voice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    const res = await fetch("/api/remote/voice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, ...boxArg() }) });
     const r = await res.json();
     if (!res.ok) throw new Error(r.error || res.statusText);
     setConn("ok", "Connected");

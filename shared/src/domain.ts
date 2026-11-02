@@ -11,6 +11,7 @@ import { seasonOn } from "./seasons.js";
 import type { ThemeChoice, ThemeName } from "./themes.js";
 import type { AccessibilitySettings } from "./accessibility.js";
 import type { FeatureId } from "./features.js";
+import type { BoxTarget } from "./boxes.js";
 
 export type Id = string;
 
@@ -736,26 +737,26 @@ export type HubEvent =
   | { type: "profiles.changed" }
   | { type: "toast"; message: string }
   /** From the phone remote: a key press, or text typed on the phone. */
-  | { type: "remote.key"; action: string }
-  | { type: "remote.text"; text: string }
+  | { type: "remote.key"; action: string; box?: BoxTarget }
+  | { type: "remote.text"; text: string; box?: BoxTarget }
   /** From phone voice control: switch to a channel, or say what was understood. */
-  | { type: "remote.channel"; channelId: string }
-  | { type: "remote.radio"; stationId: string }
-  | { type: "remote.said"; text: string }
+  | { type: "remote.channel"; channelId: string; box?: BoxTarget }
+  | { type: "remote.radio"; stationId: string; box?: BoxTarget }
+  | { type: "remote.said"; text: string; box?: BoxTarget }
   /** A news flash typed on the phone, shown along the bottom of the TV over anything; null takes it down. */
-  | { type: "flash"; flash: NewsFlash | null }
+  | { type: "flash"; flash: NewsFlash | null; box?: BoxTarget }
   /** A pop-up sent to the TV through /api/notify (a doorbell, a meeting, an alarm); a notice with the same id replaces it. */
-  | { type: "notice"; notice: TvNotice }
+  | { type: "notice"; notice: TvNotice; box?: BoxTarget }
   /** Takes a pop-up down, or all of them without an id. */
-  | { type: "notice.clear"; id?: string }
+  | { type: "notice.clear"; id?: string; box?: BoxTarget }
   /** A jump scare or projected clip: cut it in over whatever is on, now. */
   | { type: "scare"; scare: Scare }
   /** The clip settings, clips, packs or loop changed (the phone's Clips sheet, or the TV's settings). */
   | { type: "scares.changed" }
   /** From the phone's settings: things only the TV app can do. "report" asks it to post its software state. */
-  | { type: "box.command"; command: "update" | "rollback" | "reload" | "report" | "stats"; on?: boolean }
+  | { type: "box.command"; command: "update" | "rollback" | "reload" | "report" | "stats"; on?: boolean; box?: BoxTarget }
   /** The phone asks the TV app something (what's playing, play this, seek); it answers at /api/tv/reply/:id. */
-  | { type: "tv.call"; id: string; method: TvMethod; args: unknown }
+  | { type: "tv.call"; id: string; method: TvMethod; args: unknown; box?: BoxTarget }
 
   /** A music service login typed on the phone: the TV fetches it once from /api/music/login/:id. */
   | { type: "music.login"; app: "deezer"; id: string }
@@ -788,11 +789,13 @@ export type HubEvent =
   /** The seasonal clip settings or clips changed. */
   | { type: "projections.changed" }
   /** Set or cancel the TV's sleep timer (voice, or the phone). */
-  | { type: "sleep"; choice: SleepChoice }
+  | { type: "sleep"; choice: SleepChoice; box?: BoxTarget }
   /** A new forecast, or the weather settings changed: fetch /api/weather again. */
   | { type: "weather.changed" }
+  /** A TV box came on or went off, or a box was renamed: fetch /api/boxes again (issue #103). */
+  | { type: "boxes.changed" }
   /** Open the forecast on the TV (asked for by voice, or from the phone). */
-  | { type: "weather.show" };
+  | { type: "weather.show"; box?: BoxTarget };
 
 /** The Hub's own software, for the phone's settings page. */
 export interface HubSoftware {

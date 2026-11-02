@@ -78,6 +78,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 - Arrows, OK, Back, colour keys, numbers and typing into Search; volume keys change channel in the Android app.
 - **(untested)** Portrait or landscape: sideways it puts the d-pad in the middle, keys either side and the tabs down the edge.
 - **(untested)** From 0.7.0 the Android app is in the phone's notifications while the TV plays (title, picture, progress, Pause, skips and Back, or Channel − and + on live TV), in Quick Settings as a play/pause tile, and on the home screen as a resizable widget with the d-pad, OK, Back, Home and the colour keys. None of them poll: the Hub holds one request open until the state changes.
+- **(untested)** Two TV boxes in one house: each room's box is a named screen with its own now-playing, sleep timer and pop-ups. The phone remote grows a picker at the top and remembers which room it is for; `POST /api/notify` and the other TV routes take an optional `box`. With one box nothing changes and nothing new appears.
 - Now Playing card with progress, skip, live and track buttons; a Watch tab to start anything on the TV (guide, films, TV, recordings, Spotify, search, queue); On the box tab for box downloads.
 - Voice: "watch BBC One", "search for Dune", "pause", "down three times".
 - Settings page (`/setup/`) covering everything the TV's Settings does, **Alerts included**, plus updating the Hub and the box, reloading the TV app and refreshing the guide.

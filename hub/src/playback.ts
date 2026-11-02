@@ -27,9 +27,17 @@ export class PlaybackError extends Error {
 const streamCache = new Map<string, { at: number; streams: StreamCandidate[] }>();
 const STREAM_CACHE_MS = 30 * 60_000;
 
+/**
+ * True for a holder that is a TV box: "box" (a one-box Hub, or a box that hasn't said which it is)
+ * and "box:<device id>" for a named one (issue #103).
+ */
+export function isTvHolder(holder: string | undefined): boolean {
+  return holder === "box" || (holder?.startsWith("box:") ?? false);
+}
+
 /** Who is asking and why: the TV by default, or a phone watching or downloading for later. */
 export interface PlayContext {
-  /** The device: "box" (the TV) or "phone:<id>". */
+  /** The device: "box" or "box:<id>" (the TV) or "phone:<id>". */
   holder?: string;
   /** Resolving for an offline download: IPTV waits for a free connection, Jellyfin can send a smaller copy. */
   download?: boolean;
@@ -66,12 +74,12 @@ export class Playback {
    */
   private askBeforeTakingOver(key: string, pc: PlayContext): void {
     const holder = pc.holder;
-    if (!holder || holder === "box" || pc.download) return;
+    if (!holder || isTvHolder(holder) || pc.download) return;
     const verdict = this.ctx.guard.check(key, "view");
     if (verdict.ok) return;
     const other = verdict.preempts.find((l) => [...l.holders].some(([h, k]) => k === "view" && h !== holder));
     if (!other) return;
-    const who = other.holders.has("box") ? "the TV" : "another phone";
+    const who = [...other.holders.keys()].some(isTvHolder) ? "the TV" : "another phone";
     throw new PlaybackError(`Your IPTV connection is in use on ${who} (${other.label}). Watching here will stop it there.`, "busy");
   }
 
@@ -124,6 +132,7 @@ export class Playback {
     if (!force) this.askBeforeTakingOver(LiveRelay.key(id), pc);
     const q = new URLSearchParams();
     if (force) q.set("force", "1");
+    // A second box names itself ("box:<id>"), so two boxes don't look like one connection (issue #103).
     if (pc.holder && pc.holder !== "box") q.set("holder", pc.holder);
     const { now } = this.ctx.guide.nowNext(id);
     const info: PlaybackInfo = {

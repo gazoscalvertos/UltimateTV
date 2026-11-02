@@ -4,6 +4,7 @@ export * from "./guest.js";
 export * from "./ranking.js";
 export * from "./keys.js";
 export * from "./bluetooth.js";
+export * from "./boxes.js";
 export * from "./text.js";
 export * from "./agent.js";
 export * from "./music.js";
