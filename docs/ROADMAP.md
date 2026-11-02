@@ -1,6 +1,6 @@
 # Roadmap
 
-Where UltimateTV stands on 2026-10-30 (main up to PR #61) and what's left. The original phases are in [PLAN.md §8](PLAN.md#8-phased-roadmap); [FEATURES.md](FEATURES.md) lists what's built and [TESTING.md](TESTING.md) is the test run.
+Where UltimateTV stands on 2026-10-30 (main up to PR #61) and what's left. This page is a **snapshot of that date**: the tested-or-untested tables and the "Still to test" list are still accurate (nothing has run on the Hisense), but everything shipped since is only in [CHANGELOG.md](../CHANGELOG.md), so treat the "Recent pull requests" and "Not built yet" sections as history. The original phases are in [PLAN.md §8](PLAN.md#8-phased-roadmap); [FEATURES.md](FEATURES.md) lists what's built and [TESTING.md](TESTING.md) is the test run.
 
 ## Where it stands
 

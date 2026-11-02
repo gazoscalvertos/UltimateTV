@@ -1,6 +1,6 @@
 # Features
 
-Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Nothing has run on the Hisense yet. Items marked **(tested)** have run on the real box, Hub or phone; everything else is built and passes its tests against the demo Hub but is untested on the hardware. [ROADMAP.md](ROADMAP.md#tested-or-untested-feature-by-feature) has the full table. [CHANGELOG.md](../CHANGELOG.md) has the detail of each change.
+Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense yet.** Items marked **(tested)** have run on the real box, Hub or phone; everything else is built and passes its tests against the demo Hub but is untested on the hardware. [CHANGELOG.md](../CHANGELOG.md) is the detail of every change, newest first, and is kept up to date with each pull request; [ROADMAP.md](ROADMAP.md#tested-or-untested-feature-by-feature) has the tested-or-untested table as it stood on 2026-10-30, and [TESTING.md](TESTING.md) is the test run to do on the hardware.
 
 ## Live TV and the guide
 
@@ -11,7 +11,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 - Live player with the now-and-next banner, browsing other channels with up/down without changing, number tuning and channel up/down.
 - Pause and rewind live TV (mpv keeps up to a gigabyte behind the live point).
 - Catch-up and "watch from the start" on channels that offer it.
-- Reminders on programmes.
+- Reminders on programmes: Remind me on a programme in the guide. The Hub fires it, the TV shows a card when it starts, and the same button removes it, but there is **no list of the reminders you have set**: Recordings has no Reminders tab, so cancelling one means finding the programme again.
 - Live TV switches the screen's refresh rate once mpv reads the stream's frame rate.
 - Search finds channels with or without spaces ("bbcone"), what's on this week, recordings, films and series, with an on-screen keyboard or typing from the phone.
 - Recent searches per profile (kept on the Hub, up to 20): shown before anything is typed and as suggestions while typing; OK runs one. Clear removes one, Clear all the lot. The phone remote's Search shows the TV profile's list.
@@ -20,8 +20,8 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 
 - Record a single programme or a whole series from the guide (Red). Recordings land on the NAS with ffmpeg stream copy and show up in Jellyfin.
 - Series links schedule new episodes as the guide refreshes; each has a Cancel button.
-- The one IPTV connection is shared: watching and recording the same channel uses one stream, and clashes warn and offer what to drop.
-- Recordings screen: recorded (grouped by series), coming up, series links, clashes and NAS downloads.
+- The one IPTV connection is shared: watching and recording the same channel uses one stream. When more recordings overlap than the plan has connections, Recordings shows a clash banner naming the programmes. It only warns: **cancelling one of them is still manual**, from Coming up in Recordings.
+- Recordings screen: recorded (grouped by series), coming up, series links, a clash banner and NAS downloads.
 
 ## Films and TV
 
@@ -71,7 +71,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 - **(untested)** Portrait or landscape: sideways it puts the d-pad in the middle, keys either side and the tabs down the edge.
 - Now Playing card with progress, skip, live and track buttons; a Watch tab to start anything on the TV (guide, films, TV, recordings, Spotify, search, queue); On the box tab for box downloads.
 - Voice: "watch BBC One", "search for Dune", "pause", "down three times".
-- Settings page (`/setup/`) covering everything the TV's Settings does, plus updating the Hub and the box, reloading the TV app and refreshing the guide.
+- Settings page (`/setup/`) covering the TV's Settings apart from **Alerts** (webhook and ntfy), which is on the TV only, plus updating the Hub and the box, reloading the TV app and refreshing the guide.
 - Stats page for the box and the Hub: playback quality, HDMI, CPU, GPU, memory, disks, network, warnings and logs.
 
 ## Android app ([android-client.md](android-client.md))

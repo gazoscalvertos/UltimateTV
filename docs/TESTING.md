@@ -34,7 +34,7 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 
 1. In the guide, press red on something starting soon and choose **Just this episode**. It should appear in Recordings › Coming up, then record, then play from Recorded.
 2. Set a series link on a daily programme. Next day, Recordings › Series links should show the next episodes scheduled.
-3. Record two things on at the same time while watching a third channel: the app should warn about the connection limit and offer what to drop.
+3. Record two things on at the same time while watching a third channel: Recordings should show a clash banner naming both. It only warns - cancel one of them from Coming up and the banner goes away.
 
 ## 5. Films and TV
 
