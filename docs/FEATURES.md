@@ -71,7 +71,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 - **(untested)** Portrait or landscape: sideways it puts the d-pad in the middle, keys either side and the tabs down the edge.
 - Now Playing card with progress, skip, live and track buttons; a Watch tab to start anything on the TV (guide, films, TV, recordings, Spotify, search, queue); On the box tab for box downloads.
 - Voice: "watch BBC One", "search for Dune", "pause", "down three times".
-- Settings page (`/setup/`) covering the TV's Settings apart from **Alerts** (webhook and ntfy), which is on the TV only, plus updating the Hub and the box, reloading the TV app and refreshing the guide.
+- Settings page (`/setup/`) covering everything the TV's Settings does, **Alerts included**, plus updating the Hub and the box, reloading the TV app and refreshing the guide.
 - Stats page for the box and the Hub: playback quality, HDMI, CPU, GPU, memory, disks, network, warnings and logs.
 
 ## Android app ([android-client.md](android-client.md))
@@ -91,7 +91,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 - **Button hints and help** ([everyday-extras.md](everyday-extras.md)): a strip along the bottom says what the colour keys do on each screen; Info opens a help screen with the remote drawn. On Home the colour keys are shortcuts.
 - **Sleep timer**: 15 minutes to 2 hours or the end of the programme, from Options, the phone or voice. "Still watching?" a minute before, then the sound fades, playback stops and the TV goes to standby over CEC.
 - **Home Assistant both ways** ([notifications.md](notifications.md#home-assistant-the-other-way-the-tv-as-a-media-player)): the TV as a media player in Home Assistant (what's on, play, pause, stop, channels, volume, standby) and a webhook told when a film starts, pauses, resumes, stops or reaches the credits, the channel changes or the profile switches, so the lights can follow.
-- **Alerts**: IPTV or TorBox expiry, the guide not updating, failed recordings, a full NAS, live TV failing and the Hub restarting over and over go to a Home Assistant webhook or ntfy, and to a card on the TV for grown-ups.
+- **Alerts**: IPTV or TorBox expiry, the guide not updating, failed recordings, a full NAS, live TV failing and the Hub restarting over and over go to a Home Assistant webhook or ntfy, and to a card on the TV for grown-ups. Set them up and see what the Hub is worried about on the TV, or from a phone at `/setup/`.
 - **Save for later**: Red on a title saves it to that profile's list; saves from the phone or by voice ("save Dune for later") go to a household list every profile sees. Shown as a row on Home.
 - **Advert skip**: comskip in the Hub's image finds the breaks in recordings; playback offers Skip adverts or skips them itself.
 - **Seasonal clips** ([everyday-extras.md](everyday-extras.md#seasonal-clips)): a sleigh, a bunny, fireworks, a ghost and more drift across the TV for Christmas, New Year, Valentine's, Easter, Halloween, Bonfire Night and birthdays, drawn by the TV or uploaded from the phone, with a community library in [community/clips](../community/clips/README.md).

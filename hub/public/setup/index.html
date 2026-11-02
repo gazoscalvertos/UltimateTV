@@ -141,7 +141,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -256,6 +256,26 @@
     <label class="opt"><span>On Home<small>Today's weather in the top corner</small></span><input type="checkbox" data-wx="onHome"></label>
     <label class="opt"><span>Along the top<small>The temperature next to the clock; choose it for the week ahead</small></span><input type="checkbox" data-wx="inTopBar"></label>
     <label class="opt"><span>On the screensaver<small>Under the clock</small></span><input type="checkbox" data-wx="onScreensaver"></label>
+  </section>
+
+  <section id="alerts">
+    <h2>Alerts <span class="pill" id="al-pill">…</span></h2>
+    <p class="hint">The Hub keeps an eye on the things that stop TV working: the IPTV and TorBox subscriptions running out, the guide going stale, recordings failing, the NAS filling up, live TV not starting and the Hub restarting over and over. Before they break, it tells you on the TV and through Home Assistant or ntfy.</p>
+    <div id="al-list"></div>
+    <form id="al-form">
+      <label>Home Assistant webhook<small> A webhook URL from a Home Assistant automation, or anything that takes a JSON POST</small></label>
+      <input name="webhookUrl" autocomplete="off" spellcheck="false" placeholder="https://homeassistant.local:8123/api/webhook/...">
+      <label>Phone notifications (ntfy)<small> An ntfy topic address, for a phone without Home Assistant</small></label>
+      <input name="ntfyUrl" autocomplete="off" spellcheck="false" placeholder="https://ntfy.sh/your-own-topic">
+      <button class="small" style="margin-top:8px">Save</button>
+    </form>
+    <label class="opt"><span>Warn before a subscription runs out</span><select data-al="expiryDays" data-number><option value="3">3 days</option><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option></select></label>
+    <label class="opt"><span>Warn when the NAS has less than</span><select data-al="diskFreeGb" data-number><option value="10">10 GB free</option><option value="20">20 GB free</option><option value="50">50 GB free</option><option value="100">100 GB free</option><option value="250">250 GB free</option></select></label>
+    <label class="opt"><span>Show them on the TV<small>A friendly note on the grown-ups' profiles, never on Kids</small></span><input type="checkbox" data-al="onTv"></label>
+    <div class="row" style="grid-template-columns:1fr 1fr;margin-top:10px">
+      <button class="small" id="al-check" type="button">Check now</button>
+      <button class="small" id="al-test" type="button">Send a test alert</button>
+    </div>
   </section>
 
   <section id="recording">
@@ -1017,6 +1037,58 @@ function showWeather(st) {
   const now = st.report?.now;
   pill("#wx-pill", now ? `${p.name} ${Math.round(st.settings.temperature === "f" ? (now.tempC * 9) / 5 + 32 : now.tempC)}°` : p ? p.name : "Not set", p ? "ok" : "");
 }
+// Alerts (see docs/notifications.md): where they go, and what the Hub is worried about.
+const AGO = (t) => { const m = Math.round((Date.now() - t) / 60_000); return m < 2 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`; };
+const LEVEL_TEXT = { bad: "Needs fixing", warn: "Soon", info: "Note" };
+const daysLeft = (at) => { const d = Math.round((at - Date.now()) / 86_400_000); return d <= 0 ? "Today" : d === 1 ? "Tomorrow" : `In ${d} days`; };
+function showAlerts(r) {
+  $("#al-form").webhookUrl.value = r.settings.webhookUrl || "";
+  $("#al-form").ntfyUrl.value = r.settings.ntfyUrl || "";
+  for (const el of document.querySelectorAll("[data-al]")) if (el.dataset.al in r.settings) setValue(el, r.settings[el.dataset.al]);
+  $("#al-pill").textContent = r.alerts.some((a) => a.level === "bad") ? "Needs fixing" : r.alerts.length ? `${r.alerts.length} to look at` : "All fine";
+  $("#al-pill").className = "pill" + (r.alerts.some((a) => a.level === "bad") ? " bad" : r.alerts.length ? "" : " ok");
+  const list = $("#al-list");
+  list.innerHTML = "";
+  for (const a of r.alerts) {
+    const row = document.createElement("div");
+    row.className = "profile";
+    const name = document.createElement("div");
+    name.className = "name";
+    name.innerHTML = `<span><span class="pname"></span> <small></small></span>`;
+    name.querySelector(".pname").textContent = a.title;
+    name.querySelector("small").textContent = [a.message, a.since ? `since ${AGO(a.since)}` : "", a.sentAt ? `sent ${AGO(a.sentAt)}` : "not sent yet"].filter(Boolean).join(" · ");
+    const pill = document.createElement("span");
+    pill.className = "pill" + (a.level === "bad" ? " bad" : a.level === "warn" ? "" : " ok");
+    pill.textContent = LEVEL_TEXT[a.level] || a.level;
+    row.append(name, pill);
+    list.append(row);
+  }
+  for (const x of r.expiries || []) {
+    const row = document.createElement("div");
+    row.className = "profile";
+    row.innerHTML = `<div class="name"><span><span class="pname"></span> <small>When the subscription runs out</small></span></div><span class="pill"></span>`;
+    row.querySelector(".pname").textContent = x.name;
+    row.querySelector(".pill").textContent = daysLeft(x.at);
+    list.append(row);
+  }
+  if (!r.alerts.length && !(r.expiries || []).length) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = r.checkedAt ? `Everything looks fine, checked ${AGO(r.checkedAt)}.` : "Not checked yet: press Check now.";
+    list.append(p);
+  }
+  $("#al-test").hidden = !(r.settings.webhookUrl || r.settings.ntfyUrl);
+}
+const loadAlerts = () => api("/api/alerts").then(showAlerts);
+const saveAlerts = (patch, done) => api("/api/alerts/settings", { method: "PUT", body: patch }).then((r) => { if (done) toast(done); showAlerts(r); }).catch((e) => { toast(e.message, true); loadAlerts().catch(() => {}); });
+$("#al-form").onsubmit = (e) => {
+  e.preventDefault();
+  saveAlerts({ webhookUrl: $("#al-form").webhookUrl.value.trim(), ntfyUrl: $("#al-form").ntfyUrl.value.trim() }, "Saved");
+};
+for (const el of document.querySelectorAll("[data-al]")) el.addEventListener("change", () => saveAlerts({ [el.dataset.al]: valueOf(el) }, "Saved"));
+$("#al-check").onclick = () => api("/api/alerts/check", { method: "POST" }).then((r) => { showAlerts(r); toast("Checked"); }).catch((e) => toast(e.message, true));
+$("#al-test").onclick = () => api("/api/alerts/test", { method: "POST" }).then(() => toast("Test alert sent")).catch((e) => toast(e.message, true));
+
 const loadWeather = () => api("/api/weather").then(showWeather);
 const saveWeather = (patch, done) => api("/api/weather/settings", { method: "PUT", body: patch }).then((st) => { if (done) toast(done); showWeather(st); }).catch((e) => { toast(e.message, true); loadWeather().catch(() => {}); });
 for (const el of document.querySelectorAll("[data-wx]")) el.addEventListener("change", () => saveWeather({ [el.dataset.wx]: valueOf(el) }, "Saved"));
@@ -1407,6 +1479,7 @@ async function load() {
   for (const el of document.querySelectorAll("[data-rec]")) setValue(el, s.recording[el.dataset.rec]);
   if (s.screensaver) loadScreensaver(s).catch(() => {});
   loadWeather().catch(() => {});
+  loadAlerts().catch(() => {});
   for (const [id, on] of [["#tmdb-pill", s.tmdb], ["#torbox-pill", s.torbox], ["#omdb-pill", s.omdb], ["#os-pill", s.openSubtitles?.configured]]) { $(id).textContent = on ? "Set" : "Not set"; $(id).className = "pill" + (on ? " ok" : ""); }
   $("#addon-list").innerHTML = s.addons.map((a) => `<li><span>${a.name}<small>${a.url}</small></span></li>`).join("");
   const lib = $("#lib-form");
