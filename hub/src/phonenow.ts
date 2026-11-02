@@ -56,12 +56,22 @@ export class PhoneNow {
 
 type Req<Q = unknown> = FastifyRequest<{ Querystring: Q }>;
 
-export function registerPhoneNow(app: FastifyInstance, deps: { now: PhoneNow; state: () => HaState }): void {
+export function registerPhoneNow(
+  app: FastifyInstance,
+  deps: {
+    now: PhoneNow;
+    /** One box's state, or the main box's when none is named (issue #103). */
+    state: (box?: string) => HaState;
+    /** Which box the phone means, as a key into the per-box state. */
+    boxKey: (raw: unknown) => string;
+  },
+): void {
   /** What the TV is playing, held open until it changes (see PhoneNow above). */
-  app.get("/api/remote/now", async (req: Req<{ since?: string; wait?: string }>, reply) => {
+  app.get("/api/remote/now", async (req: Req<{ since?: string; wait?: string; box?: string }>, reply) => {
     const q = req.query ?? {};
     const since = Number.parseInt(String(q.since ?? "0"), 10) || 0;
+    const box = deps.boxKey(q.box);
     await deps.now.waitFor(since, Number.parseInt(String(q.wait ?? ""), 10));
-    return reply.header("Cache-Control", "no-store").send({ seq: deps.now.current, state: deps.state() });
+    return reply.header("Cache-Control", "no-store").send({ seq: deps.now.current, box, state: deps.state(box) });
   });
 }

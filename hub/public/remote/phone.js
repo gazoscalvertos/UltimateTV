@@ -19,6 +19,50 @@
   let polledAt = 0;
   let kidsProfile = null;
 
+  // Which TV box this remote is for (issue #103). Remembered per phone, so the bedroom remote comes
+  // back controlling the bedroom. No choice is sent until there is more than one box.
+  const BOX_KEY = "utv-remote-box";
+  const savedBox = () => {
+    try {
+      return localStorage.getItem(BOX_KEY) || "";
+    } catch {
+      return "";
+    }
+  };
+  let boxId = savedBox();
+  const boxPick = () => $("box-pick");
+  function setBox(id) {
+    boxId = id || "";
+    try {
+      if (boxId) localStorage.setItem(BOX_KEY, boxId);
+      else localStorage.removeItem(BOX_KEY);
+    } catch {
+      // No storage: the pick is forgotten next time, which is only a nuisance.
+    }
+  }
+  /** The box field for a request body, or {} when the Hub has one box. */
+  const boxArg = () => (boxId ? { box: boxId } : {});
+  async function loadBoxes() {
+    const pick = boxPick();
+    let boxes = [];
+    let main = null;
+    try {
+      ({ boxes, main } = await get("/api/boxes", null));
+    } catch {
+      pick.hidden = true;
+      return;
+    }
+    // A box that was unpaired is forgotten; a box that was paired since needs no choice.
+    if (boxId && !boxes.some((b) => b.id === boxId)) setBox("");
+    if (!boxId) setBox(boxes.length > 1 ? (main ?? boxes[0]?.id ?? "") : "");
+    pick.hidden = boxes.length < 2;
+    pick.innerHTML = boxes
+      .map((b) => `<option value="${esc(b.id)}"${b.id === boxId ? " selected" : ""}>${esc(b.name)}${b.online ? "" : " (off)"}</option>`)
+      .join("");
+    // The d-pad and the typed-text box live in the page's own script: tell them which box too.
+    window.utvBoxArg = boxArg;
+  }
+
   const toastEl = document.createElement("div");
   toastEl.className = "ptoast";
   document.body.append(toastEl);
@@ -30,7 +74,7 @@
   };
 
   async function call(method, args) {
-    const r = await fetch(`/api/tv/call/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(args ?? {}) });
+    const r = await fetch(`/api/tv/call/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(args ?? {}), ...boxArg() }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw Object.assign(new Error(d.error || r.statusText), { code: d.code });
     return d;
@@ -70,7 +114,7 @@
     if (!r.ok) throw new Error(d.error || r.statusText);
     return d;
   }
-  const key = (action) => post("/api/remote/key", { action }).catch(() => toast("Can't reach the Hub", true));
+  const key = (action) => post("/api/remote/key", { action, ...boxArg() }).catch(() => toast("Can't reach the Hub", true));
 
   // Downloads to the TV box: the TV app adds them (with its profile's rules) and the box fetches them.
   async function downloadToBox(args) {
@@ -122,8 +166,11 @@
   // Now playing
 
   let dragging = false;
+  let polls = 0;
   async function poll() {
     if (document.visibilityState !== "visible") return;
+    // Which boxes are on changes slowly: refresh the picker's marks every ten polls (25 s).
+    if (++polls % 10 === 0) void loadBoxes().catch(() => undefined);
     try {
       tv = await call("now");
       polledAt = Date.now();
@@ -268,7 +315,17 @@
     if (!$("np").hidden && !dragging) renderNow();
   }, 1000);
   setInterval(poll, 2500);
-  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && poll());
+  boxPick().onchange = () => {
+    setBox(boxPick().value);
+    void poll();
+    toast("This remote is for the " + (boxPick().selectedOptions[0]?.textContent ?? "other TV").replace(" (off)", ""));
+  };
+  void loadBoxes().catch(() => undefined);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    void poll();
+    void loadBoxes().catch(() => undefined);
+  });
   poll();
 
   // ---------------------------------------------------------------------------
@@ -393,7 +450,7 @@
         localStorage.setItem("utv-flash-seconds", String(flashSeconds));
       } catch {}
       try {
-        await post("/api/flash", { text: text.value, label: flashLabel, seconds: flashSeconds });
+        await post("/api/flash", { text: text.value, label: flashLabel, seconds: flashSeconds, ...boxArg() });
         closeSheet();
         toast("On the TV now");
       } catch (e) {
@@ -510,7 +567,7 @@
           if (!r.ok) throw new Error(d.error || r.statusText);
           body[d.kind] = d.url;
         }
-        await post("/api/notify", body);
+        await post("/api/notify", { ...body, ...boxArg() });
         closeSheet();
         toast("On the TV now");
       } catch (e) {
@@ -556,7 +613,7 @@
       const r = await fetch("/api/notify/media", { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || r.statusText);
-      await post("/api/notify", { kind: "info", position: "full", size: "large", seconds: d.kind === "video" ? 0 : 60, sound: "none", pause: true, [d.kind]: d.url });
+      await post("/api/notify", { kind: "info", position: "full", size: "large", seconds: d.kind === "video" ? 0 : 60, sound: "none", pause: true, [d.kind]: d.url, ...boxArg() });
       toast("On the TV now. Back on the TV remote closes it");
     } catch (e) {
       toast(e.message, true);
@@ -674,7 +731,7 @@
       b.onclick = async () => {
         const v = b.dataset.sleep;
         try {
-          await post("/api/tv/sleep", v === "off" ? { off: true } : v === "end" ? { end: true } : { minutes: Number(v) });
+          await post("/api/tv/sleep", { ...(v === "off" ? { off: true } : v === "end" ? { end: true } : { minutes: Number(v) }), ...boxArg() });
           closeSheet();
           toast(v === "off" ? "Sleep timer off" : "Sleep timer set");
           setTimeout(poll, 800);

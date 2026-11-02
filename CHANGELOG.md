@@ -30,6 +30,11 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **A second TV box in another room**: pair a second box and name it, and each room gets its own
+  now-playing card, sleep timer and pop-ups; the phone remote grows a picker at the top and
+  remembers which room it is for. With one box nothing changes. (#103)
+  Household: a TV in the bedroom and one in the living room now both work with the same Hub, and
+  each phone remote knows which one it is working.
 - **Bluetooth headphones, speakers and controllers**: Settings › Bluetooth on the TV (and the same
   section on the phone's Settings page) finds nearby devices and pairs and trusts them in one press.
   Headphones take the sound over when they connect and hand it back when they go, decoded to stereo

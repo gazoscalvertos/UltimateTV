@@ -25,7 +25,7 @@ import { registerSubtitles } from "./subtitles.js";
 import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
 import { ChangelogFile, registerChangelog } from "./changelog.js";
-import type { AccessibilitySettings, BoxState, DeviceList, FeatureId, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, HomeRowId, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
+import type { AccessibilitySettings, BoxState, BoxTarget, DeviceList, FeatureId, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, HomeRowId, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
 import { FEATURES, featuresFor, isClientKind, type ClientFeatureState, cleanAppName, cleanSubtitleStyle, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
@@ -40,6 +40,7 @@ import { phoneReachable } from "./lan.js";
 import { Library, NotAllowedError } from "./library.js";
 import { Pairing, PairingError } from "./pairing.js";
 import { PhoneNow, registerPhoneNow } from "./phonenow.js";
+import { BoxRegistry } from "./boxes.js";
 import { ClientFeatures } from "./features.js";
 import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
@@ -100,6 +101,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   /** TV app clients listening on the event socket: the phone's box controls need one. */
   let tvSockets = 0;
   const deviceSockets = new Map<string, Set<{ close(code?: number, reason?: string): void }>>();
+  /** TV apps connected per paired device: more than one box can be on (issue #103). */
+  const tvSocketsByDevice = new Map<string, number>();
+  const connectionsOf = (id: string) => tvSocketsByDevice.get(id) ?? 0;
   const hubBase = (req: FastifyRequest) => config.publicUrl ?? `${req.protocol}://${req.headers.host ?? `${req.hostname}:${config.port}`}`;
   /** The Hub's address for a phone: the TV may reach a Hub on the box itself at 127.0.0.1. */
   const phoneBase = (req: FastifyRequest) => phoneReachable(hubBase(req));
@@ -107,6 +111,18 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // Pairing: only phones and screens that have paired (see pairing.ts) may control the TV.
   const pairing = new Pairing(ctx.db, config.pairing !== false, () => ctx.events.emit({ type: "devices.changed" }));
+  // Which box an action is for (issue #103). A box is a paired screen of kind "tv".
+  const boxes = new BoxRegistry({ devices: () => pairing.devices(), connections: connectionsOf });
+  /**
+   * The `box` field for an event. With one box nothing is added, so a phone with one TV sends
+   * exactly what it always sent and every screen hears it as before. Once a second box is set up,
+   * a press with no room named goes to the main box rather than to every TV in the house.
+   */
+  const targeted = (box: BoxTarget): { box?: BoxTarget } => {
+    if (box !== null) return { box };
+    const main = boxes.main()?.id;
+    return main && boxes.list().length > 1 ? { box: main } : {};
+  };
   const DEVICE_COOKIE = "utv_device";
   const header = (req: FastifyRequest, name: string) => {
     const v = req.headers[name];
@@ -646,14 +662,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "up", "down", "left", "right", "ok", "back", "red", "green", "yellow", "blue", "guide", "info", "play", "pause", "playPause", "stop",
     "rewind", "fastForward", "record", "channelUp", "channelDown", "home", "digit0", "digit1", "digit2", "digit3", "digit4", "digit5", "digit6", "digit7", "digit8", "digit9",
   ]);
-  app.post("/api/remote/key", async (req: Req<Record<string, string>, Record<string, string>, { action?: string }>, reply) => {
+  app.post("/api/remote/key", async (req: Req<Record<string, string>, Record<string, string>, { action?: string; box?: unknown }>, reply) => {
     const action = String(req.body?.action ?? "");
     if (!REMOTE_ACTIONS.has(action)) return reply.code(400).send({ error: "Unknown key" });
-    ctx.events.emit({ type: "remote.key", action });
+    ctx.events.emit({ type: "remote.key", action, ...targeted(boxes.normalise(req.body?.box)) });
     return { ok: true };
   });
-  app.post("/api/remote/text", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
-    ctx.events.emit({ type: "remote.text", text: String(req.body?.text ?? "").slice(0, 120) });
+  app.post("/api/remote/text", async (req: Req<Record<string, string>, Record<string, string>, { text?: string; box?: unknown }>) => {
+    ctx.events.emit({ type: "remote.text", text: String(req.body?.text ?? "").slice(0, 120), ...targeted(boxes.normalise(req.body?.box)) });
     return { ok: true };
   });
   // A news flash along the bottom of the TV, typed on the phone. Kept so a TV that reconnects shows it too.
@@ -663,7 +679,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return flash && { ...flash, leftMs: flash.until === null ? null : flash.until - Date.now() };
   };
   app.get("/api/flash", async () => ({ flash: currentFlash() }));
-  app.post("/api/flash", async (req: Req<Record<string, string>, Record<string, string>, { text?: string; label?: string; seconds?: number }>, reply) => {
+  app.post("/api/flash", async (req: Req<Record<string, string>, Record<string, string>, { text?: string; label?: string; seconds?: number; box?: unknown }>, reply) => {
     const text = String(req.body?.text ?? "").replace(/\s+/g, " ").trim().slice(0, 280);
     if (!text) return reply.code(400).send({ error: "Write the news first" });
     const seconds = Number(req.body?.seconds ?? 60);
@@ -676,7 +692,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       at: now,
     };
     const sent = currentFlash();
-    ctx.events.emit({ type: "flash", flash: sent });
+    ctx.events.emit({ type: "flash", flash: sent, ...targeted(boxes.normalise(req.body?.box)) });
     return { flash: sent };
   });
   app.delete("/api/flash", async () => {
@@ -685,7 +701,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ok: true };
   });
   // Pop-ups on the TV from the phone or anything on the home network (a doorbell, an alarm).
-  await registerNotices(app, ctx, config.dataDir);
+  await registerNotices(app, ctx, config.dataDir, (raw) => boxes.normalise(raw));
   // Jump scares and projected clips: clips the Hub keeps and cuts in over whatever is on, and the packs that share them (see scares.ts).
   const clipStore = await registerScares(app, ctx, config.dataDir, { phoneBase });
   // Seasonal projections and the community clip library (see projections.ts).
@@ -714,12 +730,12 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     castUrl: (req) => (config.httpsPort ? `https://${new URL(phoneBase(req)).hostname}:${config.httpsPublicPort ?? config.httpsPort}/cast/` : null),
   });
   /** Sleep timer from a phone or a script: { minutes } , { end: true } or { off: true }. */
-  app.post("/api/tv/sleep", async (req: Req<Record<string, string>, Record<string, string>, { minutes?: number; end?: boolean; off?: boolean }>, reply) => {
+  app.post("/api/tv/sleep", async (req: Req<Record<string, string>, Record<string, string>, { minutes?: number; end?: boolean; off?: boolean; box?: unknown }>, reply) => {
     const b = req.body ?? {};
     const minutes = Number(b.minutes);
     const choice = b.off ? { off: true as const } : b.end ? { end: true as const } : Number.isFinite(minutes) && minutes > 0 && minutes <= 600 ? { minutes: Math.round(minutes) } : null;
     if (!choice) return reply.code(400).send({ error: "Say how many minutes, end, or off" });
-    ctx.events.emit({ type: "sleep", choice });
+    ctx.events.emit({ type: "sleep", choice, ...targeted(boxes.normalise(b.box)) });
     return { ok: true, tvConnected: tvSockets > 0 };
   });
   const restartHub = deps.restart ?? (() => setTimeout(() => process.exit(0), 500));
@@ -847,6 +863,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.post("/api/pair/api-key", async () => ({ key: pairing.newApiKey() }));
 
   app.get("/api/devices", async (req): Promise<DeviceList> => ({ devices: pairing.devices(), pending: pairing.pendingScreens(), me: deviceAsking(req)?.id ?? null, enforced: pairing.enforced }));
+  // The TV boxes on the Hub, and which one a phone is controlling (issue #103).
+  app.get("/api/boxes", async (req) => {
+    const mine = deviceAsking(req)?.kind === "tv" ? deviceAsking(req)?.id : undefined;
+    return { boxes: boxes.list(), main: boxes.main()?.id ?? null, me: mine ?? null };
+  });
   app.patch("/api/devices/:id", async (req: Req<{ id: string }, Record<string, string>, { name?: string }>, reply) => {
     const d = pairing.rename(req.params.id, req.body?.name);
     return d ?? reply.code(404).send({ error: "That device has been removed" });
@@ -909,42 +930,52 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   /** Voice control: what the phone heard, turned into keys, a channel or a search. */
-  app.post("/api/remote/voice", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
+  app.post("/api/remote/voice", async (req: Req<Record<string, string>, Record<string, string>, { text?: string; box?: unknown }>) => {
     const said = String(req.body?.text ?? "").slice(0, 200);
+    // A voice command goes to the box it was said at (issue #103).
+    const forBox = targeted(boxes.normalise(req.body?.box));
     // A Kids profile can only name the stations it can see: otherwise "play Heart" would be
     // announced as playing and then refused by the TV, which is a worse way to say no.
     const kid = viewer(req).profile?.kind === "kids";
     const cmd = parseVoice(said, ctx.channels.list(), ctx.radio.stations(kid));
-    if (cmd.kind === "keys") cmd.actions.forEach((action, i) => setTimeout(() => ctx.events.emit({ type: "remote.key", action }), i * 150));
-    if (cmd.kind === "channel") ctx.events.emit({ type: "remote.channel", channelId: cmd.channelId });
-    if (cmd.kind === "radio") ctx.events.emit({ type: "remote.radio", stationId: cmd.stationId });
-    if (cmd.kind === "search") ctx.events.emit({ type: "remote.text", text: cmd.text.slice(0, 120) });
-    if (cmd.kind === "stats") ctx.events.emit({ type: "box.command", command: "stats", on: cmd.on });
-    if (cmd.kind === "reload") ctx.events.emit({ type: "box.command", command: "reload" });
-    if (cmd.kind === "weather") ctx.events.emit({ type: "weather.show" });
-    if (cmd.kind === "sleep") ctx.events.emit({ type: "sleep", choice: cmd.minutes === "off" ? { off: true } : cmd.minutes === "end" ? { end: true } : { minutes: cmd.minutes } });
+    if (cmd.kind === "keys") cmd.actions.forEach((action, i) => setTimeout(() => ctx.events.emit({ type: "remote.key", action, ...forBox }), i * 150));
+    if (cmd.kind === "channel") ctx.events.emit({ type: "remote.channel", channelId: cmd.channelId, ...forBox });
+    if (cmd.kind === "radio") ctx.events.emit({ type: "remote.radio", stationId: cmd.stationId, ...forBox });
+    if (cmd.kind === "search") ctx.events.emit({ type: "remote.text", text: cmd.text.slice(0, 120), ...forBox });
+    if (cmd.kind === "stats") ctx.events.emit({ type: "box.command", command: "stats", on: cmd.on, ...forBox });
+    if (cmd.kind === "reload") ctx.events.emit({ type: "box.command", command: "reload", ...forBox });
+    if (cmd.kind === "weather") ctx.events.emit({ type: "weather.show", ...forBox });
+    if (cmd.kind === "sleep") ctx.events.emit({ type: "sleep", choice: cmd.minutes === "off" ? { off: true } : cmd.minutes === "end" ? { end: true } : { minutes: cmd.minutes }, ...forBox });
     if (cmd.kind === "save") {
       // The profile the TV is on when the phone doesn't say: the voice came from the room.
       const who = viewer(req);
       const found = (await library.search(cmd.name, Date.now(), who.filter).catch(() => [])).find((r) => r.kind === "title" && r.title);
       watchlist.add(who.profile?.id ?? null, { ...(found?.title ? { title: found.title } : { name: cmd.name }), from: "voice" });
     }
-    if (cmd.kind !== "none" && said) ctx.events.emit({ type: "remote.said", text: cmd.say });
+    if (cmd.kind !== "none" && said) ctx.events.emit({ type: "remote.said", text: cmd.say, ...forBox });
     return { ...cmd, heard: said, tvConnected: tvSockets > 0 };
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
   const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "radio", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay", "favourite", "bluetooth"]);
-  /** Asks the TV app something and waits for its answer (12 s at most). */
-  const callTv = (method: TvMethod, args: unknown) =>
+  /**
+   * Asks one TV app something and waits for its answer (12 s at most). With more than one box
+   * (issue #103) the question goes to the box asked for, or to the first one that's on.
+   */
+  const callTv = (method: TvMethod, args: unknown, box: BoxTarget = null) =>
     new Promise<{ result?: unknown; error?: string }>((resolve) => {
+      const target = boxes.firstOn(box);
+      if (!target) {
+        resolve({ error: "The TV app isn't connected. Is the box on?" });
+        return;
+      }
       const id = `c${Date.now().toString(36)}${(tvCallSeq++).toString(36)}`;
       const timer = setTimeout(() => {
         tvCalls.delete(id);
         resolve({ error: "The TV didn't answer. Its app may need updating (Settings › Updates › Box)." });
       }, 12_000);
       tvCalls.set(id, { resolve, timer });
-      ctx.events.emit({ type: "tv.call", id, method, args: args ?? null });
+      ctx.events.emit({ type: "tv.call", id, method, args: args ?? null, box: target });
     });
   const tvCalls = new Map<string, { resolve: (v: { result?: unknown; error?: string }) => void; timer: NodeJS.Timeout }>();
   let tvCallSeq = 0;
@@ -952,8 +983,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const method = req.params.method as TvMethod;
     if (!TV_METHODS.has(method)) return reply.code(404).send({ error: "Unknown TV call" });
     if (tvSockets === 0) return reply.code(409).send({ error: "The TV app isn't connected. Is the box on?", code: "tv-off" });
-    const answer = await callTv(method, req.body);
-    if (answer.error !== undefined) return reply.code(502).send({ error: answer.error });
+    const { box, ...args } = (req.body && typeof req.body === "object" ? req.body : {}) as { box?: unknown } & Record<string, unknown>;
+    const answer = await callTv(method, args, boxes.normalise(box));
+    if (answer.error !== undefined) {
+      // The box isn't on: 409 says so plainly, rather than a 502 "it didn't answer".
+      if (answer.error === "The TV app isn't connected. Is the box on?") return reply.code(409).send({ error: answer.error, code: "tv-off" });
+      return reply.code(502).send({ error: answer.error });
+    }
     return answer.result ?? null;
   });
   app.post("/api/tv/reply/:id", async (req: Req<{ id: string }, Record<string, string>, { result?: unknown; error?: string }>) => {
@@ -965,13 +1001,20 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     }
     return { ok: true };
   });
+  /** The key a box's own state is kept under: its device id, or "" for a Hub with one unnamed box. */
+  const boxKey = (raw: unknown): string => {
+    const target = boxes.normalise(raw);
+    if (target === null) return boxes.main()?.id ?? "";
+    if (target === "all") return boxes.list()[0]?.id ?? "";
+    return target;
+  };
   // Home Assistant both ways: the TV as a media player, and playback events to a webhook (see homeassistant.ts).
   const phoneNow = new PhoneNow();
-  const homeAssistant = new HomeAssistant(ctx, () => tvSockets > 0);
+  const homeAssistant = new HomeAssistant(ctx, (box) => (box ? connectionsOf(box) > 0 : tvSockets > 0));
   // A phone waits here for the TV's playback state rather than asking over and over (issue #109).
   homeAssistant.onState = () => phoneNow.bump();
-  registerPhoneNow(app, { now: phoneNow, state: () => homeAssistant.state() });
-  registerHomeAssistant(app, homeAssistant, { callTv, tvConnected: () => tvSockets > 0, hubBase });
+  registerPhoneNow(app, { now: phoneNow, state: (box) => homeAssistant.state(undefined, box), boxKey });
+  registerHomeAssistant(app, homeAssistant, { callTv, tvConnected: (box) => (box ? connectionsOf(box) > 0 : tvSockets > 0), hubBase, boxKey, boxOf: (req) => deviceAsking(req)?.id ?? "" });
   // Pairing headphones and controllers is done on the TV, but the phone's page sets it up too (#102).
   registerBluetooth(app, { viewer, callTv, tvConnected: () => tvSockets > 0 });
 
@@ -1270,8 +1313,18 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     void playback.prefetch(req.body, filterOf(req)).catch((err) => ctx.log.warn({ err: String(err) }, "Next episode lookup failed"));
     return { ok: true };
   });
+  /**
+   * The holder name for the TV that asked. With one box it stays plain "box" (as it always was);
+   * once a second box is paired each says which it is, so the connection count adds up (issue #103).
+   */
+  const boxHolder = (req: FastifyRequest): string => {
+    const id = deviceAsking(req)?.id;
+    // The first box keeps the plain name it always had; a second room says which box it is.
+    return id && boxes.main() && boxes.main()!.id !== id ? `box:${id}` : "box";
+  };
   app.post("/api/play", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest & { force?: boolean }>) => {
-    const holder = deviceOf(req);
+    // The TV holds its IPTV lease under its own box, so two boxes are two connections (issue #103).
+    const holder = deviceOf(req) ?? boxHolder(req);
     const who = viewer(req);
     // Time's up on a Kids profile: nothing new starts (what's on may finish).
     kidsTime.check(who.profile);
@@ -1644,15 +1697,34 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       socket.close(4401, "Pair this screen first");
       return;
     }
-    const off = ctx.events.on((e) => socket.send(JSON.stringify(e)));
-    tvSockets++;
-    // Kept by device, so unpairing a screen cuts it off at once.
+    // Kept by device, so unpairing a screen cuts it off at once, and so a phone's key press or a
+    // pop-up reaches the box it was meant for when there is more than one (issue #103).
     const id = deviceAsking(req)?.id;
-    if (id) deviceSockets.set(id, new Set([...(deviceSockets.get(id) ?? []), socket]));
+    const off = ctx.events.on((e) => {
+      const target = "box" in e ? e.box : undefined;
+      if (target !== undefined && !boxes.reaches(target, id)) return;
+      socket.send(JSON.stringify(e));
+    });
+    tvSockets++;
+    if (id) {
+      deviceSockets.set(id, new Set([...(deviceSockets.get(id) ?? []), socket]));
+      tvSocketsByDevice.set(id, connectionsOf(id) + 1);
+      // A box coming on is worth telling the phones about: the picker says which are on.
+      ctx.events.emit({ type: "boxes.changed" });
+    }
+    let closed = false;
     socket.on("close", () => {
+      if (closed) return;
+      closed = true;
       off();
       tvSockets--;
-      if (id) deviceSockets.get(id)?.delete(socket);
+      if (id) {
+        deviceSockets.get(id)?.delete(socket);
+        const left = connectionsOf(id) - 1;
+        if (left > 0) tvSocketsByDevice.set(id, left);
+        else tvSocketsByDevice.delete(id);
+        ctx.events.emit({ type: "boxes.changed" });
+      }
     });
     socket.send(JSON.stringify({ type: "hello", version: HUB_VERSION }));
   });

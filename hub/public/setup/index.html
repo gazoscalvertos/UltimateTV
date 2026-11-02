@@ -338,7 +338,7 @@
 
   <section id="devices">
     <h2>Phones and remotes <span class="pill" id="devices-pill"></span></h2>
-    <p class="hint">Only phones and screens paired with the TV can work it. To add a phone, scan the code in Settings › Phones and remotes on the TV. Remove anything you don't recognise. Features under each screen switch parts of the app off on that screen only.</p>
+    <p class="hint">Only phones and screens paired with the TV can work it. To add a phone, scan the code in Settings › Phones and remotes on the TV. Remove anything you don't recognise. Features under each screen switch parts of the app off on that screen only. Two TV boxes can run in the same house: each has its own name, its own now-playing and its own sleep timer, and the phone remote's picker at the top chooses which one its buttons work.</p>
     <ul class="list" id="devices-list"></ul>
     <h2 style="margin-top:18px">Home Assistant and scripts</h2>
     <p class="hint">Pop-ups, news flashes, key presses and the media player controls (play, pause, stop, volume, channels, standby) from Home Assistant or a script need this key, sent as the header <code>X-Api-Key</code> (or <code>Authorization: Bearer …</code>). It can't change settings. docs/notifications.md has the Home Assistant set-up.</p>
@@ -784,6 +784,9 @@ async function loadDevices() {
   const d = await api("/api/devices");
   // An older Hub has no per-screen features: the rest of the list still works.
   const feats = await api("/api/features/devices").catch(() => null);
+  // Which TV boxes are on right now, and which one is the main one (issue #103).
+  const bx = await api("/api/boxes").catch(() => null);
+  const live = new Map((bx ? bx.boxes : []).map((b) => [b.id, b]));
   $("#devices-pill").textContent = d.enforced ? `${d.devices.length} paired` : "Pairing off";
   $("#devices-pill").className = "pill" + (d.enforced ? " ok" : " bad");
   const list = $("#devices-list");
@@ -802,8 +805,10 @@ async function loadDevices() {
   for (const dev of d.devices) {
     const li = document.createElement("li");
     li.innerHTML = `<span><b></b><small></small></span><span class="actions" style="margin:0"></span>`;
-    li.querySelector("b").textContent = `${dev.name}${dev.id === d.me ? " (this phone)" : ""}`;
-    li.querySelector("small").textContent = `${dev.kind === "tv" ? "TV screen" : "Phone"} · paired ${ago(dev.pairedAt)} · last used ${ago(dev.lastSeenAt)}${dev.ip ? ` · ${dev.ip}` : ""}`;
+    const box = live.get(dev.id);
+    const where = dev.kind === "tv" ? `${box && box.online ? "TV screen · on now" : "TV screen · off"}${box && bx && bx.main === dev.id ? " · main" : ""}` : "Phone";
+    li.querySelector("b").textContent = `${dev.name}${dev.id === d.me ? " (this screen)" : ""}`;
+    li.querySelector("small").textContent = `${where} · paired ${ago(dev.pairedAt)} · last used ${ago(dev.lastSeenAt)}${dev.ip ? ` · ${dev.ip}` : ""}`;
     li.lastChild.append(
       button("Rename", "secondary", () => { const n = prompt("Name", dev.name); if (n && n.trim()) api(`/api/devices/${encodeURIComponent(dev.id)}`, { method: "PATCH", body: { name: n.trim() } }).then(loadDevices).catch((e) => toast(e.message, true)); }),
       button("Remove", "secondary danger", async () => {
