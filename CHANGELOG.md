@@ -30,6 +30,10 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **The TV app comes back on screen**: an update on 2 November left the TV showing a black screen on
+  both the box and the desktop app. The app started a piece of background work before it was ready
+  and stopped before drawing anything; it now starts that work once the screen is up. (#178)
+  Household: the TV shows its screen again after the 2 November update, with no uninstall or reset.
 - **A second TV box in another room**: pair a second box and name it, and each room gets its own
   now-playing card, sleep timer and pop-ups; the phone remote grows a picker at the top and
   remembers which room it is for. With one box nothing changes. (#103)

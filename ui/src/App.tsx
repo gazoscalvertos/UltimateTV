@@ -22,7 +22,7 @@ import { onAnyKey, onBack, useKeys } from "./keys";
 import { onMouse } from "./mouse";
 import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, starting, cancelStarting, stopPlayback } from "./player";
 import { activeMusic, musicPlayPause, pauseAllMusic, startMusic } from "./music";
-import { radioPauseToggle, radioPlaying } from "./radio";
+import { radioPauseToggle, radioPlaying, startPodcastPlaces } from "./radio";
 import { Browse } from "./screens/Browse";
 import { Details } from "./screens/Details";
 import { Guide } from "./screens/Guide";
@@ -214,6 +214,7 @@ export function App() {
     startKidsTime();
     startFavourites();
     startSaveNotices();
+    startPodcastPlaces();
     startWeather();
     startHomeAssistant();
     startWhatsNew();

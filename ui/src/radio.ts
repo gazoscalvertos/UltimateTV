@@ -283,17 +283,25 @@ function flushPlace(): void {
   if (p) sendPlace(p);
 }
 
-// Whatever starts next — a film, a channel, another station — the place from the last look goes to
-// the Hub, so the episode resumes where it was even though the player has already moved on.
-createRoot(() => {
-  createEffect(
-    on(
-      () => nowPlaying()?.req.id ?? null,
-      (id, was) => {
-        if (!was?.startsWith("podcast:") || id === was) return;
-        flushPlace();
-        unsave();
-      },
-    ),
-  );
-});
+/**
+ * Whatever starts next — a film, a channel, another station — the place from the last look goes to
+ * the Hub, so the episode resumes where it was even though the player has already moved on.
+ *
+ * Called from the app shell, not at module scope: `player.ts` imports this file (through
+ * kidstime → sleep → music), so a `createRoot` here runs while `player.ts` is still being set up
+ * and reads `nowPlaying` before it exists. That threw on load and left the TV black.
+ */
+export function startPodcastPlaces(): void {
+  createRoot(() => {
+    createEffect(
+      on(
+        () => nowPlaying()?.req.id ?? null,
+        (id, was) => {
+          if (!was?.startsWith("podcast:") || id === was) return;
+          flushPlace();
+          unsave();
+        },
+      ),
+    );
+  });
+}
