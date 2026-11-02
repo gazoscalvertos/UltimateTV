@@ -53,7 +53,8 @@ or by voice ("save Dune for later", "add The Bear to my watchlist"). Each profil
 shown as a **Saved for later** row on Home. Things saved from a phone or by voice, which don't know who
 is watching, go on the household's list, which every profile sees with its own (Kids only what its
 rating allows). A name saved before any source has it ("that film from work") waits and turns into
-the title once a search finds it.
+the title once a search finds it. The phone remote's **Saved** tab shows the same list, with each row
+ready to play on the TV, add to the queue or take off the list ([phone-remote.md](phone-remote.md#watch-on-the-tv)).
 
 ## Skip the adverts in recordings
 

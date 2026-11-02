@@ -38,7 +38,7 @@ describe("pairing phones and screens", () => {
     const key = await app.inject({ method: "POST", url: "/api/remote/key", payload: { action: "ok" } });
     expect(key.statusCode).toBe(401);
     expect(key.json()).toMatchObject({ code: "pair" });
-    for (const [method, url] of [["POST", "/api/tv/call/now"], ["POST", "/api/flash"], ["POST", "/api/notify"], ["PUT", "/api/settings"], ["POST", "/api/software/hub/update"], ["POST", "/api/box/update"], ["GET", "/api/devices"]] as const) {
+    for (const [method, url] of [["POST", "/api/tv/call/now"], ["POST", "/api/flash"], ["POST", "/api/notify"], ["PUT", "/api/settings"], ["POST", "/api/software/hub/update"], ["POST", "/api/box/update"], ["GET", "/api/devices"], ["GET", "/api/watchlist"]] as const) {
       expect((await app.inject({ method, url, payload: {} })).statusCode, `${method} ${url}`).toBe(401);
     }
     expect((await app.inject("/api/health")).statusCode).toBe(200);

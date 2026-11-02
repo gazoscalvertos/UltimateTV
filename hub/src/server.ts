@@ -184,6 +184,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/screensaver", "paired"],
     ["GET /api/screensaver/photos", "paired"],
     ["GET /api/screensaver/photos/:id", "paired"],
+    // The phone's Saved tab reads the list too, so reading it needs pairing just as saving does:
+    // the list says what the household is interested in.
+    ["GET /api/watchlist", "paired"],
     ["POST /api/watchlist", "paired"],
     // Which list a profile's guide opens on is theirs to pick, Kids included (see the route), but
     // it is a saved setting, so anything unpaired stays out.

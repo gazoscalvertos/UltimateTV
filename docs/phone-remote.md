@@ -58,6 +58,9 @@ The **Watch** tab at the bottom chooses what the TV plays, without using the TV'
 - **Films** and **TV**: the same rails as the TV's home. Tap a poster to play, resume or start
   again, or pick a season and episode.
 - **Recordings**: newest first.
+- **Saved**: everything saved for later, the household's list and the TV profile's alike, with **▶**
+  to play it on the TV, **+** to add it to the queue and **✕** to take it off the list. Tap a row to
+  open it ([everyday-extras.md](everyday-extras.md#save-for-later)).
 - **Music**: your Spotify playlists, albums and artists. Play, shuffle, or start at a song.
 - **Weather**: now, hour by hour and the week, with Show on the TV ([weather.md](weather.md)).
 - **Search**: films, series, channels, programmes and recordings.
