@@ -129,12 +129,23 @@ export function Settings(props: { section?: string }) {
     if (b.running) return "Backing up now…";
     if (b.error) return <Status ok={false} text="Last one failed" />;
     if (!b.enabled) return "Turned off";
+    // The second copy has its own health: the NAS one can be fine while that one isn't.
+    if (b.offsite && (b.offsite.error || b.offsite.problem)) return <Status ok={false} text="Second copy failed" />;
     return b.last ? `${whenAgo(b.last.at)} · ${formatBytes(b.last.bytes)}` : "None yet";
   };
   const backupHint = () => {
     const b = backup();
     if (!b) return "A copy of the Hub's settings, profiles and recordings list, every night";
-    const parts = [b.error ? b.error.message : "", `${b.backups.length} kept${b.onNas ? " on the NAS" : " beside the Hub (the NAS isn't mounted in the Hub)"}`, b.enabled ? `every night at ${b.time}` : ""];
+    const off = b.offsite;
+    const offText = off
+      ? `${off.kind === "dir" ? "and on a second disk" : `and at ${off.target}`} (${off.problem ?? off.error?.message ?? (off.last ? `last ${whenAgo(off.last.at)}` : "not copied yet")})`
+      : "";
+    const parts = [
+      b.error ? b.error.message : "",
+      `${b.backups.length} kept${b.onNas ? " on the NAS" : " beside the Hub (the NAS isn't mounted in the Hub)"}`,
+      b.enabled ? `every night at ${b.time}` : "",
+      offText,
+    ];
     return `${parts.filter(Boolean).join(" · ")}. Select to back up now; restore from the phone or tools/hub/restore.sh`;
   };
   const backupNow = async () => {

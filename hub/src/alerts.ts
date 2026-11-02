@@ -27,8 +27,8 @@ export interface AlertInputs {
   epgUpdatedAt?: number;
   /** Free space where recordings go, when the NAS could be read. */
   diskFreeBytes?: number;
-  /** The nightly backup (backup.ts): when the last good one was, and why the latest failed. */
-  backup?: { enabled: boolean; lastOkAt?: number; error?: string; since: number };
+  /** The nightly backup (backup.ts): when the last good one was, why the latest failed, and how the second copy is going. */
+  backup?: { enabled: boolean; lastOkAt?: number; error?: string; offsite?: { target: string; error?: string }; since: number };
   /** When the Hub started, newest last, so repeated restarts can be spotted (restarts.ts). */
   boots?: number[];
   /** Problems reported by events, still in force. */
@@ -68,6 +68,15 @@ export function currentAlerts(input: AlertInputs): Omit<Alert, "since">[] {
   }
   const b = input.backup;
   if (b?.enabled) {
+    // The second copy has its own key: the NAS one may be fine while this one is quietly broken.
+    if (b.offsite?.error) {
+      out.push({
+        key: "backup-offsite-failed",
+        level: "warn",
+        title: "The Hub's second backup failed",
+        message: `${b.offsite.error}. The first copy is safe in ${b.offsite.target}; Settings › About shows how it went.`,
+      });
+    }
     if (b.error) out.push({ key: "backup-failed", level: "warn", title: "The Hub's backup failed", message: `${b.error}. The Hub tries again tonight; Settings › About shows how it went.` });
     else if (now - (b.lastOkAt ?? b.since) > BACKUP_STALE_MS && b.since) {
       const days = Math.floor((now - (b.lastOkAt ?? b.since)) / 86_400_000);

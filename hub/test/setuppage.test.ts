@@ -54,3 +54,25 @@ describe("the phone's settings page", () => {
     expect(page).toContain('api("/api/alerts/settings", { method: "PUT"');
   });
 });
+
+describe("the backup section of the phone's settings page", () => {
+  it("shows the second copy, not just the one on the NAS", () => {
+    const backup = section("backup");
+    // Room for the second destination's own line, filled from the state the page asks for.
+    expect(backup).toContain('id="backup-offsite"');
+    const script = page.slice(page.indexOf("async function loadBackup"));
+    // It reads the second copy out of the state, and says where it goes and how it went.
+    expect(script).toContain("b.offsite");
+    expect(script).toContain("off.target");
+    expect(script).toContain("off.keepDays");
+    expect(script).toContain("off.keepWeeks");
+  });
+
+  it("can restore a copy that is only in the second place", () => {
+    // The NAS copy is tried first, so a copy that has gone from there is fetched from the second one.
+    expect(page).toContain('from: "offsite"');
+    expect(page).toContain("Only in the second copy");
+    expect(page).toContain('api("/api/backup/restore", { method: "POST"');
+    expect(routes.has("POST /api/backup/restore")).toBe(true);
+  });
+});

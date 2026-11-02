@@ -187,6 +187,7 @@
   <section id="backup">
     <h2>Hub backup <span class="pill" id="backup-pill">…</span></h2>
     <p class="hint" id="backup-hint">Every night the Hub copies its settings, profiles, logins, series links and watch history to the NAS.</p>
+    <p class="hint" id="backup-offsite" hidden></p>
     <ul class="list" id="backup-list"></ul>
     <div class="actions">
       <button class="secondary small" type="button" id="backup-now">Back up now</button>
@@ -1216,11 +1217,25 @@ $("#news-all").onclick = () => loadNews(true).catch((e) => toast(e.message, true
 // The nightly backup (hub/src/backup.ts)
 
 const kb = (n) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+/** A Restore button for a copy, from the NAS or (when it has gone from there) from the second place. */
+function restoreButton(f, from, gone) {
+  return button("Restore", "secondary", async () => {
+    if (!confirm(`Put the Hub back to how it was on ${when(f.at)}? Anything changed since (new recordings planned, settings, watch history) goes back too. The Hub restarts, and keeps what it replaces in case you change your mind.`)) return;
+    try {
+      await api("/api/backup/restore", { method: "POST", body: { name: f.name, ...(from === "offsite" ? { from: "offsite" } : {}) } });
+      toast(`Restoring${gone ? " from the second copy" : ""}. The Hub restarts and this page reloads in a minute.`);
+      setTimeout(() => location.reload(), 30_000);
+    } catch (e) { toast(e.message, true); }
+  });
+}
 async function loadBackup(state) {
   const b = state || (await api("/api/backup"));
+  const off = b.offsite;
+  const offBad = off && (off.error || off.problem);
   if (b.running) pill("#backup-pill", "Backing up…", "warn");
   else if (b.error) pill("#backup-pill", "Last one failed", "bad");
   else if (!b.enabled) pill("#backup-pill", "Off");
+  else if (offBad) pill("#backup-pill", "Second copy failed", "bad");
   else if (b.last) pill("#backup-pill", when(b.last.at), "ok");
   else pill("#backup-pill", "None yet", "warn");
   $("#backup-hint").textContent = [
@@ -1228,20 +1243,27 @@ async function loadBackup(state) {
     b.enabled ? `Every night at ${b.time} the Hub copies its settings, profiles, logins, series links and watch history` : "Nightly backups are off (BACKUP=off on the Hub)",
     b.onNas ? ` to the NAS (${b.dir}), keeping the last ${b.keep}.` : `, but the NAS isn't mounted in the Hub, so they're beside the Hub's own data (${b.dir}). Mount the NAS (docker-compose.override.yml) or set BACKUP_DIR.`,
   ].join(" ").trim();
+  // The second copy, when one is set up: where it goes, how it is going, and what's there.
+  const offHint = $("#backup-offsite");
+  offHint.hidden = !off;
+  if (off) {
+    const where = off.kind === "dir" ? `a second disk (${off.target})` : `the rclone remote ${off.target}`;
+    const how = off.problem ? off.problem : off.error ? `The last copy there failed: ${off.error.message}. The copy here is safe.` : off.last ? `Last copied ${when(off.last.at)}.` : "Nothing copied there yet.";
+    offHint.textContent = `A second copy also goes to ${where} after the NAS copy lands, keeping ${off.keepDays} daily and ${off.keepWeeks} weekly. ${how}`;
+  }
   const list = $("#backup-list");
   list.innerHTML = "";
   for (const f of b.backups.slice(0, 7)) {
-    const restore = button("Restore", "secondary", async () => {
-      if (!confirm(`Put the Hub back to how it was on ${when(f.at)}? Anything changed since (new recordings planned, settings, watch history) goes back too. The Hub restarts, and keeps what it replaces in case you change your mind.`)) return;
-      try {
-        await api("/api/backup/restore", { method: "POST", body: { name: f.name } });
-        toast("Restoring. The Hub restarts and this page reloads in a minute.");
-        setTimeout(() => location.reload(), 30_000);
-      } catch (e) { toast(e.message, true); }
-    });
-    list.append(el("li", {}, el("span", {}, when(f.at), el("small", {}, `${kb(f.bytes)} · ${f.name}`)), restore));
+    list.append(el("li", {}, el("span", {}, when(f.at), el("small", {}, `${kb(f.bytes)} · ${f.name}`)), restoreButton(f, "nas", false)));
   }
   if (b.backups.length > 7) list.append(el("li", {}, el("small", {}, `and ${b.backups.length - 7} older`)));
+  // Copies that are only in the second place: the NAS lost them, so restoring one uses that copy.
+  const here = new Set(b.backups.map((f) => f.name));
+  const extra = (off?.files ?? []).filter((f) => !here.has(f.name)).slice(0, 5);
+  if (extra.length) {
+    list.append(el("li", {}, el("small", {}, "Only in the second copy (gone from the NAS):")));
+    for (const f of extra) list.append(el("li", {}, el("span", {}, when(f.at), el("small", {}, `${kb(f.bytes)} · ${f.name}`)), restoreButton(f, "offsite", true)));
+  }
   $("#backup-now").disabled = b.running;
 }
 $("#backup-now").onclick = async () => {

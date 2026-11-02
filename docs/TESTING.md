@@ -155,6 +155,9 @@ See [backup.md](backup.md). Update the Hub and the box first.
 - [ ] Back up now on the phone adds another; the next morning there's one from 03:30.
 - [ ] `bash tools/hub/update.sh` prints "Backed up to …" before it rebuilds.
 - [ ] Change something small (rename the app), then Restore the earlier backup from the phone: the Hub restarts within a minute and the old name is back. `bash tools/hub/restore.sh` lists the same files.
+- [ ] Add `BACKUP_OFFSITE=<a path on another disk>` to the Hub's `.env`, `docker compose up -d`, then Back up now: the same file appears there. Settings › About › Hub backup and the setup page's backup section both name the second destination and when it last copied. Point it at a folder the Hub can't write to instead: the NAS copy is still made, the status says the second copy failed, Settings › Alerts lists "The Hub's second backup failed", and the next night's backup still works.
+- [ ] With `BACKUP_OFFSITE=gdrive:…` and rclone installed and configured, Back up now puts the archive on the remote, and old ones go at the remote's own rotation. With rclone not installed, the status says so plainly and the NAS copy still works.
+- [ ] Delete a copy from `/mnt/nas/.ultimatetv-backups`, then on the setup page's backup section Restore it under "Only in the second copy": the Hub restarts with it.
 - [ ] `docker stop ultimatetv-hub`: within a minute or so (nothing playing) the TV shows the box's own screen with the time, "Can't reach the Hub" and the downloads. Play one with OK; Back stops it.
 - [ ] `docker start ultimatetv-hub`: the TV app comes back by itself.
 - [ ] Reboot the box with the Hub stopped: it goes straight to the box's screen, not a blank one.
