@@ -115,6 +115,7 @@ const PATHS: Record<string, () => JSX.Element> = {
     </>
   ),
   link: () => <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
+  bluetooth: () => <path d="M7 7.5l10 9-5 4.5V3l5 4.5-10 9" />,
 };
 
 export function Icon(props: { name: string; class?: string }) {

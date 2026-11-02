@@ -2,7 +2,7 @@
 // own window under this transparent UI. In a normal browser (development, screenshots) a <video>
 // element stands in; streams it can't decode (MPEG-TS, HEVC) show their artwork instead.
 
-import type { CastState } from "@ultimatetv/shared";
+import type { BtState, CastState } from "@ultimatetv/shared";
 import { GAME_APPS } from "@ultimatetv/shared";
 import type { BoxAgent, BoxDownloads, BoxInfo, BoxSoftware, MusicPage, MusicTracks, PlaybackStats, PlayerState, PlayOptions, SpotifyState, VideoLayout, WebAppLoginReport, WebAppState } from "@ultimatetv/shared";
 
@@ -272,6 +272,10 @@ class BrowserAgent implements BoxAgent {
   }
   async setSubtitleStyle(): Promise<void> {}
   async offlineProfile(): Promise<void> {}
+  /** Bluetooth is the box's own radio: a browser has none (#102). */
+  async bluetooth(): Promise<BtState> {
+    return { available: false, powered: false, scanning: false, devices: [], output: { kind: "tv" }, delayMs: 0, reason: "Bluetooth is set up on the TV box" };
+  }
 }
 
 export const agent: BoxAgent = window.ultimatetv ?? new BrowserAgent();

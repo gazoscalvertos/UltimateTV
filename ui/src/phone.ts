@@ -2,8 +2,9 @@
 // to play something, seek, pick a track, drive the music, download to the box, save to the NAS or star a favourite. The Hub relays each call as a
 // "tv.call" event and waits for the answer posted back to /api/tv/reply/:id.
 
-import type { FavouriteInput, FeatureId, GameAppId, HaCommand, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
+import type { BtAction, FavouriteInput, FeatureId, GameAppId, HaCommand, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
+import { canBluetooth, setBtState } from "./bluetooth";
 import { backToTv, canCast, castSettings, castState, gamesAllowed, openGame, refreshCast, setAirplay, shareUrl } from "./cast";
 import { api, hub } from "./api";
 import { allEpisodes, canDownload, downloadToBox, episodeRequest, episodesOf, filmRequest, recordingRequest, removeFromBox, visibleDownloads } from "./downloads";
@@ -180,6 +181,16 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
   },
   // Home Assistant's media player controls, checked by the Hub (cleanHaCommand) on the way.
   ha: async (a: HaCommand) => haCommand(a),
+  // Bluetooth on the box, asked for from the phone's Settings page (#102).
+  bluetooth: async (a: BtAction) => {
+    if (isKids()) throw new Error("Ask a grown-up to change Bluetooth");
+    if (!canBluetooth()) throw new Error("Bluetooth is set up on the TV box");
+    const state = await agent.bluetooth!(a).catch((e: Error) => {
+      throw new Error(e.message || "The box didn't answer");
+    });
+    setBtState(state);
+    return state;
+  },
   castAirplay: async (a: { on: boolean }) => {
     if (!canCast()) throw new Error("AirPlay runs on the TV box");
     if (isKids()) throw new Error("Ask a grown-up to change AirPlay");

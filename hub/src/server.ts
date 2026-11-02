@@ -58,6 +58,7 @@ import { HostMonitor } from "@ultimatetv/shared/host";
 import { parseVoice } from "./voice.js";
 import { KidsTime, LimitError, registerKidsTime } from "./kidstime.js";
 import { registerKidsAllow } from "./kidsallowroutes.js";
+import { registerBluetooth } from "./bluetoothroutes.js";
 import { registerRadio } from "./radioroutes.js";
 import { kidsAllowLookup, NO_KIDS_ALLOW_LOOKUP } from "@ultimatetv/shared";
 
@@ -138,6 +139,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/remote/text", "script"],
     ["POST /api/remote/voice", "paired"],
     ["GET /api/remote/now", "paired"],
+    // Bluetooth belongs to the box; the phone's page asks the Hub, which asks the TV (#102).
+    ["GET /api/bluetooth", "paired"],
+    ["POST /api/bluetooth", "paired"],
     ["POST /api/flash", "script"],
     ["DELETE /api/flash", "script"],
     ["POST /api/notify", "script"],
@@ -930,7 +934,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "radio", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay", "favourite"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "radio", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay", "favourite", "bluetooth"]);
   /** Asks the TV app something and waits for its answer (12 s at most). */
   const callTv = (method: TvMethod, args: unknown) =>
     new Promise<{ result?: unknown; error?: string }>((resolve) => {
@@ -968,6 +972,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   homeAssistant.onState = () => phoneNow.bump();
   registerPhoneNow(app, { now: phoneNow, state: () => homeAssistant.state() });
   registerHomeAssistant(app, homeAssistant, { callTv, tvConnected: () => tvSockets > 0, hubBase });
+  // Pairing headphones and controllers is done on the TV, but the phone's page sets it up too (#102).
+  registerBluetooth(app, { viewer, callTv, tvConnected: () => tvSockets > 0 });
 
   // Recent searches, per profile. The phone remote knows no profile, so it asks for the TV's.
   registerSearchHistory(app, new SearchHistory(ctx.db, ctx.events), (req) => {

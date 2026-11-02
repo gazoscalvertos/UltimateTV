@@ -33,7 +33,7 @@ What it sets up:
 |---|---|
 | Session | SDDM logs `tv` in to a KWin session that runs only the app. No desktop, panel, notifications or lock screen. If the app quits, it starts again. |
 | Picture | mpv with VA-API decoding and gpu-next. The TV switches to each film's frame rate (24p for films, 50 Hz for UK TV) and into HDR for HDR video. Dolby Vision plays as HDR10. |
-| Sound | Dolby Digital, Dolby Digital Plus (with Atmos) and DTS go to the TV untouched; everything else is decoded on the box. Night mode in the player's options evens out loud and quiet parts. |
+| Sound | Dolby Digital, Dolby Digital Plus (with Atmos) and DTS go to the TV untouched; everything else is decoded on the box. Night mode in the player's options evens out loud and quiet parts. Bluetooth headphones take the sound over when they connect (decoded, as stereo) and hand it back when they go, with a lip-sync delay in Settings › Bluetooth. |
 | Remote | The Pulse-Eight adapter is attached to the kernel's CEC driver as soon as it's plugged in, and the remote's buttons are mapped to the app's keys (`tools/box/files/cec-keymap.toml`). The box wakes the TV and switches it to its input when it starts. |
 | Updates | Every Monday at 4 am, or Settings › About › Update the box: a btrfs snapshot, OS updates, then the app, then a health check that rolls the update back if the box doesn't work afterwards. Settings › About shows the version the box runs and whether a newer one is out. See [below](#updates-and-rolling-back). |
 
