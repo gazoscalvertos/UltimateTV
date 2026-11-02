@@ -1,7 +1,7 @@
 # UltimateTV Hub: API, the TV app, the setup page and phone remote, the probe page, plus ffmpeg
 # with Intel Quick Sync.
 
-FROM node:22-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
 # The box shell's Electron isn't needed in the Hub image.
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
@@ -30,7 +30,7 @@ RUN apt-get update \
  && cd /src && ./autogen.sh && ./configure && make -j"$(nproc)" \
  && strip comskip
 
-FROM node:22-bookworm-slim AS deps
+FROM node:26-bookworm-slim AS deps
 WORKDIR /app
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 COPY package.json package-lock.json ./
@@ -41,7 +41,7 @@ COPY box/package.json box/
 COPY tools/probe/package.json tools/probe/
 RUN npm ci --omit=dev
 
-FROM node:22-bookworm-slim
+FROM node:26-bookworm-slim
 # intel-media-va-driver-non-free is the iHD VA-API driver that supports the N150's AV1 decode and HEVC encode.
 RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
  && apt-get update \

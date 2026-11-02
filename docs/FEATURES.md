@@ -56,6 +56,7 @@ Everything UltimateTV does as of 2026-10-30: what's on main (up to PR #61). Noth
 - **TV time and bedtime** for Kids ([profiles.md](profiles.md#tv-time-and-bedtime)): a daily allowance (30 minutes to 4 hours, counted only while playing, reset at midnight) and school-night and weekend bedtimes, warnings at 5 and 2 minutes, what's on may finish (30 minutes at most), then back to Who's watching? where an adult PIN gives 15, 30 or 60 minutes more or no limits until morning. Enforced by the Hub; optional alert to Home Assistant or ntfy.
 - **Favourites per profile** ([profiles.md](profiles.md#favourites)): each profile stars its own films, shows and guide channels (Blue on a title's page, Green while watching, hold OK in the guide, and the phone remote and Android app). The guide's Favourites list and Home's Live now row follow the profile; Home has a Favourites row and Films and TV Shows a Favourites filter.
 - Changes to the setup and deletions need an adult profile and its PIN.
+- **PIN guesses are limited** ([profiles.md](profiles.md#the-pin)): five wrong PINs lock the profile and the TV or phone that guessed for a minute, doubling each further time up to an hour; the TV and phone show how long to wait, the counts survive a Hub restart and a right PIN clears them.
 
 ## Music
 
