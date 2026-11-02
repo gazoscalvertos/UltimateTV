@@ -7,6 +7,7 @@ import type { CastState, GameAppId } from "./cast.js";
 import type { MusicPage, MusicTracks, SpotifyCommand, SpotifySetup, SpotifyState, WebAppCommand, WebAppId, WebAppLoginReport, WebAppState } from "./music.js";
 
 import type { SelfTestCall, SelfTestPlayed, SelfTestReady } from "./selftest.js";
+import type { BtAction, BtState } from "./bluetooth.js";
 
 export interface AudioTrack {
   id: number;
@@ -300,6 +301,11 @@ export interface BoxAgent {
    * the box ended up in. Older box shells lack it: check with agentHas.
    */
   selfTest?(call: SelfTestCall): Promise<SelfTestReady | SelfTestPlayed | { ok: true }>;
+  /**
+   * Bluetooth on the box (#102): headphones, speakers and controllers, and where the sound goes.
+   * Older box shells lack it: check with agentHas.
+   */
+  bluetooth?(action: BtAction): Promise<BtState>;
   onState(listener: (state: PlayerState) => void): () => void;
   /** Called with true when the TV switches to the box's input, false when it goes to standby. */
   onPower(listener: (active: boolean) => void): () => void;

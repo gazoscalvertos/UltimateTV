@@ -141,7 +141,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#bluetooth">Bluetooth</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -320,6 +320,20 @@
     <div class="tabs"><button class="small" type="button" id="hr-simple">Simple Home</button><button class="secondary small" type="button" id="hr-everything">Everything</button></div>
     <p class="hint" id="hr-preset" style="margin:10px 0 0"></p>
     <ul class="list order" id="hr-list"></ul>
+  </section>
+
+  <section id="bluetooth">
+    <h2>Bluetooth <span class="pill" id="bt-pill"></span></h2>
+    <p class="hint">Headphones, speakers and game controllers for the TV box. Pairing trusts the device, so it reconnects by itself next time. Headphones take the sound over as soon as they connect; over Bluetooth the sound is decoded, so Dolby and DTS come out as ordinary stereo.</p>
+    <p class="hint" id="bt-why" hidden></p>
+    <div class="actions">
+      <button class="small" type="button" id="bt-scan">Find a new device</button>
+      <button class="small secondary" type="button" id="bt-power">Bluetooth off</button>
+    </div>
+    <ul class="list" id="bt-list"></ul>
+    <h2 style="margin-top:18px">Sound delay</h2>
+    <p class="hint">If the sound is ahead of or behind the picture on Bluetooth headphones, nudge it here. Nothing to do with the TV's own speakers.</p>
+    <div class="row"><div><label>Delay</label><select id="bt-delay"></select></div></div>
   </section>
 
   <section id="devices">
@@ -1459,6 +1473,81 @@ $("#hr-profile").onchange = (e) => {
 $("#hr-simple").onclick = () => saveHomeRows({ preset: "simple" });
 $("#hr-everything").onclick = () => saveHomeRows({ preset: "everything" });
 
+// Bluetooth on the box (#102). The box has the radio, so the Hub asks the TV app; when the TV
+// isn't on, the section says so rather than offering buttons that would fail.
+const BT_DELAYS = [0, 20, 40, 60, 80, 100, 140, 180, 240];
+const btState = { state: null, scanTimer: null };
+const btLabel = (ms) => (ms ? (ms > 0 ? `${ms} ms later` : `${-ms} ms earlier`) : "No delay");
+function btWhy(text) {
+  const why = $("#bt-why");
+  why.hidden = !text;
+  why.textContent = text || "";
+}
+function btRender() {
+  const st = btState.state;
+  const pill = $("#bt-pill");
+  const on = Boolean(st && st.available && st.powered);
+  pill.textContent = !st ? "Checking" : !st.available ? "No adapter" : st.powered ? (st.output.kind === "bluetooth" ? `Sound on ${st.output.name}` : "On") : "Off";
+  pill.className = "pill" + (on ? " ok" : " bad");
+  $("#bt-scan").hidden = !st || !st.available;
+  $("#bt-power").hidden = !st || !st.available;
+  $("#bt-scan").textContent = st && st.scanning ? "Stop searching" : "Find a new device";
+  $("#bt-power").textContent = st && st.powered ? "Bluetooth off" : "Bluetooth on";
+  btWhy(st && st.reason ? st.reason : "");
+  const ul = $("#bt-list");
+  ul.innerHTML = "";
+  const delaySel = $("#bt-delay");
+  if (!delaySel.options.length) for (const ms of BT_DELAYS) delaySel.add(new Option(btLabel(ms), String(ms)));
+  delaySel.value = String((st && st.delayMs) || 0);
+  delaySel.disabled = !on;
+  if (!st || !st.devices.length) {
+    if (st && st.available) ul.append(el("li", {}, el("div", { className: "ch-top" }, el("span", { className: "ch-name" }, st.powered ? "Nothing found yet" : "Bluetooth is off", el("small", { textContent: st.powered ? "Put your headphones or controller in pairing mode, then tap Find a new device." : "Switch it on to look for headphones and controllers." })))));
+    return;
+  }
+  const rank = (d) => (d.connected ? 0 : d.paired ? 1 : 2);
+  const devices = [...st.devices].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+  for (const d of devices) {
+    const line = d.connected ? (d.kind === "headphones" || d.kind === "speaker" ? "Connected · the sound is here" : "Connected") : d.paired ? "Paired" : "Nearby";
+    const name = el("span", { className: "ch-name" }, d.name, el("small", { textContent: `${d.kind === "other" ? "Device" : d.kind[0].toUpperCase() + d.kind.slice(1)} · ${line}${d.battery !== undefined ? ` · ${d.battery}%` : ""}` }));
+    const tools = el("div", { className: "ch-tools" });
+    if (d.connected) tools.append(button("Disconnect", "secondary", () => btDo({ do: "disconnect", address: d.address })));
+    else if (d.paired) tools.append(button("Connect", "", () => btDo({ do: "connect", address: d.address })));
+    else tools.append(button("Pair", "", () => btDo({ do: "pair", address: d.address })));
+    if (d.paired) tools.append(button("Forget", "secondary danger", () => { if (confirm(`Forget ${d.name}? It will have to be paired again.`)) btDo({ do: "forget", address: d.address }); }));
+    ul.append(el("li", { className: d.connected ? "" : d.paired ? "" : "off" }, el("div", { className: "ch-top" }, name), tools));
+  }
+}
+async function btLoad() {
+  try {
+    btState.state = await api("/api/bluetooth");
+  } catch (e) {
+    btState.state = null;
+    btWhy(e.message);
+  }
+  btRender();
+}
+async function btDo(body) {
+  try {
+    btState.state = await api("/api/bluetooth", { method: "POST", body });
+    if (body.do === "pair") toast("Paired: it will reconnect by itself from now on");
+    else if (body.do === "forget") toast("Forgotten");
+    else if (body.do === "useTv") toast("The sound is back on the TV");
+    btRender();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+$("#bt-scan").onclick = async () => {
+  const on = !(btState.state && btState.state.scanning);
+  await btDo({ do: "scan", on });
+  clearInterval(btState.scanTimer);
+  btState.scanTimer = null;
+  // A scan fills the list as it goes, so the page asks again while one runs.
+  if (on) btState.scanTimer = setInterval(() => void btLoad(), 3000);
+};
+$("#bt-power").onclick = () => btDo({ do: "power", on: !(btState.state && btState.state.powered) });
+$("#bt-delay").onchange = (e) => btDo({ do: "delay", ms: Number(e.target.value) });
+
 async function loadLists() {
   const [lists, ch, pr] = await Promise.all([api("/api/guides"), api("/api/channels?all=1"), api("/api/profiles")]);
   guideState.lists = lists;
@@ -1604,6 +1693,7 @@ async function load() {
   loadLists().catch(() => {});
   loadProfiles().catch(() => {});
   loadHomeRows().catch(() => {});
+  btLoad().catch(() => {});
   loadMix().catch(() => {});
   loadBackup().catch(() => pill("#backup-pill", "Couldn't check"));
   const [s, st] = await Promise.all([api("/api/settings"), api("/api/status")]);

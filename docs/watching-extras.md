@@ -58,6 +58,25 @@ A change applies straight away to whatever is playing. The dark box needs mpv 0.
 
 ![Subtitle settings](screenshots/107-settings-subtitles.png)
 
+## Headphones over Bluetooth
+
+Wireless headphones and speakers pair from **Settings › Bluetooth** on the TV, or from the same
+section on the phone's Settings page. **Find a new device** starts a 20-second scan; put the
+headphones in pairing mode, then choose **Pair**. Pairing also trusts the device, so from then on it
+reconnects by itself when it's switched on, and the TV gets the sound back when it's switched off.
+
+Sound over Bluetooth is decoded on the box rather than passed through, because Dolby and DTS need
+the HDMI output held open for mpv alone and can't travel over Bluetooth. Dolby surround therefore
+comes out as ordinary stereo while headphones are connected; it goes back to passthrough as soon as
+they're off or disconnected. Night mode (Options › Night mode) still works on top.
+
+**Lip-sync.** Bluetooth adds a little delay, and some TVs add a little more on the picture side. If
+the sound is out, **Settings › Bluetooth › Sound delay** moves it in 20 ms steps, up to 240 ms either
+way. The delay is kept on the box and applies to Bluetooth sound only.
+
+Game controllers pair the same way and are trusted the same way: RetroArch, Moonlight, Steam Link
+and GeForce NOW pick them up on their own. See [casting-and-games.md](casting-and-games.md).
+
 ## Skip intro everywhere
 
 Skip intro, Skip recap and Skip credits show up wherever Jellyfin knows where they are. Jellyfin

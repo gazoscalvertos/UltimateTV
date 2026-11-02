@@ -474,13 +474,16 @@ export class Player {
 
   private nightMode = false;
   private clipSound = false;
+  /** Headphones or a speaker is the sound output (#102): decode, because passthrough can't go there. */
+  private bluetooth = false;
+  private audioDelayS = 0;
 
   /**
    * Passthrough (Dolby and DTS sent to the TV untouched) holds the HDMI output for mpv alone, so
    * nothing else can be heard over it. Night mode and a projected clip's sound need it decoded.
    */
   private async applySpdif(): Promise<void> {
-    if (!this.desktop) await this.mpv.set("audio-spdif", this.nightMode || this.clipSound ? "" : "ac3,eac3,dts").catch(() => undefined);
+    if (!this.desktop) await this.mpv.set("audio-spdif", this.nightMode || this.clipSound || this.bluetooth ? "" : "ac3,eac3,dts").catch(() => undefined);
   }
 
   /** Night mode decodes the audio (no passthrough) and evens out loud and quiet parts. */
@@ -499,6 +502,22 @@ export class Player {
     if (this.clipSound === on) return;
     this.clipSound = on;
     await this.applySpdif();
+  }
+
+  /**
+   * Headphones or a speaker over Bluetooth are the sound output (#102). Bluetooth can't carry Dolby
+   * or DTS untouched, so the audio is decoded for as long as they are.
+   */
+  async setBluetooth(on: boolean): Promise<void> {
+    if (this.bluetooth === on) return;
+    this.bluetooth = on;
+    await this.applySpdif();
+  }
+
+  /** Lip-sync: shifts the sound against the picture in seconds, negative for earlier (mpv's audio-delay). */
+  async setAudioDelay(seconds: number): Promise<void> {
+    this.audioDelayS = Number.isFinite(seconds) ? seconds : 0;
+    await this.mpv.set("audio-delay", this.audioDelayS).catch((e: Error) => this.log(`mpv audio-delay: ${e.message}`));
   }
 
   /** The volume, 0–100: the sleep timer fades out with it (passthrough sound can't be faded). */

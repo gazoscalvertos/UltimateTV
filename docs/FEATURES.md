@@ -50,6 +50,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 - Dolby Digital Plus (Atmos) and DTS passed through untouched; the sound output is moved to the TV's HDMI at full volume.
 - Output kept at scale ×1 on 4K screens; the UI sizes by height on screens wider than 16:9.
 - Playback stats overlay (Blue while playing): frame rate, screen mode and how it was matched, dropped frames, buffer.
+- **Bluetooth headphones, speakers and controllers** (Settings › Bluetooth, or the same section on the phone): scan, pair-and-trust in one press, and the sound moves to the headphones when they connect and back when they go. Decoded to stereo over Bluetooth, with a lip-sync delay in 20 ms steps. Controllers work in RetroArch, Moonlight, Steam Link and GeForce NOW. ([watching-extras.md](watching-extras.md#headphones-over-bluetooth))
 
 ## Profiles
 

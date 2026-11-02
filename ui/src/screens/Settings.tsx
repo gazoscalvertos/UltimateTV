@@ -17,6 +17,7 @@ import { onCleanup } from "solid-js";
 import { Row, Status } from "../components/SettingRow";
 import { AdvertRows, AlertsSection, FeaturesSection, CastSection, HomeRowsSection, RecentChanges, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
 import { SelfTestSection } from "./SelfTest";
+import { BluetoothSection } from "./Bluetooth";
 
 /** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
 const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
@@ -619,6 +620,7 @@ export function Settings(props: { section?: string }) {
     { id: "scares", label: "Projected clips" },
     { id: "seasonal", label: "Seasonal clips" },
     { id: "cast", label: "Cast and games" },
+    { id: "bluetooth", label: "Bluetooth" },
     { id: "alerts", label: "Alerts" },
     { id: "sources", label: "Sources" },
     { id: "remote", label: "Phones and remotes" },
@@ -876,6 +878,10 @@ export function Settings(props: { section?: string }) {
 
             <Show when={section() === "cast"}>
               <CastSection />
+            </Show>
+
+            <Show when={section() === "bluetooth"}>
+              <BluetoothSection />
             </Show>
 
             <Show when={section() === "weather"}>

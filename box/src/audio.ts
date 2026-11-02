@@ -43,6 +43,19 @@ export class Audio {
     await run("wpctl", ["set-volume", "@DEFAULT_AUDIO_SINK@", "1.0"], { timeout: 5000 }).catch((e: Error) => this.log(`Couldn't set the volume: ${e.message}`));
   }
 
+  /**
+   * Sends the sound to a PipeWire/PulseAudio sink (a pair of Bluetooth headphones or a speaker).
+   * Passing null puts it back where it was: the TV's HDMI output (#102).
+   */
+  async useSink(sink: string | null): Promise<void> {
+    if (!sink) {
+      await this.useHdmi();
+      return;
+    }
+    await run("pactl", ["set-default-sink", sink], { timeout: 5000 }).catch((e: Error) => this.log(`Couldn't move the sound to ${sink}: ${e.message}`));
+    await this.fullVolume();
+  }
+
   /** Moves the sound to the connected HDMI output if it isn't there. Safe to call before every play. */
   async useHdmi(): Promise<void> {
     const cards = await run("pactl", ["-f", "json", "list", "cards"], { timeout: 5000 })

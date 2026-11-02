@@ -25,8 +25,9 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "electron";
 import os from "node:os";
 import path from "node:path";
-import type { BoxInfo, CastState, OfflineProfile, PlayerState, SelfTestCall, SpotifyState, WebAppState } from "@ultimatetv/shared";
+import type { BtAction, BoxInfo, CastState, OfflineProfile, PlayerState, SelfTestCall, SpotifyState, WebAppState } from "@ultimatetv/shared";
 import { Audio } from "./audio.js";
+import { Bluetooth } from "./bluetooth.js";
 import { Cast } from "./cast.js";
 import { Cec } from "./cec.js";
 import { Diagnostics } from "./diagnostics.js";
@@ -106,6 +107,8 @@ let appName = (() => {
 // follows: the one last used on the TV, so Kids only get their own downloads.
 const OFFLINE_PAGE = path.join(__dirname, "../offline/index.html");
 const PROFILE_FILE = path.join(app.getPath("userData"), "offline-profile.json");
+// The Bluetooth audio delay, kept on the box because it belongs to its own headphones (#102).
+const BLUETOOTH_FILE = path.join(app.getPath("userData"), "bluetooth.json");
 let offlineReason = "";
 let offlineProfile: OfflineProfile | null = (() => {
   try {
@@ -193,6 +196,17 @@ async function main(): Promise<void> {
     await audio.useHdmi();
     await audio.fullVolume();
   }
+  // Bluetooth headphones, speakers and controllers (#102). Only a real box has them; a desktop
+  // leaves the computer's own sound alone.
+  const bluetooth = DESKTOP
+    ? null
+    : new Bluetooth({
+        stateFile: BLUETOOTH_FILE,
+        log,
+        useSink: (sink) => audio.useSink(sink),
+        setPcm: (on) => void player.setBluetooth(on),
+        setAudioDelay: (seconds) => void player.setAudioDelay(seconds),
+      });
   await mpv.start().catch((e: Error) => log(`mpv didn't start: ${e.message}`));
   await player.start().catch((e: Error) => log(e.message));
   if (CEC_DEVICE) void cec.start();
@@ -271,6 +285,7 @@ async function main(): Promise<void> {
   cast.onChange((s: CastState) => send("agent:cast", s));
   void cast.start().catch((e: Error) => log(`AirPlay and games didn't start: ${e.message}`));
   void downloads.start().catch((e: Error) => log(`Downloads didn't start: ${e.message}`));
+  void bluetooth?.start().catch((e: Error) => log(`Bluetooth didn't start: ${e.message}`));
 
   let suspendTimer: NodeJS.Timeout | undefined;
   cec.onPower((active) => {
@@ -319,6 +334,7 @@ async function main(): Promise<void> {
       }
       throw new Error(`Unknown self-test action ${String((a as { action?: string }).action)}`);
     },
+    bluetooth: async (a: never) => (bluetooth ? bluetooth.act((a ?? { do: "status" }) as BtAction) : { available: false, powered: false, scanning: false, devices: [], output: { kind: "tv" as const }, delayMs: 0, reason: "Bluetooth is set up on the TV box, not on a desktop" }),
     wakeTv: () => cec.wakeTv(),
     reload: async () => win?.webContents.reloadIgnoringCache(),
     software: (check: never) => updates.status(Boolean(check)),

@@ -30,6 +30,13 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **Bluetooth headphones, speakers and controllers**: Settings › Bluetooth on the TV (and the same
+  section on the phone's Settings page) finds nearby devices and pairs and trusts them in one press.
+  Headphones take the sound over when they connect and hand it back when they go, decoded to stereo
+  because Dolby and DTS can't travel over Bluetooth, with a sound delay setting for lip-sync.
+  Controllers work in RetroArch, Moonlight, Steam Link and GeForce NOW. (#102)
+  Household: wireless headphones now work in the TV without unplugging anything, and the sound goes back to the TV's speakers when they're off.
+
 - **The TV in the phone's notifications, Quick Settings and home screen** ([docs/phone-remote.md](docs/phone-remote.md#from-the-shade-and-the-home-screen)): the Android app now puts a player in the phone's notifications while the TV is playing — the title, the episode or year, the picture, how far through it is, and Pause, Back 30 seconds, Forward a minute and Back, with Channel − and Channel + in place of skipping on a live channel — which goes away when the TV stops. A **TV Remote** tile in Quick Settings plays and pauses, and a resizable **TV Remote** widget on the home screen has Play/Pause, Back, Home and, at full size, the d-pad with OK and the four colour keys. Nothing polls: the Hub holds one request open until the TV's state changes (`GET /api/remote/now`), so a phone with nothing playing leaves nothing running, and the state is the same one the Hub reports to Home Assistant, so the shade, the tile and Home Assistant agree. The app is version 0.7.0, so phones already on it get the update banner. (#109)
   Household: you can pause the telly from the phone's lock screen or home screen without opening the remote.
 - **Check the TV and the remote from the TV** ([docs/diagnostics.md](docs/diagnostics.md#the-self-test)): Settings › About › Self-test plays six short clips — 4K HDR10, HLG, 23.976 and 50 frames a second, surround sound and left/right stereo — and asks you whether each looked and sounded right, then asks you to press every button on the remote and notes the ones that never arrived. Each answer is kept with what the box was doing at the time: the screen mode it picked, the picture and sound format, and whether the graphics chip did the decoding. That is what tells "this TV can't do HDR" apart from "the TV was in the wrong picture mode". The last run is shown on the phone's Stats page and in the Hub's diagnostics, and the box makes the clips itself if they are missing, so nothing large is kept in the repo. (#105)
