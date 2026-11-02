@@ -25,7 +25,7 @@ import { registerSubtitles } from "./subtitles.js";
 import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
 import { ChangelogFile, registerChangelog } from "./changelog.js";
-import type { AccessibilitySettings, BoxState, DeviceList, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
+import type { AccessibilitySettings, BoxState, DeviceList, FeatureId, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
 import { FEATURES, featuresFor, isClientKind, type ClientFeatureState, cleanAppName, cleanSubtitleStyle, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
@@ -41,6 +41,7 @@ import { Pairing, PairingError } from "./pairing.js";
 import { ClientFeatures } from "./features.js";
 import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
+import { guestBlocks } from "./guest.js";
 import { ContentFilter } from "./profiles.js";
 import { ReportStore } from "./reports.js";
 import { JellyfinClient } from "./services/jellyfin.js";
@@ -340,6 +341,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     }
     if (ADMIN_ROUTES.has(route) && !viewer(req).admin) {
       throw Object.assign(new Error("Ask a grown-up: this needs the PIN"), { statusCode: 403, code: "pin" });
+    }
+    // A Guest reaches only the sections it was given, and never settings, recordings or downloads.
+    const who = viewer(req);
+    if (who.profile?.kind === "guest" && guestBlocks(who.profile, req.url)) {
+      throw new NotAllowedError();
     }
   });
 
@@ -1240,7 +1246,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const f = filterOf(req);
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
     const allowed = items.filter((i) => {
-      if (!f.kids) return true;
+      if (!f.limited) return true;
       if (i.channelId) {
         const c = ctx.channels.get(i.channelId);
         return Boolean(c && f.channel(c));
@@ -1253,8 +1259,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.post("/api/progress", async (req: Req<Record<string, string>, Record<string, string>, { key: string; positionMs: number; durationMs?: number; event?: "start" | "progress" | "stop"; paused?: boolean; title?: TitleRef; at?: number }>) => {
     const b = req.body;
     // `at` is when it was watched, for a phone sending on what it played offline (#80): the newest
-    // timestamp wins when Jellyfin moved on somewhere else in the meantime.
-    await playback.report(b.key, b.positionMs, b.durationMs, b.event ?? "progress", b.paused ?? false, b.title, b.at);
+    // timestamp wins when Jellyfin moved on somewhere else in the meantime. A Guest's report is
+    // accepted and dropped, so nothing is written here and Jellyfin is never told (#101).
+    const guest = viewer(req).profile?.kind === "guest";
+    await playback.report(b.key, b.positionMs, b.durationMs, b.event ?? "progress", b.paused ?? false, b.title, b.at, !guest);
     return { ok: true };
   });
 
@@ -1430,7 +1438,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   app.post("/api/profiles", async (req: Req<Record<string, string>, Record<string, string>, { name: string; kind: ProfileKind }>, reply) => {
-    const kind: ProfileKind = req.body?.kind === "kids" ? "kids" : "adult";
+    const kind: ProfileKind = req.body?.kind === "kids" ? "kids" : req.body?.kind === "guest" ? "guest" : "adult";
     const p = ctx.profiles.create({ name: String(req.body?.name ?? ""), kind });
     ctx.events.emit({ type: "profiles.changed" });
     return reply.code(201).send(p);
@@ -1438,7 +1446,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.patch(
     "/api/profiles/:id",
-    async (req: Req<{ id: string }, Record<string, string>, { name?: string; colour?: string; maxCertification?: Certification; channelCategories?: ChannelCategory[]; allowedChannels?: string[]; subtitles?: SubtitleMode; accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }>, reply) => {
+    async (req: Req<{ id: string }, Record<string, string>, { name?: string; colour?: string; maxCertification?: Certification; channelCategories?: ChannelCategory[]; allowedChannels?: string[]; guestFeatures?: FeatureId[]; subtitles?: SubtitleMode; accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }>, reply) => {
       const p = ctx.profiles.update(req.params.id, req.body ?? {});
       if (!p) return reply.code(404).send({ error: "No such profile" });
       ctx.events.emit({ type: "profiles.changed" });

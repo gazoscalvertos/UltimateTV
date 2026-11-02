@@ -2,8 +2,8 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createEffect, createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { AccessibilitySettings, BoxUpdateHealth, Certification, SubtitleMode, SubtitleStyle, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
-import { cleanAccessibility, TEXT_SCALES, CERTIFICATIONS, cleanKidsLimits, KIDS_ALLOWANCES, KIDS_BEDTIMES, kidsLimitsLabel, NO_KIDS_LIMITS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
+import type { AccessibilitySettings, BoxUpdateHealth, Certification, FeatureId, SubtitleMode, SubtitleStyle, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
+import { cleanAccessibility, TEXT_SCALES, CERTIFICATIONS, cleanKidsLimits, KIDS_ALLOWANCES, KIDS_BEDTIMES, kidsLimitsLabel, NO_KIDS_LIMITS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, guestSections, GUEST_NEVER, FEATURES, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -456,6 +456,42 @@ export function Settings(props: { section?: string }) {
     }
   };
 
+  /** What a Guest's row in the menu says: its own pick of sections, or the usual ones. */
+  const GUEST_SECTIONS_HINT = (p: Profile) => {
+    const mine = guestSections(p);
+    const off = FEATURES.filter((f) => !(GUEST_NEVER as string[]).includes(f.id) && !mine.includes(f.id));
+    return off.length ? `${mine.length} on, ${off.length} off` : "All the usual ones";
+  };
+
+  /**
+   * What a Guest may use: its own pick of the sections (issue #101). Recordings and downloads are
+   * never offered, and the Hub refuses them whatever is picked here (hub/src/guest.ts).
+   */
+  const guestSectionsMenu = async (p: Profile) => {
+    const offered = FEATURES.filter((f) => !(GUEST_NEVER as string[]).includes(f.id));
+    for (;;) {
+      const mine = guestSections(p);
+      const pick = await choose<FeatureId | "reset">({
+        title: `What ${p.name} can use`,
+        message: "A Guest never has Settings, recordings or downloads, and leaving the profile when the TV is switched off or the picker opens keeps nothing it watched.",
+        options: [
+          ...offered.map((f) => ({ label: `${mine.includes(f.id) ? "On" : "Off"}: ${f.label}`, value: f.id, icon: "list", detail: f.detail })),
+          { label: "Use the usual sections again", value: "reset", icon: "back" },
+        ],
+      });
+      if (!pick) return;
+      const next = pick === "reset" ? undefined : mine.includes(pick) ? mine.filter((id) => id !== pick) : [...mine, pick];
+      try {
+        await hub.updateProfile(p.id, { guestFeatures: next } as Partial<Profile>);
+        p = profiles()?.profiles.find((x) => x.id === p.id) ?? p;
+        await refetchProfiles();
+      } catch (err) {
+        errorToast(err);
+        return;
+      }
+    }
+  };
+
   /** A Kids profile's daily allowance, bedtimes and alert. The Hub enforces them (hub/src/kidstime.ts). */
   const limitsMenu = async (p: Profile) => {
     const hours = (m: number) => (m < 60 ? `${m} minutes` : m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} hour${m === 60 ? "" : "s"}`);
@@ -494,11 +530,12 @@ export function Settings(props: { section?: string }) {
   const profileMenu = async (p: Profile) => {
     const pick = await choose({
       title: p.name,
-      message: p.kind === "kids" ? `Kids profile: kids' channels and titles rated up to ${p.maxCertification}.` : "Adult profile: sees everything and can change settings.",
+      message: p.kind === "kids" ? `Kids profile: kids' channels and titles rated up to ${p.maxCertification}.` : p.kind === "guest" ? `Guest profile: for visitors and babysitters. Titles rated up to ${p.maxCertification}, no settings, and nothing it watches is kept.` : "Adult profile: sees everything and can change settings.",
       options: [
         { label: "Rename", value: "rename", icon: "list" },
-        ...(p.kind === "kids" ? [{ label: `Ratings allowed: up to ${p.maxCertification}`, value: "cert", icon: "lock" }] : []),
+        ...(p.kind === "kids" || p.kind === "guest" ? [{ label: `Ratings allowed: up to ${p.maxCertification}`, value: "cert", icon: "lock" }] : []),
         ...(p.kind === "kids" ? [{ label: "TV time and bedtime", value: "limits", icon: "moon", detail: kidsLimitsLabel(p.limits) }] : []),
+        ...(p.kind === "guest" ? [{ label: "What a Guest can use", value: "sections", icon: "list", detail: GUEST_SECTIONS_HINT(p) }] : []),
         { label: `Subtitles: ${p.subtitles ? MODE_LABELS[p.subtitles] : `as the household (${settings()?.playback.subtitlesByDefault ? "on" : "off"})`}`, value: "subtitles", icon: "subtitles" },
         { label: "Accessibility", value: "a11y", icon: "eye", detail: "Audio description, bigger text, bold focus, less movement" },
         { label: p.hasPin ? "Change PIN" : "Set a PIN", value: "pin", icon: "lock" },
@@ -533,6 +570,7 @@ export function Settings(props: { section?: string }) {
         setSection("accessibility");
       }
       if (pick === "limits") await limitsMenu(p);
+      if (pick === "sections") await guestSectionsMenu(p);
       if (pick === "pin") await pinFor(p);
       if (pick === "nopin" && (await confirm("Remove the PIN?", "Anyone will be able to use this profile.", "Remove PIN", true))) await hub.updateProfile(p.id, { pin: null });
       if (pick === "delete" && (await confirm(`Delete ${p.name}?`, "Their Continue Watching list goes too. Recordings are kept.", "Delete", true))) await hub.deleteProfile(p.id);
@@ -547,6 +585,7 @@ export function Settings(props: { section?: string }) {
       title: "Add a profile",
       options: [
         { label: "Kids", value: "kids", detail: "Kids' channels and family titles only" },
+        { label: "Guest", value: "guest", detail: "For visitors: rated up to a limit, and nothing it watches is kept" },
         { label: "Adult", value: "adult", detail: "Everything" },
       ],
     });

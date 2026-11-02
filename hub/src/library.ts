@@ -102,19 +102,22 @@ export class Library {
     const latestMovies = latestRaw.filter((i) => f.ref(jf!.toTitleRef(i)));
     const trending = trendingRaw.filter((t) => f.ref(t));
 
-    const continueItems = this.continueWatching(resume, f);
+    // A Guest is a visitor: it sees no Continue watching, nothing recently recorded and no
+    // "Because you watched" rail, because none of the household's history is its business.
+    const guest = f.guest;
+    const continueItems = guest ? [] : this.continueWatching(resume, f);
 
     const rails: Rail[] = [];
     if (liveChannels.length) rails.push({ id: "live", title: "Live now", kind: "channels", items: [], channels: this.nowNextFor(liveChannels, now) });
     if (continueItems.length) rails.push({ id: "continue", title: "Continue watching", kind: "titles", items: continueItems });
     const allowed = new Set(channels.map((c) => c.id));
-    const recent = this.ctx.recordings.withStatus("completed").filter((r) => !r.watched && allowed.has(r.channelId)).sort((a, b) => b.programme.start - a.programme.start).slice(0, 16);
+    const recent = guest ? [] : this.ctx.recordings.withStatus("completed").filter((r) => !r.watched && allowed.has(r.channelId)).sort((a, b) => b.programme.start - a.programme.start).slice(0, 16);
     if (recent.length) rails.push({ id: "recordings", title: "Recently recorded", kind: "recordings", items: [], recordings: recent });
-    const because = await this.becauseYouWatched(f).catch(() => null);
+    const because = guest ? null : await this.becauseYouWatched(f).catch(() => null);
     if (because) rails.push(because);
     // A series already in Continue watching (with its next episode) isn't repeated in Next up.
     const continuing = new Set(continueItems.map(titleKey));
-    const nextUpRefs = nextUp
+    const nextUpRefs = (guest ? [] : nextUp)
       .map((i) => ({ ...jf!.toTitleRef(i), id: `jellyfin:${i.SeriesId}`, episodeId: `s${i.ParentIndexNumber ?? 0}e${i.IndexNumber ?? 0}` }))
       .filter((t) => f.ref(t) && !continuing.has(titleKey(t)));
     if (nextUpRefs.length) rails.push({ id: "nextup", title: "Next up", kind: "titles", items: nextUpRefs });
@@ -144,7 +147,7 @@ export class Library {
     const heroSource = continueItems.find((t) => t.backdrop) ?? trending.find((t) => t.backdrop) ?? latestMovies.map((i) => jf!.toTitleRef(i)).find((t) => t.backdrop);
     const home: HomeScreen = { rails };
     if (heroSource) {
-      home.hero = { ...heroSource, action: continueItems.includes(heroSource) ? "resume" : "watch" };
+      home.hero = { ...heroSource, action: !guest && continueItems.includes(heroSource) ? "resume" : "watch" };
       const d = await this.details(heroSource.id, f).catch(() => null);
       if (d?.overview) home.hero.overview = d.overview;
       if (d?.logo && !home.hero.logo) home.hero.logo = d.logo;
@@ -336,12 +339,12 @@ export class Library {
 
   /** Details, refused when the profile isn't allowed to see the title. */
   async details(id: string, f: ContentFilter = NO_FILTER): Promise<TitleDetails> {
-    if (f.kids && id.startsWith("programme:")) {
+    if (f.limited && id.startsWith("programme:")) {
       const p = this.ctx.guide.get(id.slice("programme:".length));
       if (p && !f.programme(p, this.ctx.channels.get(p.channelId))) throw new NotAllowedError();
     }
     const d = await this.lookup(id);
-    if (!f.title(d) && !(id.startsWith("programme:") && f.kids)) throw new NotAllowedError();
+    if (!f.title(d) && !(id.startsWith("programme:") && f.limited)) throw new NotAllowedError();
     return d.kind === "series" ? this.withProgress(d) : d;
   }
 

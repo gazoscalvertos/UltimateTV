@@ -10,6 +10,7 @@ import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
 import { seasonOn } from "./seasons.js";
 import type { ThemeChoice, ThemeName } from "./themes.js";
 import type { AccessibilitySettings } from "./accessibility.js";
+import type { FeatureId } from "./features.js";
 
 export type Id = string;
 
@@ -472,7 +473,12 @@ export interface Download {
 // ---------------------------------------------------------------------------
 // Profiles
 
-export type ProfileKind = "adult" | "kids";
+/**
+ * Adults see everything and can change things. Kids see only kids' channels and titles up to a
+ * rating, with TV time on top. A Guest is for visitors and babysitters: rated up to a limit of its
+ * own, no settings, no recordings or downloads, and nothing it watches is kept.
+ */
+export type ProfileKind = "adult" | "kids" | "guest";
 
 /** UK age ratings from youngest to oldest (BBFC for films; TV guidance maps onto the same scale). */
 export const CERTIFICATIONS = ["U", "PG", "12", "12A", "15", "18"] as const;
@@ -492,6 +498,11 @@ export interface Profile {
   channelCategories: ChannelCategory[];
   /** Kids: extra channels allowed by hand. */
   allowedChannels: Id[];
+  /**
+   * Guest: the sections this visitor may use (a FeatureId list). Missing or empty = the usual
+   * Guest sections, which never include recordings, downloads or settings.
+   */
+  guestFeatures?: FeatureId[];
   /** The channel list the guide opens on: a GuideChoice id ("" or missing = all channels). */
   defaultGuide?: string;
   /** When subtitles come on for this profile; missing follows Settings › Picture and sound. */

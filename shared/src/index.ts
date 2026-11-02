@@ -1,5 +1,6 @@
 export * from "./capabilities.js";
 export * from "./domain.js";
+export * from "./guest.js";
 export * from "./ranking.js";
 export * from "./keys.js";
 export * from "./text.js";

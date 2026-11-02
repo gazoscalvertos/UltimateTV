@@ -63,6 +63,9 @@ export function Profiles() {
                 <Show when={p.kind === "kids"}>
                   <span class="profile-kind">Kids · up to {p.maxCertification}</span>
                 </Show>
+                <Show when={p.kind === "guest"}>
+                  <span class="profile-kind">Guest · up to {p.maxCertification}</span>
+                </Show>
               </button>
             )}
           </For>

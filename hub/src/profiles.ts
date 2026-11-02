@@ -1,9 +1,11 @@
 // Household profiles. Adults see everything; a Kids profile sees only kids' channels and titles
 // rated up to its limit, can't change settings or delete recordings, and leaving it needs a PIN.
+// A Guest is for visitors and babysitters: adult-rated up to a limit of its own, its own pick of
+// the sections (guest.ts), no settings, recordings or downloads, and nothing it watches is kept.
 
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import type { AccessibilitySettings, Certification, Channel, ChannelCategory, Profile, Programme, TitleDetails, TitleRef } from "@ultimatetv/shared";
-import { CERTIFICATIONS, cleanAccessibility, cleanKidsLimits, DEFAULT_ACCESSIBILITY, hasKidsLimits, isDefaultAccessibility, SUBTITLE_MODES } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Certification, Channel, ChannelCategory, FeatureId, Profile, Programme, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import { CERTIFICATIONS, cleanAccessibility, cleanFeatureList, cleanKidsLimits, DEFAULT_ACCESSIBILITY, GUEST_NEVER, hasKidsLimits, isDefaultAccessibility, SUBTITLE_MODES } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 import { newId } from "./db.js";
 
@@ -212,7 +214,9 @@ export class ProfileStore {
       kind: input.kind,
       colour: COLOURS[list.length % COLOURS.length]!,
       hasPin: false,
-      maxCertification: input.kind === "kids" ? "PG" : "18",
+      // A Guest starts at 12 (the issue's example limit), on every channel, with the usual
+      // sections: the household can narrow it from Settings once the profile exists.
+      maxCertification: input.kind === "kids" ? "PG" : input.kind === "guest" ? "12" : "18",
       channelCategories: input.kind === "kids" ? ["kids"] : [],
       allowedChannels: [],
     };
@@ -220,7 +224,7 @@ export class ProfileStore {
     return this.pub(p);
   }
 
-  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles" | "limits">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }): Profile | undefined {
+  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles" | "limits" | "guestFeatures">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }): Profile | undefined {
     const list = this.all();
     const p = list.find((x) => x.id === id);
     if (!p) return undefined;
@@ -242,6 +246,14 @@ export class ProfileStore {
       const a = patch.accessibility === null ? DEFAULT_ACCESSIBILITY : cleanAccessibility(patch.accessibility, p.accessibility ?? DEFAULT_ACCESSIBILITY);
       if (isDefaultAccessibility(a)) delete p.accessibility;
       else p.accessibility = a;
+    }
+    if (patch.guestFeatures !== undefined && p.kind === "guest") {
+      // A Guest's own pick of sections; an empty pick falls back to the usual ones (guest.ts).
+      // Recordings and downloads are never offered and never kept, so the Hub says no here too
+      // rather than trusting the screens to leave them out.
+      const sections: FeatureId[] = cleanFeatureList(patch.guestFeatures).filter((id) => !GUEST_NEVER.includes(id));
+      if (sections.length) p.guestFeatures = sections;
+      else delete p.guestFeatures;
     }
     if (patch.limits !== undefined && p.kind === "kids") {
       const limits = patch.limits ? cleanKidsLimits(patch.limits, p.limits) : undefined;
@@ -354,7 +366,7 @@ function publicProfile(p: StoredProfile): Profile {
 }
 
 // ---------------------------------------------------------------------------
-// Filtering for Kids profiles
+// Filtering for Kids and Guest profiles
 
 export class ContentFilter {
   /**
@@ -371,44 +383,58 @@ export class ContentFilter {
     return this.profile?.kind === "kids";
   }
 
+  get guest(): boolean {
+    return this.profile?.kind === "guest";
+  }
+
+  /** Kids and Guests both have limits; adults have none. */
+  get limited(): boolean {
+    return this.kids || this.guest;
+  }
+
   private get maxRank(): number {
     return CERTIFICATIONS.indexOf(this.profile?.maxCertification ?? "18");
   }
 
   channel(c: Channel): boolean {
-    if (!this.kids) return true;
-    const cats: ChannelCategory[] = this.profile!.channelCategories.length ? this.profile!.channelCategories : ["kids"];
+    if (!this.limited) return true;
+    // Kids with no categories picked means kids' channels; a Guest with none means all of them.
+    const cats: ChannelCategory[] = this.profile!.channelCategories.length ? this.profile!.channelCategories : this.kids ? ["kids"] : [];
+    if (!cats.length) return true;
     return cats.includes(c.category) || this.profile!.allowedChannels.includes(c.id);
   }
 
   channels(list: Channel[]): Channel[] {
-    const kept = this.kids ? list.filter((c) => this.channel(c)) : list;
+    const kept = this.limited ? list.filter((c) => this.channel(c)) : list;
     const fav = this.favouriteChannels;
     if (!fav) return kept;
     return kept.map((c) => (c.favourite === fav.has(c.id) ? c : { ...c, favourite: fav.has(c.id) }));
   }
 
   programme(_p: Programme, channel: Channel | undefined): boolean {
-    return !this.kids || (channel !== undefined && this.channel(channel));
+    return !this.limited || (channel !== undefined && this.channel(channel));
   }
 
-  /** Titles need a rating within the limit, or a family/animation genre when unrated. */
+  /**
+   * Titles need a rating within the limit. Kids also want a family/animation genre when unrated
+   * (anything unrated could be an adult cartoon); a Guest is stricter only about what is rated.
+   */
   title(d: Pick<TitleDetails, "certification" | "genres">): boolean {
-    if (!this.kids) return true;
+    if (!this.limited) return true;
     const rank = certificationRank(d.certification);
     if (rank !== null) return rank <= this.maxRank;
-    return d.genres.some((g) => KIDS_GENRES.test(g));
+    return this.guest || d.genres.some((g) => KIDS_GENRES.test(g));
   }
 
   /** For lists where only references are known: keep those tagged as suitable. */
   ref(r: TitleRef): boolean {
-    if (!this.kids) return true;
+    if (!this.limited) return true;
     return this.title({ genres: r.genres ?? [], ...(r.certification ? { certification: r.certification } : {}) });
   }
 
   /** Jellyfin's MaxOfficialRating query value for this profile. */
   jellyfinMaxRating(): string | undefined {
-    return this.kids ? this.profile!.maxCertification : undefined;
+    return this.limited ? this.profile!.maxCertification : undefined;
   }
 }
 
