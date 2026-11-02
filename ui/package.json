@@ -12,10 +12,10 @@
   "dependencies": {
     "@ultimatetv/shared": "0.2.0",
     "mpegts.js": "1.8.2",
-    "solid-js": "1.9.17"
+    "solid-js": "1.9.18"
   },
   "devDependencies": {
-    "vite": "7.3.7",
+    "vite": "8.3.5",
     "vite-plugin-solid": "2.11.14"
   }
 }
