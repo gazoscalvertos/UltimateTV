@@ -392,7 +392,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return reply.type("text/plain; charset=utf-8").send(`${(await file.tail(lines)).join("\n")}\n`);
   });
   app.get("/api/diagnostics", async (req: Req<Record<string, string>, { format?: string }>, reply) => {
-    const hub = { version: HUB_VERSION, ...(HUB_BUILD.commit ? { commit: HUB_BUILD.commit } : {}), ...(HUB_BUILD.date ? { builtAt: HUB_BUILD.date } : {}), uptimeS: Math.round(process.uptime()), log: deps.logRing?.list() ?? [] };
+    const hub = { version: HUB_VERSION, ...(HUB_BUILD.commit ? { commit: HUB_BUILD.commit } : {}), ...(HUB_BUILD.date ? { builtAt: HUB_BUILD.date } : {}), uptimeS: Math.round(process.uptime()), log: deps.logRing?.list() ?? [], advertScan: adSkipper.summary() };
     if (req.query.format === "text") return reply.type("text/plain; charset=utf-8").send(renderDiagnostics(hub, boxReports.get()));
     return { hub, box: boxReports.get() };
   });
