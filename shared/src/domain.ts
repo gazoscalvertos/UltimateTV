@@ -188,6 +188,8 @@ export interface Conflict {
   end: number;
   /** The recordings that want the connection at once; the last ones can't be recorded live. */
   recordings: Recording[];
+  /** How many of them the IPTV plan can record at once, so the app knows how many must go. */
+  limit: number;
   message: string;
 }
 

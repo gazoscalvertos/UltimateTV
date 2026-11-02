@@ -2139,11 +2139,27 @@ html.high-contrast .guide-grid:focus .gg-cell.selected {
   display: flex;
   gap: 1rem;
   align-items: flex-start;
+  width: calc(100% - 12rem);
+  text-align: left;
+  font: inherit;
+  color: inherit;
   margin: 0 6rem 1.4rem;
   padding: 1.2rem 1.4rem;
   border-radius: 0.8rem;
   background: rgba(242, 179, 61, 0.12);
   border: 0.1rem solid rgba(242, 179, 61, 0.4);
+  cursor: pointer;
+}
+.conflict .list-side {
+  margin-left: auto;
+  align-self: center;
+  font-weight: 700;
+  color: var(--amber);
+  white-space: nowrap;
+}
+.conflict:focus {
+  outline: 0.2rem solid var(--amber);
+  outline-offset: 0.15rem;
 }
 .conflict .icon {
   color: var(--amber);

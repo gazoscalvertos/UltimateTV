@@ -20,7 +20,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 
 - Record a single programme or a whole series from the guide (Red). Recordings land on the NAS with ffmpeg stream copy and show up in Jellyfin.
 - Series links schedule new episodes as the guide refreshes; each has a Cancel button, and you choose whether to keep every episode or only the latest 3, 5 or 10 (the older recordings are deleted as new ones arrive, never one being recorded or lined up to watch).
-- The one IPTV connection is shared: watching and recording the same channel uses one stream. When more recordings overlap than the plan has connections, Recordings shows a clash banner naming the programmes. It only warns: **cancelling one of them is still manual**, from Coming up in Recordings.
+- The one IPTV connection is shared: watching and recording the same channel uses one stream. When more recordings overlap than the plan has connections, Recordings shows a clash banner naming the programmes, and **OK on it chooses which one to keep**: the others are cancelled, or keep them all and the Hub records what the connection allows.
 - Recordings screen: recorded (grouped by series), coming up, series links, a clash banner and NAS downloads.
 
 ## Films and TV

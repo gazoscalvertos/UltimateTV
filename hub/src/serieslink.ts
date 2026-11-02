@@ -162,6 +162,7 @@ export function findConflicts(recordings: Recording[], limit: number, now: numbe
       start: Math.min(...overlapping.map((o) => o.start)),
       end: Math.max(...overlapping.map((o) => o.end)),
       recordings: overlapping,
+      limit,
       message:
         limit === 1
           ? `${names.join(" and ")} are on at the same time, and your IPTV plan has one connection. Choose which one to keep.`
