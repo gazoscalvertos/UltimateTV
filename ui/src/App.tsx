@@ -39,7 +39,7 @@ import { Weather } from "./screens/Weather";
 import { startWeather } from "./weather";
 import { startHomeAssistant } from "./homeassistant";
 import { startWhatsNew } from "./whatsnew";
-import { closeTopDialog, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
+import { closeTopDialog, dropToast, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
 import { startDownloads } from "./downloads";
@@ -358,7 +358,25 @@ export function App() {
       <KidsTimeCard />
       <DialogHost />
       <div class="toasts">
-        <For each={toasts()}>{(t) => <div class={`toast toast-${t.tone}`}>{t.message}</div>}</For>
+        <For each={toasts()}>
+          {(t) => (
+            <div class={`toast toast-${t.tone}`}>
+              <span>{t.message}</span>
+              <Show when={t.action}>
+                <button
+                  class="toast-action"
+                  data-focus
+                  onClick={() => {
+                    t.action!.run();
+                    dropToast(t.id);
+                  }}
+                >
+                  {t.action!.label}
+                </button>
+              </Show>
+            </div>
+          )}
+        </For>
       </div>
       <ScreensaverLayer />
     </>

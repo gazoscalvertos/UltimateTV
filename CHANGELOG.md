@@ -28,6 +28,11 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-02
+
+- **A title can come off Continue watching** ([docs/FEATURES.md](docs/FEATURES.md)): the Continue watching cards on Home open an Options menu with Resume, Mark as watched and Remove from Continue watching. Remove hides the card for that profile and keeps the progress, so a film abandoned after ten minutes stops sitting at the front of Home; it comes back by itself once it's played again, and a toast offers Undo for a few seconds. Mark as watched finishes it and tells Jellyfin too, so Jellyfin's own resume row goes with it. Both actions are on the phone remote's title sheet as well. (#100)
+  Household: a title you gave up on can be taken off Continue watching, with Undo, or marked watched.
+
 ## 2026-11-01
 
 - **Advert breaks shaded on the seek bar**: the breaks comskip found in a recording now show as shaded marks on the player's seek bar, so you can see where they are before you reach one. The marks follow the bar as it grows under the pointer, leave the clicking and dragging alone, are kept inside the recording when comskip gives a time past either end, and recordings without comskip data show no marks at all. (#72)

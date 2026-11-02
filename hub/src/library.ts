@@ -180,9 +180,14 @@ export class Library {
     rows.sort((a, b) => b.at - a.at);
     const seen = new Set<string>();
     const out: TitleRef[] = [];
-    for (const { ref } of rows) {
+    const profileId = f.profile?.id ?? null;
+    const hidden = this.ctx.continueHidden.list(profileId);
+    for (const { ref, at } of rows) {
       const keys = [ref.id, titleKey(ref)];
       if (keys.some((k) => seen.has(k)) || !f.ref(ref)) continue;
+      // Taken off the row on purpose? It only comes back once it's played again.
+      const hiddenAt = hidden[ref.id] ?? (ref.id.startsWith("jellyfin:") ? hidden[`jellyfin:${ref.id.slice(9)}`] : undefined);
+      if (hiddenAt !== undefined && (at || 0) <= hiddenAt) continue;
       keys.forEach((k) => seen.add(k));
       out.push(ref);
     }

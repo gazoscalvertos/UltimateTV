@@ -1242,7 +1242,7 @@
     openSheet(`${d.backdrop ? `<div class="hero" style="background-image:url('${esc(d.backdrop)}')"></div>` : ""}
       <h2>${esc(d.name)}</h2><p class="meta">${esc(meta)}</p>
       ${d.overview ? `<p class="overview">${esc(d.overview)}</p>` : ""}
-      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>${!kidsProfile && !d.inLibrary ? `<button id="s-save">Save to NAS</button>` : ""}` : ""}<button id="s-later">Save for later</button><button id="s-fav" class="fav">♡ Add to Favourites</button></div>
+      <div class="actions">${d.kind === "movie" || !seasons.length ? `<button class="primary" id="s-play">${d.resumeMs ? `Resume from ${fmt(d.resumeMs)}` : "Play on TV"}</button>${d.resumeMs ? `<button id="s-start">From the start</button>` : ""}<button id="s-queue">Add to queue</button><button id="s-dl">Download to TV box</button>${!kidsProfile && !d.inLibrary ? `<button id="s-save">Save to NAS</button>` : ""}` : ""}<button id="s-later">Save for later</button><button id="s-fav" class="fav">♡ Add to Favourites</button>${d.resumeMs ? `<button id="s-hide">Remove from Continue watching</button><button id="s-watched">Mark as watched</button>` : ""}</div>
       ${seasons.length ? `<select id="s-season">${seasons.map((s, i) => `<option value="${i}">${esc(s.name || `Series ${s.season}`)}</option>`).join("")}</select><div class="actions"><button id="s-dl-season">Download this series to the TV box</button>${!kidsProfile ? `<button id="s-save-season">Save this series to the NAS</button>` : ""}${seasons.filter((s) => s.season > 0).length > 1 ? `<button id="s-dl-all">Download every series</button>` : ""}</div><div class="list" id="s-eps"></div>` : ""}
       <button class="link" data-close>Close</button>`);
     if ($("s-play")) $("s-play").onclick = () => playOnTv({ kind: "title", id: d.id }, titleRef);
@@ -1256,6 +1256,9 @@
         (e) => toast(e.message, true),
       );
     favouriteButton($("s-fav"), { title: titleRef }, d.name);
+    // Taking a title off Continue watching (issue #100), for the household profile the phone is.
+    if ($("s-hide")) $("s-hide").onclick = () => void post(`/api/continue/${encodeURIComponent(d.id)}/hide`, { hidden: true }).then(() => (closeSheet(), toast(`${d.name} is off Continue watching`)), (e) => toast(e.message, true));
+    if ($("s-watched")) $("s-watched").onclick = () => void post(`/api/continue/${encodeURIComponent(d.id)}/watched`, {}).then(() => (closeSheet(), toast(`Marked ${d.name} as watched`)), (e) => toast(e.message, true));
     if ($("s-dl-season")) $("s-dl-season").onclick = () => downloadToBox({ titleId: d.id, season: seasons[Number($("s-season").value)].season });
     if ($("s-dl-all")) $("s-dl-all").onclick = () => downloadToBox({ titleId: d.id, all: true });
     if ($("s-save")) $("s-save").onclick = () => saveToNas({ titleId: d.id });

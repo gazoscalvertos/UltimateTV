@@ -17,6 +17,7 @@ import { Ingestor } from "./ingest/index.js";
 import type { Logger } from "./log.js";
 import { MixManager } from "./mixchannels.js";
 import { ProfileStore } from "./profiles.js";
+import { ContinueHidden } from "./continuehide.js";
 import { ProgressStore } from "./progress.js";
 import { PlayQueue } from "./queue.js";
 import { Recorder, type Remux } from "./recorder.js";
@@ -68,6 +69,7 @@ export class HubContext {
   readonly scheduler: Scheduler;
   readonly ingest: Ingestor;
   readonly progress: ProgressStore;
+  readonly continueHidden: ContinueHidden;
   readonly queue: PlayQueue;
   readonly profiles: ProfileStore;
   readonly guides: CustomGuideStore;
@@ -101,6 +103,7 @@ export class HubContext {
     this.relay = new LiveRelay(this.channels, this.guard, this.log, this.fetchImpl);
     this.recordings = new RecordingStore(this.db);
     this.progress = new ProgressStore(this.db);
+    this.continueHidden = new ContinueHidden(this.db, this.events);
     this.queue = new PlayQueue(this.db, this.events);
     this.profiles = new ProfileStore(this.db);
     this.guides = new CustomGuideStore(this.db);

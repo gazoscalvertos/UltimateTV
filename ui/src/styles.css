@@ -5222,3 +5222,26 @@ html.mouse .up-next,
 html.mouse .skip-button {
   cursor: pointer;
 }
+
+/* The Undo button inside a toast (Continue watching, issue #100): toasts ignore the pointer so
+   they never steal a click from the screen, so this one turns that back on for itself. */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.toast-action {
+  pointer-events: auto;
+  border: 0;
+  border-radius: 0.6rem;
+  padding: 0.4rem 0.9rem;
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.toast-action:focus-visible {
+  outline: 0.2rem solid #fff;
+  outline-offset: 0.15rem;
+}

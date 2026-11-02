@@ -119,6 +119,26 @@ export class ProgressStore {
     return latest.next ? { episodeId: latest.next.episodeId, positionMs: 0 } : undefined;
   }
 
+  /** Every entry recorded for one title (a series has one per episode), newest first. */
+  forTitle(titleId: string, limit = 100): ProgressEntry[] {
+    return this.titled(2000).filter((e) => e.title?.id === titleId).slice(0, limit);
+  }
+
+  /**
+   * Marks a title watched, or one episode of it, so it leaves Continue watching for good and
+   * its progress bar reads as done. Returns the keys it changed, so Jellyfin can be told too.
+   */
+  markWatched(titleId: string, episodeId?: string, now = Date.now()): string[] {
+    const keys: string[] = [];
+    for (const e of this.forTitle(titleId)) {
+      if (episodeId && (e.episodeId ?? episodeOf(e)) !== episodeId) continue;
+      const { updatedAt: _at, watched: _was, ...rest } = e;
+      this.save({ ...rest, watched: true }, now);
+      keys.push(e.key);
+    }
+    return keys;
+  }
+
   /** How far each episode of a series got on this Hub, by `s2e5`. */
   episodes(titleId: string): Map<string, ProgressEntry> {
     const map = new Map<string, ProgressEntry>();
