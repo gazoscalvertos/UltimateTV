@@ -41,7 +41,7 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 1. Films: a Jellyfin film plays straight away, and Resume works after stopping halfway.
 2. A title in both Jellyfin and IPTV: **Versions** lists both, library first.
 3. Something from AIOStreams/TorBox plays. **Save to NAS** downloads it, it appears in Recordings › Downloads, then in Jellyfin.
-   Also try Red in Versions, Options › Keep a copy while it plays, an episode's Save to NAS and the phone's Save button. The TV should say "saved and in Jellyfin" (see [save-to-nas.md](save-to-nas.md)).
+   Also try Red in Versions, Options › Keep a copy while it plays, an episode's Save to NAS, the phone's Save button, and **Save to NAS** on the Android app's title page (which keeps the copy the Hub picks, and says how far it has got). The TV should say "saved and in Jellyfin" (see [save-to-nas.md](save-to-nas.md)).
 4. A series: seasons and episodes, Up Next at the end of an episode.
 5. With an OMDb key on the setup page: a film's page shows TMDB, IMDb and Rotten Tomatoes scores. **Trailer** plays the trailer in mpv; Back stops it. **More like this** lists only titles that can play, and Home has **Because you watched** after playing something ([watching-extras.md](watching-extras.md)).
 6. With an OpenSubtitles key: a TorBox or IPTV film with no subtitles, on a profile with Subtitles On, gets subtitles a few seconds in ("Subtitles added from OpenSubtitles"). Yellow › Subtitles › Find more online lists others; pick one and check the timing. Settings › Picture and sound › Subtitle size, Dark box and Raised change them while the film plays.
@@ -70,7 +70,7 @@ Everything is built ahead of testing on the real hardware. This is the order to 
 - [ ] Guide: hold OK on a channel for about a second. Its heart appears and the Favourites list count changes. A short press still plays the channel. Try it with the TV remote through the CEC adapter too.
 - [ ] Live TV: Green stars the channel on the banner. Watching a film: Green stars the film; Options shows a Favourites line.
 - [ ] Phone remote: a film's sheet and a channel's sheet have ♡ Add to Favourites; it lands on the profile the TV is on.
-- [ ] Android app 0.4.0: the heart on a title's page and beside guide channels; Films & TV › Favourites.
+- [ ] Android app 0.5.0: the heart on a title's page and beside guide channels; Films & TV › Favourites.
 
 ## 6b. Music
 
@@ -143,6 +143,8 @@ These have no checks elsewhere in this run.
 
 - [ ] Settings › Theme: moving over a tile previews it; pick Cyberpunk and the phone remote follows. Turn Seasonal on and check the right theme on its dates ([themes.md](themes.md)).
 - [ ] Play queue: add a film and a recording from the TV and one from the phone; they play in order, and the queue survives a box restart.
+- [ ] Android app 0.5.0: **Add to queue** on a film, and on a show (it says the episode that plays next); Home › **Queue** lists them in order, plays one here or on the TV, moves it up, takes it off, and **Clear the queue** empties it. The TV's queue matches.
+- [ ] Android app 0.5.0: **Save for later** on a film fills the button and the title appears on the TV's Home row and the phone remote's Saved tab; Home › **Saved** lists it and taking it off removes it everywhere. On Kids, neither list shows anything that profile may not watch, and there's no Save to NAS.
 - [ ] Screensaver › Try it now, then leave the TV idle: it dims at 10 minutes and the screensaver starts at 20. A NAS photo folder shows your photos.
 - [ ] Projected clips: put on a starter pack (Christmas) over a 4K film; the animation stays smooth and its sound plays over the film. Send a `.utvpack` from the phone and add it from the QR code. Loop mode runs for an evening ([projected-clips.md](projected-clips.md#not-tested-on-the-box-yet)).
 - [ ] A trip: `travel.sh away` on the box, then `travel.sh home` sends the changes back ([travel.md](travel.md)).

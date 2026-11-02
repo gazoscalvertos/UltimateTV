@@ -16,11 +16,14 @@ import tv.ultimate.client.ApiError
 import tv.ultimate.client.App
 import tv.ultimate.client.FeatureState
 import tv.ultimate.client.Favourites
+import tv.ultimate.client.NasSaves
 import tv.ultimate.client.Offline
 import tv.ultimate.client.OfflineMeta
+import tv.ultimate.client.PlayQueue
 import tv.ultimate.client.PlaybackInfo
 import tv.ultimate.client.PlaybackRequest
 import tv.ultimate.client.PlayerActivity
+import tv.ultimate.client.SavedForLater
 import tv.ultimate.client.TitleDetails
 import tv.ultimate.client.TitleRef
 
@@ -123,6 +126,71 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
         }
     }
 
+    /**
+     * Saves a film or show for later, or takes it off again. The list is on the Hub, so the TV
+     * shows it too (Home › Saved for later). [after] runs once the Hub has it.
+     */
+    fun saveForLater(t: TitleRef, on: Boolean, after: () -> Unit = {}) {
+        scope.launch {
+            runCatching { SavedForLater.set(t, on) }
+                .onSuccess { say(if (on) "${t.name} saved for later" else "${t.name} taken off Saved for later"); after() }
+                .onFailure { say(explain(it)) }
+        }
+    }
+
+    /** Puts a film or the episode you picked on the end of the household's play queue. */
+    fun addToQueue(req: PlaybackRequest, title: TitleRef?, name: String, subtitle: String?, image: String?) {
+        blockedBy(req, title)?.let { say("${featureLabel(it)} is switched off on this phone"); return }
+        scope.launch {
+            runCatching { PlayQueue.add(req, title, name, subtitle, image) }
+                .onSuccess { change ->
+                    val at = change.queue.orEmpty().indexOfFirst { it.id == change.item?.id } + 1
+                    val what = if (subtitle.isNullOrBlank()) name else "$name ($subtitle)"
+                    say(if (at <= 1) "$what plays next" else "$what is ${ordinal(at)} in your queue")
+                }
+                .onFailure { say(explain(it)) }
+        }
+    }
+
+    /** 0 is next to play. */
+    private fun ordinal(n: Int): String {
+        val suffix = if (n % 100 in 11..13) "th" else when (n % 10) {
+            1 -> "st"
+            2 -> "nd"
+            3 -> "rd"
+            else -> "th"
+        }
+        return "$n$suffix"
+    }
+
+    /**
+     * Save to NAS: the Hub downloads this version into the Films or TV folder and adds it to
+     * Jellyfin, for everyone, for good. Not the same as [download], which copies it onto this phone.
+     * Grown-ups only: the Hub refuses it for Kids, so the app never offers it either.
+     */
+    fun saveToNas(titleId: String, episodeId: String?, streamId: String?, name: String) {
+        if (App.instance.prefs.profileKind == "kids") return say("Ask a grown-up to save things to the NAS")
+        scope.launch {
+            working = "Asking the Hub to save $name…"
+            try {
+                val d = hub.saveToNas(titleId, episodeId, streamId)
+                NasSaves.load()
+                say(nasToast(d["status"] as? String ?: "queued", name))
+            } catch (e: Throwable) {
+                say(explain(e))
+            } finally {
+                working = null
+            }
+        }
+    }
+
+    /** What Save to NAS says once the Hub has taken it on. */
+    private fun nasToast(status: String, name: String): String = when (status) {
+        "completed" -> "$name is already saved on the NAS"
+        "failed" -> "Couldn't save $name"
+        else -> "Saving $name to the NAS. It goes into Jellyfin when it's done."
+    }
+
     /** Stars or unstars a film or show for this profile. */
     fun favouriteTitle(d: TitleDetails, on: Boolean) {
         scope.launch {
@@ -151,24 +219,6 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
                 val info = hub.offline(req, smaller)
                 Offline.add(hub, info, meta)
                 say(if (App.instance.prefs.wifiOnly) "Downloading over Wi-Fi: ${meta.title ?: info.title}" else "Downloading ${meta.title ?: info.title}")
-            } catch (e: Throwable) {
-                say(explain(e))
-            } finally {
-                working = null
-            }
-        }
-    }
-
-    /**
-     * Save to NAS: the Hub downloads this version into the Films or TV folder and adds it to
-     * Jellyfin, for everyone, for good. Not the same as [download], which copies it onto this phone.
-     */
-    fun saveToNas(titleId: String, episodeId: String?, streamId: String?, name: String) {
-        scope.launch {
-            working = "Asking the Hub to save $name…"
-            try {
-                val d = hub.saveToNas(titleId, episodeId, streamId)
-                say(if (d["status"] == "completed") "$name is already saved on the NAS" else "Saving $name to the NAS. It goes into Jellyfin when it's done.")
             } catch (e: Throwable) {
                 say(explain(e))
             } finally {
