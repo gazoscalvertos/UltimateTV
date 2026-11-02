@@ -35,8 +35,8 @@
     if (!r.ok) throw Object.assign(new Error(d.error || r.statusText), { code: d.code });
     return d;
   }
-  async function get(path) {
-    const r = await fetch(path, { headers: kidsProfile ? { "X-Profile": kidsProfile } : {} });
+  async function get(path, profile = kidsProfile) {
+    const r = await fetch(path, { headers: profile ? { "X-Profile": profile } : {} });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || r.statusText);
     return d;
@@ -64,8 +64,8 @@
         (e) => toast(e.message, true),
       );
   }
-  async function del(path) {
-    const r = await fetch(path, { method: "DELETE" });
+  async function del(path, profile = kidsProfile) {
+    const r = await fetch(path, { method: "DELETE", headers: profile ? { "X-Profile": profile } : {} });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || r.statusText);
     return d;
@@ -1169,6 +1169,7 @@
       if (what === "movie" || what === "series") await showRails(what);
       if (what === "recordings") await showRecordings();
       if (what === "queue") await showQueue();
+      if (what === "saved") await showSaved();
       if (what === "downloads") await showDownloads();
       if (what === "music") await showMusic("playlists");
       if (what === "weather") await showWeather();
@@ -1386,6 +1387,53 @@
     $("q-clear").onclick = () => act(() => del("/api/queue"));
   }
 
+  // Saved for later: the household's list and the TV profile's own, which the Hub sends as one
+  // list, already filtered like the TV's when that's a Kids profile. Tap a row to open it, ▶ plays
+  // it on the TV, + adds it to the queue and ✕ takes it off the list.
+  async function showSaved() {
+    const profile = await savedFor();
+    const { items } = await get("/api/watchlist", profile);
+    if (current !== "saved") return;
+    if (!items.length)
+      return (body.innerHTML = `<p class="empty">Nothing saved for later yet. Tap Save for later on a film or series here, press Red on the TV, or say "save Dune for later".</p>`);
+    body.innerHTML = `<p class="meta">Saved for later · ${items.length} ${items.length === 1 ? "thing" : "things"}${profile ? "" : " · the household's list"}</p><div class="list">${items
+      .map((s, i) => {
+        const t = s.title;
+        const art = t?.poster ?? t?.backdrop;
+        return `<div class="ep-row"><button class="item" data-wi="${i}"><span class="logo">${art ? `<img src="${esc(art)}" alt="" loading="lazy" style="object-fit:cover;width:100%;height:100%">` : "♡"}</span><span class="text"><b>${esc(s.name)}</b>${s.year ? `<span>${esc(s.year)}</span>` : ""}<small>${t ? "Tap to open" : "Looking for it…"}</small></span></button>${t ? `<button class="qbtn" data-wplay="${i}" aria-label="Play on TV">▶</button><button class="qbtn" data-wq="${i}" aria-label="Add to queue">+</button>` : ""}<button class="qbtn danger" data-wx="${i}" aria-label="Take off the list">✕</button></div>`;
+      })
+      .join("")}</div>`;
+    const act = (fn) => fn().then(showSaved, (e) => toast(e.message, true));
+    for (const b of body.querySelectorAll("[data-wi]")) {
+      const s = items[Number(b.dataset.wi)];
+      b.onclick = () => (s.title ? titleSheet(s.title) : toast(`${s.name} isn't in any of your sources yet`));
+    }
+    for (const b of body.querySelectorAll("[data-wplay]")) {
+      const t = items[Number(b.dataset.wplay)].title;
+      b.onclick = () => playOnTv({ kind: "title", id: t.id }, t);
+    }
+    for (const b of body.querySelectorAll("[data-wq]")) {
+      const t = items[Number(b.dataset.wq)].title;
+      const art = t.poster ?? t.backdrop;
+      b.onclick = () => queueIt({ req: { kind: "title", id: t.id }, title: t, name: t.name, ...(t.year ? { subtitle: String(t.year) } : {}), ...(art ? { image: art } : {}) });
+    }
+    for (const b of body.querySelectorAll("[data-wx]")) b.onclick = () => act(() => del(`/api/watchlist/${encodeURIComponent(items[Number(b.dataset.wx)].id)}`, profile));
+  }
+
+  /**
+   * Which profile the Saved tab asks as: the TV's own, so its list and its Kids filters apply.
+   * The one exception is an adult profile with a PIN, where the Hub without that PIN's token
+   * answers as the Kids profile instead: showing the household's list is the honest answer there.
+   */
+  async function savedFor() {
+    const p = tv?.profile;
+    if (!p) return kidsProfile ?? null;
+    if (p.kind === "kids") return p.id;
+    const all = await get("/api/profiles").catch(() => null);
+    const me = all?.profiles?.find((x) => x.id === p.id);
+    return me && !me.hasPin && !all.locked ? p.id : null;
+  }
+
   // Recordings: finished ones to watch, and what's recording now.
   async function showRecordings() {
     const { recordings } = await get("/api/recordings");
@@ -1591,7 +1639,7 @@
     live: ['[data-key="guide"]', '[data-browse="guide"]', '[data-key="channelUp"]', '[data-key="channelDown"]'],
     films: ['[data-browse="movie"]'],
     shows: ['[data-browse="series"]'],
-    recordings: ['[data-browse="recordings"]', '[data-key="record"]'],
+    recordings: ['[data-browse="recordings"]', '[data-browse="saved"]', '[data-key="record"]'],
     downloads: ['[data-browse="downloads"]'],
     music: ['[data-browse="music"]'],
     weather: ['[data-browse="weather"]'],
