@@ -1168,6 +1168,7 @@
       if (what === "guide") await showGuide();
       if (what === "movie" || what === "series") await showRails(what);
       if (what === "recordings") await showRecordings();
+      if (what === "reminders") await showReminders();
       if (what === "queue") await showQueue();
       if (what === "saved") await showSaved();
       if (what === "downloads") await showDownloads();
@@ -1223,13 +1224,15 @@
     openSheet(`<h2>${esc(n.channel.number)} ${esc(n.channel.name)}</h2>
       ${n.now ? programmeHtml(n.now, "Now") : ""}
       <div class="actions"><button class="primary" id="s-watch">Watch on TV</button>${n.now ? `<button id="s-rec-now">Record this</button>` : ""}${seriesable(n.now) ? `<button id="s-series-now">Record series</button>` : ""}<button id="s-fav" class="fav">♡ Add to Favourites</button></div>
-      ${n.next ? programmeHtml(n.next, "Next") + `<div class="actions"><button id="s-rec-next">Record next</button>${seriesable(n.next) ? `<button id="s-series-next">Record series</button>` : ""}</div>` : ""}
+      ${n.next ? programmeHtml(n.next, "Next") + `<div class="actions"><button id="s-rec-next">Record next</button><button id="s-remind-next">Remind me</button>${seriesable(n.next) ? `<button id="s-series-next">Record series</button>` : ""}</div>` : ""}
       <button class="link" data-close>Close</button>`);
     $("s-watch").onclick = () => playOnTv({ kind: "channel", id: n.channel.id });
     favouriteButton($("s-fav"), { channel: n.channel.id }, n.channel.name);
     const rec = (p) => post("/api/recordings", { programmeId: p.id }).then(() => (toast(`Recording ${p.title}`), closeSheet()), (e) => toast(e.message, true));
     if (n.now) $("s-rec-now").onclick = () => rec(n.now);
     if (n.next) $("s-rec-next").onclick = () => rec(n.next);
+    // Reminders used to be settable only on the TV, which made the phone's Reminders list a dead end.
+    if (n.next) $("s-remind-next").onclick = () => post("/api/reminders", { programmeId: n.next.id }).then(() => (toast(`We'll remind you when ${n.next.title} starts`), closeSheet()), (e) => toast(e.message, true));
     if (seriesable(n.now)) $("s-series-now").onclick = () => seriesSheet(n.now);
     if (seriesable(n.next)) $("s-series-next").onclick = () => seriesSheet(n.next);
   }
@@ -1449,6 +1452,25 @@
     for (const b of body.querySelectorAll("[data-rdl]")) b.onclick = () => downloadToBox({ recordingId: list[Number(b.dataset.rdl)].id });
   }
 
+  // Reminders: what the household asked to be told about. Setting one is in the guide's programme
+  // sheet; this is where they can be seen and taken back (they used to be write-only).
+  async function showReminders() {
+    const { reminders } = await get("/api/recordings");
+    const now = Date.now();
+    const list = (reminders ?? []).filter((r) => r.programme.end > now).sort((a, b) => a.programme.start - b.programme.start);
+    if (!list.length) return (body.innerHTML = `<p class="empty">No reminders. Open a programme in the Guide to set one.</p>`);
+    body.innerHTML = `<div class="list">${list
+      .map(
+        (r, i) => `<div class="ep-row"><span class="item"><span class="text"><b>${esc(r.programme.title)}</b>
+        ${r.programme.subtitle ? `<span>${esc(r.programme.subtitle)}</span>` : ""}<small>${esc(r.channelName)} · ${new Date(r.programme.start).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })} ${clock(r.programme.start)}</small></span></span><button class="qbtn danger" data-remx="${i}" aria-label="Remove the reminder">✕</button></div>`,
+      )
+      .join("")}</div>`;
+    for (const b of body.querySelectorAll("[data-remx]")) b.onclick = () => {
+      const r = list[Number(b.dataset.remx)];
+      void fetch(`/api/reminders/${encodeURIComponent(r.id)}`, { method: "DELETE" }).then((res) => (res.ok ? (toast("Reminder removed"), showReminders()) : toast("Couldn't remove that reminder", true)), () => toast("Couldn't remove that reminder", true));
+    };
+  }
+
   // On the box: what's downloaded to the TV box to watch away from home, and what's still coming.
   let downloadsTimer;
   async function showDownloads() {
@@ -1639,7 +1661,7 @@
     live: ['[data-key="guide"]', '[data-browse="guide"]', '[data-key="channelUp"]', '[data-key="channelDown"]'],
     films: ['[data-browse="movie"]'],
     shows: ['[data-browse="series"]'],
-    recordings: ['[data-browse="recordings"]', '[data-browse="saved"]', '[data-key="record"]'],
+    recordings: ['[data-browse="recordings"]', '[data-browse="reminders"]', '[data-browse="saved"]', '[data-key="record"]'],
     downloads: ['[data-browse="downloads"]'],
     music: ['[data-browse="music"]'],
     weather: ['[data-browse="weather"]'],

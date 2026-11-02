@@ -11,7 +11,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 - Live player with the now-and-next banner, browsing other channels with up/down without changing, number tuning and channel up/down.
 - Pause and rewind live TV (mpv keeps up to a gigabyte behind the live point).
 - Catch-up and "watch from the start" on channels that offer it.
-- Reminders on programmes: Remind me on a programme in the guide. The Hub fires it, the TV shows a card when it starts, and the same button removes it, but there is **no list of the reminders you have set**: Recordings has no Reminders tab, so cancelling one means finding the programme again.
+- Reminders on programmes: Remind me on a programme in the guide, on the TV or from the phone's guide. The Hub fires it, the TV shows a card when it starts, and **Recordings › Reminders lists everything set** (the phone remote has the same list), so a reminder can be taken back without finding the programme again.
 - Live TV switches the screen's refresh rate once mpv reads the stream's frame rate.
 - Search finds channels with or without spaces ("bbcone"), what's on this week, recordings, films and series, with an on-screen keyboard or typing from the phone.
 - Recent searches per profile (kept on the Hub, up to 20): shown before anything is typed and as suggestions while typing; OK runs one. Clear removes one, Clear all the lot. The phone remote's Search shows the TV profile's list.

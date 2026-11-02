@@ -2,7 +2,7 @@
 // downloads to the NAS.
 
 import { createMemo, createResource, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js";
-import type { Download, Recording, SeriesLink } from "@ultimatetv/shared";
+import type { Download, Recording, Reminder, SeriesLink } from "@ultimatetv/shared";
 import { clockTime, dayLabel, episodeLabel, formatBytes } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { choose, confirm } from "../components/Dialog";
@@ -14,11 +14,13 @@ import { canDownload, downloadLabel, downloadOf, downloadToBox, recordingRequest
 import { useHints } from "../hints";
 import { useKeys } from "../keys";
 import { play } from "../player";
+import { reminderWhen, upcomingReminders } from "../reminders";
 import { errorToast, isKids, type PlannerTab, toast } from "../store";
 
 const TABS: { id: PlannerTab; label: string }[] = [
   { id: "recorded", label: "Recorded" },
   { id: "scheduled", label: "Coming up" },
+  { id: "reminders", label: "Reminders" },
   { id: "series", label: "Series links" },
   { id: "downloads", label: "Downloads" },
 ];
@@ -39,7 +41,7 @@ export function Planner(props: { tab?: PlannerTab }) {
   const [downloads, dl] = createResource(() => hub.downloads().then((d) => d.downloads));
   onCleanup(
     onHubEvent((e) => {
-      if (e.type === "recordings.changed" || e.type === "recording.started" || e.type === "recording.finished") void refetch();
+      if (e.type === "recordings.changed" || e.type === "recording.started" || e.type === "recording.finished" || e.type === "reminder") void refetch();
       if (e.type === "downloads.changed") void dl.refetch();
     }),
   );
@@ -51,6 +53,7 @@ export function Planner(props: { tab?: PlannerTab }) {
     return [...groups.entries()];
   });
   const upcoming = createMemo(() => (data()?.recordings ?? []).filter((r) => ["scheduled", "waiting-catchup", "recording", "processing"].includes(r.status)).sort((a, b) => a.start - b.start));
+  const reminders = createMemo(() => upcomingReminders(data()?.reminders ?? []));
 
   const act = async (fn: () => Promise<unknown>, message?: string) => {
     try {
@@ -86,6 +89,12 @@ export function Planner(props: { tab?: PlannerTab }) {
   const upcomingMenu = async (r: Recording) => {
     if (await confirm(`Cancel ${r.programme.title}?`, r.status === "recording" ? "It's recording now. What's been recorded so far is kept." : "It won't be recorded.", "Cancel recording", true)) {
       await act(() => hub.deleteRecording(r.id), "Recording cancelled");
+    }
+  };
+
+  const reminderMenu = async (r: Reminder) => {
+    if (await confirm(`Remove the reminder for ${r.programme.title}?`, `It's on ${reminderWhen(r).toLowerCase()} on ${r.channelName}. You can set it again from the TV guide.`, "Remove reminder")) {
+      await act(() => hub.deleteReminder(r.id), "Reminder removed");
     }
   };
 
@@ -165,6 +174,9 @@ export function Planner(props: { tab?: PlannerTab }) {
                   {t.label}
                   <Show when={t.id === "scheduled" && upcoming().length}>
                     <span class="chip-count">{upcoming().length}</span>
+                  </Show>
+                  <Show when={t.id === "reminders" && reminders().length}>
+                    <span class="chip-count">{reminders().length}</span>
                   </Show>
                 </button>
               )}
@@ -260,6 +272,33 @@ export function Planner(props: { tab?: PlannerTab }) {
                           </Show>
                           {STATUS[r.status]}
                         </span>
+                      </button>
+                    )}
+                  </For>
+                </div>
+              </Show>
+            </Match>
+
+            <Match when={tab() === "reminders"}>
+              <Show when={reminders().length} fallback={<p class="empty">No reminders. Press Remind me on a programme in the TV guide and it will appear here.</p>}>
+                <div class="list">
+                  <For each={reminders()}>
+                    {(r) => (
+                      <button class="list-row" data-row data-focus onClick={() => void reminderMenu(r)}>
+                        <span class="list-when">
+                          <strong>{clockTime(r.programme.start)}</strong>
+                          <span>{dayLabel(r.programme.start)}</span>
+                        </span>
+                        <span class="list-main">
+                          <span class="list-title">
+                            {r.programme.title}
+                            <Icon name="bell" class="list-icon" />
+                          </span>
+                          <span class="list-sub">
+                            {[episodeLabel(r.programme.season, r.programme.episode), r.programme.subtitle, r.channelName].filter(Boolean).join(" · ")}
+                          </span>
+                        </span>
+                        <span class="list-side">{reminderWhen(r)}</span>
                       </button>
                     )}
                   </For>
