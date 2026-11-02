@@ -2750,6 +2750,10 @@ html.high-contrast .guide-grid:focus .gg-cell.selected {
 .card-square .card-art-round {
   border-radius: 50%;
 }
+/* The station that's on: a warm ring, because its art is a logo rather than a cover. */
+.card-playing .card-art {
+  box-shadow: 0 0 0 0.3rem #ff7a45, 0 0.5rem 1.4rem rgba(0, 0, 0, 0.35);
+}
 .music-fallback {
   font-size: calc(4rem * var(--ts));
   color: rgba(255, 255, 255, 0.75);
@@ -2806,6 +2810,9 @@ html.high-contrast .guide-grid:focus .gg-cell.selected {
 }
 .np-source-deezer {
   color: #a238ff;
+}
+.np-source-radio {
+  color: #ff7a45;
 }
 .np-title {
   margin: 0;

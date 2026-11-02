@@ -258,7 +258,9 @@ export function PodcastSection() {
   };
 
   return (
-    <Show when={podcastShows().length}>
+    // Even with no shows yet: the card that follows one is the only way to start, and a Kids
+    // profile has no card at all, so an empty rail is left out for them.
+    <Show when={podcastShows().length || !isKids()}>
       <section class="rail" data-row>
         <h3 class="rail-title">Podcasts</h3>
         <div class="rail-track" data-scroll-x="96" data-focus-group>
