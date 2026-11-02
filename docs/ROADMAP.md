@@ -128,7 +128,7 @@ The [gap list](https://claude.ai/artifact/PSEpcgrMkhKp4Se1Gp51gK) ranks these ag
 8. ~~Kids time limits and a bedtime~~: built in #114 ([profiles.md](profiles.md#tv-time-and-bedtime)).
 9. Later: a local AI on the box, a Freeview HDHomeRun backup, radio and podcasts, multiview, Trakt. (Audio description and accessibility settings: built in #116, [accessibility.md](accessibility.md).)
 
-Left over from PR #58, which was closed in favour of #60, and could be brought across: advert marks on the seek bar, a black-frame and silence fallback when comskip finds nothing, Save for later showing when a title is next on TV, and a Save for later tab on the phone.
+Left over from PR #58, which was closed in favour of #60, and could be brought across: a black-frame and silence fallback when comskip finds nothing, Save for later showing when a title is next on TV, and a Save for later tab on the phone. (The advert marks on the seek bar are built: #72.)
 
 Also from the plan, or raised along the way:
 

@@ -58,11 +58,12 @@ the title once a search finds it.
 ## Skip the adverts in recordings
 
 The Hub runs [comskip](https://github.com/erikkaashoek/Comskip) over each new recording (it's built
-into the Hub's Docker image) and keeps the breaks it finds. Playing the recording then shows **Skip
-adverts** in each break, like Skip intro, or jumps straight past them if **Settings › Recording ›
-Adverts in a recording** says so. Comskip is good on UK channels with logos and silent breaks, but not
-perfect: going back into a break plays it, and a break it misses just plays. Older recordings can be
-scanned with `POST /api/recordings/:id/adscan`.
+into the Hub's Docker image) and keeps the breaks it finds. Playing the recording then shades each
+break on the seek bar, so you can see where they are before you reach one, and shows **Skip
+adverts** in the break itself, like Skip intro, or jumps straight past them if **Settings ›
+Recording › Adverts in a recording** says so. Comskip is good on UK channels with logos and silent
+breaks, but not perfect: going back into a break plays it, and a break it misses just plays. Older
+recordings can be scanned with `POST /api/recordings/:id/adscan`.
 
 ## Seasonal clips
 
