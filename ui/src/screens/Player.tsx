@@ -4,7 +4,7 @@
 // episode.
 
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import type { NowNext, PlaybackRequest, PlaybackStats, TitleRef } from "@ultimatetv/shared";
+import type { NowNext, PlaybackInfo, PlaybackRequest, PlaybackStats, TitleRef } from "@ultimatetv/shared";
 import { clockTime, creditsHandover, digitOf } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
@@ -20,6 +20,7 @@ import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
 import { queue } from "../queue";
 import { canSave, saveToNas } from "../save";
+import { advertMarks } from "../seekMarks";
 import { isFavouriteChannel, isFavouriteTitle, toggleFavouriteChannel, toggleFavouriteTitle } from "../favourites";
 import { errorToast, nav, now, openDialog, setShowStats, showStats, toast } from "../store";
 import { openSleepMenu, sleep } from "../sleep";
@@ -100,8 +101,19 @@ function StatsOverlay() {
   );
 }
 
+/** One shaded mark per advert break comskip found, over the bar's track. It sits above the track
+ * (so the played part doesn't cover it) and takes no pointer events, so clicks and drags still
+ * reach the bar underneath. */
+function AdvertMarks(props: { skip: PlaybackInfo["skip"]; duration: number }) {
+  return (
+    <For each={advertMarks(props.skip, props.duration)}>
+      {(mark) => <div class="seek-ad" style={{ left: `${mark.left}%`, width: `${mark.width}%` }} />}
+    </For>
+  );
+}
+
 /** The film's bar with the mouse: click to go there, or drag and let go. */
-function SeekBar(props: { duration: number; position: number; onDrag: (ms: number) => void; onSeek: (ms: number) => void }) {
+function SeekBar(props: { duration: number; position: number; onDrag: (ms: number) => void; onSeek: (ms: number) => void; skip: PlaybackInfo["skip"] }) {
   const [drag, setDrag] = createSignal<number | null>(null);
   const [hover, setHover] = createSignal<{ x: number; ms: number } | null>(null);
   let el!: HTMLDivElement;
@@ -139,6 +151,7 @@ function SeekBar(props: { duration: number; position: number; onDrag: (ms: numbe
       onPointerLeave={() => setHover(null)}
     >
       <Progress value={(drag() ?? props.position) / props.duration} class="osd-progress" />
+      <AdvertMarks skip={props.skip} duration={props.duration} />
       <Show when={hover()}>
         {(h) => (
           <span class="seek-tip" style={{ left: `${h().x}px` }}>
@@ -777,8 +790,14 @@ export function Player() {
               <div class="osd-bar">
                 <Icon name={st().status === "paused" ? "pause" : "play"} class="osd-state" />
                 <span class="osd-time">{fmt(dragMs() ?? st().positionMs)}</span>
-                <Show when={mouseMode && duration()} fallback={<Progress value={duration() ? st().positionMs / duration() : 0} class="osd-progress" />}>
-                  <SeekBar duration={duration()} position={st().positionMs} onDrag={(ms) => (setDragMs(ms), poke(8000))} onSeek={(ms) => (setDragMs(null), void agent.seek(ms, "absolute"), poke())} />
+                <Show when={mouseMode && duration()} fallback={
+                  // The remote's bar: no clicking or dragging, but the advert marks still show.
+                  <div class="seek-static">
+                    <Progress value={duration() ? st().positionMs / duration() : 0} class="osd-progress" />
+                    <AdvertMarks skip={np()?.info.skip ?? []} duration={duration()} />
+                  </div>
+                }>
+                  <SeekBar duration={duration()} position={st().positionMs} skip={np()?.info.skip ?? []} onDrag={(ms) => (setDragMs(ms), poke(8000))} onSeek={(ms) => (setDragMs(null), void agent.seek(ms, "absolute"), poke())} />
                 </Show>
                 <span class="osd-time">{duration() ? `-${fmt(duration() - (dragMs() ?? st().positionMs))}` : ""}</span>
               </div>
