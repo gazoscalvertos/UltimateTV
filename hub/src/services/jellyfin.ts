@@ -301,6 +301,11 @@ export class JellyfinClient {
     return { added: true, note: "Added to Jellyfin" };
   }
 
+  /** Asks Jellyfin to rescan its libraries, so deleted files disappear from it too. */
+  async refreshLibrary(): Promise<void> {
+    await this.post("/Library/Refresh");
+  }
+
   // Mapping --------------------------------------------------------------
 
   image(item: JfItem, kind: "Primary" | "Backdrop" | "Logo" | "Thumb", maxWidth: number): string | undefined {

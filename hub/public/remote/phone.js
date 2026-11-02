@@ -1200,17 +1200,37 @@
   function programmeHtml(p, label) {
     return `<div class="prog"><small>${label} · ${clock(p.start)}–${clock(p.end)}</small><b>${esc(p.title)}</b>${p.subtitle ? `<span>${esc(p.subtitle)}</span>` : ""}${p.description ? `<p>${esc(p.description)}</p>` : ""}</div>`;
   }
+  const seriesable = (p) => Boolean(p && p.seriesKey && !p.isFilm);
+  /**
+   * Series-links a programme from the phone, asking how many episodes to keep. The Hub deletes
+   * the older ones once new ones have recorded (issue #98).
+   */
+  function seriesSheet(p) {
+    openSheet(`<h2>${esc(p.title)}</h2>
+      <p class="meta">Keep how many episodes? Older ones are deleted as new ones record.</p>
+      <div class="actions"><button class="primary" id="s-keep-0">Keep every episode</button><button id="s-keep-3">Keep the latest 3</button><button id="s-keep-5">Keep the latest 5</button><button id="s-keep-10">Keep the latest 10</button></div>
+      <button class="link" data-close>Close</button>`);
+    for (const keep of [0, 3, 5, 10]) {
+      $(`s-keep-${keep}`).onclick = () =>
+        post("/api/series-links", { programmeId: p.id, keepLatest: keep }).then(
+          () => (toast(keep ? `Series linked: keeping the latest ${keep}` : "Series linked: keeping every episode"), closeSheet()),
+          (e) => toast(e.message, true),
+        );
+    }
+  }
   function channelSheet(n) {
     openSheet(`<h2>${esc(n.channel.number)} ${esc(n.channel.name)}</h2>
       ${n.now ? programmeHtml(n.now, "Now") : ""}
-      <div class="actions"><button class="primary" id="s-watch">Watch on TV</button>${n.now ? `<button id="s-rec-now">Record this</button>` : ""}<button id="s-fav" class="fav">♡ Add to Favourites</button></div>
-      ${n.next ? programmeHtml(n.next, "Next") + `<div class="actions"><button id="s-rec-next">Record next</button></div>` : ""}
+      <div class="actions"><button class="primary" id="s-watch">Watch on TV</button>${n.now ? `<button id="s-rec-now">Record this</button>` : ""}${seriesable(n.now) ? `<button id="s-series-now">Record series</button>` : ""}<button id="s-fav" class="fav">♡ Add to Favourites</button></div>
+      ${n.next ? programmeHtml(n.next, "Next") + `<div class="actions"><button id="s-rec-next">Record next</button>${seriesable(n.next) ? `<button id="s-series-next">Record series</button>` : ""}</div>` : ""}
       <button class="link" data-close>Close</button>`);
     $("s-watch").onclick = () => playOnTv({ kind: "channel", id: n.channel.id });
     favouriteButton($("s-fav"), { channel: n.channel.id }, n.channel.name);
     const rec = (p) => post("/api/recordings", { programmeId: p.id }).then(() => (toast(`Recording ${p.title}`), closeSheet()), (e) => toast(e.message, true));
     if (n.now) $("s-rec-now").onclick = () => rec(n.now);
     if (n.next) $("s-rec-next").onclick = () => rec(n.next);
+    if (seriesable(n.now)) $("s-series-now").onclick = () => seriesSheet(n.now);
+    if (seriesable(n.next)) $("s-series-next").onclick = () => seriesSheet(n.next);
   }
 
   // Films and TV: the same rails as the TV.
@@ -1537,8 +1557,9 @@
             if (r.kind === "recording") return playOnTv({ kind: "recording", id: r.recording?.id ?? r.id });
             if ((r.kind === "channel" || r.kind === "on-now") && r.channel) return playOnTv({ kind: "channel", id: r.channel.id });
             if (r.kind === "upcoming" && r.programme) {
-              openSheet(`${programmeHtml(r.programme, r.channel ? `${r.channel.number} ${r.channel.name}` : "Upcoming")}<div class="actions"><button class="primary" id="s-rec">Record</button></div><button class="link" data-close>Close</button>`);
+              openSheet(`${programmeHtml(r.programme, r.channel ? `${r.channel.number} ${r.channel.name}` : "Upcoming")}<div class="actions"><button class="primary" id="s-rec">Record</button>${seriesable(r.programme) ? `<button id="s-series">Record series</button>` : ""}</div><button class="link" data-close>Close</button>`);
               $("s-rec").onclick = () => post("/api/recordings", { programmeId: r.programme.id }).then(() => (toast(`Recording ${r.programme.title}`), closeSheet()), (e) => toast(e.message, true));
+              if (seriesable(r.programme)) $("s-series").onclick = () => seriesSheet(r.programme);
             }
           };
         }

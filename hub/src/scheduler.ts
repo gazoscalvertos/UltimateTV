@@ -12,6 +12,7 @@ import type { EventBus } from "./events.js";
 import type { Logger } from "./log.js";
 import type { Recorder } from "./recorder.js";
 import type { RecordingStore } from "./recordings.js";
+import type { PlayQueue } from "./queue.js";
 import { LiveRelay } from "./relay.js";
 import { episodeKeyOf, findConflicts, methodFor, planSeriesLinks, recordingWindow } from "./serieslink.js";
 import type { SettingsStore } from "./settings.js";
@@ -24,6 +25,10 @@ export interface SchedulerDeps {
   guard: ConnectionGuard;
   settings: SettingsStore;
   events: EventBus;
+  /** The play queue, so a prune never deletes something lined up to watch. */
+  queue?: Pick<PlayQueue, "list">;
+  /** Asks Jellyfin to rescan after a prune batch, so deleted episodes leave the library too. */
+  refreshLibrary?: () => void | Promise<void>;
   log: Logger;
   now?: () => number;
 }
@@ -40,7 +45,18 @@ export class Scheduler {
   /** When the loop last ran. /api/health reads it to tell a working Hub from a stuck one (#96). */
   lastTickAt: number | undefined;
 
-  constructor(private d: SchedulerDeps) {}
+  private unsubscribe: (() => void) | undefined;
+
+  constructor(private d: SchedulerDeps) {
+    // Prune a link the moment one of its recordings finishes, rather than waiting for the hourly
+    // sweep. The sweep stays as the backstop for links edited while the Hub was off (#98).
+    this.unsubscribe = d.events.on((e) => {
+      if (e.type !== "recording.finished" || e.recording.status !== "completed" || !e.recording.seriesLinkId) return;
+      void this.pruneLink(e.recording.seriesLinkId)
+        .then((deleted) => this.refreshLibrary(deleted))
+        .catch((err) => this.d.log.error({ err: String(err) }, "Pruning a series link failed"));
+    });
+  }
 
   private now(): number {
     return (this.d.now ?? Date.now)();
@@ -58,6 +74,13 @@ export class Scheduler {
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+  }
+
+  /** Stops pruning too: the Hub has moved away and another one owns the library now. */
+  dispose(): void {
+    this.stop();
+    this.unsubscribe?.();
+    this.unsubscribe = undefined;
   }
 
   private channelMap(): Map<string, Channel> {
@@ -314,18 +337,48 @@ export class Scheduler {
     });
   }
 
+  /** Is this recording in use: being written, or lined up on the TV? */
+  private inUse(r: Recording): boolean {
+    if (this.d.recorder.isActive(r.id)) return true;
+    return this.d.queue?.list().some((i) => i.req.kind === "recording" && i.req.id === r.id) ?? false;
+  }
+
+  /**
+   * Deletes the episodes of one link beyond its keepLatest, newest kept. Returns how many went,
+   * so the caller can ask Jellyfin to rescan once for the whole batch rather than per file.
+   */
+  private async pruneLink(linkId: string): Promise<number> {
+    const link = this.d.store.link(linkId);
+    if (!link || link.keepLatest <= 0) return 0;
+    const done = this.d.store.forLink(link.id).filter((r) => r.status === "completed").sort((a, b) => b.programme.start - a.programme.start);
+    let deleted = 0;
+    for (const old of done.slice(link.keepLatest)) {
+      if (this.inUse(old)) continue;
+      await this.deleteRecording(old.id);
+      deleted += 1;
+    }
+    return deleted;
+  }
+
   private async housekeeping(): Promise<void> {
     const now = this.now();
-    for (const link of this.d.store.links()) {
-      if (link.keepLatest <= 0) continue;
-      const done = this.d.store.forLink(link.id).filter((r) => r.status === "completed").sort((a, b) => b.programme.start - a.programme.start);
-      for (const old of done.slice(link.keepLatest)) await this.deleteRecording(old.id);
-    }
+    let deleted = 0;
+    for (const link of this.d.store.links()) deleted += await this.pruneLink(link.id);
     const days = this.d.settings.get().recording.autoDeleteWatchedDays;
     if (days > 0) {
       for (const r of this.d.store.withStatus("completed")) {
-        if (r.watched && r.programme.end < now - days * 86_400_000) await this.deleteRecording(r.id);
+        if (r.watched && r.programme.end < now - days * 86_400_000 && !this.inUse(r)) {
+          await this.deleteRecording(r.id);
+          deleted += 1;
+        }
       }
     }
+    await this.refreshLibrary(deleted);
+  }
+
+  /** One Jellyfin rescan per prune batch, so deleted episodes leave the library too (#98). */
+  private async refreshLibrary(deleted: number): Promise<void> {
+    if (deleted === 0 || !this.d.refreshLibrary) return;
+    await Promise.resolve(this.d.refreshLibrary()).catch((err) => this.d.log.warn({ err: String(err) }, "Jellyfin refresh after cleaning up failed"));
   }
 }

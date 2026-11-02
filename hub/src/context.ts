@@ -142,6 +142,9 @@ export class HubContext {
       guard: this.guard,
       settings: this.settings,
       events: this.events,
+      queue: this.queue,
+      // A prune deletes files, so tell Jellyfin to rescan once the batch is gone (#98).
+      refreshLibrary: () => void this.jellyfin()?.refreshLibrary().catch((err) => this.log.warn({ err: String(err) }, "Jellyfin refresh failed")),
       log: this.log,
     });
     this.downloads = new DownloadManager(this.db, this.settings, this.events, this.log, () => this.torbox(), onLibraryChanged, this.fetchImpl);
@@ -205,7 +208,7 @@ export class HubContext {
   }
 
   close(): void {
-    this.scheduler.stop();
+    this.scheduler.dispose();
     this.downloads.stop();
     this.mix.stop();
     this.relay.closeAll();

@@ -49,6 +49,14 @@ describe("Jellyfin", () => {
     expect(f.calls.filter((c) => c.url.includes("Fields=ProviderIds"))).toHaveLength(1);
   });
 
+  it("asks for a library refresh after episodes are deleted", async () => {
+    const f = fakeFetch({ "/Library/Refresh": null });
+    const jf = new JellyfinClient({ url: "http://jf:8096", userId: "u1", token: "tok" }, f.impl);
+    await jf.refreshLibrary();
+    expect(f.calls.filter((c) => c.url.endsWith("/Library/Refresh"))).toHaveLength(1);
+    expect(f.calls[0]!.init!.method).toBe("POST");
+  });
+
   it("maps items to titles with TMDB ids and direct-play URLs", () => {
     const jf = new JellyfinClient({ url: "http://jf:8096", userId: "u1", token: "tok" });
     const item: JfItem = { Id: "abc", Name: "Heat", Type: "Movie", ProductionYear: 1995, ProviderIds: { Tmdb: "949" }, ImageTags: { Primary: "t1" }, BackdropImageTags: ["b1"], UserData: { PlayedPercentage: 40 } };
