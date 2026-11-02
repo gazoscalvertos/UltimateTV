@@ -22,3 +22,4 @@ export * from "./features.js";
 export * from "./homerows.js";
 export * from "./kidsallow.js";
 export * from "./radio.js";
+export * from "./selftest.js";

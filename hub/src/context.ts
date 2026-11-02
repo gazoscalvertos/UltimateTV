@@ -18,6 +18,7 @@ import type { Logger } from "./log.js";
 import { MixManager } from "./mixchannels.js";
 import { NextAirings } from "./nextairing.js";
 import { Radio } from "./radio.js";
+import { SelfTestStore } from "./selftest.js";
 import { Podcasts } from "./podcasts.js";
 import { ProfileStore } from "./profiles.js";
 import { ContinueHidden } from "./continuehide.js";
@@ -94,6 +95,8 @@ export class HubContext {
   readonly radio: Radio;
   /** The podcast shows it follows, and where it got to (#86). */
   readonly podcasts: Podcasts;
+  /** The last finished on-box self-test, for the phone and /api/diagnostics (#105). */
+  readonly selfTest: SelfTestStore;
   readonly queue: PlayQueue;
   readonly profiles: ProfileStore;
   readonly guides: CustomGuideStore;
@@ -136,6 +139,7 @@ export class HubContext {
     this.nextAirings = new NextAirings(this.guide, this.channels);
     this.radio = new Radio(this.db, this.fetchImpl);
     this.podcasts = new Podcasts(this.db, this.fetchImpl);
+    this.selfTest = new SelfTestStore(this.db);
     this.queue = new PlayQueue(this.db, this.events);
     this.profiles = new ProfileStore(this.db);
     this.guides = new CustomGuideStore(this.db);

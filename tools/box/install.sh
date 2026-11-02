@@ -386,6 +386,47 @@ if [ ! -s /usr/local/share/ultimatetv/test-clip.mkv ] && command -v ffmpeg >/dev
   ffmpeg -loglevel error -y -f lavfi -i testsrc2=duration=3:size=1920x1080:rate=25 -c:v libx264 -pix_fmt yuv420p /usr/local/share/ultimatetv/test-clip.mkv \
     || warn "couldn't make the health check's test clip (it plays a generated picture instead)"
 fi
+# The self-test's clips (#105): the box can make them itself the first time Settings asks, but
+# making them here means the self-test works straight after an install with no wait and no ffmpeg
+# run as the TV user. Small: every one is four seconds and well under a megabyte, except the 4K
+# HDR10 one, which is a couple of megabytes.
+selftest_dir="$home/.local/state/ultimatetv/selftest"
+if command -v ffmpeg >/dev/null; then
+  install -d -o "$TV_USER" -g "$TV_USER" -m755 "$selftest_dir"
+  # Written in the order they are watched, and each one regenerated only when missing.
+  if [ ! -s "$selftest_dir/selftest-hdr10.mkv" ]; then
+    ffmpeg -loglevel error -y -f lavfi -i testsrc2=duration=4:size=3840x2160:rate=25 -c:v libx264 -preset veryfast -pix_fmt yuv420p10le \
+      -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc \
+      -x264-params "hdr-opt=1:repeat-headers=1:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1):max-cll=1000,400" \
+      "$selftest_dir/selftest-hdr10.mkv" >/dev/null 2>&1 \
+      || warn "couldn't make the HDR10 self-test clip (the TV can still run the other steps)"
+  fi
+  if [ ! -s "$selftest_dir/selftest-hlg.mkv" ]; then
+    ffmpeg -loglevel error -y -f lavfi -i testsrc2=duration=4:size=1920x1080:rate=25 -c:v libx264 -preset veryfast -pix_fmt yuv420p10le \
+      -color_primaries bt2020 -color_trc arib-std-b67 -colorspace bt2020nc \
+      -x264-params "colorprim=bt2020:transfer=arib-std-b67:colormatrix=bt2020nc" \
+      "$selftest_dir/selftest-hlg.mkv" >/dev/null 2>&1 || true
+  fi
+  if [ ! -s "$selftest_dir/selftest-23976.mkv" ]; then
+    ffmpeg -loglevel error -y -f lavfi -i testsrc2=duration=4:size=1920x1080:rate=24000/1001 -c:v libx264 -preset veryfast -pix_fmt yuv420p \
+      "$selftest_dir/selftest-23976.mkv" >/dev/null 2>&1 || true
+  fi
+  if [ ! -s "$selftest_dir/selftest-50.mkv" ]; then
+    ffmpeg -loglevel error -y -f lavfi -i testsrc2=duration=4:size=1920x1080:rate=50 -c:v libx264 -preset veryfast -pix_fmt yuv420p \
+      "$selftest_dir/selftest-50.mkv" >/dev/null 2>&1 || true
+  fi
+  if [ ! -s "$selftest_dir/selftest-surround.mkv" ]; then
+    ffmpeg -loglevel error -y -f lavfi -i testsrc2=duration=4:size=1280x720:rate=25 -f lavfi -i sine=frequency=440:duration=4:sample_rate=48000 \
+      -af "pan=5.1|FL=c0|FR=c0|FC=c0|LFE=c0|BL=c0|BR=c0" -c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a eac3 -b:a 384k -shortest \
+      "$selftest_dir/selftest-surround.mkv" >/dev/null 2>&1 || true
+  fi
+  if [ ! -s "$selftest_dir/selftest-stereo.mkv" ]; then
+    ffmpeg -loglevel error -y -f lavfi -i testsrc2=duration=4:size=1280x720:rate=25 -f lavfi -i sine=frequency=440:duration=4:sample_rate=48000 \
+      -af "pan=stereo|FL='if(lt(t,2),c0,0)'|FR='if(lt(t,2),0,c0)'" -c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a aac -b:a 192k -shortest \
+      "$selftest_dir/selftest-stereo.mkv" >/dev/null 2>&1 || true
+  fi
+  chown -R "$TV_USER:" "$selftest_dir" 2>/dev/null || true
+fi
 cat > /etc/systemd/system/ultimatetv-update.service <<'EOF'
 [Unit]
 Description=Update UltimateTV and the OS (asked for in Settings or on the phone)

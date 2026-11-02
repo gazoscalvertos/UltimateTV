@@ -25,7 +25,7 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "electron";
 import os from "node:os";
 import path from "node:path";
-import type { BoxInfo, CastState, OfflineProfile, PlayerState, SpotifyState, WebAppState } from "@ultimatetv/shared";
+import type { BoxInfo, CastState, OfflineProfile, PlayerState, SelfTestCall, SpotifyState, WebAppState } from "@ultimatetv/shared";
 import { Audio } from "./audio.js";
 import { Cast } from "./cast.js";
 import { Cec } from "./cec.js";
@@ -36,6 +36,7 @@ import { Heartbeat } from "./heartbeat.js";
 import { hubAnswers, HubWatch } from "./hubwatch.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
+import { defaultSelftestDir, ensureClips, SelfTester } from "./selftest.js";
 import { renameSpotifyDevice, Spotify } from "./spotify.js";
 import { Updates } from "./updates.js";
 import { WebApps } from "./webapp.js";
@@ -147,6 +148,10 @@ async function main(): Promise<void> {
     return { width: b.width, height: b.height };
   };
   const player = new Player(mpv, display, screenSize, log, DESKTOP);
+  // The on-box self-test (#105): clips generated on the box itself, played one at a time, with what
+  // mpv and the screen reported recorded beside the household's answer.
+  const selfTestDir = process.env.SELFTEST_DIR ?? defaultSelftestDir();
+  const selfTester = new SelfTester({ player, mpv, display, dir: selfTestDir, log });
   // The AppImage updates itself from GitHub; the box through its root services; a desktop copy run
   // from a checkout (npm start -- --desktop) doesn't update.
   const appImage = process.env.APPIMAGE;
@@ -304,6 +309,16 @@ async function main(): Promise<void> {
     setLayout: (l: never) => player.setLayout(l),
     toggleFullscreen: () => player.toggleFullscreen(),
     stats: () => player.stats(),
+    selfTest: async (what: never) => {
+      const a = (what ?? {}) as SelfTestCall;
+      if (a.action === "prepare") return { ready: selfTester.ready(), missing: await ensureClips(selfTestDir, log) };
+      if (a.action === "play") return selfTester.play(a.id);
+      if (a.action === "stop") {
+        await selfTester.stop();
+        return { ok: true };
+      }
+      throw new Error(`Unknown self-test action ${String((a as { action?: string }).action)}`);
+    },
     wakeTv: () => cec.wakeTv(),
     reload: async () => win?.webContents.reloadIgnoringCache(),
     software: (check: never) => updates.status(Boolean(check)),
