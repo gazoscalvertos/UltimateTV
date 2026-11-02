@@ -199,8 +199,6 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/kids-time/report", "paired"],
     // Radio and podcasts: subscribing and following a show is something anyone paired can do, but
     // adding a station to the household's list is a settings change (ADMIN_ROUTES, below).
-    ["POST /api/podcasts", "paired"],
-    ["DELETE /api/podcasts/:id", "paired"],
     ["POST /api/podcasts/:id/position", "paired"],
     ["POST /api/subtitles/download", "paired"],
     ["DELETE /api/watchlist/:id", "paired"],
@@ -270,6 +268,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "PATCH /api/kids-allow/:id",
     "POST /api/radio",
     "DELETE /api/radio/:id",
+    "POST /api/podcasts",
+    "DELETE /api/podcasts/:id",
     "DELETE /api/kids-allow/:id/:kind/:titleId",
     "POST /api/settings/iptv",
     "DELETE /api/settings/iptv/:id",
@@ -890,7 +890,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   /** Voice control: what the phone heard, turned into keys, a channel or a search. */
   app.post("/api/remote/voice", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
     const said = String(req.body?.text ?? "").slice(0, 200);
-    const cmd = parseVoice(said, ctx.channels.list(), ctx.radio.stations());
+    // A Kids profile can only name the stations it can see: otherwise "play Heart" would be
+    // announced as playing and then refused by the TV, which is a worse way to say no.
+    const kid = viewer(req).profile?.kind === "kids";
+    const cmd = parseVoice(said, ctx.channels.list(), ctx.radio.stations(kid));
     if (cmd.kind === "keys") cmd.actions.forEach((action, i) => setTimeout(() => ctx.events.emit({ type: "remote.key", action }), i * 150));
     if (cmd.kind === "channel") ctx.events.emit({ type: "remote.channel", channelId: cmd.channelId });
     if (cmd.kind === "radio") ctx.events.emit({ type: "remote.radio", stationId: cmd.stationId });

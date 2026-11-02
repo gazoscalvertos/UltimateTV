@@ -92,7 +92,10 @@ export function registerRadio(app: FastifyInstance, deps: { radio: Radio; podcas
     return { results };
   });
 
+  /** Following a show is a household change, like adding a station: adult-only, so Kids can't
+   *  subscribe to anything (or unfollow what a grown-up chose). Listening is not. */
   app.post("/api/podcasts", async (req: Req<Record<string, string>, Record<string, string>, { feedUrl?: unknown }>) => {
+    if (!viewer(req).admin) throw Object.assign(new Error("Ask a grown-up: this needs the PIN"), { statusCode: 403, code: "pin" });
     const show = await podcasts.add(req.body?.feedUrl).catch((err: unknown) => {
       throw Object.assign(new Error(err instanceof Error ? err.message : "That feed couldn't be read"), { statusCode: 400 });
     });
@@ -107,6 +110,7 @@ export function registerRadio(app: FastifyInstance, deps: { radio: Radio; podcas
   });
 
   app.delete("/api/podcasts/:id", async (req: Req<{ id: string }, Record<string, string>, Record<string, string>>) => {
+    if (!viewer(req).admin) throw Object.assign(new Error("Ask a grown-up: this needs the PIN"), { statusCode: 403, code: "pin" });
     if (!podcasts.remove(decodeURIComponent(req.params.id))) throw Object.assign(new Error("No such show"), { statusCode: 404 });
     return { ok: true, shows: podcasts.list() };
   });

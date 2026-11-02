@@ -4,6 +4,7 @@
 
 import { createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { PodcastEpisode, PodcastShow, PodcastSearchResult, RadioStation } from "@ultimatetv/shared";
+import { hub } from "../api";
 import { Icon } from "../components/Icon";
 import { askText, choose } from "../components/Dialog";
 import { TopBar } from "../components/TopBar";
@@ -30,7 +31,7 @@ import {
   stopRadio,
   unfollow,
 } from "../radio";
-import { errorToast, nav, toast } from "../store";
+import { errorToast, isKids, nav, toast } from "../store";
 
 const run = (p: Promise<unknown>) => void p.catch(errorToast);
 
@@ -175,17 +176,20 @@ export function RadioSection() {
               </div>
             )}
           </For>
-          <button class="card card-square" data-focus onClick={() => void add()}>
-            <div class="card-art">
-              <div class="card-fallback music-fallback">
-                <Icon name="plus" />
+          {/* Adding a station is a settings change, so the Hub asks for the PIN; Kids don't see it. */}
+          <Show when={!isKids()}>
+            <button class="card card-square" data-focus onClick={() => void add()}>
+              <div class="card-art">
+                <div class="card-fallback music-fallback">
+                  <Icon name="plus" />
+                </div>
               </div>
-            </div>
-            <div class="card-label">
-              <span class="card-title">Add a station</span>
-              <span class="card-sub">A stream address</span>
-            </div>
-          </button>
+              <div class="card-label">
+                <span class="card-title">Add a station</span>
+                <span class="card-sub">A stream address</span>
+              </div>
+            </button>
+          </Show>
         </div>
       </section>
     </Show>
@@ -255,7 +259,9 @@ export function PodcastSection() {
   };
 
   return (
-    <Show when={podcastShows().length}>
+    // Even with no shows yet: the card that follows one is the only way to start, and a Kids
+    // profile has no card at all, so an empty rail is left out for them.
+    <Show when={podcastShows().length || !isKids()}>
       <section class="rail" data-row>
         <h3 class="rail-title">Podcasts</h3>
         <div class="rail-track" data-scroll-x="96" data-focus-group>
@@ -274,17 +280,20 @@ export function PodcastSection() {
               </button>
             )}
           </For>
-          <button class="card card-square" data-focus onClick={() => void find()}>
-            <div class="card-art">
-              <div class="card-fallback music-fallback">
-                <Icon name="plus" />
+          {/* Following a show is a grown-up's choice: the Hub asks for the PIN, so Kids don't see it. */}
+          <Show when={!isKids()}>
+            <button class="card card-square" data-focus onClick={() => void find()}>
+              <div class="card-art">
+                <div class="card-fallback music-fallback">
+                  <Icon name="plus" />
+                </div>
               </div>
-            </div>
-            <div class="card-label">
-              <span class="card-title">Find a podcast</span>
-              <span class="card-sub">Search, or paste a feed</span>
-            </div>
-          </button>
+              <div class="card-label">
+                <span class="card-title">Find a podcast</span>
+                <span class="card-sub">Search, or paste a feed</span>
+              </div>
+            </button>
+          </Show>
         </div>
       </section>
     </Show>
@@ -293,7 +302,7 @@ export function PodcastSection() {
 
 async function hubSearch(q: string): Promise<PodcastSearchResult[]> {
   try {
-    const reply = await (await import("../api")).hub.podcastSearch(q);
+    const reply = await hub.podcastSearch(q);
     return reply.results;
   } catch (err) {
     errorToast(err);
@@ -356,17 +365,19 @@ export function PodcastShowScreen(props: { id: string }) {
                       <Icon name="restart" />
                       Check for new
                     </button>
-                    <button
-                      class="btn btn-danger"
-                      data-focus
-                      onClick={() => {
-                        void unfollow(props.id);
-                        nav.back();
-                      }}
-                    >
-                      <Icon name="trash" />
-                      Stop following
-                    </button>
+                    <Show when={!isKids()}>
+                      <button
+                        class="btn btn-danger"
+                        data-focus
+                        onClick={() => {
+                          void unfollow(props.id);
+                          nav.back();
+                        }}
+                      >
+                        <Icon name="trash" />
+                        Stop following
+                      </button>
+                    </Show>
                   </div>
                 </div>
               </header>

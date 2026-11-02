@@ -3,7 +3,7 @@
 // no new trick — Play/Pause is the player's own, and the Music tab draws its own now-playing panel
 // because a radio stream has no picture to show behind it.
 
-import { createSignal } from "solid-js";
+import { createEffect, createRoot, createSignal, on } from "solid-js";
 import type { PlaybackInfo, PodcastEpisode, PodcastShow, PodcastShowWithEpisodes, RadioStation, TitleRef } from "@ultimatetv/shared";
 import { agent } from "./agent";
 import { hub } from "./api";
@@ -19,8 +19,9 @@ const [pick, setPick] = createSignal<RadioPick | null>(null);
 const [nowLine, setNowLine] = createSignal<Record<string, string>>({});
 const [busy, setBusy] = createSignal<string | null>(null);
 
-/** How often a podcast's place is sent back while it plays. */
-const SAVE_EVERY_MS = 15_000;
+/** How often the player is looked at while a podcast plays, and how many looks make one save. */
+const SAMPLE_EVERY_MS = 1_000;
+const SAVE_TICKS = 15;
 let saveTimer = 0;
 /** The episode whose place we're keeping, so it can be sent on the way out too. */
 let saving: { showId: string; episodeId: string } | null = null;
@@ -110,6 +111,9 @@ async function start(p: RadioPick, fromStart = false): Promise<boolean> {
   setBusy(id);
   try {
     const info: PlaybackInfo = p.kind === "station" ? await hub.radioPlay(p.station.id) : await hub.podcastPlay(p.show.id, p.episode.id, fromStart);
+    // Whatever was playing gets its place sent now, while the player still says it's on: once the
+    // new thing starts, the old episode's position is gone and it would resume a quarter-minute early.
+    stopSaving();
     setPick(p);
     // Not the full-screen player: a station has no picture, so the Music tab stays up.
     const ok = await play({ kind: "stream", id }, { info, title: refFor(p), fullscreen: false, ...(fromStart ? { fromStart: true } : {}) });
@@ -219,26 +223,77 @@ export async function openShow(id: string): Promise<PodcastShowWithEpisodes | nu
 function startSaving(showId: string, episodeId: string): void {
   stopSaving();
   saving = { showId, episodeId };
-  saveTimer = window.setInterval(() => savePlace(), SAVE_EVERY_MS);
+  ticks = 0;
+  saveTimer = window.setInterval(() => samplePlace(), SAMPLE_EVERY_MS);
 }
 
-function stopSaving(): void {
+/**
+ * The place as of the last look at the player. Kept because a video starting replaces what the
+ * player says is on: without it, switching to a channel mid-episode would lose the last quarter
+ * of a minute.
+ */
+let place: { episodeId: string; positionMs: number; durationMs: number } | null = null;
+/** Looks at the player this often, but only tells the Hub every `SAVE_TICKS` looks. */
+let ticks = 0;
+
+/** Clears the timer without sending anything: the place has already been sent, or it's gone. */
+function unsave(): void {
   window.clearInterval(saveTimer);
   saveTimer = 0;
-  savePlace();
   saving = null;
 }
 
-/** Sends where we got to, so the next listen carries on from there. */
-function savePlace(): void {
+function stopSaving(): void {
+  samplePlace();
+  flushPlace();
+  unsave();
+}
+
+/**
+ * Remembers where we got to, and every fifteen seconds tells the Hub so the next listen carries on
+ * from there. Looking once a second means switching to a film mid-episode still keeps the place
+ * (a video replacing this one takes the player's position with it). The loop stops itself once the
+ * episode is finished, so it doesn't keep sending the same place for as long as the app runs.
+ */
+function samplePlace(): void {
   if (!saving) return;
-  const st = playerState();
   const np = nowPlaying();
   if (!np || np.req.id !== `podcast:${saving.episodeId}`) return;
-  if (st.status === "ended" && st.durationMs) {
-    void hub.podcastPosition(saving.episodeId, st.durationMs, st.durationMs).catch(() => undefined);
+  const st = playerState();
+  const durationMs = st.durationMs ?? 0;
+  const done = st.status === "ended" || (durationMs > 0 && st.positionMs >= durationMs - 1000);
+  const positionMs = done ? durationMs || st.positionMs : st.positionMs;
+  if (positionMs <= 0) return;
+  place = { episodeId: saving.episodeId, positionMs, durationMs };
+  if (done) {
+    sendPlace(place);
+    unsave();
     return;
   }
-  if (st.positionMs <= 0) return;
-  void hub.podcastPosition(saving.episodeId, st.positionMs, st.durationMs ?? undefined).catch(() => undefined);
+  if (++ticks % SAVE_TICKS === 0) sendPlace(place);
 }
+
+function sendPlace(p: { episodeId: string; positionMs: number; durationMs: number }): void {
+  void hub.podcastPosition(p.episodeId, p.positionMs, p.durationMs || undefined).catch(() => undefined);
+}
+
+function flushPlace(): void {
+  const p = place;
+  place = null;
+  if (p) sendPlace(p);
+}
+
+// Whatever starts next — a film, a channel, another station — the place from the last look goes to
+// the Hub, so the episode resumes where it was even though the player has already moved on.
+createRoot(() => {
+  createEffect(
+    on(
+      () => nowPlaying()?.req.id ?? null,
+      (id, was) => {
+        if (!was?.startsWith("podcast:") || id === was) return;
+        flushPlace();
+        unsave();
+      },
+    ),
+  );
+});

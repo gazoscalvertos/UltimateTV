@@ -117,6 +117,18 @@ describe("the stations the Hub knows about", () => {
     expect(twice.json().error).toMatch(/already/i);
   });
 
+  it("won't let a Kids profile name a station it can't see by voice", async () => {
+    await start();
+    // A grown-up asking for Classic FM gets it; a Kids profile saying the same thing is a search,
+    // so the TV isn't told to play a station it would then refuse.
+    const grown = await app.inject({ method: "POST", url: "/api/remote/voice", headers: family, payload: { text: "play Classic FM" } });
+    expect(grown.json()).toMatchObject({ kind: "radio", stationId: "radio:classic-fm" });
+    const little = await app.inject({ method: "POST", url: "/api/remote/voice", headers: kids, payload: { text: "play Classic FM" } });
+    expect(little.json().kind).toBe("search");
+    const fun = await app.inject({ method: "POST", url: "/api/remote/voice", headers: kids, payload: { text: "play Fun Kids" } });
+    expect(fun.json()).toMatchObject({ kind: "radio", stationId: "radio:fun-kids" });
+  });
+
   it("won't let a Kids profile add or remove a station", async () => {
     await start();
     const add = await app.inject({ method: "POST", url: "/api/radio", headers: kids, payload: { name: "Nope", url: "https://example.com/a.mp3" } });

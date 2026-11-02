@@ -7,7 +7,7 @@ import type { Action, MusicItem, MusicPage, MusicTracks, SpotifyCommand, Spotify
 import { agent, agentHas, onBox } from "./agent";
 import { hub } from "./api";
 import { onHubEvent } from "./events";
-import { radioOn, radioPause } from "./radio";
+import { radioOn, radioPause, radioPauseToggle } from "./radio";
 import { errorToast, toast } from "./store";
 
 type Source = Pick<
@@ -290,7 +290,7 @@ export async function musicPlayPause(): Promise<boolean> {
   const which = activeMusic();
   if (which === "spotify") await music().spotifyControl({ cmd: "playPause" });
   else if (which === "deezer") await music().webAppControl("playPause");
-  else if (which === "radio") await radioPause();
+  else if (which === "radio") await radioPauseToggle();
   return which !== null;
 }
 

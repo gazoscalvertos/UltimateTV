@@ -97,6 +97,7 @@ afterEach(async () => {
 });
 
 const family = { "x-profile": "family" };
+const kids = { "x-profile": "kids" };
 const shows = async () => (await app.inject({ url: "/api/podcasts", headers: family })).json().shows as PodcastShow[];
 
 describe("reading a feed", () => {
@@ -180,6 +181,23 @@ describe("following a show", () => {
     await app.inject({ method: "POST", url: "/api/podcasts", headers: family, payload: { feedUrl: "https://example.com/show.rss" } });
     const again = await app.inject({ method: "POST", url: "/api/podcasts", headers: family, payload: { feedUrl: "https://example.com/show.rss" } });
     expect(again.statusCode).toBe(200);
+    expect(await shows()).toHaveLength(1);
+  });
+
+  it("lets only a grown-up follow or stop following a show", async () => {
+    // Following is a household change, like adding a station, so the PIN rule applies; listening
+    // isn't, so a Kids profile still gets the list and its episodes.
+    await start(serving({ "https://example.com/show.rss": FEED }));
+    const nope = await app.inject({ method: "POST", url: "/api/podcasts", headers: kids, payload: { feedUrl: "https://example.com/show.rss" } });
+    expect(nope.statusCode).toBe(403);
+    expect(nope.json().code).toBe("pin");
+    expect(await shows()).toEqual([]);
+    const show = (await app.inject({ method: "POST", url: "/api/podcasts", headers: family, payload: { feedUrl: "https://example.com/show.rss" } })).json().show as PodcastShow;
+    const heard = await app.inject({ url: "/api/podcasts", headers: kids });
+    expect(heard.statusCode).toBe(200);
+    expect((heard.json().shows as PodcastShow[]).map((s) => s.id)).toEqual([show.id]);
+    const drop = await app.inject({ method: "DELETE", url: `/api/podcasts/${encodeURIComponent(show.id)}`, headers: kids });
+    expect(drop.statusCode).toBe(403);
     expect(await shows()).toHaveLength(1);
   });
 

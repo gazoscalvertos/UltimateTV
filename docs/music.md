@@ -2,7 +2,7 @@
 
 The **Music** tab on the TV plays Spotify and Deezer through the TV's speakers, and plays UK radio stations and podcasts. What's playing sits at the top with its controls; below are the radio stations, your podcasts, the music services, then your Spotify playlists, albums and artists. Play/Pause on the remote works from any screen while any of it plays, and starting a film pauses it.
 
-Kids profiles don't have a Music tab.
+Kids profiles have the Music tab too, but only the radio stations meant for children (Fun Kids and Fun Kids Junior), the podcasts the household follows, and no Spotify or Deezer: the grown-ups' accounts aren't theirs to use. The Hub sends a Kids profile only the stations marked for children, so the list can't be got at with the phone remote either.
 
 ![The Music tab before Spotify is signed in](screenshots/31-music-spotify-sign-in.png)
 

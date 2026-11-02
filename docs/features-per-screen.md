@@ -27,7 +27,7 @@ see Settings.
 | Live TV and guide | The TV Guide tab, live channels on Home, channel up/down, the Guide button, channels in search |
 | Films | The Films tab, films on Home and in search; a film's page doesn't open |
 | TV shows | The TV Shows tab, series on Home and in search; a series' page doesn't open |
-| Music | The Music tab (Spotify and Deezer) |
+| Music | The Music tab: Spotify, Deezer, radio and podcasts |
 | Recordings | The Recordings tab, recordings on Home and in search, the red key on Home |
 | Downloads | Downloading to the box or phone, and the Downloaded tab. Downloads already going carry on. |
 | Search | The search button and the yellow key on Home |

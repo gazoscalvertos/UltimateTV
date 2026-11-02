@@ -25,7 +25,7 @@ export const FEATURES: FeatureInfo[] = [
   { id: "live", label: "Live TV and guide", detail: "The TV Guide, live channels on Home, channel up/down and the Guide button.", clients: ALL },
   { id: "films", label: "Films", detail: "The Films tab and films on Home.", clients: ALL },
   { id: "shows", label: "TV shows", detail: "The TV Shows tab and series on Home.", clients: ALL },
-  { id: "music", label: "Music", detail: "The Music tab (Spotify and Deezer).", clients: [...SCREENS, "remote"] },
+  { id: "music", label: "Music", detail: "The Music tab (Spotify, Deezer, radio and podcasts).", clients: [...SCREENS, "remote"] },
   { id: "recordings", label: "Recordings", detail: "The Recordings tab, recordings on Home and the red-key shortcut.", clients: ALL },
   { id: "downloads", label: "Downloads", detail: "Programmes downloaded to this box or phone to watch away from home, and their tab.", clients: ALL },
   { id: "search", label: "Search", detail: "The search button and the yellow-key shortcut.", clients: ALL },
@@ -91,6 +91,9 @@ export function featureOfPlayback(req: { kind: string; id?: string }, title?: { 
   if (req.kind === "channel" && req.id?.startsWith("mix:")) return "mix";
   if (req.kind === "channel" || req.kind === "catchup") return "live";
   if (req.kind === "recording") return "recordings";
+  // Radio stations and podcast episodes play as plain streams (their ids say which they are), so
+  // they belong to Music: switching the tab off stops them coming from the phone or by voice too.
+  if (req.kind === "stream" && (req.id?.startsWith("radio:") || req.id?.startsWith("podcast:"))) return "music";
   if (req.kind === "title") return title?.kind === "series" ? "shows" : title?.kind === "movie" ? "films" : undefined;
   return undefined;
 }
