@@ -16,6 +16,7 @@ import { appName, errorToast, setAppName, nav, previewTheme, profile, setProfile
 import { onCleanup } from "solid-js";
 import { Row, Status } from "../components/SettingRow";
 import { AdvertRows, AlertsSection, FeaturesSection, CastSection, HomeRowsSection, RecentChanges, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
+import { SelfTestSection } from "./SelfTest";
 
 /** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
 const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
@@ -976,6 +977,10 @@ export function Settings(props: { section?: string }) {
               <WhatsNewSection />
             </Show>
 
+            <Show when={section() === "selftest"}>
+              <SelfTestSection />
+            </Show>
+
             <Show when={section() === "about"}>
               <h2>About</h2>
               <Row label="App name" value={appName()} hint="Rename the app on the TV, the phone remote and Spotify" icon="edit" onSelect={() => void rename()} />
@@ -1035,6 +1040,12 @@ export function Settings(props: { section?: string }) {
               <Show when={mix()}>
                 {(m) => <Row label="Music videos" hint={m().channels.map((c) => `${c.name} ${c.counts.ready} (${formatBytes(c.readyBytes)})`).join(" · ")} value={`${m().totals.ready} · ${formatBytes(m().totals.bytes)}`} />}
               </Show>
+              <Row
+                label="Self-test"
+                hint="Check HDR, the picture rate, the sound and every button on the remote, without a laptop"
+                icon="help"
+                onSelect={() => setSection("selftest")}
+              />
               <Row label="Reload the app" icon="restart" onSelect={() => void agent.reload()} />
             </Show>
           </Show>

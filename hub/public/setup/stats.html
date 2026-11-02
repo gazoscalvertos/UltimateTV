@@ -75,6 +75,7 @@
   <section id="warnings"><h2>Warnings <span class="pill" id="warn-pill"></span></h2><div id="warn-list"></div></section>
   <section id="playing"><h2>Now playing</h2><div id="playing-body"><p class="muted">Asking the TV…</p></div></section>
   <section id="box"><h2>Box <span class="pill" id="box-pill"></span></h2><div id="box-body"></div></section>
+  <section id="selftest"><h2>Self-test</h2><div id="selftest-body"></div></section>
   <section id="hub"><h2>Hub</h2><div id="hub-body"></div></section>
   <section id="logs"><h2>Logs</h2>
     <details><summary>Box log (latest)</summary><pre id="box-log"></pre></details>
@@ -155,6 +156,28 @@ function playingHtml(tv) {
   return out;
 }
 
+function selfTestHtml(r) {
+  if (!r) return `<p class="muted">No self-test run yet. On the TV: Settings › About › Self-test.</p>`;
+  const when = new Date(r.at).toLocaleString();
+  const seen = (o) =>
+    [o?.display, o?.width && o?.height ? `${o.width}×${o.height}` : "", o?.refreshHz ? `${o.refreshHz} Hz` : "", o?.hdr === undefined ? "" : o.hdr ? "HDR" : "SDR", o?.codec ?? "", o?.hwdec ?? ""]
+      .filter(Boolean)
+      .join(" · ");
+  let out = `<p class="muted">${esc(when)}${r.hostname ? ` on ${esc(r.hostname)}` : ""}${r.appVersion ? ` · box ${esc(r.appVersion)}` : ""}</p>`;
+  out += table(
+    r.results.map((x) => [
+      `${x.answer === "yes" ? "Yes" : x.answer === "no" ? "No" : "Skipped"} · ${esc(x.label)}`,
+      esc([seen(x.observed), x.note].filter(Boolean).join(" — ")),
+    ]),
+  );
+  if (r.missingKeys?.length) {
+    out += `<div class="warning warn"><span class="dot"></span><span>Buttons that never arrived<small>${esc(r.missingKeys.join(", "))}</small></span></div>`;
+  } else if (r.missingKeys) {
+    out += `<p class="muted">Every button arrived.</p>`;
+  }
+  return out;
+}
+
 function boxHtml(stats, tv) {
   const b = stats.box?.report;
   const info = tv?.info ?? b?.info ?? {};
@@ -232,6 +255,7 @@ async function refresh() {
     $("box-pill").textContent = tv ? "On" : stats.tvConnected ? "Connected" : "Off";
     $("box-pill").className = `pill ${tv ? "ok" : ""}`;
     $("box-body").innerHTML = boxHtml(stats, tv);
+    $("selftest-body").innerHTML = selfTestHtml(stats.selfTest);
     $("hub-body").innerHTML = hubHtml(stats.hub);
     // Only rewrite the logs when closed, so reading one isn't disturbed.
     if (!$("box-log").parentElement.open) $("box-log").textContent = (stats.box?.report.log ?? []).join("\n") || "No box log yet.";

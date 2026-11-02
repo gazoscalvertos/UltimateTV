@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld("ultimatetv", {
   setLayout: call("setLayout"),
   toggleFullscreen: call("toggleFullscreen"),
   stats: call("stats"),
+  selfTest: call("selfTest"),
   wakeTv: call("wakeTv"),
   reload: call("reload"),
   software: call("software"),

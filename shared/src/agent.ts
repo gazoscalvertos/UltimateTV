@@ -6,6 +6,8 @@ import type { Action } from "./keys.js";
 import type { CastState, GameAppId } from "./cast.js";
 import type { MusicPage, MusicTracks, SpotifyCommand, SpotifySetup, SpotifyState, WebAppCommand, WebAppId, WebAppLoginReport, WebAppState } from "./music.js";
 
+import type { SelfTestCall, SelfTestPlayed, SelfTestReady } from "./selftest.js";
+
 export interface AudioTrack {
   id: number;
   lang?: string;
@@ -293,6 +295,11 @@ export interface BoxAgent {
   toggleFullscreen?(): Promise<void>;
   /** Stats for the overlay; null when nothing is playing. */
   stats(): Promise<PlaybackStats | null>;
+  /**
+   * The on-box self-test (issue #105): make the clips, play one step and report the mode and picture
+   * the box ended up in. Older box shells lack it: check with agentHas.
+   */
+  selfTest?(call: SelfTestCall): Promise<SelfTestReady | SelfTestPlayed | { ok: true }>;
   onState(listener: (state: PlayerState) => void): () => void;
   /** Called with true when the TV switches to the box's input, false when it goes to standby. */
   onPower(listener: (active: boolean) => void): () => void;

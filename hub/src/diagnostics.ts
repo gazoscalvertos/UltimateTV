@@ -7,7 +7,7 @@
 import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { redactUrls, type AdvertScan, type BoxDiagnostics, type PlaybackSample } from "@ultimatetv/shared";
+import { redactUrls, selfTestSummary, type AdvertScan, type BoxDiagnostics, type PlaybackSample, type SelfTestReport } from "@ultimatetv/shared";
 
 const MAX_LINES = 1000;
 
@@ -221,6 +221,7 @@ function sampleLine(s: PlaybackSample, prev?: PlaybackSample): string {
 export function renderDiagnostics(
   hub: { version: string; commit?: string; builtAt?: string; uptimeS: number; log: string[]; advertScan?: AdvertScan },
   box: StoredBoxReport | null,
+  selfTest?: SelfTestReport | null,
 ): string {
   const out: string[] = [];
   out.push("== Hub ==", `version ${hub.version}${hub.commit ? ` (${hub.commit.slice(0, 7)})` : ""}${hub.builtAt ? ` built ${hub.builtAt}` : ""} · up ${Math.round(hub.uptimeS / 60)} min`);
@@ -259,6 +260,25 @@ export function renderDiagnostics(
       ...(r.updateLog?.length ? r.updateLog : ["Nothing logged yet (boxes log here from their first update after 2026-10-30)."]),
       "",
     );
+  }
+  if (selfTest) {
+    out.push(
+      "== Self-test ==",
+      `${selfTest.at}${selfTest.hostname ? ` on ${selfTest.hostname}` : ""}${selfTest.appVersion ? ` (box ${selfTest.appVersion})` : ""} · ${selfTestSummary(selfTest)}`,
+      "",
+    );
+    for (const r of selfTest.results) {
+      const o = r.observed;
+      const seen = [o.display, o.width && o.height ? `${o.width}×${o.height}` : null, o.refreshHz ? `${o.refreshHz} Hz` : null, o.hdr === undefined ? null : o.hdr ? "HDR" : "SDR", o.codec, o.hwdec]
+        .filter(Boolean)
+        .join(" · ");
+      const answer = r.answer === "yes" ? "yes" : r.answer === "no" ? "NO " : "—  ";
+      out.push(`  ${answer} ${r.label}${seen ? `  (${seen})` : ""}${r.note ? `  — ${r.note}` : ""}`);
+    }
+    if (selfTest.missingKeys.length) out.push(`  keys that never arrived: ${selfTest.missingKeys.join(", ")}`);
+    out.push("");
+  } else {
+    out.push("== Self-test ==", "No self-test run yet: Settings › About › Self-test.", "");
   }
   out.push("== Hub log ==", ...hub.log, "");
   return out.join("\n");
