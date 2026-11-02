@@ -140,6 +140,13 @@ the film, if one is playing from this screen).
 The box shows this screen straight away when the Hub doesn't answer as it starts, and switches to it
 when the Hub stops answering for a minute while the TV app is up and nothing is playing.
 
+It also watches the TV app itself, not just the Hub. A Hub that answers can still send an app that
+draws nothing (that is what happened on 2 November: the app threw while loading, the Hub was healthy
+throughout, and the TV sat on a black screen nothing could get out of). After every load the box
+gives the page a few seconds, and if nothing has drawn it loads the app again without the cached
+copy. Three blank loads in a row and this screen comes up, with the reason, and the box tries the app
+again every five minutes, so a Hub fixed later puts the TV right on its own.
+
 It follows the **profile last used on the TV**: on Kids it only offers the downloads Kids may watch
 and no games. Until the TV app has run once with the updated box, it treats whoever's watching as
 Kids.

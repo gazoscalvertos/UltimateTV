@@ -35,6 +35,7 @@ import { Display } from "./display.js";
 import { Downloads } from "./downloads.js";
 import { Heartbeat } from "./heartbeat.js";
 import { hubAnswers, HubWatch } from "./hubwatch.js";
+import { UiCheck } from "./uicheck.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
 import { defaultSelftestDir, ensureClips, SelfTester } from "./selftest.js";
@@ -187,6 +188,25 @@ async function main(): Promise<void> {
     watch.wentOffline();
     void win?.loadFile(OFFLINE_PAGE).catch((e: Error) => log(`Couldn't show the box's own screen: ${e.message}`));
   };
+  // A Hub that answers is not the same as a TV app that works: see uicheck.ts.
+  const uiCheck = new UiCheck({
+    drawn: async () => {
+      if (!win || win.isDestroyed()) return true;
+      return Boolean(
+        await win.webContents.executeJavaScript(
+          `(() => { const root = document.getElementById("app"); return !!root && root.childElementCount > 0; })()`,
+          true,
+        ),
+      );
+    },
+    reload: async () => {
+      // Always the TV app, not whatever is showing now: after giving up, the box's own screen is up.
+      await win?.loadURL(`${HUB_URL}/app/`, { extraHeaders: "pragma: no-cache\n" });
+    },
+    busy: () => castForeground || (lastStatus !== undefined && lastStatus !== "idle" && lastStatus !== "ended" && lastStatus !== "error"),
+    showOffline: (reason) => showOffline(reason),
+    log,
+  });
 
   // Sound to the TV before mpv opens its output; again before each play, in case the TV moved.
   const audio = new Audio(log);
@@ -457,7 +477,12 @@ async function main(): Promise<void> {
   }
   win.webContents.setZoomFactor(1);
   win.once("ready-to-show", () => win?.show());
-  win.webContents.on("did-finish-load", () => heartbeat.start());
+  win.webContents.on("did-finish-load", () => {
+    heartbeat.start();
+    // Look at what the Hub's page actually drew. The box's own screen is left alone, and its retry
+    // timer (set by the check that gave up) keeps running, so a Hub fixed later puts the TV right.
+    if (win?.webContents.getURL().startsWith(HUB_URL)) uiCheck.start();
+  });
   // The TV UI titles its page with the app's name: remember it, and give Spotify the same name.
   win.webContents.on("page-title-updated", (_e, title) => {
     const name = title.trim();
@@ -522,6 +547,7 @@ async function main(): Promise<void> {
     diagnostics.stop();
     heartbeat.stop();
     watch.stop();
+    uiCheck.stop();
     cec.stop();
     spotify.stop();
     webApps.stop();
