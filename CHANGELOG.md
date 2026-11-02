@@ -30,6 +30,12 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **A TV app that draws nothing now shows the box's own screen**: the box only watched the Hub, so a
+  Hub that answered while the app it sent drew nothing left the TV black with nothing in any log and
+  no way out but a restart. The box now looks at what the page drew, reloads it without the cache,
+  and falls back to its own screen (and keeps trying the app) if it stays blank. (#184)
+  Household: if a bad update ever leaves the TV black again, the box puts its own screen up with
+  what's wrong instead of sitting there, and comes back to the TV app by itself.
 - **The TV app comes back on screen**: an update on 2 November left the TV showing a black screen on
   both the box and the desktop app. The app started a piece of background work before it was ready
   and stopped before drawing anything; it now starts that work once the screen is up. (#178)
