@@ -4,6 +4,7 @@
 
 import { createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { PodcastEpisode, PodcastShow, PodcastSearchResult, RadioStation } from "@ultimatetv/shared";
+import { hub } from "../api";
 import { Icon } from "../components/Icon";
 import { askText, choose } from "../components/Dialog";
 import { TopBar } from "../components/TopBar";
@@ -301,7 +302,7 @@ export function PodcastSection() {
 
 async function hubSearch(q: string): Promise<PodcastSearchResult[]> {
   try {
-    const reply = await (await import("../api")).hub.podcastSearch(q);
+    const reply = await hub.podcastSearch(q);
     return reply.results;
   } catch (err) {
     errorToast(err);
