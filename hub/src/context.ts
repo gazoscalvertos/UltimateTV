@@ -16,6 +16,7 @@ import { CustomGuideStore } from "./guides.js";
 import { Ingestor } from "./ingest/index.js";
 import type { Logger } from "./log.js";
 import { MixManager } from "./mixchannels.js";
+import { NextAirings } from "./nextairing.js";
 import { ProfileStore } from "./profiles.js";
 import { ContinueHidden } from "./continuehide.js";
 import { HomeRows } from "./homerows.js";
@@ -76,6 +77,8 @@ export class HubContext {
   readonly homeRows: HomeRows;
   /** Jellyfin places saved while Jellyfin could not be reached (#80). */
   readonly jellyfinProgress: JellyfinProgressQueue;
+  /** When a saved title is next on TV, matched against the guide (#74). */
+  readonly nextAirings: NextAirings;
   readonly queue: PlayQueue;
   readonly profiles: ProfileStore;
   readonly guides: CustomGuideStore;
@@ -112,6 +115,7 @@ export class HubContext {
     this.continueHidden = new ContinueHidden(this.db, this.events);
     this.homeRows = new HomeRows(this.db, this.events);
     this.jellyfinProgress = new JellyfinProgressQueue(this.db);
+    this.nextAirings = new NextAirings(this.guide, this.channels);
     this.queue = new PlayQueue(this.db, this.events);
     this.profiles = new ProfileStore(this.db);
     this.guides = new CustomGuideStore(this.db);

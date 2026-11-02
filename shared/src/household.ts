@@ -20,6 +20,25 @@ export interface WatchItem {
   addedAt: number;
   /** Where it was saved from. */
   from: "tv" | "phone" | "voice" | "app";
+  /** The next time it's on the household's channels, when the guide knows of one. */
+  next?: NextAiring;
+}
+
+/**
+ * The next time a saved title turns up on the household's channels. Built on the Hub so the TV,
+ * the phone and the watching client all say the same thing: `when` already reads
+ * "On Film4 · Sat 21:00" (or "On Film4 · Today 21:00"), in the same 24-hour style as the guide.
+ */
+export interface NextAiring {
+  /** The guide programme, for one-press Record and Remind. */
+  programmeId: string;
+  channelId: string;
+  channelName: string;
+  channelNumber: number;
+  start: number;
+  end: number;
+  /** Ready to show, e.g. "On Film4 · Sat 21:00". */
+  when: string;
 }
 
 export interface WatchlistInput {
