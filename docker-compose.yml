@@ -26,11 +26,17 @@ services:
     environment:
       TZ: ${TZ:-Europe/London}
       HTTPS_PUBLIC_PORT: ${HUB_HTTPS_PORT:-8096}
-      # The nightly backup (docs/backup.md): BACKUP=off turns it off.
+      # The nightly backup (docs/backup.md): BACKUP=off turns it off, BACKUP_OFFSITE adds a second
+      # copy somewhere that isn't the NAS (a path, or an rclone remote:path).
       BACKUP: ${BACKUP:-on}
       BACKUP_DIR: ${BACKUP_DIR:-}
       BACKUP_KEEP: ${BACKUP_KEEP:-14}
       BACKUP_TIME: ${BACKUP_TIME:-03:30}
+      BACKUP_OFFSITE: ${BACKUP_OFFSITE:-}
+      BACKUP_OFFSITE_DIR: ${BACKUP_OFFSITE_DIR:-}
+      BACKUP_OFFSITE_RCLONE: ${BACKUP_OFFSITE_RCLONE:-}
+      BACKUP_OFFSITE_KEEP_DAYS: ${BACKUP_OFFSITE_KEEP_DAYS:-7}
+      BACKUP_OFFSITE_KEEP_WEEKS: ${BACKUP_OFFSITE_KEEP_WEEKS:-4}
     volumes:
       - hub-data:/data
       # Phase 0 test clips. Kept out of the Jellyfin library so they don't show up there.

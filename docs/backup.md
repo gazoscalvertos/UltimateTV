@@ -24,6 +24,35 @@ starts if there isn't one from last night, and `tools/hub/update.sh` takes one b
 The folder is hidden (starts with a dot) so Jellyfin ignores it. Each file holds the IPTV, Jellyfin
 and music logins, so it's readable by its owner only; keep it on the home network.
 
+### A second copy, somewhere else
+
+The NAS is in the same room as the Hub, so a fire, a flood or a theft takes both. `BACKUP_OFFSITE`
+has the Hub keep a second copy somewhere that isn't the NAS: another disk, or an rclone remote such
+as Google Drive, which can be encrypted at rest.
+
+```sh
+# Another disk plugged into the box, mounted where the Hub can see it
+BACKUP_OFFSITE=/mnt/usb/ultimatetv
+
+# Or an rclone remote (rclone config on the Docker LXC first): the remote name, a colon, then the folder
+BACKUP_OFFSITE=gdrive:UltimateTV/backups
+```
+
+The copy goes across **after** the NAS copy has landed, so the two don't race and a second copy that
+fails can never lose the first. It keeps its own, shorter rotation, so the second disk doesn't fill
+up: the newest copy of each of the last `BACKUP_OFFSITE_KEEP_DAYS` days (7 by default), then one a
+week for `BACKUP_OFFSITE_KEEP_WEEKS` more (4 by default). Nothing about the NAS copies changes.
+
+rclone isn't in the Hub's image (it's a static binary of its own), so the Hub asks `rclone version`
+once: if it isn't installed, the second copy is reported as a problem to fix and the nightly NAS
+backup carries on as normal. On the Docker LXC, install it with `apt install rclone` (or
+`curl https://rclone.org/install.sh | sudo bash`), run `rclone config` as root to add the remote, and
+`docker compose restart hub`.
+
+A second copy that fails doesn't fail the night's backup: the NAS copy is kept, the failure is shown
+in Settings › About (TV) and the setup page, and Settings › Alerts raises **The Hub's second backup
+failed** (with Home Assistant or ntfy, if set up).
+
 ### Seeing how it went
 
 - **TV:** Settings › About › Hub backup shows when the last one ran, its size and how many are kept.
@@ -45,6 +74,11 @@ In the Hub's `.env` on the Docker LXC (then `docker compose up -d`):
 | `BACKUP_DIR` | `/mnt/nas/.ultimatetv-backups` | Where the copies go, as the Hub container sees it |
 | `BACKUP_KEEP` | 14 | How many to keep |
 | `BACKUP_TIME` | 03:30 | When, in the Hub's time zone (`TZ`) |
+| `BACKUP_OFFSITE` | off | The second destination: a path, or an rclone `remote:path`. `off` disables it |
+| `BACKUP_OFFSITE_DIR` | | A path, when `BACKUP_OFFSITE` is used for the other kind |
+| `BACKUP_OFFSITE_RCLONE` | | An rclone `remote:path`, likewise |
+| `BACKUP_OFFSITE_KEEP_DAYS` | 7 | Every copy from this many days back is kept at the second destination |
+| `BACKUP_OFFSITE_KEEP_WEEKS` | 4 | Then one a week for this many weeks before that |
 
 If the NAS isn't mounted in the Hub (no
 `docker-compose.override.yml`), the copies go into the Hub's own data volume instead and the TV and
@@ -58,6 +92,16 @@ series links added, watch history) goes back too. What it replaces is kept in th
 
 **From the phone:** ⚙ Settings › Hub backup › Restore on the one you want. The Hub restarts with it in
 under a minute; reload the TV app afterwards (Settings › About › Reload the app).
+
+**From the second copy:** the setup page's backup section lists the copies that are only at the
+second destination (the NAS lost them, say) under **Only in the second copy**, and **Restore** on one
+of those fetches it from there. The restore itself is the same; the Hub restarts with it. The phone
+and the TV use the NAS copy first, so use the setup page when that one has gone. With
+`BACKUP_OFFSITE` on a plain disk, the archive can also be restored by hand:
+
+```sh
+tar -xzf /mnt/usb/ultimatetv/ultimatetv-hub-2026-10-30-0330.tar.gz -C /path/to/hub/data
+```
 
 **On the server** (the Docker LXC), from the repository folder:
 

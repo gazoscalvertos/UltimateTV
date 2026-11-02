@@ -118,7 +118,7 @@ First bring the box and the Hub up to date: run `tools/hub/update.sh`, then reru
 
 The [gap list](https://claude.ai/artifact/PSEpcgrMkhKp4Se1Gp51gK) ranks these against Sky Q, Apple TV, Plex and the rest. Its picks 2 to 6 (button hints, sleep timer, alerts, Save for later, advert skip) are now built. Next, in its order:
 
-1. ~~Nightly Hub backup~~: built in #63 ([backup.md](backup.md)).
+1. ~~Nightly Hub backup~~: built in #63 ([backup.md](backup.md)); the second copy somewhere that isn't the NAS is built in #97 ([backup.md](backup.md#a-second-copy-somewhere-else)).
 2. ~~A button that hands the screen back to the Hisense's own apps~~: built in #65, then removed in #125 as not needed (the TV remote's Home button does the same).
 3. **Trailers and review scores** on the details page (TMDB trailers through yt-dlp, IMDb and Rotten Tomatoes from OMDb).
 4. **More like this** on the details page and a Home row. The Hub already has a TMDB recommendations call that nothing uses.
