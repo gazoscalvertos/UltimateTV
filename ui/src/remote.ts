@@ -11,6 +11,7 @@ import { showAlertCard } from "./components/Overlays";
 import { dispatch } from "./keys";
 import { sendWebAppKey, sendWebAppText, webAppTakesRemote } from "./music";
 import { play } from "./player";
+import { playStationById } from "./radio";
 import { errorToast, isKids, nav, setShowStats, showStats, toast } from "./store";
 
 /** Text typed on the phone, for the search box. */
@@ -58,6 +59,7 @@ export function startRemoteBridge(): void {
   onHubEvent((e) => {
     if (e.type === "hello") void reportBox(false);
     if (e.type === "remote.channel") void play({ kind: "channel", id: e.channelId });
+    if (e.type === "remote.radio") void playStationById(e.stationId).catch(() => toast("That station isn't on the list any more", "bad"));
     if (e.type === "remote.said") toast(`🎤 ${e.text}`);
     if (e.type === "box.command") {
       if (e.command === "report") void reportBox(true);

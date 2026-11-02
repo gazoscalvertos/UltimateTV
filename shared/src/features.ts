@@ -66,6 +66,7 @@ export function featureOfRoute(route: { name: string; kind?: string }): FeatureI
       return route.kind === "series" ? "shows" : "films";
     case "music":
     case "music-list":
+    case "podcast":
       return "music";
     case "planner":
       return "recordings";

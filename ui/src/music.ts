@@ -7,6 +7,7 @@ import type { Action, MusicItem, MusicPage, MusicTracks, SpotifyCommand, Spotify
 import { agent, agentHas, onBox } from "./agent";
 import { hub } from "./api";
 import { onHubEvent } from "./events";
+import { radioOn, radioPause } from "./radio";
 import { errorToast, toast } from "./store";
 
 type Source = Pick<
@@ -269,8 +270,13 @@ export function spotifyPosition(s: SpotifyState, now: number): number {
   return Math.max(0, Math.min(pos, s.track?.durationMs ?? pos));
 }
 
-/** Which service is playing (or was last), for the Now Playing panel and the remote's play key. */
-export function activeMusic(): "spotify" | "deezer" | null {
+/**
+ * Which service is playing (or was last), for the Now Playing panel and the remote's play key.
+ * The radio is a video stream as far as the box is concerned, so it only counts here when the
+ * player isn't the one that owns it — see radioPlaying() for that.
+ */
+export function activeMusic(): "spotify" | "deezer" | "radio" | null {
+  if (radioOn()) return "radio";
   const s = spotify();
   const w = webApp();
   if (s.track && (s.status === "playing" || s.status === "buffering")) return "spotify";
@@ -284,6 +290,7 @@ export async function musicPlayPause(): Promise<boolean> {
   const which = activeMusic();
   if (which === "spotify") await music().spotifyControl({ cmd: "playPause" });
   else if (which === "deezer") await music().webAppControl("playPause");
+  else if (which === "radio") await radioPause();
   return which !== null;
 }
 
@@ -297,6 +304,7 @@ export async function musicSkip(by: 1 | -1): Promise<boolean> {
 export async function pauseAllMusic(): Promise<void> {
   await music().spotifyControl({ cmd: "pause" }).catch(() => undefined);
   await music().webAppControl("pause").catch(() => undefined);
+  await radioPause();
 }
 
 /** The phone remote while a web player shows: keys and text go to it. */

@@ -16,6 +16,7 @@ export type Route =
   | { name: "planner"; tab?: PlannerTab }
   | { name: "music" }
   | { name: "music-list"; item: MusicItem }
+  | { name: "podcast"; id: string }
   | { name: "settings"; section?: string }
   | { name: "mix-channel"; id: string }
   | { name: "downloads" }

@@ -17,6 +17,8 @@ import { Ingestor } from "./ingest/index.js";
 import type { Logger } from "./log.js";
 import { MixManager } from "./mixchannels.js";
 import { NextAirings } from "./nextairing.js";
+import { Radio } from "./radio.js";
+import { Podcasts } from "./podcasts.js";
 import { ProfileStore } from "./profiles.js";
 import { ContinueHidden } from "./continuehide.js";
 import { HomeRows } from "./homerows.js";
@@ -88,6 +90,10 @@ export class HubContext {
   readonly jellyfinProgress: JellyfinProgressQueue;
   /** When a saved title is next on TV, matched against the guide (#74). */
   readonly nextAirings: NextAirings;
+  /** The radio stations the household can start (#86). */
+  readonly radio: Radio;
+  /** The podcast shows it follows, and where it got to (#86). */
+  readonly podcasts: Podcasts;
   readonly queue: PlayQueue;
   readonly profiles: ProfileStore;
   readonly guides: CustomGuideStore;
@@ -128,6 +134,8 @@ export class HubContext {
     this.kidsLockouts = new KidsLockoutLog(this.db);
     this.jellyfinProgress = new JellyfinProgressQueue(this.db);
     this.nextAirings = new NextAirings(this.guide, this.channels);
+    this.radio = new Radio(this.db, this.fetchImpl);
+    this.podcasts = new Podcasts(this.db, this.fetchImpl);
     this.queue = new PlayQueue(this.db, this.events);
     this.profiles = new ProfileStore(this.db);
     this.guides = new CustomGuideStore(this.db);

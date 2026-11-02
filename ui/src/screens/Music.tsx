@@ -11,7 +11,9 @@ import { useKeys } from "../keys";
 import { activeMusic, duration, likedSongs, music, musicPlayPause, musicSkip, openWebApp, spotify, spotifyPosition, spotifySetup, webApp } from "../music";
 import { pairStamp } from "../pairing";
 import { stopPlayback } from "../player";
+import { radioPlaying } from "../radio";
 import { appName, errorToast, nav } from "../store";
+import { PodcastSection, RadioNowPlaying, RadioSection } from "./Radio";
 
 /** A ticking clock for progress bars, while the screen is open. */
 export function useTicker(ms = 500): () => number {
@@ -327,9 +329,11 @@ export function Music() {
       </Show>
       <TopBar />
       <div class="page" data-scroll-y="120">
-        <Show when={activeMusic()} fallback={<Welcome />}>
-          <NowPlaying />
+        <Show when={radioPlaying()} fallback={<Show when={activeMusic()} fallback={<Welcome />}><NowPlaying /></Show>}>
+          <RadioNowPlaying />
         </Show>
+        <RadioSection />
+        <PodcastSection />
         <Switch>
           <Match when={!signedIn()}>
             <Services />

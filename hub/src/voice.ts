@@ -1,11 +1,12 @@
 // Phone voice control: turns what was said ("watch BBC One", "pause", "down three times",
 // "search for Dune") into remote keys, a channel to switch to, or a search on the TV.
 
-import type { Channel } from "@ultimatetv/shared";
+import type { Channel, RadioStation } from "@ultimatetv/shared";
 
 export type VoiceCommand =
   | { kind: "keys"; actions: string[]; say: string }
   | { kind: "channel"; channelId: string; say: string }
+  | { kind: "radio"; stationId: string; say: string }
   | { kind: "search"; text: string; say: string }
   | { kind: "stats"; on: boolean; say: string }
   | { kind: "reload"; say: string }
@@ -83,7 +84,22 @@ export function findChannel(name: string, channels: Channel[]): Channel | undefi
   );
 }
 
-export function parseVoice(said: string, channels: Channel[]): VoiceCommand {
+/** "Radio 2", "bbc radio two" and "radio 2" all mean the same station. */
+export function findStation(name: string, stations: RadioStation[]): RadioStation | undefined {
+  const want = normaliseName(name);
+  if (!want) return undefined;
+  const scored = stations.map((s) => ({ s, n: normaliseName(s.name) })).filter((x) => x.n);
+  const exact = scored.find((x) => x.n === want);
+  if (exact) return exact.s;
+  // "radio 2" said, "BBC Radio 2" listed.
+  const loose = scored.filter((x) => x.n.endsWith(want) || x.n.startsWith(want));
+  return loose.sort((a, b) => a.n.length - b.n.length)[0]?.s;
+}
+
+/** "play radio 2", "put on Classic FM", "tune to Radio 4". */
+const RADIO = /^(?:play|put on|switch to|change to|tune to|listen to|turn to)\s+(?:the\s+)?(?:radio\s+)?(.+)$/;
+
+export function parseVoice(said: string, channels: Channel[], stations: RadioStation[] = []): VoiceCommand {
   const text = said
     .toLowerCase()
     .replace(/[.,!?]+/g, " ")
@@ -146,6 +162,17 @@ export function parseVoice(said: string, channels: Channel[]): VoiceCommand {
     const named = findChannel(text.replace(/^(go to|switch to|change to|put on|turn to|watch) /, ""), channels);
     if (named) return { kind: "channel", channelId: named.id, say: `${named.number} ${named.name}` };
     return { kind: "keys", actions: [...digits.slice(0, 4)].map((d) => `digit${d}`), say: `Channel ${digits}` };
+  }
+
+  // "play Radio 2", "tune to Classic FM": a radio station when one has that name.
+  const radio = stations.length ? RADIO.exec(text) : null;
+  if (radio) {
+    const said = radio[1]!;
+    // "play radio 2" leaves just "2": put the word back so it matches "BBC Radio 2" and not
+    // some station that happens to end in the same digit.
+    const named = /(?:^|\s)radio(?:\s|$)/.test(text) && !/^radio\b/.test(said) ? `radio ${said}` : said;
+    const station = findStation(named, stations) ?? findStation(said, stations);
+    if (station) return { kind: "radio", stationId: station.id, say: `Radio: ${station.name}` };
   }
 
   const search = /^(?:search(?: for)?|find(?: me)?|look for|look up|show me|i want to watch|let'?s watch)\s+(.+)$/.exec(text);

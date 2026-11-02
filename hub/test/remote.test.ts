@@ -64,6 +64,19 @@ describe("the phone remote's pages", () => {
     expect(saved).toContain("Looking for it…");
   });
 
+  it("has a Radio list that starts a station on the TV and says what each is playing", () => {
+    expect(chips.filter((c) => c === "radio")).toHaveLength(1);
+    const radio = js.slice(js.indexOf("async function showRadio"), js.indexOf("async function showSaved"));
+    expect(radio, "showRadio is missing: the Radio chip has nothing behind it").not.toBe("");
+    expect(radio, "the list should come from the Hub").toContain('get("/api/radio"');
+    expect(radio, "the list is asked for as the TV's profile, so Kids sees only its own stations").toContain("kidsProfile");
+    // One press starts it on the TV, the same way the remote starts everything else.
+    expect(radio, "tapping a station should start it on the TV").toMatch(/call\("radio",\s*\{\s*stationId:\s*s\.id\s*\}\)/);
+    // "Now playing where the stream provides it": asked per station, and simply absent otherwise.
+    expect(radio, "each station should ask what it is playing").toContain("/now");
+    expect(radio, "a station with no now-playing line should still show its kind").toContain("s.genre");
+  });
+
   it("hides the Saved tab when the household turns the list's features off", () => {
     const recordings = js.slice(js.indexOf("recordings: ["), js.indexOf("downloads: ["));
     expect(recordings, "the Saved button is not in the feature-off map").toContain('[data-browse="saved"]');

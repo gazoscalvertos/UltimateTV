@@ -1173,6 +1173,7 @@
       if (what === "saved") await showSaved();
       if (what === "downloads") await showDownloads();
       if (what === "music") await showMusic("playlists");
+      if (what === "radio") await showRadio();
       if (what === "weather") await showWeather();
       if (what === "search") showSearch();
     } catch (e) {
@@ -1394,6 +1395,39 @@
   // list, already filtered like the TV's when that's a Kids profile. Tap a row to open it, ▶ plays
   // it on the TV, + adds it to the queue and ✕ takes it off the list. When the guide knows the
   // title is on again the row says so ("On Film4 · Sat 21:00") and offers Record and Remind.
+  // Radio: the stations the Hub knows, with what each is playing. Tap one and it starts on the TV.
+  async function showRadio() {
+    const { stations } = await get("/api/radio", kidsProfile);
+    if (!stations.length) return (body.innerHTML = `<p class="empty">No radio stations yet.</p>`);
+    body.innerHTML = `<div class="list">${stations
+      .map(
+        (s) => `<button class="item" data-station="${esc(s.id)}">
+          <span class="logo">${s.logo ? `<img src="${esc(s.logo)}" alt="" loading="lazy">` : "<span class=\"radio-mark\">FM</span>"}</span>
+          <span class="text"><b>${esc(s.name)}</b><span>${esc(s.genre ?? "Radio")}</span><small data-now="${esc(s.id)}">&nbsp;</small></span>
+          <span class="play-mark">▶</span></button>`,
+      )
+      .join("")}</div>`;
+    for (const b of body.querySelectorAll("[data-station]")) {
+      const s = stations.find((x) => x.id === b.dataset.station);
+      b.onclick = () => {
+        call("radio", { stationId: s.id })
+          .then(() => toast(`Playing ${s.name} on the TV`))
+          .catch((e) => toast(e.message, true));
+      };
+    }
+    // Ask each station what it's playing, so the list isn't just names.
+    for (const s of stations.slice(0, 24)) {
+      get(`/api/radio/${encodeURIComponent(s.id)}/now`, kidsProfile)
+        .then(({ now }) => {
+          const line = body.querySelector(`[data-now="${cssEsc(s.id)}"]`);
+          if (line && now) line.textContent = now;
+        })
+        .catch(() => undefined);
+    }
+  }
+
+  const cssEsc = (v) => (window.CSS?.escape ? CSS.escape(v) : String(v).replace(/["\\]/g, "\\$&"));
+
   async function showSaved() {
     const profile = await savedFor();
     const { items } = await get("/api/watchlist", profile);
@@ -1674,7 +1708,7 @@
     shows: ['[data-browse="series"]'],
     recordings: ['[data-browse="recordings"]', '[data-browse="reminders"]', '[data-browse="saved"]', '[data-key="record"]'],
     downloads: ['[data-browse="downloads"]'],
-    music: ['[data-browse="music"]'],
+    music: ['[data-browse="music"]', '[data-browse="radio"]'],
     weather: ['[data-browse="weather"]'],
     search: ['[data-browse="search"]', "#text"],
     cast: ["#cast-btn"],

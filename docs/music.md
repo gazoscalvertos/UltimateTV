@@ -1,6 +1,6 @@
-# Music: Spotify and Deezer
+# Music: Spotify, Deezer, radio and podcasts
 
-The **Music** tab on the TV plays Spotify and Deezer through the TV's speakers. What's playing sits at the top with its controls; below are the music services, then your Spotify playlists, albums and artists. Play/Pause on the remote works from any screen while music plays, and starting a film pauses the music.
+The **Music** tab on the TV plays Spotify and Deezer through the TV's speakers, and plays UK radio stations and podcasts. What's playing sits at the top with its controls; below are the radio stations, your podcasts, the music services, then your Spotify playlists, albums and artists. Play/Pause on the remote works from any screen while any of it plays, and starting a film pauses it.
 
 Kids profiles don't have a Music tab.
 
@@ -39,6 +39,10 @@ Deezer has no app for the box, so the TV opens Deezer's own website player over 
 - **Spotify**: pick a playlist, album or artist in the Music tab (or on the phone's Music page) and press Play or Shuffle, or pick a song. Or play from the Spotify app on your phone and choose the TV as the device. Next and previous are the remote's fast-forward and rewind keys.
 - **Deezer**: press the Deezer card. Use the arrows and OK on the page (a blue outline shows where you are). Back returns to the TV app and the music keeps playing; it shows in Now Playing with play/pause and skip.
 - Spotify and Deezer pause each other: only one plays at a time.
+- **Radio**: pick a station under **Radio** and it plays through the TV. Each station shows what it's playing where its stream says (classic FM, Heart, Smooth, Radio X, Radio Paradise and the commercial stations do; the BBC's streams don't, so they show the station only). Pause and play with the remote. The same list is on the phone remote under **Watch › Radio**.
+- **Podcasts**: add one by searching for it or pasting its feed address under **Podcasts**. A show you follow arrives with new episodes marked, and an episode you're part way through starts where you left off; back out of it (or pause) and the place is kept.
+
+**Adding a station of your own**: **Add a station** under Radio asks for a name and the stream address (the `http://` or `https://` address the station publishes; most have one for apps). It's kept on the Hub, so it's there on every screen and on the phone.
 
 ## When something's wrong
 
@@ -50,6 +54,11 @@ Deezer has no app for the box, so the TV opens Deezer's own website player over 
 | The TV isn't in Spotify's devices list | Check the phone is on the home Wi-Fi (not mobile data), or sign in with a code instead. |
 | Deezer didn't take that login | The phone shows what Deezer said. Check the password works on deezer.com, or set one (see above). |
 | Deezer wants something more | Finish on the TV with the remote; the phone remote's keyboard types into the page. |
+| That doesn't look like a stream address | The address must start with `http://` or `https://`. Copy the one the station gives out for apps, not its web page. |
+| That address isn't a podcast feed | Paste the show's **RSS** feed (its own address, usually ending `.xml`, `.rss` or `/feed`), not the page you read it on. |
+| The feed answered 404 | The show moved or stopped publishing. Search for it again by name. |
+| That feed has no episodes in it | The feed is empty or is only a trailer feed; try the show's main feed. |
+| A station won't play | Its stream may be geoblocked or gone. Try the station's own app to check, then remove it with **Remove** in its menu. |
 
 On the box, the Spotify receiver's state and log:
 
@@ -71,6 +80,11 @@ The box also writes what the Spotify receiver says is wrong into its diagnostics
 | `box/src/webapp.ts` | Deezer's web player in its own browser profile (the login lasts), the phone login (fills Deezer's form one step at a time, accepts a cookie banner in the way, then watches for the sign-in cookie or Deezer's error), and the remote's keys on the page (`webapp-preload.ts`). |
 | `hub/src/musiclogin.ts` | The phone page `/music-login/`. What's typed is kept in memory for two minutes and handed to the TV once; the TV reports back how it went (`POST /api/music/login/:id/result`) and the phone page shows that (`GET /api/music/login/:id/status`). Nothing is written to disk or logged. |
 | `ui/src/screens/Music.tsx` | The Music tab, with the sign-in panel and the service cards. |
-| Phone remote | Watch › Music asks the TV app (`/api/tv/call/musicStatus`, `musicSetup`, `musicLibrary`, `musicTracks`, `musicPlay`, `musicControl`). |
+| `ui/src/screens/Radio.tsx`, `ui/src/radio.ts` | The radio and podcast parts of the Music tab, the podcast show screen, and the small store behind them (which station or episode is on, and saving the place in an episode). |
+| `hub/src/radio.ts` | The station list (the presets that ship, plus any added here), the Kids subset, and **now playing**: it opens the stream with `Icy-MetaData: 1`, reads `icy-metaint` and picks `StreamTitle` out of the metadata. Stations that don't answer that just have no now-playing line. |
+| `hub/src/podcastfeed.ts`, `hub/src/podcasts.ts` | Reading podcast feeds with `sax` (RSS and Atom, `<enclosure>`/`media:content` for the audio, `itunes:duration`, CDATA descriptions), searching iTunes for new shows, and storing the shows, episodes and where you are in each episode. Feeds are re-read every 30 minutes, so a new-episode badge appears without opening the show. |
+| `hub/src/radioroutes.ts` | `/api/radio` and `/api/podcasts`, and the two that turn a station or an episode into a `PlaybackInfo` the player already understands. |
+| Phone remote | Watch › Music asks the TV app (`/api/tv/call/musicStatus`, `musicSetup`, `musicLibrary`, `musicTracks`, `musicPlay`, `musicControl`). Watch › Radio lists the Hub's stations (`/api/radio`, and `/now` for each) and starts one with `/api/tv/call/radio`, as it does for everything else it starts on the TV. |
+| Voice | "play Radio 2", "put on Classic FM", "tune to Radio 4". `hub/src/voice.ts` matches the words against the station names; the TV starts the station when it hears `remote.radio`. |
 
 Deezer's developer API is closed to new apps, so there's no Deezer library in the TV's own screens: Deezer is its web player. Unofficial Deezer clients that sign in with a copied cookie were left out, because they're against Deezer's terms.
