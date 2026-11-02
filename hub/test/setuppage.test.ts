@@ -76,3 +76,28 @@ describe("the backup section of the phone's settings page", () => {
     expect(routes.has("POST /api/backup/restore")).toBe(true);
   });
 });
+
+describe("the Home rows section of the phone's settings page", () => {
+  it("is reachable from the jump nav and lists the rows", () => {
+    const rows = section("homerows");
+    expect(rows).toContain("<h2>Rows on Home");
+    expect(page).toContain('<a href="#homerows">Home rows</a>');
+    // The list of rows, a profile to change, and the two presets.
+    expect(rows).toContain('id="hr-list"');
+    expect(rows).toContain('id="hr-profile"');
+    expect(rows).toContain('id="hr-simple"');
+    expect(rows).toContain('id="hr-everything"');
+  });
+
+  it("names the profile it's changing, and calls only routes that exist", () => {
+    // The phone has no profile of its own, so it says which one it means in the body.
+    expect(page).toContain("/api/home/rows?profile=");
+    expect(page).toContain('api("/api/home/rows", { method: "PATCH", body: { profile: id, ...body } })');
+    expect(routes.has("GET /api/home/rows")).toBe(true);
+    expect(routes.has("PATCH /api/home/rows")).toBe(true);
+  });
+
+  it("offers a Guest when adding a profile, like the TV does", () => {
+    expect(page).toContain('<option value="guest">Guest</option>');
+  });
+});

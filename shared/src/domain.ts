@@ -768,6 +768,8 @@ export type HubEvent =
   | { type: "favourites.changed"; profileId: string | null }
   /** Something stopped playing, so Continue watching has changed: fetch /api/home again. */
   | { type: "progress.changed" }
+  /** A profile's Home rows changed (which are shown, or their order): fetch /api/home again. */
+  | { type: "home.rows.changed"; profileId: string | null }
   /** A profile's recent searches changed (cleared on the phone, say): fetch /api/search/history again. */
   | { type: "search.history.changed"; profileId: string | null }
   /** A new alert, or one cleared (Settings › Alerts, and a pop-up for adults when that's on). */

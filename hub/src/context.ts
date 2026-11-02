@@ -18,6 +18,7 @@ import type { Logger } from "./log.js";
 import { MixManager } from "./mixchannels.js";
 import { ProfileStore } from "./profiles.js";
 import { ContinueHidden } from "./continuehide.js";
+import { HomeRows } from "./homerows.js";
 import { drainQueue, JellyfinProgressQueue, type DrainResult } from "./jfprogress.js";
 import { ProgressStore } from "./progress.js";
 import { PlayQueue } from "./queue.js";
@@ -71,6 +72,8 @@ export class HubContext {
   readonly ingest: Ingestor;
   readonly progress: ProgressStore;
   readonly continueHidden: ContinueHidden;
+  /** Which Home rows each profile shows, and in what order (#99). */
+  readonly homeRows: HomeRows;
   /** Jellyfin places saved while Jellyfin could not be reached (#80). */
   readonly jellyfinProgress: JellyfinProgressQueue;
   readonly queue: PlayQueue;
@@ -107,6 +110,7 @@ export class HubContext {
     this.recordings = new RecordingStore(this.db);
     this.progress = new ProgressStore(this.db);
     this.continueHidden = new ContinueHidden(this.db, this.events);
+    this.homeRows = new HomeRows(this.db, this.events);
     this.jellyfinProgress = new JellyfinProgressQueue(this.db);
     this.queue = new PlayQueue(this.db, this.events);
     this.profiles = new ProfileStore(this.db);

@@ -19,3 +19,4 @@ export * from "./homeassistant.js";
 export * from "./segments.js";
 export * from "./accessibility.js";
 export * from "./features.js";
+export * from "./homerows.js";

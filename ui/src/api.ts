@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -135,6 +135,11 @@ export const hub = {
   // Continue watching card actions (issue #100).
   hideFromContinue: (id: string, hidden: boolean) => api<{ ok: true; hidden: boolean }>(`/api/continue/${enc(id)}/hide`, { method: "POST", body: { hidden } }),
   markContinueWatched: (id: string, watched = true) => api<{ ok: true; watched: boolean }>(`/api/continue/${enc(id)}/watched`, { method: "POST", body: { watched } }),
+
+  // Home rows: which rows this profile shows, and in what order (#99).
+  homeRows: () => api<HomeRowsView>("/api/home/rows"),
+  setHomeRows: (body: { order?: HomeRowId[]; hidden?: HomeRowId[]; preset?: "everything" | "simple" }) =>
+    api<HomeRowsView>("/api/home/rows", { method: "PATCH", body }),
 
   downloads: () => api<{ downloads: Download[] }>("/api/downloads"),
   download: (titleId: string, episodeId?: string, streamId?: string) => api<Download>("/api/downloads", { method: "POST", body: { titleId, episodeId, streamId } }),

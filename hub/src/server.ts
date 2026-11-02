@@ -25,7 +25,7 @@ import { registerSubtitles } from "./subtitles.js";
 import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
 import { ChangelogFile, registerChangelog } from "./changelog.js";
-import type { AccessibilitySettings, BoxState, DeviceList, FeatureId, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
+import type { AccessibilitySettings, BoxState, DeviceList, FeatureId, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, HomeRowId, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
 import { FEATURES, featuresFor, isClientKind, type ClientFeatureState, cleanAppName, cleanSubtitleStyle, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
@@ -152,6 +152,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/scares/shares", "paired"],
     ["POST /api/scares/library/install", "paired"],
     ["POST /api/tv/call/:method", "paired"],
+    ["PATCH /api/home/rows", "paired"],
     ["POST /api/queue", "paired"],
     ["POST /api/queue/:id/move", "paired"],
     ["DELETE /api/queue/:id", "paired"],
@@ -1458,9 +1459,25 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ctx.profiles.remove(req.params.id);
     favourites.forget(req.params.id);
     ctx.continueHidden.forget(req.params.id);
+    ctx.homeRows.forget(req.params.id);
     ctx.events.emit({ type: "profiles.changed" });
     return { ok: true };
   });
+
+  /**
+   * Which Home rows a profile shows, and in what order (#99). The TV sends its profile header; the
+   * phone setup page has no profile of its own, so it names the profile it's changing instead.
+   */
+  const rowsProfile = (req: FastifyRequest, named?: unknown): string | null => {
+    if (typeof named === "string" && named) return ctx.profiles.get(named) ? named : null;
+    return viewer(req).profile?.id ?? null;
+  };
+
+  app.get("/api/home/rows", async (req: Req<Record<string, string>, { profile?: string }>) => ctx.homeRows.view(rowsProfile(req, req.query?.profile)));
+
+  app.patch("/api/home/rows", async (req: Req<Record<string, string>, Record<string, string>, { profile?: string; order?: unknown; hidden?: unknown; preset?: unknown }>) =>
+    ctx.homeRows.set(rowsProfile(req, req.body?.profile), { order: req.body?.order, hidden: req.body?.hidden, preset: req.body?.preset }),
+  );
 
   /** Who is guessing at a PIN: the paired device when there is one, else where the request came from. */
   const pinClient = (req: FastifyRequest) => {
@@ -1482,19 +1499,25 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.get("/api/home", async (req) => {
     const who = viewer(req);
-    const home = await library.home(Date.now(), who.filter);
+    const profileId = who.profile?.id ?? null;
+    // Only the rows this profile shows are fetched, and the answer comes back in its order (#99).
+    const showing = ctx.homeRows.visible(profileId);
+    const home = await library.home(Date.now(), who.filter, showing);
     // The watchlist ("Save for later") goes after Continue watching, or first when there's none.
-    const saved = watchlist.list(who.profile?.id ?? null).filter((i) => i.title && who.filter.ref(i.title)).map((i) => i.title!);
+    const saved = showing.includes("watchlist") ? watchlist.list(profileId).filter((i) => i.title && who.filter.ref(i.title)).map((i) => i.title!) : [];
     if (saved.length) {
       const at = home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0);
       home.rails.splice(at, 0, { id: "watchlist", title: "Saved for later", kind: "titles", items: saved.slice(0, 30) });
     }
     // The profile's favourite films and shows, after Saved for later (or where it would be).
-    const liked = favourites.get(who.profile?.id ?? null).titles.map((f) => f.title).filter((t) => who.filter.ref(t));
+    const liked = showing.includes("favourites") ? favourites.get(profileId).titles.map((f) => f.title).filter((t) => who.filter.ref(t)) : [];
     if (liked.length) {
       const after = home.rails.findIndex((r) => r.id === "watchlist") + 1 || home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0);
       home.rails.splice(after, 0, { id: "favourites", title: "Favourites", kind: "titles", items: liked.slice(0, 30) });
     }
+    // In the profile's order; a row that isn't switched on is left out even if the library built it.
+    const rank = new Map(showing.map((id, i) => [id, i]));
+    home.rails = home.rails.filter((r) => rank.has(r.id as HomeRowId)).sort((a, b) => rank.get(a.id as HomeRowId)! - rank.get(b.id as HomeRowId)!);
     return home;
   });
   app.get("/api/browse/:kind", async (req: Req<{ kind: "movie" | "series" }>) => ({ rails: await library.browse(req.params.kind === "series" ? "series" : "movie", filterOf(req)) }));

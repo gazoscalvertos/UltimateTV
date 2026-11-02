@@ -3,7 +3,7 @@
 // Typing an address on the TV is slow, so the alert URLs can be set from the phone too.
 
 import { createResource, createSignal, For, Show } from "solid-js";
-import type { AdvertScan, FeatureId, AlertSettings, ProjectionSettings, SeasonId, WeatherSettings } from "@ultimatetv/shared";
+import type { AdvertScan, FeatureId, HomeRowId, HomeRowState, AlertSettings, ProjectionSettings, SeasonId, WeatherSettings } from "@ultimatetv/shared";
 import { daysFromNow, formatBytes, householdChanges, releaseLabel, SEASONS } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { canCast, castSettings, castState, refreshCast, saveCastSettings, setAirplay, shareUrl } from "../cast";
@@ -365,6 +365,93 @@ export function FeaturesSection() {
               {(f) => <Row label={f.label} hint={f.detail} value={<Status ok={featureOn(f.id)} text={featureOn(f.id) ? "On" : "Off"} />} onSelect={() => void toggle(f.id)} />}
             </For>
           </Show>
+        )}
+      </Show>
+    </>
+  );
+}
+
+export function HomeRowsSection() {
+  const [state, { mutate, refetch }] = createResource(() => hub.homeRows());
+  onCleanup(onHubEvent((e) => e.type === "home.rows.changed" && void refetch()));
+  const save = async (patch: { order?: HomeRowId[]; hidden?: HomeRowId[]; preset?: "everything" | "simple" }) => {
+    try {
+      mutate(await hub.setHomeRows(patch));
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  /** The rows in the order they're shown; a row that's off keeps its place at the end. */
+  const order = () => (state()?.rows ?? []).map((r) => r.id);
+  const on = (id: HomeRowId) => state()?.rows.find((r) => r.id === id)?.on ?? false;
+  const shown = () => (state()?.rows ?? []).filter((r) => r.on);
+  const hiddenRows = () => (state()?.rows ?? []).filter((r) => !r.on);
+
+  const move = async (id: HomeRowId, by: -1 | 1) => {
+    const list = order();
+    const from = list.indexOf(id);
+    const to = from + by;
+    if (from < 0 || to < 0 || to >= list.length) return;
+    const next = [...list];
+    next.splice(from, 1);
+    next.splice(to, 0, id);
+    await save({ order: next });
+  };
+
+  const menu = async (r: HomeRowState) => {
+    const at = order().indexOf(r.id);
+    const pick = await choose<string>({
+      title: r.label,
+      message: r.detail,
+      options: [
+        ...(at > 0 ? [{ label: "Move up", value: "up", icon: "prev" }] : []),
+        ...(at < order().length - 1 ? [{ label: "Move down", value: "down", icon: "next" }] : []),
+        { label: r.on ? "Hide from Home" : "Show on Home", value: "toggle", icon: "eye" },
+      ],
+    });
+    if (pick === "up") await move(r.id, -1);
+    else if (pick === "down") await move(r.id, 1);
+    else if (pick === "toggle") {
+      // Hiding is just "everything except this one"; showing is "everything except the others".
+      const hidden = hiddenRows().map((x) => x.id);
+      await save({ hidden: r.on ? [...hidden, r.id] : hidden.filter((x) => x !== r.id) });
+    }
+  };
+
+  const preset = async () => {
+    const pick = await choose<"simple" | "everything">({
+      title: "Rows on Home",
+      message: "Simple Home shows only what you watch: what's on now, what you're part-way through, and what you recorded.",
+      options: [
+        { label: "Simple Home", value: "simple", detail: "Live, Continue watching and Recently recorded only" },
+        { label: "Everything", value: "everything", detail: "Every row, back in its usual order" },
+      ],
+    });
+    if (pick) await save({ preset: pick });
+  };
+
+  const presetLabel = () => (state()?.preset === "simple" ? "Simple Home" : state()?.preset === "custom" ? "Your own list" : "Everything");
+
+  return (
+    <>
+      <h2>Rows on Home</h2>
+      <p class="hint">
+        Choose which rows this profile sees on Home, and what order they come in. Rows you switch off aren't fetched at all, so Home loads faster. Each profile has its own list.
+      </p>
+      <Show when={state()} fallback={<div class="spinner" />}>
+        {(st) => (
+          <>
+            <Row label="Rows" hint="Start from a simple Home or bring every row back" value={presetLabel()} onSelect={() => void preset()} />
+            <p class="hint">Shown on Home, top to bottom:</p>
+            <For each={shown()}>{(r) => <Row label={r.label} hint={r.detail} value="On" onSelect={() => void menu(r)} />}</For>
+            <Show when={hiddenRows().length > 0}>
+              <p class="hint">Switched off:</p>
+              <For each={hiddenRows()}>{(r) => <Row label={r.label} hint={r.detail} value="Off" onSelect={() => void menu(r)} />}</For>
+            </Show>
+            <Show when={st().preset !== "everything" && st().preset !== "simple"}>
+              <p class="hint">Switching a row off or moving it makes this profile's own list, so Simple Home is off for it.</p>
+            </Show>
+          </>
         )}
       </Show>
     </>
