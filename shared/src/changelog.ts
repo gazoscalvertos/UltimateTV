@@ -12,6 +12,11 @@ export interface ChangeEntry {
   prs: number[];
   /** The guide in docs/ it links to, if any. */
   doc?: string;
+  /**
+   * A sentence for the household, when the bullet carries one on a "Household:" line. Only entries
+   * with one are offered as What's new after an update (issue #111); the rest are internal work.
+   */
+  household?: string;
 }
 
 export interface ChangeRelease {
@@ -58,7 +63,7 @@ export function plainText(md: string): string {
     .trim();
 }
 
-function parseEntry(raw: string, releaseId: string): Omit<ChangeEntry, "id"> & { key: string } {
+function parseEntry(raw: string, releaseId: string, household?: string): Omit<ChangeEntry, "id"> & { key: string } {
   let body = raw.replace(/\s+/g, " ").trim();
   const prs: number[] = [];
   const refs = /\s*\((#\d+(?:\s*,\s*#\d+)*)\)\s*\.?$/.exec(body);
@@ -97,7 +102,14 @@ function parseEntry(raw: string, releaseId: string): Omit<ChangeEntry, "id"> & {
   title = plainText(title);
   let text = plainText(body);
   if (text) text = text[0]!.toUpperCase() + text.slice(1);
-  return { key: `${releaseId}/${slug(title) || "change"}`, title, text, prs, ...(doc ? { doc } : {}) };
+  return {
+    key: `${releaseId}/${slug(title) || "change"}`,
+    title,
+    text,
+    prs,
+    ...(doc ? { doc } : {}),
+    ...(household ? { household } : {}),
+  };
 }
 
 /** Reads CHANGELOG.md. Only `## date` and `## version` sections count; the newest comes first in the file. */
@@ -108,7 +120,14 @@ export function parseChangelog(md: string): Changelog {
   const seen = new Set<string>();
   const flush = () => {
     if (!release || !bullet) return;
-    const { key, ...entry } = parseEntry(bullet.join(" "), release.id);
+    // "Household: ..." on its own continuation line is what the household reads after an update.
+    const spoken = bullet.findIndex((l) => /^Household:\s*\S/i.test(l));
+    const household =
+      spoken >= 0
+        ? plainText(bullet.slice(spoken).join(" ").replace(/^Household:\s*/i, ""))
+        : undefined;
+    const raw = (spoken >= 0 ? bullet.slice(0, spoken) : bullet).join(" ");
+    const { key, ...entry } = parseEntry(raw, release.id, household || undefined);
     let id = key;
     for (let n = 2; seen.has(id); n++) id = `${key}-${n}`;
     seen.add(id);
@@ -146,19 +165,29 @@ export function parseChangelog(md: string): Changelog {
 }
 
 /**
- * What to show after an update: the entries newer than `seen` (the id stored last time), newest
- * first. With nothing stored yet, the newest day's entries. If `seen` is no longer in the file (its
- * title was reworded), whatever is in sections dated after it.
+ * Every change that says something to the household ("Household: ..."), newest first: what the TV's
+ * What's new screen and About list, and the only entries the pop-up offers (issue #111).
+ */
+export function householdChanges(log: Changelog): ChangeEntry[] {
+  return log.releases.flatMap((r) => r.entries).filter((e) => e.household);
+}
+
+/**
+ * What to show after an update: the household changes newer than `seen` (the id stored last time),
+ * newest first. With nothing stored yet, the newest day's household changes. If `seen` is no longer
+ * in the file (its title was reworded), whatever is in sections dated after it. Entries without a
+ * "Household:" line are internal work and never pop up.
  */
 export function unseenChanges(log: Changelog, seen: string | null | undefined): ChangeEntry[] {
   const all = log.releases.flatMap((r) => r.entries.map((e) => ({ e, r })));
   if (!all.length) return [];
-  if (!seen) return log.releases.find((r) => r.entries.length)!.entries;
+  const spoken = (xs: typeof all) => xs.filter((x) => x.e.household).map((x) => x.e);
+  if (!seen) return spoken(all.filter((x) => x.r === log.releases.find((r) => r.entries.length)));
   const at = all.findIndex((x) => x.e.id === seen);
-  if (at >= 0) return all.slice(0, at).map((x) => x.e);
+  if (at >= 0) return spoken(all.slice(0, at));
   const seenDate = /^(\d{4}-\d{2}-\d{2})\//.exec(seen)?.[1];
   if (!seenDate) return [];
-  return all.filter((x) => x.r.date && x.r.date > seenDate).map((x) => x.e);
+  return spoken(all.filter((x) => x.r.date && x.r.date > seenDate));
 }
 
 /** "30 Oct 2026", or the version when a section has no date. */

@@ -15,7 +15,7 @@ import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, previewTheme, profile, setProfile, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 import { Row, Status } from "../components/SettingRow";
-import { AdvertRows, AlertsSection, FeaturesSection, CastSection, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
+import { AdvertRows, AlertsSection, FeaturesSection, CastSection, RecentChanges, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
 
 /** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
 const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
@@ -924,6 +924,7 @@ export function Settings(props: { section?: string }) {
             <Show when={section() === "about"}>
               <h2>About</h2>
               <Row label="App name" value={appName()} hint="Rename the app on the TV, the phone remote and Spotify" icon="edit" onSelect={() => void rename()} />
+              <RecentChanges />
               <Row label="Hub" value={`${appName()} ${status()?.version ?? ""}${status()?.commit ? ` · ${status()!.commit}` : ""}${status()?.builtAt ? ` · ${shortDate(status()!.builtAt!)}` : ""}${status()?.demo ? " · demo mode" : ""}`} />
               <Row label="Update the Hub" value={hubState()} hint={hubChanges() || "Checks GitHub for the latest code"} icon="download" onSelect={() => void updateHub()} />
               <Row label="Hub backup" value={backupState()} hint={backupHint()} icon="download" onSelect={() => void backupNow()} />

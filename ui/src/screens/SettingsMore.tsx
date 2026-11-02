@@ -4,7 +4,7 @@
 
 import { createResource, createSignal, For, Show } from "solid-js";
 import type { FeatureId, AlertSettings, ProjectionSettings, SeasonId, WeatherSettings } from "@ultimatetv/shared";
-import { daysFromNow, formatBytes, releaseLabel, SEASONS } from "@ultimatetv/shared";
+import { daysFromNow, formatBytes, householdChanges, releaseLabel, SEASONS } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { canCast, castSettings, castState, refreshCast, saveCastSettings, setAirplay, shareUrl } from "../cast";
 import { askText, choose } from "../components/Dialog";
@@ -267,6 +267,28 @@ export function WeatherSection() {
   );
 }
 
+/**
+ * About: the last few changes in the household's words, so a grown-up can see what an update brought
+ * without opening Settings › What's new (issue #111). Opening About does not count as having seen them.
+ */
+export function RecentChanges(props: { count?: number }) {
+  const [log] = createResource(() => hub.changelog());
+  const latest = () => householdChanges(log() ?? { releases: [] }).slice(0, props.count ?? 3);
+  return (
+    <Show when={latest().length}>
+      <Row
+        label="What changed last"
+        value={`${latest().length} of the latest`}
+        hint={latest()
+          .map((e) => e.household ?? e.title)
+          .join(" · ")}
+        icon="info"
+        onSelect={() => nav.push({ name: "settings", section: "whatsnew" })}
+      />
+    </Show>
+  );
+}
+
 /** Every change, newest first, from the Hub's CHANGELOG.md. Opening it counts as having seen them. */
 export function WhatsNewSection() {
   const [log] = createResource(() =>
@@ -278,7 +300,7 @@ export function WhatsNewSection() {
   return (
     <>
       <h2>What's new</h2>
-      <p class="hint">What has changed in the app, newest first. After an update, Home shows the new things once.</p>
+      <p class="hint">What has changed in the app, newest first. After an update, each profile sees the new things once.</p>
       <Show when={log()} fallback={<Show when={log.error} fallback={<div class="spinner" />}><p class="hint">Couldn't ask the Hub.</p></Show>}>
         <Show when={log()!.releases.length} fallback={<p class="hint">This Hub doesn't have a change log.</p>}>
           <For each={log()!.releases}>
@@ -288,7 +310,7 @@ export function WhatsNewSection() {
                 <Show when={r.note}>
                   <p class="hint">{r.note}</p>
                 </Show>
-                <For each={r.entries}>{(e) => <Row label={e.title} {...(e.text ? { hint: e.text } : {})} />}</For>
+                <For each={r.entries}>{(e) => <Row label={e.title} {...(e.household ?? e.text ? { hint: e.household ?? e.text } : {})} />}</For>
               </>
             )}
           </For>

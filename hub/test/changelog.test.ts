@@ -55,7 +55,10 @@ describe("GET /api/changelog", () => {
 
   it("says what an app hasn't shown yet", async () => {
     const file = path.join(tmp, "CHANGELOG.md");
-    await writeFile(file, "## 2026-10-30\n\n- **First**: one. (#1)\n- **Second**: two. (#2)\n\n## 2026-10-29\n\n- **Older**: three. (#3)\n");
+    await writeFile(
+      file,
+      "## 2026-10-30\n\n- **First**: one. (#1)\n  Household: One.\n- **Second**: two. (#2)\n  Household: Two.\n\n## 2026-10-29\n\n- **Older**: three. (#3)\n  Household: Three.\n",
+    );
     await start({ changelogPath: file });
     const titles = async (q: string) => (await app.inject(`/api/changelog${q}`)).json<Changelog>().unseen?.map((e) => e.title);
     expect(await titles("")).toBeUndefined();

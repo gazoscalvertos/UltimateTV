@@ -1,4 +1,4 @@
-// What's new: after an update, Home pops up the changes this TV hasn't shown yet (from the Hub's
+// What's new: after an update, Home pops up the changes this profile hasn't shown yet (from the Hub's
 // CHANGELOG.md, GET /api/changelog). Settings › What's new lists all of them.
 
 import { createEffect, For, on, Show } from "solid-js";
@@ -7,24 +7,28 @@ import { unseenChanges } from "@ultimatetv/shared";
 import { hub } from "./api";
 import { DialogFrame } from "./components/Dialog";
 import { nowPlaying } from "./player";
-import { dialogs, isKids, nav, openDialog } from "./store";
+import { dialogs, isKids, nav, openDialog, profile } from "./store";
+import { readSeen, writeSeen } from "./whatsnewSeen";
 
-const SEEN_KEY = "utv-changelog-seen";
 /** The pop-up lists this many; the rest are a button away. */
 const SHOW_AT_MOST = 8;
 
+/** The newest change this profile has been shown: each profile gets the pop-up once (#111). */
 export function seenChange(): string | null {
+  const id = profile()?.id;
+  if (!id) return null;
   try {
-    return localStorage.getItem(SEEN_KEY);
+    return readSeen(localStorage, id);
   } catch {
     return null;
   }
 }
 
 export function markChangesSeen(log: Changelog): void {
-  if (!log.latest) return;
+  const id = profile()?.id;
+  if (!id || !log.latest) return;
   try {
-    localStorage.setItem(SEEN_KEY, log.latest);
+    writeSeen(localStorage, id, log.latest);
   } catch {
     // No storage: it shows again next time, which is harmless.
   }
@@ -43,8 +47,8 @@ function WhatsNewDialog(props: { entries: ChangeEntry[]; close: (all?: boolean) 
           {(e) => (
             <button class="whatsnew-item" data-focus>
               <strong>{e.title}</strong>
-              <Show when={e.text}>
-                <span>{e.text}</span>
+              <Show when={e.household ?? e.text}>
+                {(words) => <span>{words()}</span>}
               </Show>
             </button>
           )}
@@ -64,10 +68,15 @@ function WhatsNewDialog(props: { entries: ChangeEntry[]; close: (all?: boolean) 
 
 let showing = false;
 let checkedAt = 0;
+let checkedFor: string | null = null;
 
-/** Pops up what's new once, on Home, when nothing else is on screen. */
+/** Pops up what's new once per profile, on Home, when nothing else is on screen. */
 async function check(): Promise<void> {
-  if (showing || isKids() || Date.now() - checkedAt < 10 * 60_000) return;
+  const id = profile()?.id ?? null;
+  if (!id || showing || isKids()) return;
+  // Each profile is asked separately: switching profiles asks again at once.
+  if (checkedFor === id && Date.now() - checkedAt < 10 * 60_000) return;
+  checkedFor = id;
   checkedAt = Date.now();
   const log = await hub.changelog().catch(() => null);
   if (!log?.latest) return;
@@ -86,10 +95,11 @@ async function check(): Promise<void> {
 }
 
 export function startWhatsNew(): void {
+  // Home, and again when another profile picks up the remote.
   createEffect(
     on(
-      () => nav.current().name === "home",
-      (home) => {
+      () => [nav.current().name === "home", profile()?.id] as const,
+      ([home]) => {
         if (home) void check();
       },
     ),

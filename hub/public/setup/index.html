@@ -1199,7 +1199,8 @@ async function loadNews(all) {
     const ul = el("ul", { className: "news" });
     for (const e of r.entries) {
       const prs = e.prs.map((n) => el("a", { href: `https://github.com/gazoscalvertos/UltimateTV/pull/${n}`, target: "_blank", rel: "noopener", textContent: ` #${n}` }));
-      ul.append(el("li", { className: fresh.has(e.id) ? "new" : "" }, el("b", { textContent: e.title }), ...prs, e.text ? el("small", { textContent: e.text }) : null));
+      const words = e.household || e.text;
+      ul.append(el("li", { className: fresh.has(e.id) ? "new" : "" }, el("b", { textContent: e.title }), ...prs, words ? el("small", { textContent: words }) : null));
     }
     list.append(ul);
   }
