@@ -10,6 +10,8 @@ import type { HubContext } from "./context.js";
 const RECENT = 10;
 
 export class HomeAssistant {
+  /** Called whenever the TV reports: a phone waiting on `/api/remote/now` hears it (see phonenow.ts). */
+  onState: ((state: HaState) => void) | null = null;
   private last: TvPlayState | null = null;
   private reportedAt: number | null = null;
   private recent: (HaEvent & { sent?: boolean; error?: string })[] = [];
@@ -43,6 +45,12 @@ export class HomeAssistant {
     this.last = next;
     this.reportedAt = now;
     for (const e of events) void this.send(e);
+    // Phones waiting for the TV's state hear it now. A broken listener must never 500 the TV's report.
+    try {
+      this.onState?.(this.state());
+    } catch {
+      // Nothing to do: the report itself succeeded, which is what the TV app asked about.
+    }
     return events;
   }
 

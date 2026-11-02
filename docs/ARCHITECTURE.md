@@ -88,6 +88,8 @@ The box holds no household state, so a new one only needs the installer and the 
 
 **Films and TV.** `library.ts` merges a title's Jellyfin item, IPTV VOD entries and addon streams. `ranking.ts` orders them (library first, then quality). Jellyfin plays direct from Jellyfin; IPTV VOD goes through the Hub's proxy so it holds a lease; TorBox links play direct. Resume points go back to the Hub and to Jellyfin.
 
+**Following what's playing.** `GET /api/remote/now?since=<seq>&wait=<ms>` answers a paired phone with the TV's play state, and the Hub holds the request open until it changes (25 s at most) rather than the phone asking again and again. It is the same state the Hub reports to Home Assistant, so the Android app's notification, Quick Settings tile and home-screen widget show what Home Assistant sees. `POST /api/ha/state` is what makes it change.
+
 **Remote keys.** CEC keys arrive on the box as ordinary key presses. The phone remote sends `POST /api/remote/key`; the Hub checks the phone is paired and pushes the key to the TV over `/api/events`. Richer phone actions (Watch, Now Playing, Save, queue) are calls into the TV app: `POST /api/tv/call/:method` becomes a `tv.call` event, and the TV answers on `/api/tv/reply/:id`.
 
 **Events.** `/api/events` is a websocket that only the TV may open. The Hub uses it for keys, pop-ups, breaking news, scares, settings and queue changes, recording updates and update status.

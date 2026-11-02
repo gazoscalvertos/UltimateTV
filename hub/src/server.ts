@@ -39,6 +39,7 @@ import { cleanSelfTestReport } from "./selftest.js";
 import { phoneReachable } from "./lan.js";
 import { Library, NotAllowedError } from "./library.js";
 import { Pairing, PairingError } from "./pairing.js";
+import { PhoneNow, registerPhoneNow } from "./phonenow.js";
 import { ClientFeatures } from "./features.js";
 import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
@@ -136,6 +137,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/remote/key", "script"],
     ["POST /api/remote/text", "script"],
     ["POST /api/remote/voice", "paired"],
+    ["GET /api/remote/now", "paired"],
     ["POST /api/flash", "script"],
     ["DELETE /api/flash", "script"],
     ["POST /api/notify", "script"],
@@ -960,7 +962,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ok: true };
   });
   // Home Assistant both ways: the TV as a media player, and playback events to a webhook (see homeassistant.ts).
+  const phoneNow = new PhoneNow();
   const homeAssistant = new HomeAssistant(ctx, () => tvSockets > 0);
+  // A phone waits here for the TV's playback state rather than asking over and over (issue #109).
+  homeAssistant.onState = () => phoneNow.bump();
+  registerPhoneNow(app, { now: phoneNow, state: () => homeAssistant.state() });
   registerHomeAssistant(app, homeAssistant, { callTv, tvConnected: () => tvSockets > 0, hubBase });
 
   // Recent searches, per profile. The phone remote knows no profile, so it asks for the TV's.

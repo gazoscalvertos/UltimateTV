@@ -28,6 +28,28 @@ top. Moving from 0.1 or 0.2 to 0.3 needs the old app uninstalled first, once.
 
 To point it at a different Hub later, use **Change Hub** at the bottom of the remote.
 
+## From the shade and the home screen
+
+The Android app puts the TV on the phone itself, so it can be paused without opening anything
+(from 0.7.0):
+
+- **In the phone's notifications** while the TV is playing: the title, the year or episode, the
+  picture, and how far through it is, with Pause, Back 30 seconds, Forward a minute and Back. A
+  live channel gets Channel − and Channel + instead of skipping. It goes away when the TV stops,
+  and it shows on the lock screen if the phone shows notifications there. Android 13+ asks once
+  for permission to post notifications; without it the tile and the widget still work.
+- **In Quick Settings**: add the **TV Remote** tile and tapping it plays or pauses. It reads
+  "Pause" while something is playing and "Play" otherwise, and says what the TV is playing in its
+  description.
+- **On the home screen**: the **TV Remote** widget, which resizes. A small one is the title plus
+  Play/Pause, Back and Home; a bigger one adds the d-pad with OK and the four colour keys. Tapping
+  the title opens the remote.
+
+None of them poll: the Hub holds one request open until the TV's state changes, so a phone that
+isn't playing anything has nothing of ours running at all, and one idle request waits on the Hub
+until the TV starts. The TV's state comes from the same report the Hub sends Home Assistant, so
+what the shade shows and what Home Assistant sees agree.
+
 ## Sideways
 
 Turn the phone on its side and the remote turns with it (the web app and the Android app from

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The full-size widget: what's playing on top, then the d-pad, OK, Back, Home and the four keys. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#CC0B1220"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/widget_now"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:text="TV remote" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/widget_up"
+                style="@style/WidgetKey"
+                android:text="▲" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/widget_left"
+                    style="@style/WidgetKey"
+                    android:text="◀" />
+
+                <TextView
+                    android:id="@+id/widget_ok"
+                    style="@style/WidgetKey"
+                    android:text="OK" />
+
+                <TextView
+                    android:id="@+id/widget_right"
+                    style="@style/WidgetKey"
+                    android:text="▶" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_down"
+                style="@style/WidgetKey"
+                android:text="▼" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/widget_play"
+                style="@style/WidgetKey"
+                android:text="Pause" />
+
+            <TextView
+                android:id="@+id/widget_back"
+                style="@style/WidgetKey"
+                android:text="Back" />
+
+            <TextView
+                android:id="@+id/widget_home"
+                style="@style/WidgetKey"
+                android:text="Home" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="4">
+
+        <TextView
+            android:id="@+id/widget_red"
+            style="@style/WidgetDot"
+            android:background="#E53935" />
+
+        <TextView
+            android:id="@+id/widget_green"
+            style="@style/WidgetDot"
+            android:background="#43A047" />
+
+        <TextView
+            android:id="@+id/widget_yellow"
+            style="@style/WidgetDot"
+            android:background="#FDD835" />
+
+        <TextView
+            android:id="@+id/widget_blue"
+            style="@style/WidgetDot"
+            android:background="#1E88E5" />
+    </LinearLayout>
+</LinearLayout>
