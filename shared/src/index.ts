@@ -20,3 +20,4 @@ export * from "./segments.js";
 export * from "./accessibility.js";
 export * from "./features.js";
 export * from "./homerows.js";
+export * from "./kidsallow.js";

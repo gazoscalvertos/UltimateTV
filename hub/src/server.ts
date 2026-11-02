@@ -42,7 +42,7 @@ import { ClientFeatures } from "./features.js";
 import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
 import { guestBlocks } from "./guest.js";
-import { ContentFilter } from "./profiles.js";
+import { ContentFilter, certificationRank } from "./profiles.js";
 import { ReportStore } from "./reports.js";
 import { JellyfinClient } from "./services/jellyfin.js";
 import { publicSettings, sourceKey } from "./settings.js";
@@ -55,6 +55,8 @@ import { VideoOnly } from "./tsfilter.js";
 import { HostMonitor } from "@ultimatetv/shared/host";
 import { parseVoice } from "./voice.js";
 import { KidsTime, LimitError, registerKidsTime } from "./kidstime.js";
+import { registerKidsAllow } from "./kidsallowroutes.js";
+import { kidsAllowLookup, NO_KIDS_ALLOW_LOOKUP } from "@ultimatetv/shared";
 
 export interface ServerDeps {
   /** Overridable in tests so they don't shell out to ffmpeg/vainfo. */
@@ -246,7 +248,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       return typeof v === "string" && v ? v : undefined;
     };
     const who = ctx.profiles.resolve(header("x-profile"), header("x-profile-token"));
-    return { ...who, filter: new ContentFilter(who.profile, favourites.channelSet(who.profile?.id ?? null)) };
+    const allow = who.profile?.kind === "kids" ? kidsAllowLookup(ctx.kidsAllow.list(who.profile.id)) : NO_KIDS_ALLOW_LOOKUP;
+    return { ...who, filter: new ContentFilter(who.profile, favourites.channelSet(who.profile?.id ?? null), allow) };
   };
   const filterOf = (req: FastifyRequest) => viewer(req).filter;
   /** The Android client names itself ("phone:<id>") so it can share the IPTV connection politely. */
@@ -258,6 +261,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   const ADMIN_ROUTES = new Set([
     "PUT /api/settings",
     "PUT /api/features/:id",
+    "PATCH /api/kids-allow/:id",
+    "DELETE /api/kids-allow/:id/:kind/:titleId",
     "POST /api/settings/iptv",
     "DELETE /api/settings/iptv/:id",
     "POST /api/refresh",
@@ -663,6 +668,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // Kids profiles' daily allowance and bedtime (see kidstime.ts).
   const kidsTime = new KidsTime({ db: ctx.db, profiles: ctx.profiles, alertSettings: () => alerts.settings(), appName: () => ctx.settings.get().appName || "UltimateTV", fetchImpl: ctx.fetchImpl, warn: (msg, err) => ctx.log.warn({ err: String(err) }, msg) });
   registerKidsTime(app, kidsTime, ctx.profiles, viewer);
+  // The limiter only keeps live counts; the summary wants the week's lockouts (#110).
+  ctx.profiles.pinLimiter.onLockout = (id, minutes, at) => ctx.kidsLockouts.add(id, minutes, at);
+  // A parent's allow/block list and the weekly viewing summary (see kidsallow.ts, kidsviewing.ts).
+  registerKidsAllow(app, { allow: ctx.kidsAllow, viewing: ctx.kidsViewing, time: kidsTime, lockouts: ctx.kidsLockouts, profiles: ctx.profiles, viewer });
   // The forecast for Home, the top bar and the screensaver (see weather.ts).
   const weather = new Weather(ctx, config.demo);
   registerWeather(app, ctx, weather);
@@ -1263,7 +1272,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     // `at` is when it was watched, for a phone sending on what it played offline (#80): the newest
     // timestamp wins when Jellyfin moved on somewhere else in the meantime. A Guest's report is
     // accepted and dropped, so nothing is written here and Jellyfin is never told (#101).
-    const guest = viewer(req).profile?.kind === "guest";
+    const who = viewer(req);
+    const guest = who.profile?.kind === "guest";
+    // A Kids profile's titles are jotted down for the parent's weekly summary (#110). The key says
+    // what was played even when the player didn't send a title with it.
+    if (who.profile?.kind === "kids" && b.title) {
+      ctx.kidsViewing.record(who.profile.id, { id: b.title.id, kind: b.title.kind, name: b.title.name });
+    }
     await playback.report(b.key, b.positionMs, b.durationMs, b.event ?? "progress", b.paused ?? false, b.title, b.at, !guest);
     return { ok: true };
   });
@@ -1461,6 +1476,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     favourites.forget(req.params.id);
     ctx.continueHidden.forget(req.params.id);
     ctx.homeRows.forget(req.params.id);
+    // A deleted Kids profile takes its parent's lists and its viewing history with it (#110).
+    ctx.kidsAllow.forget(req.params.id);
+    ctx.kidsViewing.forget(req.params.id);
+    ctx.kidsLockouts.forget(req.params.id);
     ctx.events.emit({ type: "profiles.changed" });
     return { ok: true };
   });

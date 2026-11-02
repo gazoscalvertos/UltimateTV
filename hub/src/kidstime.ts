@@ -6,7 +6,7 @@
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { AlertSettings, KidsLimits, KidsTimeStatus, Profile } from "@ultimatetv/shared";
-import { hasKidsLimits, KIDS_EXTRA_TIME } from "@ultimatetv/shared";
+import { hasKidsLimits, KIDS_EXTRA_TIME, KIDS_VIEWING_KEEP_DAYS } from "@ultimatetv/shared";
 import { deliver } from "./alerts.js";
 import type { Db } from "./db.js";
 import type { ProfileStore } from "./profiles.js";
@@ -45,6 +45,11 @@ interface Passes {
 interface Stored {
   days: Record<string, DayRecord>;
   passes: Record<string, Passes>;
+  /**
+   * Which minutes were watched on which day, per profile, kept for the weekly summary after the
+   * day's own record has rolled over at midnight. Older than KIDS_VIEWING_KEEP_DAYS is dropped.
+   */
+  used?: Record<string, Record<string, number>>;
 }
 
 /** The local date as YYYY-MM-DD: the allowance resets at midnight on the Hub's clock. */
@@ -139,7 +144,7 @@ export class KidsTime {
 
   private load(): Stored {
     const s = this.deps.db.getKv<Stored>("kids-time");
-    return { days: s?.days ?? {}, passes: s?.passes ?? {} };
+    return { days: s?.days ?? {}, passes: s?.passes ?? {}, used: s?.used ?? {} };
   }
 
   private save(s: Stored): void {
@@ -184,11 +189,33 @@ export class KidsTime {
     if (profile.kind !== "kids") return this.status(profile, now);
     const s = this.load();
     const rec = this.day(s, profile.id, now);
-    if (rec.lastPlayingAt && now > rec.lastPlayingAt && now - rec.lastPlayingAt <= MAX_GAP_MS) rec.usedMs += now - rec.lastPlayingAt;
+    if (rec.lastPlayingAt && now > rec.lastPlayingAt && now - rec.lastPlayingAt <= MAX_GAP_MS) {
+      const gained = now - rec.lastPlayingAt;
+      rec.usedMs += gained;
+      // Kept apart from the day's record, which starts again at midnight, so a parent can see the week.
+      const used = (s.used ??= {});
+      const days = (used[profile.id] ??= {});
+      days[rec.day] = (days[rec.day] ?? 0) + gained;
+    }
     if (playing) rec.lastPlayingAt = now;
     else delete rec.lastPlayingAt;
+    this.trimUsed(s, now);
     this.save(s);
     return this.status(profile, now);
+  }
+
+  /** How much was watched on each of the last KIDS_VIEWING_KEEP_DAYS, per profile, for the weekly summary. */
+  usedByDay(profileId: string): Map<string, number> {
+    const days = this.load().used?.[profileId] ?? {};
+    return new Map(Object.entries(days).filter(([, ms]) => typeof ms === "number" && Number.isFinite(ms) && ms > 0));
+  }
+
+  private trimUsed(s: Stored, now: number): void {
+    if (!s.used) return;
+    const oldest = dayKey(now - KIDS_VIEWING_KEEP_DAYS * 86_400_000);
+    for (const days of Object.values(s.used)) {
+      for (const day of Object.keys(days)) if (day < oldest) delete days[day];
+    }
   }
 
   /** Throws when the profile's time is up, so nothing new starts. */

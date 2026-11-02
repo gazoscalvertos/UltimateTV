@@ -726,6 +726,8 @@ export type HubEvent =
   | { type: "recording.finished"; recording: Recording }
   | { type: "downloads.changed"; download: Download }
   | { type: "guide.updated" }
+  /** A parent changed what a Kids profile may see by hand (issue #110): fetch the lists again. */
+  | { type: "kids.allow.changed"; profileId: string }
   /** A music video channel changed: videos downloaded or removed, or the channel edited. */
   | { type: "mix.changed"; channelId?: Id }
   | { type: "reminder"; reminder: Reminder }

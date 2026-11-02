@@ -20,6 +20,9 @@ import { NextAirings } from "./nextairing.js";
 import { ProfileStore } from "./profiles.js";
 import { ContinueHidden } from "./continuehide.js";
 import { HomeRows } from "./homerows.js";
+import { KidsAllow } from "./kidsallow.js";
+import { KidsViewing } from "./kidsviewing.js";
+import { KidsLockoutLog } from "./kidslockouts.js";
 import { drainQueue, JellyfinProgressQueue, type DrainResult } from "./jfprogress.js";
 import { ProgressStore } from "./progress.js";
 import { PlayQueue } from "./queue.js";
@@ -75,6 +78,12 @@ export class HubContext {
   readonly continueHidden: ContinueHidden;
   /** Which Home rows each profile shows, and in what order (#99). */
   readonly homeRows: HomeRows;
+  /** A parent's allow/block list per Kids profile (issue #110). */
+  readonly kidsAllow: KidsAllow;
+  /** What each Kids profile played, day by day, for the weekly summary (issue #110). */
+  readonly kidsViewing: KidsViewing;
+  /** PIN lockouts, kept for the weekly summary (issue #110). */
+  readonly kidsLockouts: KidsLockoutLog;
   /** Jellyfin places saved while Jellyfin could not be reached (#80). */
   readonly jellyfinProgress: JellyfinProgressQueue;
   /** When a saved title is next on TV, matched against the guide (#74). */
@@ -114,6 +123,9 @@ export class HubContext {
     this.progress = new ProgressStore(this.db);
     this.continueHidden = new ContinueHidden(this.db, this.events);
     this.homeRows = new HomeRows(this.db, this.events);
+    this.kidsAllow = new KidsAllow(this.db, this.events);
+    this.kidsViewing = new KidsViewing(this.db);
+    this.kidsLockouts = new KidsLockoutLog(this.db);
     this.jellyfinProgress = new JellyfinProgressQueue(this.db);
     this.nextAirings = new NextAirings(this.guide, this.channels);
     this.queue = new PlayQueue(this.db, this.events);

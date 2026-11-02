@@ -101,3 +101,26 @@ describe("the Home rows section of the phone's settings page", () => {
     expect(page).toContain('<option value="guest">Guest</option>');
   });
 });
+
+describe("the Kids allow-list and weekly summary on the phone's settings page", () => {
+  it("shows both lists and the week for each Kids profile", () => {
+    // A Kids profile's row grows the two lists and the seven days, so a parent never has to sign
+    // into Home Assistant or the TV to see what was on.
+    expect(page).toContain("Allowed even when the rating says no");
+    expect(page).toContain("Hidden even when the rating says yes");
+    expect(page).toContain("This week:");
+    expect(page).toContain("PIN lockouts this week:");
+  });
+
+  it("calls only routes that exist", () => {
+    expect(page).toContain("api(\"/api/kids-allow\"");
+    expect(page).toContain("method: \"PATCH\", body: { side, id:");
+    expect(page).toContain("method: \"DELETE\"");
+    expect(page).toContain("/api/kids-summary");
+    expect(routes.has("GET /api/kids-allow")).toBe(true);
+    expect(routes.has("PATCH /api/kids-allow/:id")).toBe(true);
+    expect(routes.has("DELETE /api/kids-allow/:id/:kind/:titleId")).toBe(true);
+    expect(routes.has("GET /api/kids-summary")).toBe(true);
+    expect(routes.has("GET /api/kids-summary/:id")).toBe(true);
+  });
+});

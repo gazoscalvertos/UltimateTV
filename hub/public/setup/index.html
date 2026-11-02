@@ -569,9 +569,78 @@ function kidsLimitsBox(p, status) {
   return box;
 }
 
+// What a parent has allowed or blocked for a Kids profile (#110), and the week they watched.
+const KIDS_KIND_NAMES = { movie: "Film", series: "Series", channel: "Channel" };
+function kidsAllowBox(p, list, summary) {
+  const box = document.createElement("div");
+  box.className = "kids-limits";
+  const remove = async (kind, id) => {
+    try { await api(`/api/kids-allow/${encodeURIComponent(p.id)}/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`, { method: "DELETE" }); toast("Back to its rating"); loadProfiles(); } catch (e) { toast(e.message, true); }
+  };
+  const add = async (side) => {
+    const name = prompt(side === "allow" ? `What may ${p.name} watch? (a film, series or channel name)` : `What should ${p.name} not watch?`);
+    if (!name || !name.trim()) return;
+    const kind = (prompt("Is it a film, a series or a channel?", "film") || "film").trim().toLowerCase();
+    const kindName = kind.startsWith("ser") ? "series" : kind.startsWith("ch") ? "channel" : "movie";
+    try {
+      await api(`/api/kids-allow/${encodeURIComponent(p.id)}`, { method: "PATCH", body: { side, id: `name:${name.trim().toLowerCase()}`, kind: kindName, name: name.trim() } });
+      toast(side === "allow" ? `${name.trim()} is allowed for ${p.name}` : `${name.trim()} is hidden from ${p.name}`);
+      loadProfiles();
+    } catch (e) { toast(e.message, true); }
+  };
+  const heading = (text, entries, side) => {
+    const wrap = document.createElement("div");
+    const h = document.createElement("p");
+    h.className = "hint";
+    h.textContent = text;
+    wrap.append(h);
+    const ul = document.createElement("ul");
+    ul.className = "list";
+    for (const e of entries) {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent = `${KIDS_KIND_NAMES[e.kind] || e.kind}: ${e.name}`;
+      const del = button(side === "allow" ? "Stop allowing" : "Stop hiding", "secondary", () => remove(e.kind, e.id));
+      li.append(label, del);
+      ul.append(li);
+    }
+    if (!entries.length) { const li = document.createElement("li"); li.className = "hint"; li.textContent = side === "allow" ? "Nothing allowed by hand yet." : "Nothing hidden by hand yet."; ul.append(li); }
+    wrap.append(ul);
+    const more = document.createElement("div");
+    more.className = "actions";
+    more.append(button(side === "allow" ? "Allow something" : "Hide something", "secondary", () => add(side)));
+    wrap.append(more);
+    return wrap;
+  };
+  box.append(heading("Allowed even when the rating says no", list.allow, "allow"), heading("Hidden even when the rating says yes", list.block, "block"));
+  if (summary) {
+    const week = document.createElement("p");
+    week.className = "hint";
+    const days = summary.days.filter((d) => d.minutes > 0 || d.titles.length);
+    week.textContent = days.length ? `This week: ${hoursLabel(summary.totalMinutes)} watched over ${days.length} day${days.length === 1 ? "" : "s"}.` : "This week: nothing watched yet.";
+    box.append(week);
+    for (const d of days) {
+      const line = document.createElement("p");
+      line.className = "hint";
+      const names = d.titles.map((t) => t.name).join(", ");
+      line.textContent = `${d.day}: ${hoursLabel(d.minutes)}${names ? ` — ${names}` : ""}`;
+      box.append(line);
+    }
+    if (summary.lockouts.length) {
+      const pins = document.createElement("p");
+      pins.className = "hint";
+      pins.textContent = `PIN lockouts this week: ${summary.lockouts.length}.`;
+      box.append(pins);
+    }
+  }
+  return box;
+}
+
 async function loadProfiles() {
   const { profiles, locked } = await api("/api/profiles");
   const times = (await api("/api/kids-time").catch(() => ({ profiles: [] }))).profiles || [];
+  const allows = (await api("/api/kids-allow").catch(() => ({ profiles: [] }))).profiles || [];
+  const summaries = (await api("/api/kids-summary").catch(() => ({ summaries: [] }))).summaries || [];
   $("#profiles-pill").textContent = locked ? "PIN on" : "No PIN";
   $("#profiles-pill").className = "pill" + (locked ? " ok" : "");
   const list = $("#profiles-list");
@@ -608,6 +677,10 @@ async function loadProfiles() {
     }));
     row.append(name, actions);
     if (p.kind === "kids") row.append(kidsLimitsBox(p, times.find((t) => t.profileId === p.id)));
+    if (p.kind === "kids") {
+      const mine = allows.find((a) => a.profileId === p.id);
+      row.append(kidsAllowBox(p, mine ? mine.list : { allow: [], block: [] }, summaries.find((s) => s.profileId === p.id)));
+    }
     row.append(accessibilityFor(p));
     list.append(row);
   }
