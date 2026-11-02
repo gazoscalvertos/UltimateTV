@@ -202,6 +202,19 @@ export interface AdSkipSettings {
 
 export const DEFAULT_ADSKIP_SETTINGS: AdSkipSettings = { enabled: true, mode: "button" };
 
+/** How the advert search has gone across the recordings, shown in Settings and diagnostics (#73). */
+export interface AdvertScan {
+  /** Recordings where comskip found the breaks. */
+  comskip: number;
+  /** Recordings comskip found nothing in and the ffmpeg fallback found the breaks in instead. */
+  ffmpeg: number;
+  /** Recordings that were looked at and no breaks were found in. */
+  none: number;
+  unavailable: number;
+  pending: number;
+  failed: number;
+}
+
 /**
  * Reads comskip's EDL output ("start end type" in seconds, a line per break) into breaks,
  * dropping anything under 20 seconds (a black frame isn't an advert break) and merging breaks

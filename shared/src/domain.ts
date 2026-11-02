@@ -156,6 +156,8 @@ export interface Recording {
   adBreaks?: AdBreak[];
   /** Where the advert search got to: not run yet, done, failed, or comskip isn't installed. */
   adScan?: "pending" | "done" | "failed" | "unavailable";
+  /** Which detector found the breaks: comskip, or ffmpeg's black frames and silence as a fallback (#73). */
+  adScanMethod?: "comskip" | "ffmpeg";
 }
 
 export type ChannelScope = "this" | "any";

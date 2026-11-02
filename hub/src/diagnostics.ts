@@ -7,7 +7,7 @@
 import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { redactUrls, type BoxDiagnostics, type PlaybackSample } from "@ultimatetv/shared";
+import { redactUrls, type AdvertScan, type BoxDiagnostics, type PlaybackSample } from "@ultimatetv/shared";
 
 const MAX_LINES = 1000;
 
@@ -218,9 +218,17 @@ function sampleLine(s: PlaybackSample, prev?: PlaybackSample): string {
 }
 
 /** The whole picture as plain text, newest playback samples and log lines last. */
-export function renderDiagnostics(hub: { version: string; commit?: string; builtAt?: string; uptimeS: number; log: string[] }, box: StoredBoxReport | null): string {
+export function renderDiagnostics(
+  hub: { version: string; commit?: string; builtAt?: string; uptimeS: number; log: string[]; advertScan?: AdvertScan },
+  box: StoredBoxReport | null,
+): string {
   const out: string[] = [];
-  out.push("== Hub ==", `version ${hub.version}${hub.commit ? ` (${hub.commit.slice(0, 7)})` : ""}${hub.builtAt ? ` built ${hub.builtAt}` : ""} · up ${Math.round(hub.uptimeS / 60)} min`, "");
+  out.push("== Hub ==", `version ${hub.version}${hub.commit ? ` (${hub.commit.slice(0, 7)})` : ""}${hub.builtAt ? ` built ${hub.builtAt}` : ""} · up ${Math.round(hub.uptimeS / 60)} min`);
+  if (hub.advertScan) {
+    const a = hub.advertScan;
+    out.push(`adverts: ${a.comskip} by comskip · ${a.ffmpeg} by ffmpeg · ${a.none} with none${a.unavailable ? ` · ${a.unavailable} without comskip` : ""}${a.failed ? ` · ${a.failed} failed` : ""}${a.pending ? ` · ${a.pending} to look at` : ""}`);
+  }
+  out.push("");
   if (!box) {
     out.push("== Box ==", "No report from the box yet (it sends one a few seconds after starting, and every 30 s while playing).", "");
   } else {

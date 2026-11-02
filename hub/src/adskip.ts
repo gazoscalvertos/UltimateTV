@@ -10,7 +10,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { DEFAULT_ADSKIP_SETTINGS, parseEdl, type AdSkipSettings, type Recording } from "@ultimatetv/shared";
+import { DEFAULT_ADSKIP_SETTINGS, parseEdl, type AdBreak, type AdSkipSettings, type AdvertScan, type Recording } from "@ultimatetv/shared";
+import { breaksFromBlackAndSilence, detectArgs, detectAudioArgs, FALLBACK_MIN_RECORDING_MS, parseBlackdetect, parseSilencedetect } from "./adbreaks.js";
 import type { HubContext } from "./context.js";
 import type { Db } from "./db.js";
 import { spawnRun, type Run } from "./ytdlp.js";
@@ -71,6 +72,7 @@ export class AdSkipper {
     private readonly ctx: HubContext,
     private readonly dataDir: string,
     run?: Run,
+    private readonly ffmpeg: Run = spawnRun(process.env.FFMPEG_PATH || "ffmpeg"),
   ) {
     this.run = run ?? spawnRun(process.env.COMSKIP_PATH || "comskip");
   }
@@ -90,6 +92,25 @@ export class AdSkipper {
   /** Whether comskip is installed, once it has been tried. */
   installed(): boolean | null {
     return this.available;
+  }
+
+  /**
+   * How the advert search has gone across every recording, for diagnostics: which detector found
+   * the breaks, and how many recordings nothing was found in (#73).
+   */
+  summary(): AdvertScan {
+    const out = { comskip: 0, ffmpeg: 0, none: 0, unavailable: 0, pending: 0, failed: 0 };
+    for (const r of this.ctx.recordings.list()) {
+      if (r.adScan === "pending") out.pending++;
+      else if (r.adScan === "failed") out.failed++;
+      else if (r.adScan === "unavailable") out.unavailable++;
+      else if (r.adScan === "done") {
+        if (!r.adBreaks?.length) out.none++;
+        else if (r.adScanMethod === "ffmpeg") out.ffmpeg++;
+        else out.comskip++;
+      }
+    }
+    return out;
   }
 
   start(): void {
@@ -155,9 +176,17 @@ export class AdSkipper {
         return this.save(this.ctx.recordings.get(id) ?? r, { adScan: "failed" });
       }
       const edl = path.join(out, `${path.basename(r.path, path.extname(r.path))}.edl`);
-      const breaks = parseEdl(await readFile(edl, "utf8").catch(() => ""));
-      this.ctx.log.info({ recording: id, breaks: breaks.length }, "Advert breaks found");
-      return this.save(this.ctx.recordings.get(id) ?? r, { adScan: "done", adBreaks: breaks });
+      const found = parseEdl(await readFile(edl, "utf8").catch(() => ""));
+      // comskip found nothing: on a long recording, ask ffmpeg before giving up (#73).
+      if (!found.length) {
+        const guessed = await this.fallback(r);
+        if (guessed.length) {
+          this.ctx.log.info({ recording: id, breaks: guessed.length, method: "ffmpeg" }, "Advert breaks found by the ffmpeg fallback");
+          return this.save(this.ctx.recordings.get(id) ?? r, { adScan: "done", adBreaks: guessed, adScanMethod: "ffmpeg" });
+        }
+      }
+      this.ctx.log.info({ recording: id, breaks: found.length, method: "comskip" }, "Advert breaks found");
+      return this.save(this.ctx.recordings.get(id) ?? r, { adScan: "done", adBreaks: found, adScanMethod: "comskip" });
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") {
         this.available = false;
@@ -170,12 +199,35 @@ export class AdSkipper {
       await rm(out, { recursive: true, force: true }).catch(() => undefined);
     }
   }
+
+  /**
+   * The fallback when comskip finds nothing (#73): ffmpeg reports the black frames and the silence,
+   * and the stretches that look like an advert break are kept. Only worth the time on a long
+   * recording, and a failure here must not lose the recording: it just means no breaks.
+   */
+  private async fallback(r: Recording): Promise<AdBreak[]> {
+    if (!r.path || r.end - r.start < FALLBACK_MIN_RECORDING_MS) return [];
+    const opts = { timeoutMs: TIMEOUT_MS };
+    try {
+      const video = await this.ffmpeg(detectArgs(r.path), opts);
+      const audio = await this.ffmpeg(detectAudioArgs(r.path), opts);
+      // ffmpeg exits 0 for a scan that found nothing; anything else means it didn't run.
+      if (video.code !== 0 || audio.code !== 0) {
+        this.ctx.log.warn({ code: video.code, audioCode: audio.code, err: (video.stderr || audio.stderr).slice(-500) }, "The ffmpeg advert fallback didn't finish");
+        return [];
+      }
+      return breaksFromBlackAndSilence(parseBlackdetect(video.stderr), parseSilencedetect(audio.stderr));
+    } catch (err) {
+      this.ctx.log.warn({ err: String(err) }, "The ffmpeg advert fallback failed");
+      return [];
+    }
+  }
 }
 
 export async function registerAdSkip(app: FastifyInstance, skipper: AdSkipper, dataDir: string): Promise<void> {
   await mkdir(dataDir, { recursive: true });
   type Req<B> = FastifyRequest<{ Body: B; Params: { id: string } }>;
-  const state = () => ({ settings: skipper.settings(), installed: skipper.installed() });
+  const state = () => ({ settings: skipper.settings(), installed: skipper.installed(), advertScan: skipper.summary() });
   app.get("/api/adskip", async () => state());
   app.put("/api/adskip", async (req: Req<Partial<AdSkipSettings>>) => {
     skipper.saveSettings(req.body ?? {});

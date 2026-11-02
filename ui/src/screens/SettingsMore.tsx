@@ -3,7 +3,7 @@
 // Typing an address on the TV is slow, so the alert URLs can be set from the phone too.
 
 import { createResource, createSignal, For, Show } from "solid-js";
-import type { FeatureId, AlertSettings, ProjectionSettings, SeasonId, WeatherSettings } from "@ultimatetv/shared";
+import type { AdvertScan, FeatureId, AlertSettings, ProjectionSettings, SeasonId, WeatherSettings } from "@ultimatetv/shared";
 import { daysFromNow, formatBytes, householdChanges, releaseLabel, SEASONS } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { canCast, castSettings, castState, refreshCast, saveCastSettings, setAirplay, shareUrl } from "../cast";
@@ -95,6 +95,17 @@ function HaRows() {
   );
 }
 
+/** The advert-search counts in a few words, or nothing until a recording has been looked at (#73). */
+export function scanWords(scan: AdvertScan | undefined): string | null {
+  if (!scan) return null;
+  const parts = [
+    scan.comskip ? `${scan.comskip} by comskip` : "",
+    scan.ffmpeg ? `${scan.ffmpeg} by ffmpeg` : "",
+    scan.none ? `${scan.none} with none` : "",
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 /** Advert skipping, under Settings › Recording. */
 export function AdvertRows() {
   const [ads, { mutate }] = createResource(() => hub.adskip().catch(() => null));
@@ -111,6 +122,9 @@ export function AdvertRows() {
           />
           <Show when={a().settings.enabled}>
             <Row label="Adverts in a recording" hint="Like Skip intro: a button, or straight past them" value={a().settings.mode === "auto" ? "Skip them" : "Show a Skip button"} onSelect={() => save({ mode: a().settings.mode === "auto" ? "button" : "auto" })} />
+            <Show when={scanWords(a().advertScan)}>
+              {(words) => <Row label="How the breaks were found" hint="comskip first; when it finds nothing in a long recording, ffmpeg looks for black frames and silence" value={words()} />}
+            </Show>
           </Show>
         </>
       )}
