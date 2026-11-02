@@ -25,7 +25,7 @@ export const FEATURES: FeatureInfo[] = [
   { id: "live", label: "Live TV and guide", detail: "The TV Guide, live channels on Home, channel up/down and the Guide button.", clients: ALL },
   { id: "films", label: "Films", detail: "The Films tab and films on Home.", clients: ALL },
   { id: "shows", label: "TV shows", detail: "The TV Shows tab and series on Home.", clients: ALL },
-  { id: "music", label: "Music", detail: "The Music tab (Spotify and Deezer).", clients: [...SCREENS, "remote"] },
+  { id: "music", label: "Music", detail: "The Music tab (Spotify, Deezer, radio and podcasts).", clients: [...SCREENS, "remote"] },
   { id: "recordings", label: "Recordings", detail: "The Recordings tab, recordings on Home and the red-key shortcut.", clients: ALL },
   { id: "downloads", label: "Downloads", detail: "Programmes downloaded to this box or phone to watch away from home, and their tab.", clients: ALL },
   { id: "search", label: "Search", detail: "The search button and the yellow-key shortcut.", clients: ALL },
