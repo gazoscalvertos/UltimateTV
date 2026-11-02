@@ -56,6 +56,7 @@ import { HostMonitor } from "@ultimatetv/shared/host";
 import { parseVoice } from "./voice.js";
 import { KidsTime, LimitError, registerKidsTime } from "./kidstime.js";
 import { registerKidsAllow } from "./kidsallowroutes.js";
+import { registerRadio } from "./radioroutes.js";
 import { kidsAllowLookup, NO_KIDS_ALLOW_LOOKUP } from "@ultimatetv/shared";
 
 export interface ServerDeps {
@@ -196,6 +197,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     // it is a saved setting, so anything unpaired stays out.
     ["PUT /api/guides/default", "paired"],
     ["POST /api/kids-time/report", "paired"],
+    // Radio and podcasts: subscribing and following a show is something anyone paired can do, but
+    // adding a station to the household's list is a settings change (ADMIN_ROUTES, below).
+    ["POST /api/podcasts", "paired"],
+    ["DELETE /api/podcasts/:id", "paired"],
+    ["POST /api/podcasts/:id/position", "paired"],
     ["POST /api/subtitles/download", "paired"],
     ["DELETE /api/watchlist/:id", "paired"],
     ["POST /api/favourites", "paired"],
@@ -262,6 +268,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "PUT /api/settings",
     "PUT /api/features/:id",
     "PATCH /api/kids-allow/:id",
+    "POST /api/radio",
+    "DELETE /api/radio/:id",
     "DELETE /api/kids-allow/:id/:kind/:titleId",
     "POST /api/settings/iptv",
     "DELETE /api/settings/iptv/:id",
@@ -672,6 +680,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   ctx.profiles.pinLimiter.onLockout = (id, minutes, at) => ctx.kidsLockouts.add(id, minutes, at);
   // A parent's allow/block list and the weekly viewing summary (see kidsallow.ts, kidsviewing.ts).
   registerKidsAllow(app, { allow: ctx.kidsAllow, viewing: ctx.kidsViewing, time: kidsTime, lockouts: ctx.kidsLockouts, profiles: ctx.profiles, viewer });
+  registerRadio(app, { radio: ctx.radio, podcasts: ctx.podcasts, viewer });
   // The forecast for Home, the top bar and the screensaver (see weather.ts).
   const weather = new Weather(ctx, config.demo);
   registerWeather(app, ctx, weather);
@@ -881,9 +890,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   /** Voice control: what the phone heard, turned into keys, a channel or a search. */
   app.post("/api/remote/voice", async (req: Req<Record<string, string>, Record<string, string>, { text?: string }>) => {
     const said = String(req.body?.text ?? "").slice(0, 200);
-    const cmd = parseVoice(said, ctx.channels.list());
+    const cmd = parseVoice(said, ctx.channels.list(), ctx.radio.stations());
     if (cmd.kind === "keys") cmd.actions.forEach((action, i) => setTimeout(() => ctx.events.emit({ type: "remote.key", action }), i * 150));
     if (cmd.kind === "channel") ctx.events.emit({ type: "remote.channel", channelId: cmd.channelId });
+    if (cmd.kind === "radio") ctx.events.emit({ type: "remote.radio", stationId: cmd.stationId });
     if (cmd.kind === "search") ctx.events.emit({ type: "remote.text", text: cmd.text.slice(0, 120) });
     if (cmd.kind === "stats") ctx.events.emit({ type: "box.command", command: "stats", on: cmd.on });
     if (cmd.kind === "reload") ctx.events.emit({ type: "box.command", command: "reload" });
@@ -900,7 +910,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay", "favourite"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "radio", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay", "favourite"]);
   /** Asks the TV app something and waits for its answer (12 s at most). */
   const callTv = (method: TvMethod, args: unknown) =>
     new Promise<{ result?: unknown; error?: string }>((resolve) => {

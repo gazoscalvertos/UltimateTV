@@ -13,6 +13,7 @@ import { favourites, setFavourite } from "./favourites";
 import { haCommand } from "./homeassistant";
 import { music, spotify, spotifySetup, webApp } from "./music";
 import { channels, liveChannelId, nowPlaying, play, playerState } from "./player";
+import { playStationById } from "./radio";
 import { saveEpisodes, saveToNas } from "./save";
 import { sleep, setSleep } from "./sleep";
 import { isKids, nav, profile } from "./store";
@@ -133,6 +134,11 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
   // The phone's Cast sheet: over to the TV's own apps (Netflix and the rest).
   musicLibrary: async (a: { kind: "playlists" | "albums" | "artists"; offset?: number }) => music().spotifyLibrary(a.kind, a.offset ?? 0),
   musicTracks: async (a: { uri: string }) => music().spotifyTracks(a.uri),
+  radio: async (a: { stationId: string }) => {
+    const ok = await playStationById(a.stationId);
+    if (!ok) throw new Error("It didn't start on the TV");
+    return { ok };
+  },
   musicPlay: async (a: { uri: string; skipTo?: string; shuffle?: boolean }) => {
     const opts: { skipTo?: string; shuffle?: boolean } = {};
     if (a.skipTo) opts.skipTo = a.skipTo;
@@ -188,6 +194,7 @@ const METHOD_FEATURES: Partial<Record<TvMethod, FeatureId>> = {
   musicTracks: "music",
   musicPlay: "music",
   musicControl: "music",
+  radio: "music",
   musicStatus: "music",
   musicSetup: "music",
   downloads: "downloads",

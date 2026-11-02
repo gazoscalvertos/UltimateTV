@@ -2,7 +2,7 @@
 
 import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
-import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, Profile, Programme, PublicSettings, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
+import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
 const store = {
   get(key: string): string | null {
@@ -142,6 +142,20 @@ export const hub = {
 
   // Home rows: which rows this profile shows, and in what order (#99).
   homeRows: () => api<HomeRowsView>("/api/home/rows"),
+  // Radio and podcasts (#86). Playing one answers with a PlaybackInfo the TV hands to the box,
+  // so nothing here needs the player to learn a new kind of request.
+  radio: () => api<RadioReply>("/api/radio"),
+  radioNow: (id: string) => api<RadioNow>(`/api/radio/${enc(id)}/now`),
+  radioPlay: (id: string) => api<PlaybackInfo>(`/api/radio/${enc(id)}/play`),
+  addStation: (name: string, url: string) => api<{ station: RadioStation; stations: RadioStation[] }>("/api/radio", { method: "POST", body: { name, url } }),
+  removeStation: (id: string) => api<{ ok: true; stations: RadioStation[] }>(`/api/radio/${enc(id)}`, { method: "DELETE" }),
+  podcasts: () => api<PodcastsReply>("/api/podcasts"),
+  podcast: (id: string) => api<PodcastShowWithEpisodes>(`/api/podcasts/${enc(id)}`),
+  podcastSearch: (q: string) => api<{ results: PodcastSearchResult[] }>(`/api/podcasts/search?q=${enc(q)}`),
+  followPodcast: (feedUrl: string) => api<{ show: PodcastShow; shows: PodcastShow[] }>("/api/podcasts", { method: "POST", body: { feedUrl } }),
+  unfollowPodcast: (id: string) => api<{ ok: true; shows: PodcastShow[] }>(`/api/podcasts/${enc(id)}`, { method: "DELETE" }),
+  podcastPlay: (showId: string, episodeId: string, fromStart = false) => api<PlaybackInfo>(`/api/podcasts/${enc(showId)}/${enc(episodeId)}/play${fromStart ? "?from=start" : ""}`),
+  podcastPosition: (episodeId: string, positionMs: number, durationMs?: number) => api<{ ok: true; resumeFrom: number }>(`/api/podcasts/${enc(episodeId)}/position`, { method: "POST", body: { positionMs, ...(durationMs ? { durationMs } : {}) } }),
   setHomeRows: (body: { order?: HomeRowId[]; hidden?: HomeRowId[]; preset?: "everything" | "simple" }) =>
     api<HomeRowsView>("/api/home/rows", { method: "PATCH", body }),
 

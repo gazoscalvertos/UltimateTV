@@ -22,6 +22,7 @@ import { onAnyKey, onBack, useKeys } from "./keys";
 import { onMouse } from "./mouse";
 import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, starting, cancelStarting, stopPlayback } from "./player";
 import { activeMusic, musicPlayPause, pauseAllMusic, startMusic } from "./music";
+import { radioPauseToggle, radioPlaying } from "./radio";
 import { Browse } from "./screens/Browse";
 import { Details } from "./screens/Details";
 import { Guide } from "./screens/Guide";
@@ -29,6 +30,7 @@ import { GuideEditor } from "./screens/GuideEditor";
 import { Home } from "./screens/Home";
 import { MixChannelScreen } from "./screens/MixChannel";
 import { Music } from "./screens/Music";
+import { PodcastShowScreen } from "./screens/Radio";
 import { MusicList } from "./screens/MusicList";
 import { Planner } from "./screens/Planner";
 import { Player } from "./screens/Player";
@@ -132,6 +134,12 @@ export function App() {
     // Music playing and no video: Play/Pause is the music's, on any screen.
     if (a === "playPause" && !nowPlaying() && activeMusic()) {
       void musicPlayPause();
+      return true;
+    }
+    // Radio and podcasts play through the player but keep the Music tab up, so Play/Pause
+    // belongs to the radio on every screen that isn't the player itself.
+    if (a === "playPause" && radioPlaying() && nav.current().name !== "player") {
+      void radioPauseToggle();
       return true;
     }
     if ((a === "channelUp" || a === "channelDown") && !isLive() && featureOn("live")) {
@@ -317,6 +325,9 @@ export function App() {
           </Match>
           <Match when={(() => { const r = nav.current(); return r.name === "music-list" ? r : null; })()}>
             {(r) => <MusicList item={r().item} />}
+          </Match>
+          <Match when={(() => { const r = nav.current(); return r.name === "podcast" ? r : null; })()}>
+            {(r) => <PodcastShowScreen id={r().id} />}
           </Match>
         </Switch>
       </ErrorBoundary>

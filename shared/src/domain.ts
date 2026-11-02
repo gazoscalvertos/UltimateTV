@@ -740,6 +740,7 @@ export type HubEvent =
   | { type: "remote.text"; text: string }
   /** From phone voice control: switch to a channel, or say what was understood. */
   | { type: "remote.channel"; channelId: string }
+  | { type: "remote.radio"; stationId: string }
   | { type: "remote.said"; text: string }
   /** A news flash typed on the phone, shown along the bottom of the TV over anything; null takes it down. */
   | { type: "flash"; flash: NewsFlash | null }
@@ -878,7 +879,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite";
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "radio" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {
