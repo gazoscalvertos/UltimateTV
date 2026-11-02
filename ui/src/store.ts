@@ -22,7 +22,7 @@ export type Route =
   | { name: "cast" }
   | { name: "weather" };
 
-export type PlannerTab = "recorded" | "scheduled" | "series" | "downloads";
+export type PlannerTab = "recorded" | "scheduled" | "reminders" | "series" | "downloads";
 
 const [stack, setStack] = createSignal<Route[]>([{ name: "profiles" }]);
 

@@ -30,6 +30,8 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **Reminders have a list of their own** ([docs/everyday-extras.md](docs/everyday-extras.md)): Recordings has a Reminders tab, and so does the phone remote, so a reminder set in the TV guide can be seen and taken back without hunting for the programme again. The phone's guide can set one too. (#73)
+  Household: you can see every reminder you've set, and cancel one, on the TV and on a phone.
 - **A title can come off Continue watching** ([docs/FEATURES.md](docs/FEATURES.md)): the Continue watching cards on Home open an Options menu with Resume, Mark as watched and Remove from Continue watching. Remove hides the card for that profile and keeps the progress, so a film abandoned after ten minutes stops sitting at the front of Home; it comes back by itself once it's played again, and a toast offers Undo for a few seconds. Mark as watched finishes it and tells Jellyfin too, so Jellyfin's own resume row goes with it. Both actions are on the phone remote's title sheet as well. (#100)
   Household: a title you gave up on can be taken off Continue watching, with Undo, or marked watched.
 
