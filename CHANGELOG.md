@@ -48,6 +48,16 @@ pop up what's new after an update. So:
   rescan its libraries instead, and says so). (#187)
   Household: a Plex household can now use UltimateTV with the library it already has, without
   running Jellyfin as well.
+- **The remote on an iPhone** ([docs/phone-remote.md](docs/phone-remote.md#on-an-iphone)): the phone
+  remote at `/remote/` is a proper web app now, so an iPhone adds it to the Home Screen with
+  **Share › Add to Home Screen** and gets a full-screen TV Remote with its own icon, its own dark blue
+  splash screen and no address bar. The page carries a manifest, a 180×180 apple-touch-icon and the
+  apple-* tags Safari reads, and shows a one-line banner on an iPhone saying where the button is —
+  dismissible, and never shown once the remote is on the Home Screen. A versioned service worker keeps
+  the page and its icons on the phone, so it opens instantly and still opens on a flaky connection,
+  while everything under `/api/` always goes to the Hub. (#129)
+  Household: an iPhone can keep the remote on its Home Screen like an app, and it opens in a moment
+  even when the Wi-Fi is poor.
 - **A TV app that draws nothing now shows the box's own screen**: the box only watched the Hub, so a
   Hub that answered while the app it sent drew nothing left the TV black with nothing in any log and
   no way out but a restart. The box now looks at what the page drew, reloads it without the cache,

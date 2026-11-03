@@ -76,6 +76,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 ## Phone remote ([phone-remote.md](phone-remote.md))
 
 - **(tested, in daily use)** Works in any phone browser at `/remote/`, or as a small Android app served by the Hub at `/api/remote/app.apk` (with an update banner). TV Settings › Android apps and the phone's settings show QR codes and links for both apps.
+- **(untested on a phone)** An installable web app on an iPhone: `/remote/` carries a manifest, a 180×180 apple-touch-icon and the apple-* tags Safari reads, so **Share › Add to Home Screen** gives a full-screen TV Remote with its own icon, and the page says how the first time an iPhone opens it. A versioned service worker keeps the page and its icons on the phone; `/api/*` is never cached ([phone-remote.md](phone-remote.md#on-an-iphone)).
 - Pairing by scanning the TV's code; only paired phones can control anything ([pairing.md](pairing.md)).
 - Arrows, OK, Back, colour keys, numbers and typing into Search; volume keys change channel in the Android app.
 - **(untested)** Portrait or landscape: sideways it puts the d-pad in the middle, keys either side and the tabs down the edge.
