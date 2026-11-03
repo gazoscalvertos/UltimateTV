@@ -15,7 +15,7 @@ make test       # the tests, anywhere, with no console and no SDK
 make console    # build/ultimatetv.elf, the app
 make tile       # build/PPSA26001/eboot.bin, the installable tile
 make package    # the tile plus icon0.png and param.json
-make install PS5_HOST=192.168.0.42   # copy the tile to a console running its FTP server
+make install PS5_HOST=192.168.0.42   # copy it to a console and register the tile
 make clean
 ```
 
@@ -61,6 +61,7 @@ generated from source. `build/` and `.hosttest/` are gitignored.
 | `src/video.cpp` | A film on screen with its sound: the only SDL_kitchensink in the tree | yes |
 | `src/main.cpp` | The loop: keys in, frames out | yes |
 | `src/eboot.x` | The linker script that gives the app its console process-parameter header | building |
+| `installer/install.c` | The tiny ELF that tells the console's installer the folder is a title | installing |
 | `sce_sys/` | `param.json`, `param.json.system` and the generated `icon0.png` | installing |
 | `test/` | The tests, in `test.hpp`'s own tiny runner | no |
 
@@ -86,6 +87,13 @@ script draws.
 - **Pairing code**: the first screen to ask the Hub is let in with no code. On a console that is
   not the first screen, the Hub answers with a pending request and a four-letter code, and the app
   polls `POST /api/pair/screen/:id` until someone lets it in on the TV.
+- **Files are not a tile.** The console only puts an app on its home screen once the console's
+  own installer (`sceAppInstUtilAppInstallTitleDir`) has been told about the folder, which is why
+  `make install` ends by running `build/installer.elf` over the payload loader. Copying files and
+  rebooting is not enough, and the app's `eboot.bin` goes under `/system_ex/app/<id>/` while the
+  metadata goes under `/user/app/<id>/sce_sys/` — that split is the console's, not ours. The other
+  route is the one most 2026 homebrew uses: drop the folder in `/data/homebrew/` and let
+  ShadowMountPlus register it.
 - **The tile is ET_EXEC, not PIE.** `make_fself.py` refuses a position-independent executable, so
   the tile link uses `-Wl,--no-pie -T src/eboot.x`, and `eboot.x` has to keep the `.eh_frame`
   symbols that libunwind asks for — without them a C++ app cannot link.
