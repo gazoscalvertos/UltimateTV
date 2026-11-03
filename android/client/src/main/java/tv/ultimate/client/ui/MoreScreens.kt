@@ -285,7 +285,15 @@ fun SettingsScreen(nav: NavHostController) {
                         runCatching { app.hub.clientVersion() }
                             .onSuccess { v ->
                                 if (v.versionCode > BuildConfig.VERSION_CODE) {
-                                    if (ui.confirm("Version ${v.versionName ?: v.versionCode} is out", "Download it from the Hub and install it over this one. Your downloads stay.", "Get it", "Later")) browse("${prefs.hub}/api/client/app.apk")
+                                    // #93: a build signed with the key that used to be in the repo
+                                    // can't be installed over, so the old app has to go first.
+                                    val fresh = BuildConfig.VERSION_CODE < (v.uninstallBelow ?: 0)
+                                    val said = if (fresh) {
+                                        "This is the first version signed with the house's own key, so Android won't install it over the old app. Uninstall this one, then install the download — your downloads on the phone stay, but you'll scan the TV's pairing code again. Settings and the Hub address are kept."
+                                    } else {
+                                        "Download it from the Hub and install it over this one. Your downloads stay."
+                                    }
+                                    if (ui.confirm("Version ${v.versionName ?: v.versionCode} is out", said, "Get it", "Later")) browse("${prefs.hub}/api/client/app.apk")
                                 } else {
                                     ui.say("This is the latest version")
                                 }

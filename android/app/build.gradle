@@ -10,28 +10,39 @@ android {
         applicationId "tv.ultimate.remote"
         minSdk 26
         targetSdk 35
-        versionCode 7
-        versionName "0.7.0"
+        versionCode 8
+        versionName "0.8.0"
     }
 
-    // One key for every build, so a new APK installs over the old one. (CI makes a fresh debug key
-    // each run otherwise, and Android refuses an update signed with a different key.) It's a home
-    // app installed by hand, so the key being public doesn't matter.
+    // The key that signs a release build is NOT in the repo. CI has it in repository secrets and
+    // writes it out before building; for a release made by hand, point ANDROID_KEYSTORE_PATH at the
+    // file and put the three passwords in the environment. See docs/android-signing.md.
+    //
+    // A debug build needs none of that: it uses the debug key Gradle makes on whatever machine is
+    // building, so a pull request from anyone (and a local build with no secrets) still works.
+    def keyPath = System.getenv("ANDROID_KEYSTORE_PATH")
+    def keyFile = keyPath ? rootProject.file(keyPath) : null
+    def hasReleaseKey = keyFile != null && keyFile.isFile()
+
     signingConfigs {
-        shared {
-            storeFile rootProject.file("remote.keystore")
-            storePassword "android"
-            keyAlias "remote"
-            keyPassword "android"
+        release {
+            if (hasReleaseKey) {
+                storeFile keyFile
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
         }
     }
 
     buildTypes {
         debug {
-            signingConfig signingConfigs.shared
+            // Deliberately no signingConfig: Gradle's own debug key, so no secrets are needed.
         }
         release {
-            signingConfig signingConfigs.shared
+            // Null when there's no key: Gradle then makes an unsigned APK rather than failing, so
+            // `gradle :app:assembleRelease` still tells you the code compiles without a key to hand.
+            signingConfig hasReleaseKey ? signingConfigs.release : null
             minifyEnabled false
         }
     }

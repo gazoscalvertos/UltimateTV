@@ -28,6 +28,18 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-03
+
+- **The Android apps are signed with the house's own key, kept out of the repo**
+  ([docs/android-signing.md](docs/android-signing.md)): the two Android apps used to be signed with a
+  keystore committed to the repository, password and all, so anyone who could read the code could
+  build an update the phones would accept. The key now lives in the repository's secrets and is only
+  written out for the seconds a build needs it. Installing the new build is a one-time uninstall on
+  each phone, because Android won't install over an app signed with a different key; both apps say so
+  before you tap. (#93)
+  Household: installing the phone apps once more, with an uninstall first, and then updates are
+  normal again.
+
 ## 2026-11-02
 
 - **The TV app on Windows and a Mac** ([docs/desktop.md](docs/desktop.md)): the desktop app now has a

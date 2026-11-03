@@ -599,8 +599,12 @@ if (window.UltimateTVApp) {
   try { dismissed = localStorage.getItem("utv-app-banner") || ""; } catch {}
   const show = (html) => { text.innerHTML = html; banner.hidden = false; };
   if (inApp && mine < latest.versionCode) {
-    // 0.1 and 0.2 were signed with a throwaway key, so Android won't install over them.
-    const once = mine < 3 ? "<small>If Android says the app isn't installed, uninstall the old remote first (just this once).</small>" : "";
+    // An app built before versionCode `uninstallBelow` was signed with a key that's gone (0.1 and
+    // 0.2 had a throwaway one; anything up to 0.7 had the key that used to be in the repo), so
+    // Android won't install over it. Say so before the tap, not after it fails.
+    const once = mine < (latest.uninstallBelow || 0)
+      ? "<small>Android won't install over the old app: uninstall it first, then scan the TV's pairing code again. Just this once.</small>"
+      : "";
     if (window.UltimateTVApp.open) {
       show(`<b>New remote app ${latest.versionName}</b>: tap to install.${once}`);
       banner.addEventListener("click", (e) => { e.preventDefault(); window.UltimateTVApp.open(appUrl); });

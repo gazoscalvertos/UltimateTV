@@ -21,6 +21,7 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md).
 | [docs/TESTING.md](docs/TESTING.md) | The end-to-end test run, step by step |
 | [docs/PLAN.md](docs/PLAN.md) | The original plan and why each choice was made (**historical**: for what exists now see FEATURES and ROADMAP) |
 | [docs/adr/](docs/adr/) | Decision records (VIDAA ruled out, the Linux mini PC chosen, profiles and mobile apps in scope) |
+| [docs/android-signing.md](docs/android-signing.md) | How the two Android apps are signed, and the one-time uninstall when the key changes |
 | [CHANGELOG.md](CHANGELOG.md) | Every change since 0.1.0, and how to update |
 
 Guides for each feature are linked from the steps below.
@@ -31,6 +32,7 @@ Guides for each feature are linked from the steps below.
 - **The box** (the GMKtec mini PC) boots straight into the TV app: an Electron window over mpv, with HDR, refresh rate matching and Dolby passthrough. The TV remote works through a Pulse-Eight USB-CEC adapter.
 - **The phone remote** works over Wi-Fi from any Android phone, as a web app or a small installable app.
 - **The Android app** watches everything on a phone or tablet at home, and downloads films, episodes and recordings for the road ([docs/android-client.md](docs/android-client.md)).
+- **The Android apps are signed with the household's own key**, kept in the repository secrets and never in the repo ([docs/android-signing.md](docs/android-signing.md)).
 - **The desktop app** is the same TV app on a computer: a Windows installer, a Mac `.dmg` (Apple Silicon or Intel) and an AppImage for any Linux desktop, in a normal window with its video in mpv's own window ([docs/desktop.md](docs/desktop.md)). It installs for the user alone on Windows, needs no administrator and no extra downloads, and the TV's Settings › Apps for your devices shows a QR code for it.
 
 ## Setting it up

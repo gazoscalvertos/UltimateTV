@@ -303,7 +303,12 @@ data class ProgrammeInfo(
     val reminder: Boolean?,
 )
 
-data class AppVersion(val versionCode: Int, val versionName: String?)
+/**
+ * The build the Hub has (#93). `uninstallBelow` is the first versionCode signed with the key the Hub
+ * uses now: an app older than that was signed with the key that used to be in the repo, so Android
+ * refuses to install the new one over it and the old app has to go first.
+ */
+data class AppVersion(val versionCode: Int, val versionName: String?, val uninstallBelow: Int? = null)
 
 /** What's new: the Hub's CHANGELOG.md (GET /api/changelog). */
 data class ChangeEntry(val id: String, val title: String, val text: String?, val prs: List<Int>?)

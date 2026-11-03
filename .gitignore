@@ -9,4 +9,8 @@ android/.gradle/
 android/.kotlin/
 android/**/build/
 android/local.properties
+# An Android signing key is never committed: CI has it in repository secrets (docs/android-signing.md).
+*.keystore
+*.jks
+android/*.keystore
 tools/pxe/arch-cache/
