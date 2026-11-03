@@ -1,12 +1,14 @@
 plugins {
     id "com.android.application"
-    id "org.jetbrains.kotlin.android"
     id "org.jetbrains.kotlin.plugin.compose"
 }
 
 android {
     namespace "tv.ultimate.client"
-    compileSdk 35
+    // androidx.core 1.19.1 declares minCompileSdk=37 in its AAR metadata, so the client
+    // has to compile against API 37. targetSdk stays 35: this only widens the APIs we
+    // may call, it does not opt the app in to new runtime behaviour.
+    compileSdk 37
 
     defaultConfig {
         applicationId "tv.ultimate.client"
@@ -45,9 +47,6 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     // Media3's download and extension APIs are marked unstable; we pin the version, so that's fine.
     lint {
         disable "UnsafeOptInUsageError"
@@ -57,18 +56,18 @@ android {
 def media3 = "1.7.1"
 
 dependencies {
-    implementation platform("androidx.compose:compose-bom:2024.12.01")
+    implementation platform("androidx.compose:compose-bom:2026.09.00")
     implementation "androidx.compose.ui:ui"
     implementation "androidx.compose.material3:material3"
     implementation "androidx.compose.material:material-icons-extended"
     implementation "androidx.activity:activity-compose:1.9.3"
-    implementation "androidx.navigation:navigation-compose:2.8.5"
+    implementation "androidx.navigation:navigation-compose:2.10.2"
     implementation "androidx.lifecycle:lifecycle-runtime-compose:2.8.7"
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.8.7"
-    implementation "androidx.core:core-ktx:1.15.0"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+    implementation "androidx.core:core-ktx:1.19.1"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0"
     implementation "io.coil-kt:coil-compose:2.7.0"
-    implementation "com.google.code.gson:gson:2.11.0"
+    implementation "com.google.code.gson:gson:2.15.0"
     // Scans the TV's pairing QR code with Google Play services' scanner: no camera permission needed.
     implementation "com.google.android.gms:play-services-code-scanner:16.1.0"
 

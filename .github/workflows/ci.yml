@@ -151,7 +151,7 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: "8.10.2"
+          gradle-version: "9.8.2"
       - name: Build the phone remote APK
         working-directory: android
         run: gradle --no-daemon :app:assembleDebug
@@ -187,7 +187,7 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: "8.10.2"
+          gradle-version: "9.8.2"
       - name: Build the Android client APK
         working-directory: android
         run: gradle --no-daemon :client:assembleDebug
