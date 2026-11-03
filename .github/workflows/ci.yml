@@ -52,6 +52,20 @@ jobs:
           path: e2e/.failures/
           if-no-files-found: warn
 
+  ps5-app:
+    # The PlayStation 5 app is C++ with no platform dependencies in the part that holds the
+    # screens, the keys and the Hub calls, so every change to it is tested here without a
+    # console and without the console's SDK (docs/ps5.md). The console build itself needs the
+    # SDK and is a separate, documented step.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and run the PS5 app's own tests
+        run: make -C ps5 test
+      - name: The tile's picture can be rebuilt from source
+        run: node tools/ps5/make-icon.mjs --check
+
   box-scripts:
     runs-on: ubuntu-latest
     steps:

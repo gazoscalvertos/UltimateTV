@@ -260,3 +260,32 @@ Things worth knowing when reading a real box's numbers:
 On this development machine everything is already well inside its target at 3840×2160 (boot 0.6 s,
 Home 0.24 s, a guide step 16.7 ms median, frame gaps 16.7 ms median), so the numbers are there for the
 box and the TV rather than for CI.
+
+## 11. The PlayStation 5 app
+
+The PS5 app (`ps5/`) is split so that most of it is ordinary C++ with no SDL, no ImGui and no
+console headers in it — the screens, the keys, the guide, the JSON, the HTTP and the Hub calls.
+That part is tested on any Linux machine with a C++20 compiler, and CI runs it on every change:
+
+```
+make -C ps5 test
+```
+
+That builds and runs six test programs (JSON, times and dates, the Hub's answers as types, HTTP
+against a real socket, the Hub API against a fake transport, and a whole session against a fake
+Hub and a fake video player). The runner is `ps5/test/test.hpp` — a few dozen lines, because the
+console has no test framework.
+
+Two things about it worth knowing:
+
+- **The tests caught the bugs that matter here**, which is why they are worth having: a date
+  helper that was 740,000 days out, a shortened title that came back two bytes too long, and a
+  PIN whose token was being thrown away (so a correct PIN quietly showed the Kids profile).
+- **`node tools/ps5/make-icon.mjs --check`** proves the committed home-screen picture is the one
+  the script draws; `tools/ps5/test/ps5.test.ts` checks the tile's metadata, the picture's real
+  pixels and the linker script that carries the console's process parameter.
+
+The console build itself — `make -C ps5 console`, `tile`, `package` — needs the console's SDK and
+homebrew libraries, which are large and not in the repository ([ps5.md](ps5.md#building-it)). It is
+therefore not a CI job; the tile is built by hand on a machine that has the SDK, and the app has
+not been started on a real console yet.
