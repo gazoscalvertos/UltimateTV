@@ -45,6 +45,16 @@ describe("the PlayStation 5 home screen tile", () => {
     expect(param.localizedParameters["en-GB"].titleName).toBe("UltimateTV");
   });
 
+  it("carries the keys the console documents as required", () => {
+    // Shape from psdevwiki's param.json page (the PS4's param.sfo replacement), cross-checked
+    // against a shipping homebrew title's own file: without contentVersion and a DRM type the
+    // console's installer is entitled to refuse the folder.
+    for (const file of [param, system]) {
+      expect(file.contentVersion).toMatch(/^\d{2}\.\d{3}\.\d{3}$/);
+      expect(file.applicationDrmType).toBe("free");
+    }
+  });
+
   it("ships the 512×512 picture the console draws on the tile", () => {
     const size = pngSize(bytes("ps5/sce_sys/icon0.png"));
     expect(size).toEqual({ width: 512, height: 512, depth: 8, colour: 2 });
@@ -101,6 +111,29 @@ describe("the PlayStation 5 app's sources", () => {
     // The tile is ET_EXEC and carries the console's process parameter header.
     expect(makefile).toContain("-Wl,--no-pie -T src/eboot.x");
     expect(makefile).toContain("--ptype fake");
+  });
+
+  it("installs the way the console actually accepts a title", () => {
+    // Copying files is not installing. The SDK's own install_app sample puts the app under
+    // /system_ex/app and the metadata under /user/app, then runs a payload that calls the
+    // console's installer -- without that last step the files never become a home-screen tile.
+    const makefile = read("ps5/Makefile");
+    expect(makefile).toContain("/system_ex/app/$(TITLE_ID)");
+    expect(makefile).toContain("/user/app/$(TITLE_ID)/sce_sys");
+    expect(makefile).toContain("build/installer.elf");
+    expect(makefile).toContain("param.json.system");
+    const installer = read("ps5/installer/install.c");
+    expect(installer).toContain("sceAppInstUtilInitialize");
+    expect(installer).toContain("sceAppInstUtilAppInstallTitleDir");
+    expect(installer).toContain("TITLE_ID");
+  });
+
+  it("mentions the folder-mounter route, which is what most consoles use", () => {
+    // Most 2026 homebrew titles are installed by dropping a folder in /data/homebrew and
+    // letting ShadowMountPlus register it, so the docs have to say that as well.
+    const doc = read("docs/ps5.md");
+    expect(doc).toContain("/data/homebrew");
+    expect(doc).toContain("ShadowMountPlus");
   });
 
   it("keeps the process parameter header the console needs, and the unwind symbols C++ needs", () => {

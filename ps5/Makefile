@@ -125,22 +125,40 @@ build/$(TITLE_ID)/eboot.bin: build/eboot.elf build/make_fself.py
 .PHONY: package
 package: tile
 	cp sce_sys/param.json sce_sys/param.json.system sce_sys/icon0.png build/$(TITLE_ID)/
+	@echo "packaged build/$(TITLE_ID)/: eboot.bin, icon0.png and both param.json files"
+
+# The console-side installer. Copying files to the console is not enough: the console's own
+# installer has to be told the folder is a title before it appears on the home screen, and this
+# is the small ELF that tells it. It is the same route the SDK's install_app sample takes.
+INSTALLER_CFLAGS := -std=c11 -O2 -Wall -Wextra -Werror
+
+build/installer.elf: installer/install.c
+	@mkdir -p build
+	$(CC) $(INSTALLER_CFLAGS) -DTITLE_ID='"$(TITLE_ID)"' -L$(LIBDIR) -o $@ $< -lSceAppInstUtil
+	@echo "built $@ ($$(stat -c %s $@) bytes)"
 
 # Copies the tile to a console that is running the payload loader (port 9021) and its FTP
-# server (port 2121). It is a folder copy, not an install: the console reads it on next boot.
+# server (port 2121), then runs the installer so the tile appears on the home screen.
 PS5_HOST ?= ps5
 FTPSRV_URL := ftp://$(PS5_HOST):2121
 
 .PHONY: install
-install: package
-	@echo "copying UltimateTV to $(PS5_HOST) — it appears on the home screen after a restart"
+install: package build/installer.elf
+	@echo "copying UltimateTV to $(PS5_HOST)"
 	curl -sS -Q "MTRW" $(FTPSRV_URL) -o /dev/null
+	@# The app's own files live under /system_ex/app; the metadata the console reads is under
+	@# /user/app. That split is the console's, not this Makefile's.
+	-curl -sS -Q "MKD /system_ex/app/$(TITLE_ID)" $(FTPSRV_URL) -o /dev/null
+	-curl -sS -Q "MKD /system_ex/app/$(TITLE_ID)/sce_sys" $(FTPSRV_URL) -o /dev/null
 	-curl -sS -Q "MKD /user/app/$(TITLE_ID)" $(FTPSRV_URL) -o /dev/null
 	-curl -sS -Q "MKD /user/app/$(TITLE_ID)/sce_sys" $(FTPSRV_URL) -o /dev/null
-	curl -sS -T build/$(TITLE_ID)/eboot.bin $(FTPSRV_URL)/user/app/$(TITLE_ID)/eboot.bin
-	curl -sS -T build/$(TITLE_ID)/param.json $(FTPSRV_URL)/user/app/$(TITLE_ID)/sce_sys/param.json
-	curl -sS -T build/$(TITLE_ID)/icon0.png $(FTPSRV_URL)/user/app/$(TITLE_ID)/sce_sys/icon0.png
-	@echo "done: restart the console and look for UltimateTV"
+	curl -sS -T build/$(TITLE_ID)/eboot.bin $(FTPSRV_URL)/system_ex/app/$(TITLE_ID)/
+	curl -sS -T build/$(TITLE_ID)/param.json $(FTPSRV_URL)/user/app/$(TITLE_ID)/sce_sys/
+	curl -sS -T build/$(TITLE_ID)/icon0.png $(FTPSRV_URL)/user/app/$(TITLE_ID)/sce_sys/
+	@echo "installing on $(PS5_HOST): this makes the home-screen tile"
+	$(PS5_DEPLOY) -h $(PS5_HOST) -p $(PS5_PORT) build/installer.elf
+	curl -sS -T build/$(TITLE_ID)/param.json.system $(FTPSRV_URL)/system_ex/app/$(TITLE_ID)/sce_sys/param.json
+	@echo "done: look for UltimateTV on the home screen"
 
 # Runs the app right now, over the payload loader, without installing it.
 .PHONY: deploy

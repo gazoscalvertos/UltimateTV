@@ -24,15 +24,19 @@ The app is built from source in this repository — the console app is about 50 
 
    That writes `ps5/build/PPSA26001/`, holding `eboot.bin`, `icon0.png` and `param.json`.
 
-2. **Jailbreak the console** the way you normally do, so the exploit is running and its FTP server is up on port 2121.
+2. **Jailbreak the console** the way you normally do, so the exploit is running, its FTP server is up on port 2121, and the payload loader is listening on port 9021.
 
-3. **Copy the folder across.** With the console's address:
+3. **Install it.** With the console's address:
 
    ```
    make -C ps5 install PS5_HOST=192.168.0.42
    ```
 
-   Or by hand, with any FTP client: make `/user/app/PPSA26001/sce_sys/` on the console and upload `eboot.bin` to `/user/app/PPSA26001/`, and `icon0.png` and `param.json` into `sce_sys/`.
+   That copies the files to the two places the console keeps them (`eboot.bin` under `/system_ex/app/PPSA26001/`, the metadata under `/user/app/PPSA26001/sce_sys/`) and then runs a small installer on the console, because **files on their own are not a tile**: the console's own installer has to be told the folder is a title. You will see `installed PPSA26001: look for UltimateTV on the home screen` when it has worked.
+
+   Two other ways, if you would rather do it by hand:
+   - **The folder-mounter route**, which is how most 2026 PS5 homebrew installs: put `eboot.bin` and `sce_sys/` in one folder named `PPSA26001`, copy that folder to `/data/homebrew/`, and let ShadowMountPlus pick it up. It appears under *Media* on the home screen.
+   - **Copy `/system_ex/app/PPSA26001/eboot.bin`** with it. Some firmware needs the app's own file there even when a mounter made the tile.
 
 4. **Start it from the home screen.** The tile is called UltimateTV. The first start asks for nothing: the first screen to ask the Hub is let in, exactly like a TV, and the app shows a short code only if another screen is already paired and the Hub wants a "yes" from one of them.
 
