@@ -629,7 +629,7 @@ export function Settings(props: { section?: string }) {
     { id: "alerts", label: "Alerts" },
     { id: "sources", label: "Sources" },
     { id: "remote", label: "Phones and remotes" },
-    { id: "apps", label: "Android apps" },
+    { id: "apps", label: "Apps for your devices" },
     { id: "whatsnew", label: "What's new" },
     { id: "about", label: "About" },
   ];
@@ -1003,10 +1003,10 @@ export function Settings(props: { section?: string }) {
             </Show>
 
             <Show when={section() === "apps"}>
-              <h2>Android apps</h2>
+              <h2>Apps for your devices</h2>
               <div class="sources">
                 <div class="sources-list">
-                  <p class="hint">Scan a code with the phone's camera to download the app, then open the download to install it (allow installs from Chrome if Android asks). Downloads work on the home Wi-Fi only. The app pairs itself with the TV when you first open it.</p>
+                  <p class="hint">Phones: scan a code with the phone's camera to download the app, then open the download to install it (allow installs from Chrome if Android asks). Downloads work on the home Wi-Fi only. The app pairs itself with the TV when you first open it.</p>
                   <Row label={`${appName()} for Android`} hint={`Watch everything the TV has on a phone or tablet, and download it for trips · ${hubAddress()}/api/client/app.apk`} icon="download" onSelect={() => toast("Scan the left code with the phone's camera")} />
                   <Row label={`${appName()} Remote`} hint={`The phone remote, with voice control and the volume keys for channels · ${hubAddress()}/api/remote/app.apk`} icon="download" onSelect={() => toast("Scan the right code with the phone's camera")} />
                 </div>
@@ -1018,6 +1018,23 @@ export function Settings(props: { section?: string }) {
                   <div class="qr-card">
                     <img src="/api/apps/remote/qr.svg" alt="" />
                     <p>{appName()} Remote</p>
+                  </div>
+                </div>
+              </div>
+              <div class="sources">
+                <div class="sources-list">
+                  <p class="hint">A Windows PC or a Mac: scan the code on that computer's screen, or open the link in its browser. The Windows installer needs no administrator and brings its own player; the Mac download is a .dmg for Apple Silicon or Intel. Both update themselves from the release page.</p>
+                  <Row label={`${appName()} for Windows`} hint={`Windows 10 and 11, installed for you alone · ${hubAddress()}/api/desktop/windows/installer`} icon="download" onSelect={() => toast("Scan the left code on the Windows PC's screen")} />
+                  <Row label={`${appName()} for Mac`} hint={`Apple Silicon or Intel, a .dmg to drag into Applications · ${hubAddress()}/api/desktop/macos/installer`} icon="download" onSelect={() => toast("Scan the right code on the Mac's screen")} />
+                </div>
+                <div class="app-qrs">
+                  <div class="qr-card">
+                    <img src="/api/apps/windows/qr.svg" alt="" />
+                    <p>Windows</p>
+                  </div>
+                  <div class="qr-card">
+                    <img src="/api/apps/macos/qr.svg" alt="" />
+                    <p>Mac</p>
                   </div>
                 </div>
               </div>

@@ -30,6 +30,18 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **The TV app on Windows and a Mac** ([docs/desktop.md](docs/desktop.md)): the desktop app now has a
+  Windows installer and Mac disk images beside the Linux AppImage. The Windows one installs for the
+  current user with no administrator prompt and puts a shortcut in the Start menu (there is a .zip
+  for PCs that block installers); the Mac one is a .dmg per architecture, Apple Silicon and Intel,
+  and because it isn't signed with a paid Apple certificate the first start is right-click → Open.
+  Both carry their own mpv, keep their settings in the folder each system expects, and update
+  themselves from the same release the AppImage uses — on Windows and the Mac by downloading the new
+  installer and opening it, since an installed app can't swap its own files the way an AppImage can.
+  The TV's Settings › Apps for your devices and the phone's Apps section show links and QR codes for
+  all three platforms, served from the Hub so the download works without GitHub. (#127, #128)
+  Household: the TV app now installs on a Windows PC and on a Mac, with the player included, and the
+  TV's settings page shows a code to scan on that computer.
 - **Music controls on every screen**: music, the radio and podcasts now have a chip at the top right
   of every screen but the Music tab, naming what's playing and pausing it in a press. (#181)
   Household: you can see what's playing and pause it without leaving the screen you're on.

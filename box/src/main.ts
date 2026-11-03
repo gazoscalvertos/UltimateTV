@@ -21,8 +21,9 @@ import { DESKTOP, MODE } from "./mode.js";
 
 import { execFile } from "node:child_process";
 import { AppImageUpdates } from "./appimage-updates.js";
+import { DesktopAppUpdates, installerFor } from "./desktop-app-updates.js";
 import { appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "electron";
+import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session, shell } from "electron";
 import os from "node:os";
 import path from "node:path";
 import type { BtAction, BoxInfo, CastState, LimitedPlayRequest, OfflineProfile, PlayerState, SelfTestCall, SpotifyState, WebAppState } from "@ultimatetv/shared";
@@ -40,8 +41,9 @@ import { jellyfinReportFor, reportJellyfinProgress, resolveLimitedPlay, type Jel
 import { UiCheck } from "./uicheck.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
-import { defaultSelftestDir, ensureClips, SelfTester } from "./selftest.js";
+import { defaultSelftestDir, desktopSelftestDir, ensureClips, SelfTester } from "./selftest.js";
 import { renameSpotifyDevice, Spotify } from "./spotify.js";
+import { desktopLogFile, desktopPlatform, downloadsDir, mpvBinary, mpvSocket } from "./platform.js";
 import { Updates } from "./updates.js";
 import { WebApps } from "./webapp.js";
 
@@ -49,11 +51,15 @@ const HUB_URL = (process.env.HUB_URL ?? "http://192.168.0.19:8095").replace(/\/$
 const CEC_DEVICE = process.env.CEC_DEVICE ?? (DESKTOP ? "" : "/dev/cec0");
 const RUNTIME = process.env.XDG_RUNTIME_DIR ?? os.tmpdir();
 const VERSION: string = require("../package.json").version;
+/** Which desktop this is: the box is always Linux; Windows and macOS get the desktop app. */
+const PLATFORM = desktopPlatform();
 
 const diagnostics = new Diagnostics(HUB_URL);
-// The box's launcher sends the output to ~/.local/state/ultimatetv.log; an AppImage started from
-// the menu has nowhere to send it, so a desktop copy writes its own.
-const desktopLog = DESKTOP ? path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local/state"), "ultimatetv-desktop.log") : null;
+// The box's launcher sends the output to ~/.local/state/ultimatetv.log; a desktop copy started from
+// the menu (or from the Start menu, or Spotlight) has nowhere to send it, so it writes its own:
+// %LOCALAPPDATA%\ultimatetv\logs on Windows, ~/Library/Logs/UltimateTV on a Mac, and
+// ~/.local/state/ultimatetv-desktop.log on Linux (platform.ts).
+const desktopLog = DESKTOP ? desktopLogFile(process.env, PLATFORM) : null;
 const log = (line: string) => {
   const stamped = `${new Date().toISOString()} ${line}`;
   console.log(stamped);
@@ -172,11 +178,14 @@ async function main(): Promise<void> {
   const display = new Display(log, process.env.CUSTOM_MODES !== "0", !DESKTOP);
   await display.unscaled().catch((e: Error) => log(`Couldn't unscale the screen: ${e.message}`));
   const mpv = new Mpv({
-    socket: path.join(RUNTIME, "ultimatetv-mpv.sock"),
+    // Windows has no Unix socket and mpv there speaks over a named pipe (platform.ts).
+    socket: mpvSocket(process.env, PLATFORM),
     log,
     ...(process.env.AUDIO_DEVICE ? { audioDevice: process.env.AUDIO_DEVICE } : {}),
     extraArgs: (process.env.MPV_ARGS ?? "").split(/\s+/).filter(Boolean),
     ...(DESKTOP ? { desktop: true, inputConf: path.join(RUNTIME, "ultimatetv-mpv-input.conf") } : {}),
+    // The Windows and Mac installers carry their own mpv; Linux uses the computer's.
+    binary: mpvBinary(process.env, PLATFORM).command,
   });
   const cec = new Cec(CEC_DEVICE, log);
   const screenSize = () => {
@@ -186,11 +195,14 @@ async function main(): Promise<void> {
   const player = new Player(mpv, display, screenSize, log, DESKTOP);
   // The on-box self-test (#105): clips generated on the box itself, played one at a time, with what
   // mpv and the screen reported recorded beside the household's answer.
-  const selfTestDir = process.env.SELFTEST_DIR ?? defaultSelftestDir();
+  const selfTestDir = process.env.SELFTEST_DIR ?? (DESKTOP ? desktopSelftestDir(process.env, PLATFORM) : defaultSelftestDir());
   const selfTester = new SelfTester({ player, mpv, display, dir: selfTestDir, log });
-  // The AppImage updates itself from GitHub; the box through its root services; a desktop copy run
-  // from a checkout (npm start -- --desktop) doesn't update.
+  // The AppImage swaps itself for the new one from GitHub; an installed Windows or Mac copy asks
+  // the same release for the new installer and opens it (desktop-app-updates.ts); the box updates
+  // through its root services; a desktop copy run from a checkout (npm start -- --desktop) has no
+  // installer to fetch, so it doesn't update.
   const appImage = process.env.APPIMAGE;
+  const installer = installerFor(PLATFORM);
   const updates = appImage
     ? new AppImageUpdates({
         appImage,
@@ -203,10 +215,20 @@ async function main(): Promise<void> {
           app.quit();
         },
       })
-    : new Updates(log);
+    : DESKTOP && installer
+      ? new DesktopAppUpdates({
+          platform: PLATFORM,
+          arch: process.arch,
+          buildInfo: path.join(__dirname, "../build-info.json"),
+          stateDir: app.getPath("userData"),
+          log,
+          ...(process.env.UPDATE_URL ? { baseUrl: process.env.UPDATE_URL } : {}),
+          openInstaller: (file) => shell.openPath(file),
+        })
+      : new Updates(log);
   const spotify = new Spotify((process.env.SPOTIFY_API ?? "http://127.0.0.1:3678").replace(/\/$/, ""), log);
   const webApps = new WebApps(() => win, log);
-  const downloads = new Downloads(HUB_URL, log);
+  const downloads = new Downloads(HUB_URL, log, downloadsDir(process.env, PLATFORM));
   let castForeground = false;
   // The box's copy of what Limited mode needs (#78). Fetched from the Hub's one answer for the box,
   // `/api/box/offline`, which carries the channels' own feed URLs, a week of guide, every profile's

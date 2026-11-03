@@ -3,16 +3,15 @@
 //
 //   tv       the box: a KWin kiosk session (tools/box/install.sh) where the UI is a transparent,
 //            full-screen window over mpv's, and the box owns the screen, sound and CEC.
-//   desktop  an ordinary app on someone's own Linux desktop (the AppImage, see docs/desktop.md):
-//            the UI in a normal window, video in mpv's own window, and nothing of the computer's
-//            screen modes, sound output or volume touched.
+//   desktop  an ordinary app on someone's own computer (the Linux AppImage, the Windows installer,
+//            the Mac .dmg — docs/desktop.md): the UI in a normal window, video in mpv's own window,
+//            and nothing of the computer's screen modes, sound output or volume touched.
 //
-// The AppImage starts in desktop mode and the box installer's launcher in TV mode; --desktop or
-// --tv (or UTV_MODE=desktop|tv) picks either way. --hub=http://… overrides HUB_URL.
+// The desktop builds start in desktop mode and the box installer's launcher in TV mode; --desktop
+// or --tv (or UTV_MODE=desktop|tv) picks either way. --hub=http://… overrides HUB_URL.
 
 import { readFileSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { desktopConfigFile } from "./platform.js";
 
 export type RunMode = "tv" | "desktop";
 
@@ -31,24 +30,26 @@ export function parseEnvFile(text: string): Record<string, string> {
   return out;
 }
 
-/** Which mode, from the command line, then UTV_MODE, then whether this is an AppImage. */
-export function runMode(argv: string[], env: NodeJS.ProcessEnv): RunMode {
+/**
+ * Which mode: the command line, then UTV_MODE, then the install itself. An AppImage is a desktop
+ * install by definition; so is anything not on Linux, because the box only exists there (Windows
+ * and macOS get the desktop app, #127 and #128).
+ */
+export function runMode(argv: string[], env: NodeJS.ProcessEnv, platform: string = process.platform): RunMode {
   if (argv.includes("--desktop")) return "desktop";
   if (argv.includes("--tv")) return "tv";
   if (env.UTV_MODE === "desktop" || env.UTV_MODE === "tv") return env.UTV_MODE;
-  return env.APPIMAGE ? "desktop" : "tv";
-}
-
-/** Where a desktop install keeps its settings: ~/.config/ultimatetv/box.env. */
-export function desktopConfigFile(env: NodeJS.ProcessEnv): string {
-  return path.join(env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"), "ultimatetv", "box.env");
+  if (env.APPIMAGE) return "desktop";
+  return platform === "linux" ? "tv" : "desktop";
 }
 
 export const MODE: RunMode = runMode(process.argv, process.env);
 export const DESKTOP = MODE === "desktop";
 
-// The box's launcher has already loaded /etc/ultimatetv/box.env. A desktop copy reads its own file;
-// anything already in the environment wins, so `HUB_URL=… ./UltimateTV.AppImage` works too.
+// The box's launcher has already loaded /etc/ultimatetv/box.env. A desktop copy reads its own file
+// (%APPDATA%\ultimatetv\box.env, ~/Library/Application Support/ultimatetv/box.env, or
+// ~/.config/ultimatetv/box.env); anything already in the environment wins, so
+// `HUB_URL=… ./UltimateTV.AppImage` works too.
 if (DESKTOP) {
   try {
     for (const [k, v] of Object.entries(parseEnvFile(readFileSync(desktopConfigFile(process.env), "utf8")))) process.env[k] ??= v;
