@@ -8,6 +8,34 @@ Any phone on the home Wi-Fi that has paired with the TV ([Pairing](pairing.md)) 
 
 On the TV, open **Settings › Phones and remotes** and scan the code with the phone's camera: the remote opens and pairs the phone. (Or open `http://192.168.0.19:8095/remote/` and type the code shown on the TV.) In Chrome, choose **Add to Home screen**.
 
+## On an iPhone
+
+There is nothing to install from the App Store: the remote is a web app, and iOS adds it to the Home
+Screen from Safari. iOS has no install prompt of its own, so the remote shows a line saying where
+the button is.
+
+1. On the TV, open **Settings › Phones and remotes** and scan the code with the iPhone's camera. (Or
+   open `http://192.168.0.19:8095/remote/` in Safari and type the code the TV shows.) The remote
+   opens and the phone is paired.
+2. In Safari, tap **Share** (the square with the arrow), scroll down and choose **Add to Home
+   Screen**, then **Add**. The remote says the same thing in a banner the first time it is opened on
+   an iPhone; the banner goes away once the remote is on the Home Screen, or when you dismiss it.
+3. Open **TV Remote** from the Home Screen. It runs full screen with no address bar, has its own icon
+   and dark blue splash screen, and is already paired: the phone keeps its place, and the picker at
+   the top still chooses which TV it drives.
+
+It is the same page as the web remote, so everything works this way: the keys and the d-pad, typing a
+search, voice, the TV's pop-ups and casting. Watching films on the phone itself is the Android app
+below or the browser client in [#81](https://github.com/robertsondean/UltimateTV/issues/81), not this.
+
+- Over the Hub's plain `http://` address the remote installs and works, but Safari won't run a
+  service worker on an insecure page, so it needs the network each time. The Hub also answers over
+  HTTPS, on the same port and certificate as [the laptop screen share](casting-and-games.md) (`8096`
+  by default): open `https://192.168.0.19:8096/remote/`, accept the certificate warning once, and add
+  that to the Home Screen instead. There the page is kept on the phone and opens instantly.
+- If a Hub update ever leaves an older remote on the Home Screen, close it from the app switcher and
+  open it again: the page is refreshed in the background and the old copy cleared.
+
 ## As an Android app
 
 The Android app is the same remote in its own app, with two extras: the phone's **volume keys change channel** and the phone's **Back** button is the TV's Back. It keeps the phone's screen on while it's open.

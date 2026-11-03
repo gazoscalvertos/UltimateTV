@@ -6,9 +6,14 @@
 <meta name="theme-color" content="#070b14">
 <script src="/theme.js"></script>
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TV Remote">
+<meta name="application-name" content="UltimateTV Remote">
 <title>UltimateTV Remote</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 <style>
   /* The colours are the theme's, chosen in Settings (on the TV or the phone) and set by /theme.js; these are the dark theme's, for a Hub too old to send them. */
   :root { --bg: #070b14; --panel: #121b2e; --panel-2: #18233a; --fg: #f3f6fb; --fg-2: #d5dbe7; --muted: #9aa6bd; --dim: #66728a; --accent: #3d8bff; --accent-2: #00c2d1; --on-accent: #fff; --good: #35c27a; --bad: #ff5468; --hi: 255 255 255; --bg-rgb: 7 11 20; color-scheme: dark; }
@@ -72,6 +77,8 @@
   .banner span { flex: 1; }
   .banner small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-all; }
   #news-banner { margin-bottom: 8px; }
+  #ios-hint { margin-bottom: 8px; }
+  #ios-hint b { font-weight: 700; }
   .changes { display: grid; gap: 10px; margin: 8px 0 14px; }
   .change { padding: 10px 12px; border-radius: 12px; background: rgb(var(--hi) / .05); }
   .change b { display: block; font-size: 15px; }
@@ -258,7 +265,7 @@
     main { max-width: 980px; }
     #tab-remote { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; align-content: center; gap: 8px 22px; }
     #tab-remote[hidden] { display: none; }
-    #install, #app-banner, #news-banner, #heard { grid-column: 1 / -1; }
+    #install, #app-banner, #news-banner, #ios-hint, #heard { grid-column: 1 / -1; }
     #heard { margin: 0; min-height: 0; }
     #heard:empty { display: none; }
     .side { display: flex; flex-direction: column; gap: 12px; }
@@ -328,6 +335,12 @@
   <button class="install" id="install">Install as an app</button>
   <a class="banner" id="news-banner" href="#" hidden><span id="news-banner-text"></span><button class="x" id="news-banner-x" aria-label="Not now">×</button></a>
   <a class="banner" id="app-banner" href="/api/remote/app.apk" hidden><span id="app-banner-text"></span><button class="x" id="app-banner-x" aria-label="Not now">×</button></a>
+  <!-- iPhone and iPad: Safari's install is Share › Add to Home Screen, and nothing in the page can
+       offer it, so say where it is (issue #129). Never shown once the remote is on the Home Screen. -->
+  <div class="banner" id="ios-hint" hidden>
+    <span id="ios-hint-text">To keep this remote, tap <b>Share</b> then <b>Add to Home Screen</b>: it opens full screen, with no address bar.</span>
+    <button class="x" id="ios-hint-x" aria-label="Not now">×</button>
+  </div>
   <p class="heard" id="heard"></p>
 
   <div class="side" id="side-left">
@@ -546,6 +559,25 @@ let deferred;
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; document.getElementById("install").classList.add("show"); });
 document.getElementById("install").addEventListener("click", async () => { if (deferred) { deferred.prompt(); deferred = null; document.getElementById("install").classList.remove("show"); } });
 if ("serviceWorker" in navigator && window.isSecureContext) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+// iPhones and iPads: Safari has no install prompt, so tell people where it is (issue #129).
+// Shown once, only in Safari on iOS, and never once it is on the Home Screen — there the page runs
+// standalone and this hint would be noise. Dismissing it is remembered on that phone.
+(() => {
+  const hint = document.getElementById("ios-hint");
+  const dismissed = (() => { try { return localStorage.getItem("utv-ios-hint") === "1"; } catch { return false; } })();
+  // iPadOS reports itself as a Mac: a Mac with a touch screen is an iPad.
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  // Chrome, Firefox and Edge on iOS are Safari under the skin but can't add to the Home Screen.
+  const safari = ios && /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
+  const installed = navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+  if (!ios || !safari || installed || dismissed) return;
+  hint.hidden = false;
+  document.getElementById("ios-hint-x").addEventListener("click", () => {
+    hint.hidden = true;
+    try { localStorage.setItem("utv-ios-hint", "1"); } catch {}
+  });
+})();
 
 // Inside the Android app: let it switch Hub.
 if (window.UltimateTVApp) {
