@@ -118,24 +118,55 @@ copy kept anywhere else works too: `bash tools/hub/restore.sh /root/ultimatetv-h
 
 Paired phones and the TV keep working after a restore, since the pairings are in the same data.
 
-## When the Hub is down
+## When the Hub is down: Limited mode
 
-The TV app itself comes from the Hub, so the box can't show the guide, the library or live TV
-without it. Instead of a blank screen it shows its own:
+The TV app itself comes from the Hub, so the box can't ask it for the guide, the library or a
+channel's address. Instead of a blank screen the box shows **Limited mode**: a smaller TV app that
+runs from its own disk and plays what it already knows. It is the same page as before, grown up.
 
-![The box's screen when the Hub is down](screenshots/offline-box.png)
+![Limited mode: the box's own TV app with the Hub down](screenshots/offline-box.png)
 
-- The **time and date**, so the TV is still a clock.
-- **What's wrong**: which Hub address isn't answering and since when, and whether the box itself is
-  on the network.
-- **Downloads on this box** play straight from its disk, with the remote: OK pauses, ◀ ▶ skip back 10
-  and forward 30 seconds, Back stops (it remembers where you got to).
-- **Games** (RetroArch, Moonlight, and the others that are installed) open as usual.
-- **AirPlay** from an iPhone or Mac still works.
-- **Try again now** and **Turn the TV off**.
+**Why it can play at all.** While the Hub is up, the box keeps one small file on its disk (under its
+own app data, `limited.json`): the channel list with each channel's own stream address, a week of
+guide, every profile with its rules, and the Jellyfin server's address and sign-in. It asks the Hub
+for a fresh copy every fifteen minutes and straight after the TV app comes back, so the file is at
+most a quarter of an hour behind. It is never the Hub's database: a week of guide for a few hundred
+channels, trimmed per channel, and nothing else.
 
-It checks the Hub every few seconds and goes back to the TV app by itself once the Hub answers (after
-the film, if one is playing from this screen).
+**What works with the Hub off:**
+
+- **Live TV** from those saved channel addresses, straight from your IPTV provider - the box plays
+  it itself, no Hub in the way.
+- **The guide**, seven days of it, day by day. Picking a programme joins that channel.
+- **Jellyfin** films and episodes play directly from your Jellyfin server, and the box tells Jellyfin
+  where you got to (it needs no Hub to do that): a film started here shows up half-watched there.
+- **Downloads on this box**, straight from its disk, as before.
+- **Games** (RetroArch, Moonlight and the others that are installed) and **AirPlay** from an iPhone or
+  Mac, as before.
+- **The time and date**, what's wrong (which address isn't answering, since when, whether the box
+  itself is on the network), **Try the Hub again** and **Turn the TV off**.
+
+**What is present but off, each with one sentence saying why:** Recording, Series links, TorBox and
+saved films, and Settings. They are cards on the screen with a plain line under each name - "Recording
+needs the Hub. It'll come back when the Hub is on." - rather than things that quietly vanish, so
+nobody is left pressing a button that used to work.
+
+**Kids rules still apply.** The saved copy carries each profile's kind, top certificate, channel
+categories, hand-allowed channels and the household's allow/block lists, and Limited mode applies the
+same rules the Hub does - from one copy of that logic that both use, so they can't drift apart. On a
+Kids profile the channels, the guide and the Jellyfin films are all filtered, downloads are the
+Kids-safe ones and games stay hidden. The box learns whose profile was last used from the TV app; if
+it has never been told, it treats whoever is watching as Kids.
+
+**Coming back.** The box checks the Hub every few seconds. When it answers, the TV app comes back by
+itself: straight away if nothing is playing. If a film *is* playing - from this screen or from the TV
+app - the box waits: the status line says "The Hub is back", and the swap happens the moment you
+stop, so a film is never cut off mid-scene. No restart, no remote needed.
+
+Two things are worth knowing. The cached week is only as fresh as the last time the Hub was up, so a
+channel that has moved or a guide that has changed since then is still shown the old way until the Hub
+returns. And the Jellyfin sign-in in that file is a real token on the box's disk: the box already
+holds one for its own use, and the file is only readable by the box's own user.
 
 The box shows this screen straight away when the Hub doesn't answer as it starts, and switches to it
 when the Hub stops answering for a minute while the TV app is up and nothing is playing.
@@ -146,10 +177,6 @@ throughout, and the TV sat on a black screen nothing could get out of). After ev
 gives the page a few seconds, and if nothing has drawn it loads the app again without the cached
 copy. Three blank loads in a row and this screen comes up, with the reason, and the box tries the app
 again every five minutes, so a Hub fixed later puts the TV right on its own.
-
-It follows the **profile last used on the TV**: on Kids it only offers the downloads Kids may watch
-and no games. Until the TV app has run once with the updated box, it treats whoever's watching as
-Kids.
 
 The phone remote and the Android app come from the Hub too, so they don't work while it's down; use
 the TV remote.

@@ -37,6 +37,7 @@ import { hubHealth } from "./health.js";
 import { BoxReportStore, cleanBoxReport, renderDiagnostics, RollingFile, type LogRing } from "./diagnostics.js";
 import { cleanSelfTestReport } from "./selftest.js";
 import { phoneReachable } from "./lan.js";
+import { buildLimitedSnapshot, jellyfinOfflineItems } from "./boxoffline.js";
 import { Library, NotAllowedError } from "./library.js";
 import { Pairing, PairingError } from "./pairing.js";
 import { PhoneNow, registerPhoneNow } from "./phonenow.js";
@@ -1077,6 +1078,33 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.post("/api/box/rollback", async () => boxCommand("rollback"));
   app.post("/api/box/reload", async () => boxCommand("reload"));
   app.post("/api/box/stats", async (req: Req<Record<string, string>, Record<string, string>, { on?: boolean }>) => boxCommand("stats", Boolean(req.body?.on)));
+
+  /**
+   * What a TV box keeps for Limited mode, the reduced app it shows when the Hub is off (#78).
+   *
+   * It has to come from the Hub, not from the routes the app already reads: /api/channels hands out
+   * the Hub's relay URL rather than the IPTV feed, and /api/settings hides the Jellyfin token. Both
+   * of those would leave a box with the Hub off unable to play anything. Only a paired TV may ask,
+   * since this is the one answer that carries the Jellyfin token and the raw feed URLs.
+   */
+  app.get("/api/box/offline", async (req, reply) => {
+    if (pairing.enforced && !deviceAsking(req)) throw Object.assign(new Error(NOT_PAIRED), { statusCode: 401, code: "pair" });
+    const jf = ctx.jellyfin();
+    const auth = jf?.auth;
+    const items = jf ? await jf.resume(20).catch(() => []) : [];
+    return reply.header("Cache-Control", "no-store").send(
+      buildLimitedSnapshot({
+        now: Date.now(),
+        channels: ctx.channels.list(true),
+        feedsFor: (id) => ctx.channels.feeds(id),
+        guideWindow: (ids, from, to) => ctx.guide.window(ids, from, to),
+        profiles: ctx.profiles.list().map((profile) => ({ profile, ...(profile.kind === "kids" ? { allow: ctx.kidsAllow.list(profile.id) } : {}) })),
+        // Signed in to Jellyfin: the box gets the address, the key and what was half-watched. An empty
+        // list is still worth sending, so the box knows Jellyfin is set up at all.
+        ...(jf && auth && "token" in auth && auth.userId && auth.token ? { jellyfin: { url: auth.url, ...(auth.serverName ? { serverName: auth.serverName } : {}), userId: auth.userId, token: auth.token, items: jellyfinOfflineItems(jf, items) } } : {}),
+      }),
+    );
+  });
 
   // Jellyfin sign-in: Quick Connect (a code on the TV, approved on the phone) or name and password.
   app.post("/api/jellyfin/quickconnect", async (req: Req<Record<string, string>, Record<string, string>, { url: string }>) => {

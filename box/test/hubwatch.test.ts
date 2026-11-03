@@ -51,6 +51,36 @@ describe("watching the Hub", () => {
     watch.stop();
   });
 
+  it("says the Hub is back while a film is still playing, and switches when it ends", async () => {
+    const { watch, shown, state } = setup();
+    watch.wentOffline();
+    state.up = true;
+    state.busy = true;
+    await watch.check();
+    // The film keeps playing, but the page can now say the Hub is back and when it will switch.
+    expect(shown).toEqual([]);
+    expect(watch.hubBack).toBe(true);
+    state.busy = false;
+    await watch.check();
+    expect(shown).toEqual(["app"]);
+    expect(watch.hubBack).toBe(false);
+    expect(watch.mode).toBe("app");
+    watch.stop();
+  });
+
+  it("forgets the Hub was back if it goes away again", async () => {
+    const { watch, state } = setup();
+    watch.wentOffline();
+    state.busy = true;
+    state.up = true;
+    await watch.check();
+    expect(watch.hubBack).toBe(true);
+    state.up = false;
+    await watch.check();
+    expect(watch.hubBack).toBe(false);
+    watch.stop();
+  });
+
   it("asks the Hub's health check", async () => {
     const answer = (body: unknown, status = 200) => (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
     expect(await hubAnswers("http://hub", answer({ ok: true }))).toBe(true);

@@ -21,11 +21,11 @@ import { DESKTOP, MODE } from "./mode.js";
 
 import { execFile } from "node:child_process";
 import { AppImageUpdates } from "./appimage-updates.js";
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { app, BrowserWindow, ipcMain, powerSaveBlocker, screen, session } from "electron";
 import os from "node:os";
 import path from "node:path";
-import type { BtAction, BoxInfo, CastState, OfflineProfile, PlayerState, SelfTestCall, SpotifyState, WebAppState } from "@ultimatetv/shared";
+import type { BtAction, BoxInfo, CastState, LimitedPlayRequest, OfflineProfile, PlayerState, SelfTestCall, SpotifyState, WebAppState } from "@ultimatetv/shared";
 import { Audio } from "./audio.js";
 import { Bluetooth } from "./bluetooth.js";
 import { Cast } from "./cast.js";
@@ -35,6 +35,8 @@ import { Display } from "./display.js";
 import { Downloads } from "./downloads.js";
 import { Heartbeat } from "./heartbeat.js";
 import { hubAnswers, HubWatch } from "./hubwatch.js";
+import { LimitedCache, LIMITED_REFRESH_MS, refreshDue } from "./limited.js";
+import { jellyfinReportFor, reportJellyfinProgress, resolveLimitedPlay, type JellyfinReportState } from "./limitedplay.js";
 import { UiCheck } from "./uicheck.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
@@ -94,6 +96,32 @@ async function carryPairing(): Promise<void> {
   }
 }
 
+/**
+ * The TV's pairing token, which is what lets the box ask the Hub for its Limited-mode copy. Electron
+ * keeps it as a cookie; a plain `fetch` has no cookie jar, so it is read out here and sent by hand.
+ */
+async function deviceToken(): Promise<string | undefined> {
+  try {
+    const jar = session.defaultSession.cookies;
+    const mine = await jar.get({ url: HUB_URL, name: "utv_device" });
+    const any = mine.length ? mine : await jar.get({ name: "utv_device" });
+    return any.sort((a, b) => (b.expirationDate ?? 0) - (a.expirationDate ?? 0))[0]?.value;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Asks the Hub for the box's Limited-mode copy. Throws with a plain reason when it can't. */
+async function fetchHubSnapshot(): Promise<unknown> {
+  const token = await deviceToken();
+  const res = await fetch(`${HUB_URL}/api/box/offline`, {
+    headers: token ? { "x-device-token": token } : {},
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`the Hub answered ${res.status}`);
+  return (await res.json()) as unknown;
+}
+
 // The app's name as the Hub last gave it (the TV UI's page title), for when the Hub can't be reached.
 const NAME_FILE = path.join(app.getPath("userData"), "app-name");
 let appName = (() => {
@@ -119,6 +147,10 @@ let offlineProfile: OfflineProfile | null = (() => {
     return null;
   }
 })();
+// Limited mode (#78): what the box keeps so the TV still works with the Hub off. The cache holds the
+// channel URLs, a week of guide, every profile's rules and the Jellyfin connection; it is refreshed
+// while the Hub is up and read when it isn't. It sits in userData beside everything else the box keeps.
+const LIMITED_FILE = path.join(app.getPath("userData"), "limited.json");
 const boxAddresses = () =>
   Object.values(os.networkInterfaces())
     .flat()
@@ -176,10 +208,25 @@ async function main(): Promise<void> {
   const webApps = new WebApps(() => win, log);
   const downloads = new Downloads(HUB_URL, log);
   let castForeground = false;
+  // The box's copy of what Limited mode needs (#78). Fetched from the Hub's one answer for the box,
+  // `/api/box/offline`, which carries the channels' own feed URLs, a week of guide, every profile's
+  // rules and the Jellyfin connection. The TV's pairing token is what lets it ask.
+  const limited = new LimitedCache({
+    file: LIMITED_FILE,
+    fetchSnapshot: fetchHubSnapshot,
+    readFile: (file) => readFileSync(file, "utf8"),
+    writeFile: (file, text) => writeFileSync(file, text),
+    rename: (from, to) => renameSync(from, to),
+    log,
+  });
   const watch = new HubWatch({
     probe: () => hubAnswers(HUB_URL),
     showOffline: (reason) => showOffline(reason),
-    showApp: () => void win?.loadURL(`${HUB_URL}/app/`),
+    showApp: () => {
+      void win?.loadURL(`${HUB_URL}/app/`);
+      // Fresh copy for the next time the Hub goes away.
+      void limited.refresh();
+    },
     busy: () => castForeground || (lastStatus !== undefined && lastStatus !== "idle" && lastStatus !== "ended" && lastStatus !== "error"),
     log,
   });
@@ -235,8 +282,26 @@ async function main(): Promise<void> {
     if (win && !win.isDestroyed()) win.webContents.send(channel, value);
   };
   let lastStatus: PlayerState["status"] | undefined;
+  // A Jellyfin film started from Limited mode (#78): the box reports its place straight to Jellyfin,
+  // since no Hub is there to do it, so Continue watching is right when the Hub comes back.
+  let limitedFilm: { itemId: string } | null = null;
+  let lastReport: JellyfinReportState | null = null;
+  const reportLimitedProgress = (s: PlayerState) => {
+    if (!limitedFilm) return;
+    const jf = limited.snapshot()?.jellyfin;
+    if (!jf) return;
+    const report = jellyfinReportFor(lastReport, { status: s.status, positionMs: s.positionMs }, Date.now(), s.status === "paused");
+    if (s.status === "playing" || s.status === "paused") lastReport = { at: Date.now(), status: s.status === "paused" ? "paused" : "playing" };
+    if (report) void reportJellyfinProgress(fetch, jf, { itemId: limitedFilm.itemId, ...report });
+    if (s.status === "ended" || s.status === "error" || s.status === "idle") {
+      // The film is over: the next Hub check may swap the page back, and nothing is lost.
+      limitedFilm = null;
+      lastReport = null;
+    }
+  };
   player.onState((s: PlayerState) => {
     send("agent:state", s);
+    reportLimitedProgress(s);
     // Report to the Hub as playback starts and ends, so a diagnosis sees both.
     if (s.status !== lastStatus && (s.status === "playing" || s.status === "idle" || s.status === "error" || s.status === "ended")) {
       log(`Player ${s.status}${s.error ? `: ${s.error}` : ""}`);
@@ -400,8 +465,26 @@ async function main(): Promise<void> {
       }
     },
     // The box's Hub-down screen.
-    hubStatus: async () => ({ hubUrl: HUB_URL, appName, reason: offlineReason, since: watch.since, addresses: boxAddresses(), profile: offlineProfile }),
+    hubStatus: async () => ({ hubUrl: HUB_URL, appName, reason: offlineReason, since: watch.since, addresses: boxAddresses(), profile: offlineProfile, hubBack: watch.hubBack }),
     retryHub: async () => void watch.check(),
+    // Limited mode (#78): what the box kept, and playing from it with the Hub off. The Kids rules run
+    // in resolveLimitedPlay, from the cached profiles, so the reduced app can't offer more than the
+    // full one would; this only wires the answer to mpv and the player's progress to Jellyfin.
+    limitedView: async () => limited.view(offlineProfile),
+    limitedPlay: async (req: never) => {
+      const result = resolveLimitedPlay(limited.snapshot(), offlineProfile, req as LimitedPlayRequest);
+      if (!result.ok) return result;
+      await methods.play!(result.options as never);
+      limitedFilm = result.jellyfin ?? null;
+      lastReport = null;
+      return {
+        ok: true as const,
+        title: result.options.title ?? "",
+        ...(result.options.artwork ? { artwork: result.options.artwork } : {}),
+        live: result.options.live,
+        ...(result.jellyfin?.durationMs !== undefined ? { durationMs: result.jellyfin.durationMs } : {}),
+      };
+    },
   };
   if (!DESKTOP) diagnostics.start({ sample: () => player.sample(), software: () => updates.status(false), info: () => methods.info!(), updateLog: () => updates.history() });
   // Tells the check after an update that the app is up (tools/box/healthcheck.sh).
@@ -536,6 +619,18 @@ async function main(): Promise<void> {
   }
   watch.start();
 
+  // Keep the Limited-mode copy fresh while the Hub is up (#78). A quick look at startup, then every
+  // quarter of an hour; a box whose Hub has gone keeps the copy it has. When the Hub comes back the
+  // watch refreshes it again, so the copy is never a week stale after a long outage.
+  const keepLimitedFresh = () => {
+    if (watch.mode !== "app" || !win) return;
+    if (!refreshDue(limited.refreshedAt, Date.now())) return;
+    void limited.refresh();
+  };
+  keepLimitedFresh();
+  const limitedTimer = setInterval(keepLimitedFresh, LIMITED_REFRESH_MS);
+  limitedTimer.unref();
+
   app.on("window-all-closed", () => app.quit());
   // Started again from the menu: bring the open one forward.
   app.on("second-instance", () => {
@@ -547,6 +642,7 @@ async function main(): Promise<void> {
     diagnostics.stop();
     heartbeat.stop();
     watch.stop();
+    clearInterval(limitedTimer);
     uiCheck.stop();
     cec.stop();
     spotify.stop();
