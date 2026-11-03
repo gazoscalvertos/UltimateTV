@@ -58,9 +58,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -166,21 +163,20 @@ fun SettingsScreen(nav: NavHostController) {
         }
     }
     // The TV's QR code is an address like http://192.168.0.19:8095/remote/?pair=ABCDEFGH: it gives the Hub too.
+    // How the code is read depends on the build: the phone's flavour scans it with Google Play
+    // services, the Fire TV flavour has no camera and asks for the letters instead (#183).
     fun scanTv() {
-        val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-        GmsBarcodeScanning.getClient(context, options).startScan()
-            .addOnSuccessListener { code ->
-                val uri = Uri.parse(code.rawValue ?: "")
-                val pair = runCatching { uri.getQueryParameter("pair") }.getOrNull()
-                if (pair == null || uri.scheme?.startsWith("http") != true) {
-                    ui.say("That isn't the TV's code. Scan the one in Settings › Phones and remotes.")
-                    return@addOnSuccessListener
-                }
-                prefs.hub = "${uri.scheme}://${uri.authority}"
-                hubUrl = prefs.hub
-                pairWith(pair)
+        scanQr(context, onCode = { text ->
+            val uri = Uri.parse(text)
+            val pair = runCatching { uri.getQueryParameter("pair") }.getOrNull()
+            if (pair == null || uri.scheme?.startsWith("http") != true) {
+                ui.say("That isn't the TV's code. Scan the one in Settings › Phones and remotes.")
+                return@scanQr
             }
-            .addOnFailureListener { ui.say("The scanner didn't start. Type the code shown on the TV instead.") }
+            prefs.hub = "${uri.scheme}://${uri.authority}"
+            hubUrl = prefs.hub
+            pairWith(pair)
+        }, onProblem = { ui.say(it) })
     }
     fun browse(url: String) = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
     Column {
@@ -219,7 +215,7 @@ fun SettingsScreen(nav: NavHostController) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (paired != true) {
-                OutlinedButton(onClick = { scanTv() }, modifier = Modifier.fillMaxWidth()) { Text("Scan the TV's code") }
+                if (canScanQr()) OutlinedButton(onClick = { scanTv() }, modifier = Modifier.fillMaxWidth()) { Text("Scan the TV's code") }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value = pairCode, onValueChange = { pairCode = it }, label = { Text("Code on the TV") }, singleLine = true, modifier = Modifier.weight(1f))
                     OutlinedButton(onClick = { pairWith(pairCode) }, enabled = pairCode.isNotBlank() && ui.online) { Text("Pair") }
@@ -279,7 +275,7 @@ fun SettingsScreen(nav: NavHostController) {
             OutlinedButton(onClick = { scope.launch { browse(app.hub.browserUrl("/setup/")) } }, modifier = Modifier.fillMaxWidth()) { Text("Hub setup page") }
             OutlinedButton(onClick = { nav.navigate("whatsnew") }, enabled = ui.online, modifier = Modifier.fillMaxWidth()) { Text("What's new") }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${ui.appName} for Android ${BuildConfig.VERSION_NAME}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${ui.appName} for ${BuildConfig.DEVICE_LABEL} ${BuildConfig.VERSION_NAME}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = {
                     scope.launch {
                         runCatching { app.hub.clientVersion() }
@@ -293,7 +289,7 @@ fun SettingsScreen(nav: NavHostController) {
                                     } else {
                                         "Download it from the Hub and install it over this one. Your downloads stay."
                                     }
-                                    if (ui.confirm("Version ${v.versionName ?: v.versionCode} is out", said, "Get it", "Later")) browse("${prefs.hub}/api/client/app.apk")
+                                    if (ui.confirm("Version ${v.versionName ?: v.versionCode} is out", said, "Get it", "Later")) browse("${prefs.hub}${BuildConfig.UPDATE_PATH}")
                                 } else {
                                     ui.say("This is the latest version")
                                 }

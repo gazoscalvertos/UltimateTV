@@ -200,7 +200,9 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
             }
             Column(Modifier.fillMaxSize()) {
                 if (!ui.online && route != "downloads" && route != "settings" && ui.on("downloads")) OfflineBanner { go(nav, "downloads") }
-                Box(Modifier.fillMaxSize()) {
+                // On a TV the remote has to start somewhere: this puts focus on the first thing
+                // in the new screen whenever the route changes. On a phone it does nothing.
+                Box(Modifier.fillMaxSize().tvLanding(route)) {
                     NavHost(nav, startDestination = startTab ?: "home") {
                         composable("home") { HomeScreen(nav) }
                         composable("guide") { GuideScreen(nav) }

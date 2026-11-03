@@ -20,6 +20,7 @@ import android.os.Looper
 import android.util.Rational
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -317,6 +318,78 @@ class PlayerActivity : ComponentActivity() {
     }
 
     // ---------------------------------------------------------------------
+    // The remote. A Fire TV remote (and any TV remote) sends select, back, play/pause, rewind
+    // and fast forward as key events, never as touches, so the player has to answer them here.
+    // Handled in dispatchKeyEvent rather than onKeyDown so a press can never both seek and
+    // move a button on the on-screen controller.
+
+    private var controllerVisible = true
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val p = player ?: return super.dispatchKeyEvent(event)
+        val down = event.action == KeyEvent.ACTION_DOWN
+        return when (event.keyCode) {
+            // Play/pause: the remote's transport button, and Select on a D-pad.
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_HEADSETHOOK,
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                if (down) togglePlay()
+                true
+            }
+            KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                if (down) p.play()
+                true
+            }
+            KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                if (down) p.pause()
+                true
+            }
+            // A tap of rewind or fast forward steps back 10 seconds or on 30.
+            KeyEvent.KEYCODE_MEDIA_REWIND, KeyEvent.KEYCODE_DPAD_LEFT -> {
+                if (down) seekBy(-SEEK_BACK_MS)
+                true
+            }
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (down) seekBy(SEEK_FORWARD_MS)
+                true
+            }
+            // "Next" only means something when the Hub queued an episode up.
+            KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                val next = info?.next
+                if (down && next != null) {
+                    report("stop")
+                    playNext(next)
+                }
+                true
+            }
+            // Back hides the controller first, then leaves the player: on a TV, leaving on the
+            // first press because an overlay happened to be up feels like a crash.
+            KeyEvent.KEYCODE_BACK -> {
+                if (down && controllerVisible) {
+                    view.hideController()
+                    true
+                } else {
+                    super.dispatchKeyEvent(event)
+                }
+            }
+            else -> super.dispatchKeyEvent(event)
+        }
+    }
+
+    private fun togglePlay() {
+        val p = player ?: return
+        if (p.isPlaying) p.pause() else p.play()
+        // A press of pause with the controller hidden should show what happened.
+        if (!controllerVisible) view.showController()
+    }
+
+    private fun seekBy(byMs: Long) {
+        val p = player ?: return
+        val end = if (p.duration > 0) p.duration else Long.MAX_VALUE
+        p.seekTo((p.currentPosition + byMs).coerceIn(0L, end))
+        if (!controllerVisible) view.showController()
+    }
+
+    // ---------------------------------------------------------------------
     // Picture-in-picture: carry on watching in a corner when you leave the app.
 
     override fun onUserLeaveHint() {
@@ -373,7 +446,10 @@ class PlayerActivity : ComponentActivity() {
             setShowSubtitleButton(true)
             setShowNextButton(false)
             setShowPreviousButton(false)
-            setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> topBar.visibility = v })
+            setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v ->
+                controllerVisible = v == View.VISIBLE
+                topBar.visibility = v
+            })
         }
         root.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
 
@@ -415,6 +491,10 @@ class PlayerActivity : ComponentActivity() {
         const val EXTRA_REQ = "req"
         const val EXTRA_TITLE = "title"
         const val EXTRA_OFFLINE = "offline"
+
+        /** A tap of rewind, and of fast forward, on a TV remote. */
+        private const val SEEK_BACK_MS = 10_000L
+        private const val SEEK_FORWARD_MS = 30_000L
 
         fun play(context: Context, info: PlaybackInfo, req: PlaybackRequest, title: TitleRef?) {
             val gson = App.instance.hub.gson
