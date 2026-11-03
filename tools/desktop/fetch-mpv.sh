@@ -98,11 +98,13 @@ else
       command -v unzip >/dev/null 2>&1 || fail "This needs unzip or 7z to open $url"
       unzip -q "$file" -d "$work/unpacked" || fail "$url isn't a zip this can read"
       ;;
-    *.tar.xz)
-      tar xJf "$file" -C "$work" --one-top-level=unpacked || fail "$url isn't a tar.xz this can read"
-      ;;
-    *.tar.gz | *.tgz)
-      tar xzf "$file" -C "$work" --one-top-level=unpacked || fail "$url isn't a tar.gz this can read"
+    *.tar.xz | *.tar.gz | *.tgz)
+      # Plain `tar xf` and a folder made by hand, rather than --one-top-level: that is a GNU tar
+      # option and the macOS runner's tar is bsdtar, which does not take it. `xf` lets both read
+      # the compression from the file, and the find below copes with an archive that has a folder
+      # inside it (the Mac builds do) or not (some Windows zips).
+      mkdir -p "$work/unpacked"
+      tar xf "$file" -C "$work/unpacked" || fail "$url isn't a tar this can read"
       ;;
     *)
       if [ "${url##*.}" = "7z" ]; then
@@ -133,7 +135,7 @@ mkdir -p "$dest"
 count="$(find "$root" -maxdepth 1 -type f | wc -l | tr -d ' ')"
 if [ -n "$copy_lib_dir" ]; then
   count="$((count + $(find "$root/lib" -maxdepth 1 -type f | wc -l | tr -d ' ')))"
-  rm -rf "$dest/lib"
+  rm -rf "${dest:?}/lib"
 fi
 say "Copying $count file(s) into $dest"
 # The binary and the libraries beside it, and nothing else nested: that is what extraResources
