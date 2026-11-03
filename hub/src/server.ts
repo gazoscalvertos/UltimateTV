@@ -26,7 +26,7 @@ import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
 import { ChangelogFile, registerChangelog } from "./changelog.js";
 import type { AccessibilitySettings, BoxState, BoxTarget, DeviceList, FeatureId, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, HomeRowId, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
-import { FEATURES, featuresFor, isClientKind, type ClientFeatureState, cleanAppName, cleanSubtitleStyle, cleanLook, resolveTheme, THEMES, cleanScreensaver, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
+import { FEATURES, featuresFor, isClientKind, type ClientFeatureState, cleanAppName, cleanSubtitleStyle, cleanLook, resolveTheme, THEMES, cleanScreensaver, cleanRadioSettings, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
@@ -589,6 +589,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       if (ss.photosPath && ss.photosPath !== s.screensaver.photosPath) ss.photosPath = await ctx.photos.check(ss.photosPath);
       patch.screensaver = ss;
     }
+    if (body.radio) patch.radio = cleanRadioSettings(body.radio, s.radio);
     // An older TV or phone sends "auto" for dark with the seasons on.
     if (body.theme !== undefined && THEME_CHOICES.includes(body.theme)) Object.assign(patch, body.theme === "auto" ? { theme: "default", seasonal: true } : { theme: body.theme, seasonal: cleanLook(s).seasonal });
     if (typeof body.seasonal === "boolean") patch.seasonal = body.seasonal;

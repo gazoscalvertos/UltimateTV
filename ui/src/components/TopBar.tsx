@@ -6,6 +6,8 @@ import type { FeatureId } from "@ultimatetv/shared";
 import { castSettings } from "../cast";
 import { featureOn } from "../features";
 import { visibleDownloads } from "../downloads";
+import { activeMusic, musicLine, musicPlayPause, spotify, webApp } from "../music";
+import { playerState } from "../player";
 import { sleep } from "../sleep";
 import { appName, isKids, nav, now, profile, type Route } from "../store";
 import { weather } from "../weather";
@@ -35,6 +37,31 @@ function isActive(t: Tab): boolean {
   return cur.name !== "browse" || (t.route.name === "browse" && t.route.kind === cur.kind);
 }
 
+/** Shown while music plays from another screen, so it can be paused without leaving the one you're on. */
+function MusicChip() {
+  const line = () => musicLine();
+  const paused = () => {
+    const which = activeMusic();
+    if (which === "radio") return playerState().status === "paused";
+    if (which === "spotify") return spotify().status !== "playing";
+    const np = webApp().nowPlaying;
+    return !np?.playing;
+  };
+  const toggle = () => void musicPlayPause().catch(() => undefined);
+  return (
+    <Show when={line()}>
+      <div class="music-chip" data-focus-group>
+        <button class="music-chip-key" data-focus aria-label={paused() ? "Play the music" : "Pause the music"} onClick={toggle}>
+          <Icon name={paused() ? "play" : "pause"} />
+        </button>
+        <button class="music-chip-name" data-focus aria-label={`What's playing: ${line()}`} onClick={() => nav.current().name !== "music" && nav.replace({ name: "music" })}>
+          {line()}
+        </button>
+      </div>
+    </Show>
+  );
+}
+
 export function TopBar() {
   return (
     <header class="topbar" data-focus-group data-focus-only="up">
@@ -62,6 +89,9 @@ export function TopBar() {
         </Show>
       </nav>
       <div class="topbar-right">
+        <Show when={nav.current().name !== "music"}>
+          <MusicChip />
+        </Show>
         <Show when={featureOn("weather") && weather()?.settings.inTopBar ? weather()!.report : undefined}>
           {(r) => (
             <button class="tab weather-chip" classList={{ active: nav.current().name === "weather" }} data-focus aria-label="The weather" onClick={() => nav.current().name !== "weather" && nav.push({ name: "weather" })}>

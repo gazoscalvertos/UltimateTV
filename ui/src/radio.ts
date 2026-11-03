@@ -4,10 +4,11 @@
 // because a radio stream has no picture to show behind it.
 
 import { createEffect, createRoot, createSignal, on } from "solid-js";
-import type { PlaybackInfo, PodcastEpisode, PodcastShow, PodcastShowWithEpisodes, RadioStation, TitleRef } from "@ultimatetv/shared";
+import { DEFAULT_RADIO_SETTINGS, sortStations, type PlaybackInfo, type PodcastEpisode, type PodcastShow, type PodcastShowWithEpisodes, type RadioSettings, type RadioStation, type TitleRef } from "@ultimatetv/shared";
 import { agent } from "./agent";
 import { hub } from "./api";
 import { nowPlaying, play, playerState, stopPlayback } from "./player";
+import { onHubEvent } from "./events";
 import { errorToast, toast } from "./store";
 
 /** The station or episode the Music tab is playing. */
@@ -18,6 +19,10 @@ const [shows, setShows] = createSignal<PodcastShow[]>([]);
 const [pick, setPick] = createSignal<RadioPick | null>(null);
 const [nowLine, setNowLine] = createSignal<Record<string, string>>({});
 const [busy, setBusy] = createSignal<string | null>(null);
+const [settings, setSettings] = createSignal<RadioSettings>(DEFAULT_RADIO_SETTINGS);
+
+/** How the household likes the radio: the station order, the screensaver, now playing, podcasts. */
+export const radioSettings = (): RadioSettings => settings();
 
 /** How often the player is looked at while a podcast plays, and how many looks make one save. */
 const SAMPLE_EVERY_MS = 1_000;
@@ -36,9 +41,19 @@ const refFor = (p: RadioPick): TitleRef => ({
   ...(p.kind === "episode" && p.episode.image ? { poster: p.episode.image } : {}),
 });
 
-export const radioStations = (): RadioStation[] => stations();
+/** The stations in the order the household chose. */
+export const radioStations = (): RadioStation[] => sortStations(stations(), settings().stationOrder);
 export const podcastShows = (): PodcastShow[] => shows();
 export const radioBusy = (): string | null => busy();
+
+/** Reads the household's radio settings, and again whenever they change on the phone or the setup page. */
+export function startRadioSettings(): void {
+  const load = () => hub.settings().then((s) => setSettings(s.radio ?? DEFAULT_RADIO_SETTINGS), () => undefined);
+  void load();
+  onHubEvent((e) => {
+    if (e.type === "settings.changed") void load();
+  });
+}
 
 /**
  * What's playing from here, or null: a video, or the radio stopped, means the panel goes away.
@@ -173,6 +188,8 @@ export async function removeStation(id: string): Promise<void> {
  * per station every half minute: the Hub caches the answer, so several TVs don't hammer the stream.
  */
 export async function refreshNow(stationId: string): Promise<void> {
+  // Turned off in Settings, the Hub isn't asked at all: no song name, and no stream opened in vain.
+  if (!settings().nowPlaying) return;
   try {
     const reply = await hub.radioNow(stationId);
     if (!reply.now) return;

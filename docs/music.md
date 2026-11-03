@@ -41,8 +41,21 @@ Deezer has no app for the box, so the TV opens Deezer's own website player over 
 - Spotify and Deezer pause each other: only one plays at a time.
 - **Radio**: pick a station under **Radio** and it plays through the TV. Each station shows what it's playing where its stream says (classic FM, Heart, Smooth, Radio X, Radio Paradise and the commercial stations do; the BBC's streams don't, so they show the station only). Pause and play with the remote. The same list is on the phone remote under **Watch › Radio**.
 - **Podcasts**: add one by searching for it or pasting its feed address under **Podcasts**. A show you follow arrives with new episodes marked, and an episode you're part way through starts where you left off; back out of it (or pause) and the place is kept.
+- **From any screen**: while music, the radio or a podcast plays, a small chip at the top right of every screen but the Music tab names what's playing and has a pause/play button. Its name opens the Music tab. The remote's Play/Pause key does the same from anywhere.
 
 **Adding a station of your own**: **Add a station** under Radio asks for a name and the stream address (the `http://` or `https://` address the station publishes; most have one for apps). It's kept on the Hub, so it's there on every screen and on the phone.
+
+## Changing how radio behaves
+
+**Settings › Radio and podcasts** on the TV (or **Radio** on the setup page) has five choices. They're kept on the Hub, so they apply to every screen:
+
+| Setting | What it does |
+|---|---|
+| Keep the screen awake | The screensaver normally comes on while the radio plays, with the station named on it. This keeps the picture up instead. |
+| Name the station on the screensaver | Leave the station off the screensaver's clock, if you'd rather it just told the time. |
+| Say what's playing | The Hub asks each station for the current song every so often. Off means the TV shows only the station's name, and the Hub opens no streams in the background. |
+| Podcasts on the Music tab | Hide the podcasts from the Music tab for a household that only wants the radio. Your followed shows are kept; they just aren't listed. |
+| Station order | **As they come** is the built-in running order (BBC first, then the commercial stations, then Fun Kids). **Yours first** puts the stations you added on top. **By name** sorts the lot alphabetically, with the children's stations kept together at the top. |
 
 ## When something's wrong
 

@@ -7,7 +7,7 @@ import type { Action, MusicItem, MusicPage, MusicTracks, SpotifyCommand, Spotify
 import { agent, agentHas, onBox } from "./agent";
 import { hub } from "./api";
 import { onHubEvent } from "./events";
-import { radioOn, radioPause, radioPauseToggle } from "./radio";
+import { radioLine, radioOn, radioPause, radioPauseToggle } from "./radio";
 import { errorToast, toast } from "./store";
 
 type Source = Pick<
@@ -284,6 +284,21 @@ export function activeMusic(): "spotify" | "deezer" | "radio" | null {
   if (s.track && s.status === "paused") return "spotify";
   if (w.nowPlaying) return "deezer";
   return null;
+}
+
+/**
+ * A short line for the top bar's music chip: what's playing, whoever is playing it. Empty when
+ * nothing is, so the chip only shows when there is something to control.
+ */
+export function musicLine(): string {
+  const which = activeMusic();
+  if (which === "radio") return radioLine();
+  if (which === "spotify") {
+    const tr = spotify().track;
+    return tr ? `${tr.name}${tr.artists.length ? ` · ${tr.artists.join(", ")}` : ""}` : "";
+  }
+  const np = webApp().nowPlaying;
+  return which === "deezer" && np ? `${np.title}${np.artist ? ` · ${np.artist}` : ""}` : "";
 }
 
 export async function musicPlayPause(): Promise<boolean> {

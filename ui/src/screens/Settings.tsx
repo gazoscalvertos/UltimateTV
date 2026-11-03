@@ -2,8 +2,8 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createEffect, createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { AccessibilitySettings, BoxUpdateHealth, Certification, FeatureId, SubtitleMode, SubtitleStyle, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, ThemeName } from "@ultimatetv/shared";
-import { cleanAccessibility, TEXT_SCALES, CERTIFICATIONS, cleanKidsLimits, KIDS_ALLOWANCES, KIDS_BEDTIMES, kidsLimitsLabel, NO_KIDS_LIMITS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, guestSections, GUEST_NEVER, FEATURES, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, DEFAULT_SUBTITLE_STYLE } from "@ultimatetv/shared";
+import type { AccessibilitySettings, BoxUpdateHealth, Certification, FeatureId, SubtitleMode, SubtitleStyle, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, RadioSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, StationOrder, ThemeName } from "@ultimatetv/shared";
+import { cleanAccessibility, TEXT_SCALES, CERTIFICATIONS, cleanKidsLimits, KIDS_ALLOWANCES, KIDS_BEDTIMES, kidsLimitsLabel, NO_KIDS_LIMITS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, guestSections, GUEST_NEVER, FEATURES, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, DEFAULT_SUBTITLE_STYLE, STATION_ORDER_NAMES, STATION_ORDERS } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -365,7 +365,7 @@ export function Settings(props: { section?: string }) {
   };
   const season = () => seasonalTheme();
 
-  const save = async (patch: Partial<Pick<PublicSettings, "recording" | "playback" | "theme" | "seasonal">>) => {
+  const save = async (patch: Partial<Pick<PublicSettings, "recording" | "playback" | "theme" | "seasonal" | "radio">>) => {
     try {
       mutate(await hub.saveSettings(patch));
     } catch (err) {
@@ -387,6 +387,10 @@ export function Settings(props: { section?: string }) {
     () => section() === "screensaver",
     (open) => (open ? hub.screensaver().catch(() => null) : Promise.resolve(null)),
   );
+  // The radio and podcasts.
+  const radio = () => settings()!.radio;
+  const saveRadio = async (patch: Partial<RadioSettings>) => save({ radio: { ...radio(), ...patch } });
+
   const saveSaver = async (patch: Partial<ScreensaverSettings>) => {
     try {
       mutate(await hub.saveSettings({ screensaver: patch }));
@@ -617,6 +621,7 @@ export function Settings(props: { section?: string }) {
     { id: "weather", label: "Weather" },
     { id: "recording", label: "Recording" },
     { id: "music", label: "Music channels" },
+    { id: "radio", label: "Radio and podcasts" },
     { id: "scares", label: "Projected clips" },
     { id: "seasonal", label: "Seasonal clips" },
     { id: "cast", label: "Cast and games" },
@@ -823,6 +828,44 @@ export function Settings(props: { section?: string }) {
                   </>
                 )}
               </Show>
+            </Show>
+
+            <Show when={section() === "radio"}>
+              <h2>Radio and podcasts</h2>
+              <p class="hint">
+                The stations are on the Music tab; add your own there with the Add a station card. These settings are for the whole house, like the rest of
+                this page.
+              </p>
+              <Row
+                label="Keep the screen awake"
+                hint="On, a station or an episode keeps the TV's screen on as a film does. Off, the screensaver comes up after its usual wait."
+                value={radio().keepAwake ? "On" : "Off"}
+                onSelect={() => void saveRadio({ keepAwake: !radio().keepAwake })}
+              />
+              <Row
+                label="On the screensaver"
+                hint="The station and the song or show it's playing, under the clock."
+                value={radio().onScreensaver ? "On" : "Off"}
+                onSelect={() => void saveRadio({ onScreensaver: !radio().onScreensaver })}
+              />
+              <Row
+                label="Say what's playing"
+                hint="The Hub asks each station for the current song every so often. Off saves a little of the Hub's time."
+                value={radio().nowPlaying ? "On" : "Off"}
+                onSelect={() => void saveRadio({ nowPlaying: !radio().nowPlaying })}
+              />
+              <Row
+                label="Podcasts on the Music tab"
+                hint="Shows and new episodes sit under the stations."
+                value={radio().showPodcasts ? "On" : "Off"}
+                onSelect={() => void saveRadio({ showPodcasts: !radio().showPodcasts })}
+              />
+              <Row
+                label="Station order"
+                hint="As they come is the running order the app ships with, BBC first; Yours first puts the ones you added on top."
+                value={STATION_ORDER_NAMES[radio().stationOrder]}
+                onSelect={() => void saveRadio({ stationOrder: cycle(STATION_ORDERS, radio().stationOrder) as StationOrder })}
+              />
             </Show>
 
             <Show when={section() === "scares"}>

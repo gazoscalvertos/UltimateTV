@@ -141,7 +141,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#bluetooth">Bluetooth</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#radio">Radio</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#bluetooth">Bluetooth</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -298,6 +298,16 @@
       <label>Or a YouTube playlist<small> every video in it is downloaded (optional)</small></label><input name="playlist" autocomplete="off" placeholder="https://www.youtube.com/playlist?list=…">
       <button>Add channel</button>
     </form>
+  </section>
+
+  <section id="radio">
+    <h2>Radio and podcasts</h2>
+    <p class="hint">How the radio and podcasts behave on the TV. The stations themselves are on the TV's Music tab, and on the remote.</p>
+    <label class="opt"><span>Keep the screen awake while the radio plays<small>Otherwise the screensaver comes on, with the station named on it</small></span><input type="checkbox" data-rad="keepAwake"></label>
+    <label class="opt"><span>Name the station on the screensaver</span><input type="checkbox" data-rad="onScreensaver"></label>
+    <label class="opt"><span>Say what's playing<small>The Hub asks each station for the current song every so often. Off saves a little of the Hub's time</small></span><input type="checkbox" data-rad="nowPlaying"></label>
+    <label class="opt"><span>Podcasts on the Music tab</span><input type="checkbox" data-rad="showPodcasts"></label>
+    <label class="opt"><span>Station order</span><select data-rad="stationOrder"><option value="presets">As they come</option><option value="custom">Yours first</option><option value="name">By name</option></select></label>
   </section>
 
   <section id="profiles">
@@ -1068,9 +1078,15 @@ function setValue(el, v) {
   }
 }
 const valueOf = (el) => (el.type === "checkbox" ? el.checked : "number" in el.dataset ? Number(el.value) : el.value);
-for (const el of document.querySelectorAll("[data-pb], [data-rec], [data-ss]")) {
+for (const el of document.querySelectorAll("[data-pb], [data-rec], [data-ss], [data-rad]")) {
   el.addEventListener("change", async () => {
-    const body = el.dataset.pb ? { playback: { [el.dataset.pb]: valueOf(el) } } : el.dataset.ss ? { screensaver: { [el.dataset.ss]: valueOf(el) } } : { recording: { [el.dataset.rec]: valueOf(el) } };
+    const body = el.dataset.pb
+      ? { playback: { [el.dataset.pb]: valueOf(el) } }
+      : el.dataset.ss
+        ? { screensaver: { [el.dataset.ss]: valueOf(el) } }
+        : el.dataset.rad
+          ? { radio: { [el.dataset.rad]: valueOf(el) } }
+          : { recording: { [el.dataset.rec]: valueOf(el) } };
     try {
       const saved = await api("/api/settings", { method: "PUT", body });
       toast("Saved");
@@ -1736,6 +1752,7 @@ async function load() {
   for (const el of document.querySelectorAll("[data-pb]")) setValue(el, s.playback[el.dataset.pb]);
   for (const el of document.querySelectorAll("[data-sub]")) if (s.playback.subtitleStyle) setValue(el, s.playback.subtitleStyle[el.dataset.sub]);
   for (const el of document.querySelectorAll("[data-rec]")) setValue(el, s.recording[el.dataset.rec]);
+  for (const el of document.querySelectorAll("[data-rad]")) setValue(el, (s.radio ?? {})[el.dataset.rad]);
   if (s.screensaver) loadScreensaver(s).catch(() => {});
   loadWeather().catch(() => {});
   loadAlerts().catch(() => {});
