@@ -2,7 +2,7 @@
 
 The box is any x86_64 mini PC on the TV's HDMI (ours is a GMKtec NucBox K7 Plus). The installer turns a fresh Arch Linux install into a TV box that boots straight into UltimateTV. Debian 13 also works, with an older HDR stack.
 
-The installer takes the whole machine over (it logs a `tv` user straight into a kiosk), so don't run it on a computer you use as a desktop, even an Arch-based one like Omarchy. To watch on a desktop, use the AppImage instead ([desktop.md](desktop.md)).
+The installer takes the whole machine over (it logs a `tv` user straight into a kiosk), so don't run it on a computer you use as a desktop, even an Arch-based one like Omarchy. To watch on a desktop, use the app for that computer instead — an AppImage on Linux, an installer on Windows, a .dmg on a Mac ([desktop.md](desktop.md)).
 
 ## 1. Install Arch Linux
 

@@ -1,5 +1,11 @@
-# The desktop AppImage (docs/desktop.md). build-appimage.sh stages the bundled app in
-# tools/desktop/stage and runs electron-builder there with this file.
+# The desktop app: the AppImage for Linux (docs/desktop.md), the NSIS installer for Windows (#127)
+# and the .dmg for macOS (#128). The build-*.sh scripts stage the bundled app in tools/desktop/stage
+# and run electron-builder from tools/desktop with this file, so:
+#   * `files` patterns are relative to the stage folder (directories.app);
+#   * `extraResources.from` is relative to the project folder (tools/desktop), which is where
+#     vendor/mpv/ comes from;
+#   * `artifactName` patterns must match box/src/platform.ts's installerAssetName(), because the
+#     Hub builds its download links from those names.
 appId: tv.ultimatetv.desktop
 productName: UltimateTV
 executableName: ultimatetv
@@ -12,6 +18,9 @@ files:
   - "**/*"
 asar: true
 # The offline page is loaded with loadFile, which reads from the asar fine; nothing needs unpacking.
+publish: null
+
+# --- Linux: the AppImage -----------------------------------------------------------------------
 linux:
   target:
     - AppImage
@@ -32,4 +41,80 @@ linux:
       Keywords: tv;iptv;jellyfin;guide;
 appImage:
   artifactName: UltimateTV-${arch}.AppImage
-publish: null
+
+# --- Windows: an NSIS installer, per user, no administrator -------------------------------------------------
+# Three settings make the "no admin rights" promise hold:
+#   * perMachine: false                installs into %LOCALAPPDATA%\Programs\UltimateTV for this
+#                                      user, which never needs an elevation prompt;
+#   * allowElevation: false            so the installer never asks to become an administrator;
+#   * requestedExecutionLevel: asInvoker  so the app doesn't either (Electron's own default, said
+#                                      here so it is not left to chance).
+# oneClick is off. A one-click installer is quicker, but it shows nothing and cannot offer to
+# change where the app goes; with no elevation prompt, the wizard is the only sign the person gets
+# that anything happened. allowToChangeInstallationDirectory needs oneClick: false, so the two go
+# together.
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+    # A zip beside the installer: copying an unzipped folder is the one way onto a machine whose
+    # policy blocks installers, and the fallback docs/desktop.md offers.
+    - target: zip
+      arch: [x64, arm64]
+  icon: resources/icon.png
+  # The zip's name; nsis.artifactName below is the installer's.
+  artifactName: UltimateTV-${arch}.zip
+  requestedExecutionLevel: asInvoker
+  # mpv, which Windows has to carry. extraResources copies tools/desktop/vendor/mpv to
+  # <resources>/mpv inside the installed app, which is where box/src/platform.ts's mpvBinary()
+  # looks. It is per platform, not top-level: the Linux AppImage plays through the computer's own
+  # mpv and build-appimage.sh creates no vendor folder, so a top-level entry would break it. If the
+  # folder is missing, electron-builder stops with "file source doesn't exist" rather than shipping
+  # an app that cannot play, which is the right failure.
+  extraResources:
+    - from: vendor/mpv
+      to: mpv
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: UltimateTV
+  uninstallDisplayName: UltimateTV
+  runAfterFinish: true
+  # Uninstalling leaves %APPDATA%\ultimatetv alone: those are the household's settings, not the
+  # installer's, and reinstalling finds them again.
+  deleteAppDataOnUninstall: false
+  artifactName: UltimateTV-Setup-${arch}.exe
+
+# --- macOS: one .dmg per architecture ----------------------------------------------------------
+# Intel Macs and Apple Silicon get their own .dmg instead of one universal build: a universal
+# binary doubles the app's size to save one download, and each Mac can only use one of the two.
+# Signing is deliberately off: `identity: null` stops electron-builder looking for a certificate
+# that CI doesn't have. The result is the right-click → Open flow docs/desktop.md describes. A paid
+# Apple Developer ID plus notarisation would remove that step and let the app open with a
+# double-click; docs/desktop.md says what it would cost and change, and this is where it would go
+# (identity: "Developer ID Application: …", hardenedRuntime: true, notarize: true).
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  category: public.app-category.entertainment
+  icon: resources/icon.png
+  artifactName: UltimateTV-${arch}.dmg
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  # Electron 44 needs macOS 11 or newer; saying so gets an honest message instead of a crash.
+  minimumSystemVersion: "11.0"
+  # The Mac's mpv, the same arrangement as Windows above: tools/desktop/vendor/mpv/mpv becomes
+  # <resources>/mpv/mpv inside the .app. Each architecture's .dmg gets its own mpv, which is what
+  # build-macos.sh checks before it builds.
+  extraResources:
+    - from: vendor/mpv
+      to: mpv
+dmg:
+  title: UltimateTV
+  artifactName: UltimateTV-${arch}.dmg

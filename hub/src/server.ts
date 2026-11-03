@@ -51,7 +51,7 @@ import { ReportStore } from "./reports.js";
 import { JellyfinClient } from "./services/jellyfin.js";
 import { PlexClient, plexPinCheck, plexPinStart, plexResources } from "./services/plex.js";
 import { publicSettings, sourceKey } from "./settings.js";
-import { RemoteApp } from "./remoteapp.js";
+import { desktopCheck, RemoteApp, RemoteAsset } from "./remoteapp.js";
 import { SelfUpdate } from "./selfupdate.js";
 import { statsWarnings } from "./stats.js";
 import { sendFile } from "./streaming.js";
@@ -64,6 +64,22 @@ import { registerKidsAllow } from "./kidsallowroutes.js";
 import { registerBluetooth } from "./bluetoothroutes.js";
 import { registerRadio } from "./radioroutes.js";
 import { kidsAllowLookup, NO_KIDS_ALLOW_LOOKUP } from "@ultimatetv/shared";
+import { desktopAsset, desktopDownload, desktopDownloads, DESKTOP_RELEASE, downloadAsset, type DesktopKind } from "@ultimatetv/shared";
+
+/** Said to a phone or a browser when GitHub won't give the Hub a download. */
+const DESKTOP_MISSING = "The Hub couldn't get the app from GitHub. Try again in a minute.";
+
+/**
+ * Where a phone or a browser goes to download an app, from the name the settings pages use.
+ * The Android apps come from their own routes; the desktop app's three platforms go through the
+ * Hub's copy of the release, so the link keeps working when GitHub is slow or the house is offline.
+ */
+function appDownloadPath(app: string): string | null {
+  if (app === "client") return "/api/client/app.apk";
+  if (app === "remote") return "/api/remote/app.apk";
+  const kind = desktopDownloads().find((d) => d.kind === app);
+  return kind ? `/api/desktop/${kind.kind}/installer` : null;
+}
 
 export interface ServerDeps {
   /** Overridable in tests so they don't shell out to ffmpeg/vainfo. */
@@ -927,12 +943,56 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       .send(apk.stream);
   });
 
-  // QR codes for the two Android apps' download links, for the TV's and the phone's settings.
-  // Anyone may ask: they carry no pairing code, and the apps pair themselves once installed.
-  app.get("/api/apps/:app/qr.svg", async (req: Req<{ app: string }>, reply) => {
-    if (req.params.app !== "client" && req.params.app !== "remote") return reply.code(404).send({ error: "No such app" });
-    const svg = await QRCode.toString(`${phoneBase(req)}/api/${req.params.app}/app.apk`, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
+  // The desktop app's downloads (#127 Windows, #128 Mac, and the Linux AppImage that was already
+  // here): the same shape as the APKs above, from the same `desktop-app` release. One cache per
+  // platform and architecture, because each is a different file on that release. The paths are
+  // written out one by one rather than looped over, so tools/hub/route-auth.mjs can see them.
+  const desktopCaches = new Map<string, RemoteAsset>();
+  const desktopAsset_ = (kind: DesktopKind, arch: string): RemoteAsset => {
+    const name = desktopAsset(kind, arch);
+    let cached = desktopCaches.get(name);
+    if (!cached) {
+      cached = new RemoteAsset(config.dataDir, fetch, { tag: DESKTOP_RELEASE, file: name, check: desktopCheck(kind) });
+      desktopCaches.set(name, cached);
+    }
+    return cached;
+  };
+  /** Streams one platform's download; `?arch=` picks the other architecture. */
+  const sendInstaller = async (kind: DesktopKind, req: Req<Record<string, string>, { arch?: string }>, reply: FastifyReply) => {
+    // No ?arch= gives the platform's usual build (Apple Silicon for a Mac, x64 elsewhere); the
+    // other one is a second link beside it. shared/src/desktop.ts names both files.
+    const arch = req.query.arch === "x64" || req.query.arch === "arm64" ? req.query.arch : desktopDownload(kind).usual;
+    const name = downloadAsset(kind, arch);
+    const got = await desktopAsset_(kind, arch).open();
+    if (!got) return reply.code(503).type("text/plain").send(DESKTOP_MISSING);
+    return reply
+      .type(desktopDownload(kind).contentType)
+      .header("Content-Length", got.size)
+      .header("Content-Disposition", `attachment; filename="${name}"`)
+      .send(got.stream);
+  };
+  app.get("/api/desktop/windows/installer", (req: Req<Record<string, string>, { arch?: string }>, reply) => sendInstaller("windows", req, reply));
+  app.get("/api/desktop/macos/installer", (req: Req<Record<string, string>, { arch?: string }>, reply) => sendInstaller("macos", req, reply));
+  app.get("/api/desktop/linux/installer", (req: Req<Record<string, string>, { arch?: string }>, reply) => sendInstaller("linux", req, reply));
+
+  // QR codes for the download links: the two Android apps (for the TV's and the phone's settings),
+  // and the desktop app's three platforms. Anyone may ask: they carry no pairing code, and each app
+  // pairs itself once it is installed. A Windows PC or a Mac has a camera in the same room as the
+  // phone, which is what makes the code useful there.
+  const qr = async (reply: FastifyReply, target: string) => {
+    const svg = await QRCode.toString(target, { type: "svg", margin: 1, color: { dark: "#0b1220", light: "#ffffff" } });
     return reply.type("image/svg+xml").header("Cache-Control", "no-store").send(svg);
+  };
+  app.get("/api/apps/:app/qr.svg", async (req: Req<{ app: string }>, reply) => {
+    const target = appDownloadPath(req.params.app);
+    if (!target) return reply.code(404).send({ error: "No such app" });
+    return qr(reply, `${phoneBase(req)}${target}`);
+  });
+  // The same codes at a desktop-shaped address, for a page that already knows which platform it means.
+  app.get("/api/desktop/:kind/qr.svg", async (req: Req<{ kind: string }>, reply) => {
+    const target = appDownloadPath(req.params.kind);
+    if (!target) return reply.code(404).send({ error: "No such app" });
+    return qr(reply, `${phoneBase(req)}${target}`);
   });
 
   /** Voice control: what the phone heard, turned into keys, a channel or a search. */

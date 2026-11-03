@@ -141,7 +141,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#radio">Radio</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#bluetooth">Bluetooth</a><a href="#devices">Phones</a><a href="#apps">Android apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin or Plex</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#radio">Radio</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#bluetooth">Bluetooth</a><a href="#devices">Phones</a><a href="#apps">Apps</a><a href="#iptv">Live TV</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin or Plex</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -372,8 +372,9 @@
   </section>
 
   <section id="apps">
-    <h2>Android apps</h2>
-    <p class="hint">Tap to download on this phone, or let another phone scan the code. Open the download to install it (allow installs from Chrome if Android asks). Works on the home Wi-Fi only; the app pairs itself with the TV when it's first opened.</p>
+    <h2>Apps</h2>
+    <p class="hint">Apps for the phones in the house, and for a Windows PC or a Mac. Tap a download on this phone, or let another phone scan the code. Open the download to install it (allow installs from Chrome if Android asks). Works on the home Wi-Fi only; each app pairs itself with the TV the first time it is opened.</p>
+    <h3>Phones</h3>
     <div class="apps">
       <div class="app">
         <img src="/api/apps/client/qr.svg" alt="">
@@ -390,6 +391,24 @@
         <code class="link" id="remote-app-link"></code>
       </div>
     </div>
+    <h3>Computers</h3>
+    <div class="apps">
+      <div class="app">
+        <img src="/api/apps/windows/qr.svg" alt="">
+        <b><span class="brand">UltimateTV</span> for Windows</b>
+        <small>Watch everything the TV has on a Windows 10 or 11 PC, in a window of its own. A normal app in the Start menu, installed for you alone: no administrator, no extra downloads, and it plays through the mpv that comes with it.</small>
+        <a class="dl" href="/api/desktop/windows/installer" download>Download for Windows</a>
+        <code class="link" id="windows-app-link"></code>
+      </div>
+      <div class="app">
+        <img src="/api/apps/macos/qr.svg" alt="">
+        <b><span class="brand">UltimateTV</span> for Mac</b>
+        <small>The same on a Mac, Apple Silicon or Intel. Open the .dmg, drag it to Applications, then right-click it and choose Open the first time (it isn't signed with a paid Apple certificate).</small>
+        <a class="dl" href="/api/desktop/macos/installer" download>Download for Apple Silicon</a>
+        <code class="link" id="macos-app-link"></code>
+      </div>
+    </div>
+    <p class="hint">On an Intel Mac, or a Windows PC with an ARM chip? <a id="macos-intel-link" href="/api/desktop/macos/installer?arch=x64" download>The Intel .dmg</a>, or <a id="windows-arm-link" href="/api/desktop/windows/installer?arch=arm64" download>the Windows build for ARM</a>. The Linux AppImage is on the <a href="https://github.com/gazoscalvertos/UltimateTV/releases/tag/desktop-app" rel="noreferrer">release page</a>; every platform updates itself from there (Updates, above).</p>
   </section>
 
   <section id="iptv">
@@ -1935,9 +1954,17 @@ $("#px-pin").onclick = async () => {
   } catch (err) { toast(err.message, true); }
 };
 
-// The Android apps: their links as other phones would type them, and the versions the Hub hands out.
-$("#client-app-link").textContent = new URL("/api/client/app.apk", location.href).href;
-$("#remote-app-link").textContent = new URL("/api/remote/app.apk", location.href).href;
+// The apps: their links as another phone on the Wi-Fi would type them, and the versions the Hub
+// hands out. The desktop downloads are the Hub's copy of the release, so the link keeps working
+// even when the PC that is being set up can't reach GitHub.
+for (const [path, id] of [
+  ["/api/client/app.apk", "#client-app-link"],
+  ["/api/remote/app.apk", "#remote-app-link"],
+  ["/api/desktop/windows/installer", "#windows-app-link"],
+  ["/api/desktop/macos/installer", "#macos-app-link"],
+]) {
+  $(id).textContent = new URL(path, location.href).href;
+}
 for (const [file, id] of [["/setup/client-app.json", "#client-app-version"], ["/remote/app-version.json", "#remote-app-version"]]) {
   fetch(file, { cache: "no-store" }).then((r) => r.json()).then((v) => { $(id).textContent = v.versionName; }).catch(() => {});
 }

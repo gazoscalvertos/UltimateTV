@@ -1,0 +1,10 @@
+# Binaries the desktop build puts inside the app, per platform.
+#
+# Windows and macOS have no mpv the app can count on, so the installer carries one
+# (tools/desktop/electron-builder.yml, extraResources). Nothing in this folder is committed: the
+# binaries are tens of megabytes and built by other projects, so tools/desktop/fetch-mpv.sh puts
+# them here before a build. A checkout without them still typechecks and tests; build-win.sh and
+# build-macos.sh stop and say what is missing rather than shipping an app that cannot play.
+#
+# See "Bundling mpv" in docs/desktop.md.
+mpv/

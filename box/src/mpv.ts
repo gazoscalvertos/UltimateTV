@@ -6,9 +6,15 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
+import { isPipePath } from "./platform.js";
 
 export interface MpvOptions {
   socket: string;
+  /**
+   * The mpv to run: an absolute path to a bundled copy, or "mpv" for the computer's own.
+   * platform.ts's mpvBinary() works it out; Linux always says "mpv".
+   */
+  binary?: string;
   /** Extra mpv arguments, e.g. from MPV_ARGS in the box's config. */
   extraArgs?: string[];
   audioDevice?: string;
@@ -115,10 +121,13 @@ export class Mpv extends EventEmitter {
   /** Starts mpv (restarting it if it dies) and connects to its socket. */
   async start(): Promise<void> {
     this.stopping = false;
-    if (existsSync(this.opts.socket)) rmSync(this.opts.socket);
+    // A Windows named pipe is not a file: nothing to clear, and nothing to wait to appear.
+    const pipe = isPipePath(this.opts.socket);
+    if (!pipe && existsSync(this.opts.socket)) rmSync(this.opts.socket);
     if (this.opts.inputConf) writeFileSync(this.opts.inputConf, DESKTOP_INPUT_CONF);
-    const proc = spawn("mpv", mpvArgs(this.opts), { stdio: ["ignore", "ignore", "pipe"] });
+    const proc = spawn(this.opts.binary ?? "mpv", mpvArgs(this.opts), { stdio: ["ignore", "ignore", "pipe"] });
     this.proc = proc;
+    proc.on("error", (e) => this.opts.log?.(`mpv couldn't start (${this.opts.binary ?? "mpv"}): ${e.message}`));
     proc.stderr?.on("data", (d: Buffer) => this.opts.log?.(`mpv: ${d.toString().trim()}`));
     proc.on("exit", (code) => {
       this.opts.log?.(`mpv exited (${code})`);
@@ -134,8 +143,10 @@ export class Mpv extends EventEmitter {
   }
 
   private async connect(): Promise<void> {
+    const pipe = isPipePath(this.opts.socket);
     for (let i = 0; i < 100; i++) {
-      if (existsSync(this.opts.socket)) {
+      // A pipe has no file to wait for: connecting is the only way to tell whether mpv is up.
+      if (pipe || existsSync(this.opts.socket)) {
         try {
           this.sock = await new Promise<net.Socket>((resolve, reject) => {
             const s = net.connect(this.opts.socket, () => resolve(s));

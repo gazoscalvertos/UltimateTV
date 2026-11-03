@@ -3,10 +3,12 @@
 // reaches the Hub. The check, running as root, reads it without running it.
 
 import { mkdir, rename, writeFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
+import { heartbeatFile } from "./platform.js";
 
-export const HEARTBEAT_FILE = path.join(process.env.XDG_STATE_HOME ?? path.join(os.homedir(), ".local/state"), "ultimatetv-health");
+// On the box this is ~tv/.local/state/ultimatetv-health, where tools/box/healthcheck.sh reads it;
+// a desktop copy keeps it in its own state folder (platform.ts).
+export const HEARTBEAT_FILE = heartbeatFile();
 
 /** The file's text: `at` in whole seconds, like the update's `done`. */
 export function heartbeatText(beat: { at: number; page: "app" | "offline"; hub: boolean; version: string }): string {

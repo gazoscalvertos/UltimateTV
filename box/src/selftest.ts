@@ -18,10 +18,16 @@ import { type SelfTestId, type SelfTestPlayed, type SelfTestStep, SELF_TEST_STEP
 import type { Display } from "./display.js";
 import type { Mpv } from "./mpv.js";
 import type { Player } from "./player.js";
+import { stateDir } from "./platform.js";
 
 /** Where a box keeps its self-test clips when nothing else says where state lives. */
 export function defaultSelftestDir(env: NodeJS.ProcessEnv = process.env, home = os.homedir()): string {
   return path.join(env.XDG_STATE_HOME || path.join(home, ".local/state"), "ultimatetv", "selftest");
+}
+
+/** The same, for a desktop copy: with its other state on Windows and macOS (platform.ts). */
+export function desktopSelftestDir(env: NodeJS.ProcessEnv = process.env, platform: string = process.platform, home = os.homedir()): string {
+  return path.join(stateDir(env, platform, home), "selftest");
 }
 
 /** Where the generated clips live: with the other box data, so a reinstall regenerates them. */
