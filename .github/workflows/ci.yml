@@ -333,12 +333,13 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          # Repo-relative, because upload-artifact and the publish step below both run from the root.
           if [ -f release.keystore ]; then
             ANDROID_KEYSTORE_PATH=release.keystore gradle --no-daemon :app:assembleRelease
-            echo "apk=app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_ENV"
+            echo "apk=android/app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_ENV"
           else
             gradle --no-daemon :app:assembleDebug
-            echo "apk=app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_ENV"
+            echo "apk=android/app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_ENV"
           fi
       - uses: actions/upload-artifact@v7
         with:
@@ -409,10 +410,10 @@ jobs:
         run: |
           if [ -f release.keystore ]; then
             ANDROID_KEYSTORE_PATH=release.keystore gradle --no-daemon :client:assembleRelease
-            echo "apk=client/build/outputs/apk/release/client-release.apk" >> "$GITHUB_ENV"
+            echo "apk=android/client/build/outputs/apk/release/client-release.apk" >> "$GITHUB_ENV"
           else
             gradle --no-daemon :client:assembleDebug
-            echo "apk=client/build/outputs/apk/debug/client-debug.apk" >> "$GITHUB_ENV"
+            echo "apk=android/client/build/outputs/apk/debug/client-debug.apk" >> "$GITHUB_ENV"
           fi
       - uses: actions/upload-artifact@v7
         with:
