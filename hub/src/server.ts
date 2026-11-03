@@ -48,6 +48,7 @@ import { guestBlocks } from "./guest.js";
 import { ContentFilter, certificationRank } from "./profiles.js";
 import { ReportStore } from "./reports.js";
 import { JellyfinClient } from "./services/jellyfin.js";
+import { PlexClient, plexPinCheck, plexPinStart, plexResources } from "./services/plex.js";
 import { publicSettings, sourceKey } from "./settings.js";
 import { RemoteApp } from "./remoteapp.js";
 import { SelfUpdate } from "./selfupdate.js";
@@ -299,8 +300,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "POST /api/refresh",
     "POST /api/jellyfin/quickconnect",
     "POST /api/jellyfin/login",
+    "POST /api/plex/pin",
+    "POST /api/plex/login",
     "DELETE /api/selftest",
     "DELETE /api/jellyfin",
+    "DELETE /api/plex",
     "PATCH /api/channels/:id",
     "DELETE /api/recordings/:id",
     "PATCH /api/series-links/:id",
@@ -520,7 +524,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       programmes: ctx.guide.count(),
       connections: ctx.guard.status(),
       recordingNow: ctx.recordings.withStatus("recording"),
-      configured: { iptv: s.iptv.length > 0 || config.demo, jellyfin: Boolean(s.jellyfin), tmdb: Boolean(s.tmdbApiKey), addons: s.addonUrls.length > 0, torbox: Boolean(s.torboxApiKey) },
+      configured: { iptv: s.iptv.length > 0 || config.demo, jellyfin: Boolean(s.jellyfin), plex: Boolean(s.plex), tmdb: Boolean(s.tmdbApiKey), addons: s.addonUrls.length > 0, torbox: Boolean(s.torboxApiKey) },
     };
     const epg = ctx.db.getKv<number>("epgUpdatedAt");
     if (epg) status.epgUpdatedAt = epg;
@@ -1098,6 +1102,49 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.delete("/api/jellyfin", async () => {
     const { jellyfin: _j, ...rest } = ctx.settings.get();
     ctx.settings.update({ ...rest, jellyfin: undefined } as Partial<Settings>);
+    return { ok: true };
+  });
+
+  // Plex: a PIN approved on plex.tv (the household never types a password into the Hub), or a
+  // server URL and token typed in by hand. Only one media server is ever connected, so connecting
+  // Plex replaces Jellyfin; the caller is told which happened.
+  app.post("/api/plex/pin", async () => {
+    const pin = await plexPinStart(ctx.fetchImpl);
+    return { id: pin.id, code: pin.code, authUrl: pin.authUrl };
+  });
+
+  app.get("/api/plex/pin/:id", async (req: Req<{ id: string }, { url: string }>) => {
+    const token = await plexPinCheck(req.params.id, ctx.fetchImpl);
+    if (!token) return { authenticated: false };
+    // The server's URL: the one the household typed, or the first of theirs plex.tv knows about.
+    // A server on a network with no way out to plex.tv is why typing the address is the fallback.
+    let url = String(req.query.url ?? "").trim();
+    if (!url) {
+      const servers = await plexResources(token, ctx.fetchImpl).catch(() => []);
+      url = servers.find((s) => s.urls.length > 0)?.urls[0] ?? "";
+      if (!url) throw new Error("Say which Plex server to use: the PIN signs in, but no server answered plex.tv");
+    }
+    const auth = await PlexClient.connect({ url, token }, ctx.fetchImpl);
+    ctx.savePlex(auth);
+    ctx.events.emit({ type: "settings.changed" });
+    return { authenticated: true, plex: { url: auth.url, ...(auth.serverName ? { serverName: auth.serverName } : {}) } };
+  });
+
+  // A URL and token typed in: the fallback when plex.tv discovery finds nothing (a server on a
+  // network with no outbound access, say). Checked against the server before it is saved.
+  app.post("/api/plex/login", async (req: Req<Record<string, string>, Record<string, string>, { url: string; token: string }>) => {
+    const url = (req.body.url ?? "").trim();
+    const token = (req.body.token ?? "").trim();
+    if (!url || !token) throw new Error("Both the server's address and its token are needed");
+    const auth = await PlexClient.connect({ url, token }, ctx.fetchImpl);
+    ctx.savePlex(auth);
+    ctx.events.emit({ type: "settings.changed" });
+    return { ok: true, plex: { url: auth.url, ...(auth.serverName ? { serverName: auth.serverName } : {}) } };
+  });
+
+  app.delete("/api/plex", async () => {
+    const { plex: _p, ...rest } = ctx.settings.get();
+    ctx.settings.update({ ...rest, plex: undefined } as Partial<Settings>);
     return { ok: true };
   });
 

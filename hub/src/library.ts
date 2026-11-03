@@ -1,4 +1,4 @@
-// The unified Films & TV library: one title however many places it lives (Jellyfin, IPTV VOD,
+// The unified Films & TV library: one title however many places it lives (the media server, IPTV VOD,
 // AIOStreams/TorBox), home rails, search, and the ranked list of ways to play each title.
 
 import type {
@@ -87,7 +87,7 @@ export class Library {
   async home(now = Date.now(), f: ContentFilter = NO_FILTER, rows?: HomeRowId[]): Promise<HomeScreen> {
     // Which rows this profile has switched on (#99): the ones that aren't shown are never fetched.
     const showing = (id: HomeRowId) => !rows || rows.includes(id);
-    const jf = this.ctx.jellyfin();
+    const jf = this.ctx.media();
     const tmdb = this.discovery();
     const channels = f.channels(this.ctx.channels.list());
     const favourites = channels.filter((c) => c.favourite);
@@ -121,7 +121,7 @@ export class Library {
     // A series already in Continue watching (with its next episode) isn't repeated in Next up.
     const continuing = new Set(continueItems.map(titleKey));
     const nextUpRefs = (guest ? [] : nextUp)
-      .map((i) => ({ ...jf!.toTitleRef(i), id: `jellyfin:${i.SeriesId}`, episodeId: `s${i.ParentIndexNumber ?? 0}e${i.IndexNumber ?? 0}` }))
+      .map((i) => ({ ...jf!.toTitleRef(i), id: jf!.key(i.SeriesId ?? i.Id), episodeId: `s${i.ParentIndexNumber ?? 0}e${i.IndexNumber ?? 0}` }))
       .filter((t) => f.ref(t) && !continuing.has(titleKey(t)));
     if (showing("nextup") && nextUpRefs.length) rails.push({ id: "nextup", title: "Next up", kind: "titles", items: nextUpRefs });
     if (showing("kids-films") && kidsFilms.length) rails.push({ id: "kids-films", title: "Family films", kind: "titles", items: kidsFilms.filter((t) => f.ref(t)) });
@@ -163,24 +163,25 @@ export class Library {
   }
 
   /**
-   * Continue watching: Jellyfin's resume list and the Hub's own progress (IPTV, online streams,
-   * and Jellyfin items Jellyfin leaves out), newest first, one card per film or series. A series
+   * Continue watching: the media server's resume list and the Hub's own progress (IPTV, online
+   * streams, and library items the server leaves out), newest first, one card per film or series. A series
    * shows the episode to carry on with, or the next one when the last was finished.
    */
   private continueWatching(resume: JfItem[], f: ContentFilter): TitleRef[] {
-    const jf = this.ctx.jellyfin();
+    const media = this.ctx.media();
     const rows: { at: number; ref: TitleRef }[] = [];
     const inResume = new Set(resume.map((i) => i.Id));
-    for (const i of jf ? resume : []) {
-      const ref: TitleRef = { ...jf!.toTitleRef(i), id: `jellyfin:${i.Type === "Episode" ? i.SeriesId : i.Id}` };
+    for (const i of media ? resume : []) {
+      const ref: TitleRef = { ...media!.toTitleRef(i), id: media!.key(i.Type === "Episode" ? (i.SeriesId ?? i.Id) : i.Id) };
       if (i.Type === "Episode") ref.episodeId = `s${i.ParentIndexNumber ?? 0}e${i.IndexNumber ?? 0}`;
-      const own = this.ctx.progress.get(`jellyfin:${i.Id}`);
+      const own = this.ctx.progress.get(media!.key(i.Id));
       const at = Math.max(Date.parse(i.UserData?.LastPlayedDate ?? "") || 0, own?.updatedAt ?? 0);
       rows.push({ at, ref });
     }
     for (const c of this.ctx.progress.continueWatching(24)) {
-      // Jellyfin's own resume entry for the same file has the better artwork and the same place.
-      if (c.entry.key.startsWith("jellyfin:") && c.mode === "resume" && inResume.has(c.entry.key.slice(9))) continue;
+      // The server's own resume entry for the same file has the better artwork and the same place.
+      const serverItem = media?.parseKey(c.entry.key);
+      if (serverItem && c.mode === "resume" && inResume.has(serverItem)) continue;
       rows.push({ at: c.entry.updatedAt, ref: c.title });
     }
     rows.sort((a, b) => b.at - a.at);
@@ -192,7 +193,8 @@ export class Library {
       const keys = [ref.id, titleKey(ref)];
       if (keys.some((k) => seen.has(k)) || !f.ref(ref)) continue;
       // Taken off the row on purpose? It only comes back once it's played again.
-      const hiddenAt = hidden[ref.id] ?? (ref.id.startsWith("jellyfin:") ? hidden[`jellyfin:${ref.id.slice(9)}`] : undefined);
+      const serverItem = media?.parseKey(ref.id);
+      const hiddenAt = hidden[ref.id] ?? (serverItem ? hidden[media!.key(serverItem)] : undefined);
       if (hiddenAt !== undefined && (at || 0) <= hiddenAt) continue;
       keys.forEach((k) => seen.add(k));
       out.push(ref);
@@ -225,12 +227,12 @@ export class Library {
   }
 
   /**
-   * With an addon (AIOStreams) almost anything plays. Without one, only what's in Jellyfin or the
-   * IPTV catalogue, marked so the card says where.
+   * With an addon (AIOStreams) almost anything plays. Without one, only what's in the media server
+   * or the IPTV catalogue, marked so the card says where.
    */
   private async playable(refs: TitleRef[]): Promise<TitleRef[]> {
     if (this.ctx.addons().length) return refs;
-    const jf = this.ctx.jellyfin();
+    const jf = this.ctx.media();
     const out: TitleRef[] = [];
     for (const r of refs) {
       const tmdbId = Number(/^tmdb:(?:movie|series):(\d+)$/.exec(r.id)?.[1]) || undefined;
@@ -255,7 +257,7 @@ export class Library {
       this.similarTo(d, f).catch(() => []),
     ]);
     const scores: TitleScore[] = [];
-    if (d.rating) scores.push({ source: "tmdb", label: d.id.startsWith("jellyfin:") ? "Rating" : "TMDB", value: d.rating.toFixed(1), pct: Math.round(d.rating * 10) });
+    if (d.rating) scores.push({ source: "tmdb", label: this.ctx.media()?.parseKey(d.id) ? "Rating" : "TMDB", value: d.rating.toFixed(1), pct: Math.round(d.rating * 10) });
     scores.push(...omdbScores);
     return { ...(trailer ? { trailer } : {}), scores, similar };
   }
@@ -281,7 +283,7 @@ export class Library {
 
   /** Films or TV landing page: library first, then discovery by genre. */
   async browse(kind: TitleKind, f: ContentFilter = NO_FILTER): Promise<Rail[]> {
-    const jf = this.ctx.jellyfin();
+    const jf = this.ctx.media();
     const tmdb = this.discovery();
     const rails: Rail[] = [];
     const max = f.jellyfinMaxRating();
@@ -353,7 +355,7 @@ export class Library {
 
   /**
    * A series with where it's up to: each episode's progress from the Hub's own record (IPTV and
-   * online episodes, which Jellyfin knows nothing about), and the episode Play carries on with.
+   * online episodes, which the media server knows nothing about), and the episode Play carries on with.
    */
   private withProgress(d: TitleDetails): TitleDetails {
     const own = this.ctx.progress.episodes(d.id);
@@ -382,7 +384,7 @@ export class Library {
 
   private async lookup(id: string): Promise<TitleDetails> {
     const [source, ...rest] = id.split(":");
-    const jf = this.ctx.jellyfin();
+    const jf = this.ctx.media();
     const tmdb = this.ctx.tmdb();
 
     if (source === "programme") {
@@ -395,8 +397,9 @@ export class Library {
       return { id, kind: p.isFilm ? "movie" : "series", name: p.title, genres: p.categories, cast: [], availability: [], inLibrary: false, ...(p.description ? { overview: p.description } : {}), ...(p.image ? { poster: p.image } : {}) };
     }
 
-    if (source === "jellyfin") {
-      if (!jf) throw new Error("Jellyfin isn't connected");
+    if (source === "jellyfin" || source === "plex") {
+      if (!jf) throw new Error("The media server isn't connected");
+      if (source !== jf.kind) throw new Error(`That's a ${source} title, and ${jf.name} is the library connected here`);
       const item = await jf.item(rest[0]!);
       const episodes = item.Type === "Series" ? await jf.episodes(item.Id) : [];
       const d = jf.toDetails(item, episodes);
@@ -450,16 +453,16 @@ export class Library {
     throw new Error(`Unknown title ${id}`);
   }
 
-  /** Jellyfin keeps no place for a film stopped in its first 5%; the Hub's own record does. */
+  /** The server keeps no place for a film stopped in its first 5%; the Hub's own record does. */
   private jellyfinFallbackResume(d: TitleDetails, item: JfItem): void {
     if (d.resumeMs || item.Type !== "Movie" || item.UserData?.Played) return;
-    const own = this.ctx.progress.get(`jellyfin:${item.Id}`);
+    const own = this.ctx.progress.get(this.ctx.media()?.key(item.Id) ?? item.Id);
     if (own && !own.watched && own.positionMs >= MIN_RESUME_MS) d.resumeMs = own.positionMs;
   }
 
   private async addAvailability(d: TitleDetails): Promise<void> {
     const kinds = new Set(d.availability);
-    if (d.inLibrary) kinds.add("jellyfin");
+    if (d.inLibrary) kinds.add(this.ctx.media()?.kind ?? "jellyfin");
     if (this.vodMatches(d.kind, d.name, d.year, d.tmdbId).length) kinds.add("xtream");
     if (d.imdbId && this.ctx.addons().length) kinds.add("addon");
     d.availability = [...kinds];
@@ -506,13 +509,14 @@ export class Library {
   async streams(id: string, ep?: EpisodeRef, f: ContentFilter = NO_FILTER): Promise<StreamCandidate[]> {
     const d = await this.details(id, f);
     const candidates: StreamCandidate[] = [];
-    const jf = this.ctx.jellyfin();
+    const jf = this.ctx.media();
 
-    // Jellyfin: the file on the NAS.
+    // The media server: the file on the NAS.
     if (jf && d.inLibrary) {
       try {
         let item: JfItem | undefined;
-        if (id.startsWith("jellyfin:")) item = await jf.item(id.slice(9));
+        const ownItem = jf.parseKey(id);
+        if (ownItem) item = await jf.item(ownItem);
         else if (d.tmdbId) item = await jf.byProviderId("tmdb", String(d.tmdbId), d.kind === "movie" ? "Movie" : "Series");
         if (item && item.Type === "Series" && ep) {
           const episodes = await jf.episodes(item.Id);
@@ -521,11 +525,11 @@ export class Library {
         }
         if (item && item.Type !== "Series") {
           for (const src of item.MediaSources ?? []) {
-            candidates.push({ id: `jellyfin:${item.Id}:${src.Id}`, kind: "jellyfin", label: "Jellyfin", detail: src.Path?.split("/").pop() ?? src.Container ?? "", quality: jellyfinQuality(src), ready: true, url: jf.streamUrl(item.Id, src.Id), downloadable: false });
+            candidates.push({ id: `${jf.key(item.Id)}:${src.Id}`, kind: jf.kind, label: jf.name, detail: src.Path?.split("/").pop() ?? src.Container ?? "", quality: jellyfinQuality(src), ready: true, url: jf.streamUrl(item.Id, src.Id), downloadable: false });
           }
         }
       } catch (err) {
-        this.ctx.log.warn({ id, err: String(err) }, "Jellyfin streams failed");
+        this.ctx.log.warn({ id, err: String(err) }, "Library streams failed");
       }
     }
 
@@ -622,7 +626,7 @@ export class Library {
     const titles = new Map<string, TitleRef>();
     const max = f.jellyfinMaxRating();
     const tmdb = this.ctx.tmdb();
-    const jf = this.ctx.jellyfin();
+    const jf = this.ctx.media();
     const [tm, local] = await Promise.all([
       tmdb ? tmdb.search(q, 20).catch((): TitleRef[] => []) : ([] as TitleRef[]),
       jf ? Promise.all([jf.items({ type: "Movie", search: q, limit: 10, ...(max ? { maxRating: max } : {}) }), jf.items({ type: "Series", search: q, limit: 10, ...(max ? { maxRating: max } : {}) })]).then(([a, b]) => [...a.items, ...b.items].map((i) => jf.toTitleRef(i))).catch((): TitleRef[] => []) : ([] as TitleRef[]),
@@ -656,7 +660,7 @@ function mergeSeasons(remote: Season[], local: Season[]): Season[] {
   return [...map.values()].sort((a, b) => (a.season === 0 ? 1 : b.season === 0 ? -1 : a.season - b.season));
 }
 
-/** The same film or series whichever source it came from (Jellyfin, TMDB, IPTV ids differ). */
+/** The same film or series whichever source it came from (library, TMDB, IPTV ids differ). */
 function titleKey(t: TitleRef): string {
   return `${t.kind}|${t.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`;
 }

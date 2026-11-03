@@ -14,6 +14,10 @@ How UltimateTV fits together as of 2026-10-29 (main at PR #60). [PLAN.md](PLAN.m
 │  │ Fastify + SQLite (node:sqlite), one process                     │◀─▶│ library, Quick     ││
 │  │ ingest · EPG · channels · IPTV connection guard · stream relay  │   │ Connect, rescans   ││
 │  │ recorder · scheduler · series link · catch-up                   │   └────────────────────┘│
+│  │                                                                 │   ┌─ Plex, instead ────┐│
+│  │                                                                 │◀─▶│ media server, PIN, ││
+│  │                                                                 │   │ rescan             ││
+│  │                                                                 │   └────────────────────┘│
 │  │ unified library · search · ranking · NAS downloads              │          ▲              │
 │  │ profiles · pairing · queue · progress · settings                │          │ same paths   │
 │  │ music video channels (yt-dlp, cropdetect) · scares · notify     │   ┌──────┴─────────────┐│
@@ -49,16 +53,16 @@ How UltimateTV fits together as of 2026-10-29 (main at PR #60). [PLAN.md](PLAN.m
 
 ## The Hub
 
-One Node process owns everything that has to be always on or has to be shared. Its state lives in SQLite (`hub/src/db.ts`, rows keep their object as JSON with indexed columns beside it) in the `data` volume, along with art, scare clips, logs and the pairing key. Settings and secrets (IPTV logins, Jellyfin token, TorBox and TMDB keys) never leave the Hub; the TV and phones only ever see redacted settings.
+One Node process owns everything that has to be always on or has to be shared. Its state lives in SQLite (`hub/src/db.ts`, rows keep their object as JSON with indexed columns beside it) in the `data` volume, along with art, scare clips, logs and the pairing key. Settings and secrets (IPTV logins, the Jellyfin or Plex token, TorBox and TMDB keys) never leave the Hub; the TV and phones only ever see redacted settings.
 
 | Area | Modules | What they do |
 |------|---------|--------------|
 | Sources | `ingest/m3u.ts`, `ingest/xtream.ts`, `ingest/xmltv.ts`, `channels.ts`, `epg.ts` | Read playlists and XMLTV (streamed with `sax`), merge duplicate channels into one channel with ranked feeds, normalise names, map EPG ids, quality badges |
 | Live TV | `connections.ts`, `relay.ts`, `streaming.ts`, `catchup.ts` | The **connection guard** leases the provider's stream slots (one on Gary's plan) across viewing, recording, catch-up and VOD. The relay opens one upstream per channel and fans it out to the box and the recorder, falling back to the next feed when one drops |
-| Recording | `scheduler.ts`, `recorder.ts`, `serieslink.ts`, `recordings.ts` | Timers, series links matched on series keys, clash handling against the connection limit, ffmpeg stream copy to the NAS, Jellyfin rescans |
-| Films & TV | `library.ts`, `services/jellyfin.ts`, `services/stremio.ts`, `services/torbox.ts`, `services/tmdb.ts`, `services/omdb.ts`, `shared/src/ranking.ts` | One title however many places it lives, home rails, search, the ranked Versions list (library first), and each title's trailer, scores and More like this (`/api/titles/:id/extras`) |
+| Recording | `scheduler.ts`, `recorder.ts`, `serieslink.ts`, `recordings.ts` | Timers, series links matched on series keys, clash handling against the connection limit, ffmpeg stream copy to the NAS, a rescan of the media server |
+| Films & TV | `library.ts`, `services/media.ts`, `services/jellyfin.ts`, `services/plex.ts`, `services/stremio.ts`, `services/torbox.ts`, `services/tmdb.ts`, `services/omdb.ts`, `shared/src/ranking.ts` | One title however many places it lives, home rails, search, the ranked Versions list (library first), and each title's trailer, scores and More like this (`/api/titles/:id/extras`) |
 | Subtitles | `subtitles.ts`, `services/opensubtitles.ts` | Searches OpenSubtitles by IMDb or TMDB id, downloads a file once and serves it to mpv |
-| Downloads | `services/downloads.ts`, `/api/offline` | Save to NAS (TorBox/AIOStreams to Jellyfin naming, then a Jellyfin rescan), the SMB/SFTP Inbox tidy, and offline copies for the Android app and the box |
+| Downloads | `services/downloads.ts`, `/api/offline` | Save to NAS (TorBox/AIOStreams to Jellyfin naming, then a rescan of the media server), the SMB/SFTP Inbox tidy, and offline copies for the Android app and the box |
 | People | `profiles.ts`, `pairing.ts`, `progress.ts`, `queue.ts`, `guides.ts` | Profiles with PINs and the Kids filter, paired devices and the API key, resume points, the household play queue, custom guides |
 | Music channels | `mixchannels.ts`, `ytdlp.ts`, `mixseeds.ts`, `cropdetect.ts`, `nasvideos.ts` | Made-up live channels of music videos downloaded with yt-dlp (or linked from the NAS), shuffled schedules, black-bar detection |
 | On-screen extras | `notify.ts`, `scares.ts`, `screensaver.ts`, `voice.ts`, `musiclogin.ts`, `weather.ts` | Pop-ups and breaking news, jump scares, screensaver photos, voice commands, the Deezer phone login hand-off, the Open-Meteo forecast |
@@ -85,9 +89,11 @@ The box holds no household state, so a new one only needs the installer and the 
 
 **Watching live TV.** The UI asks the Hub to play a channel (`POST /api/play`). The Hub takes a lease from the connection guard (asking first if a recording or another screen holds it), and returns a URL on its own relay. The box hands that URL to mpv, sets the display mode and reports progress. If a feed drops, the relay switches to the channel's next feed without the box noticing.
 
-**Recording.** The scheduler wakes for each timer, takes a `record` lease, reads the same relay session if the channel is already being watched, and ffmpeg copies the stream into the recordings folder on the NAS. When it finishes, Jellyfin is told to rescan. Series links create new timers as the EPG refreshes.
+**Recording.** The scheduler wakes for each timer, takes a `record` lease, reads the same relay session if the channel is already being watched, and ffmpeg copies the stream into the recordings folder on the NAS. When it finishes, the media server is told to rescan. Series links create new timers as the EPG refreshes.
 
-**Films and TV.** `library.ts` merges a title's Jellyfin item, IPTV VOD entries and addon streams. `ranking.ts` orders them (library first, then quality). Jellyfin plays direct from Jellyfin; IPTV VOD goes through the Hub's proxy so it holds a lease; TorBox links play direct. Resume points go back to the Hub and to Jellyfin.
+**Films and TV.** `library.ts` merges a title's item from the media server, IPTV VOD entries and addon streams. `ranking.ts` orders them (library first, then quality). The media server plays its files direct; IPTV VOD goes through the Hub's proxy so it holds a lease; TorBox links play direct. Resume points go back to the Hub and to the media server.
+
+**The media server.** Jellyfin and Plex do the same job, and only one is connected at a time: there is a single settings slot, and connecting one clears the other. Both are a `MediaServer` (`services/media.ts`): `services/jellyfin.ts` and `services/plex.ts` implement it and map their own JSON into the same item shape, so `library.ts` and `playback.ts` don't care which is there. The two differences are Plex's **Next up**, which is derived from the episodes of the shows in On Deck because Plex has no such list, and its **smaller copy**, which isn't implemented — a Plex title plays its original file. Jellyfin's offline progress queue (#80) is Jellyfin's alone, because it is Jellyfin's API that is being retried; a Plex place is still kept in the Hub's own progress.
 
 **Following what's playing.** `GET /api/remote/now?since=<seq>&wait=<ms>` answers a paired phone with the TV's play state, and the Hub holds the request open until it changes (25 s at most) rather than the phone asking again and again. It is the same state the Hub reports to Home Assistant, so the Android app's notification, Quick Settings tile and home-screen widget show what Home Assistant sees. `POST /api/ha/state` is what makes it change.
 

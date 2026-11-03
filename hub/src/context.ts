@@ -1,5 +1,5 @@
 // Wires the Hub's services together. Built once at start-up; clients that depend on settings
-// (Jellyfin, TMDB, TorBox, addons) are rebuilt when settings change.
+// (the media server, TMDB, TorBox, addons) are rebuilt when settings change.
 
 import path from "node:path";
 import { PhotoFolder } from "./screensaver.js";
@@ -35,6 +35,8 @@ import { LiveRelay } from "./relay.js";
 import { Scheduler } from "./scheduler.js";
 import { DownloadManager } from "./services/downloads.js";
 import { JellyfinClient, type JellyfinAuth } from "./services/jellyfin.js";
+import type { MediaServer } from "./services/media.js";
+import { PlexClient, type PlexAuth } from "./services/plex.js";
 import { AddonClient } from "./services/stremio.js";
 import { TmdbClient } from "./services/tmdb.js";
 import { OmdbClient } from "./services/omdb.js";
@@ -107,6 +109,8 @@ export class HubContext {
   readonly log: Logger;
   readonly fetchImpl: Fetch;
 
+  /** The one media server this Hub is connected to: Jellyfin or Plex, never both. */
+  private ms: MediaServer | null = null;
   private jf: JellyfinClient | null = null;
   private tm: TmdbClient | null = null;
   private om: OmdbClient | null = null;
@@ -147,11 +151,11 @@ export class HubContext {
     this.ingest = new Ingestor(this.db, this.settings, this.channels, this.guide, this.log, this.fetchImpl);
     const settingsStore = this.settings;
     const onLibraryChanged = async (paths: string[]) => {
-      const jf = this.jellyfin();
-      if (!jf) return { added: false, note: "Connect Jellyfin in Settings to have saves added there too." };
-      return jf.mediaUpdated(paths).catch((err) => {
-        this.log.warn({ err: String(err) }, "Jellyfin refresh failed");
-        return { added: false, note: `Jellyfin didn't answer (${String(err)}), so it'll appear after Jellyfin's next scan.` };
+      const media = this.media();
+      if (!media) return { added: false, note: "Connect Jellyfin or Plex in Settings to have saves added there too." };
+      return media.mediaUpdated(paths).catch((err) => {
+        this.log.warn({ err: String(err), server: media.name }, "Library refresh failed");
+        return { added: false, note: `Didn't answer (${String(err)}), so it'll appear after ${media.name}'s next scan.` };
       });
     };
     this.recorder = new Recorder({
@@ -182,8 +186,8 @@ export class HubContext {
       settings: this.settings,
       events: this.events,
       queue: this.queue,
-      // A prune deletes files, so tell Jellyfin to rescan once the batch is gone (#98).
-      refreshLibrary: () => void this.jellyfin()?.refreshLibrary().catch((err) => this.log.warn({ err: String(err) }, "Jellyfin refresh failed")),
+      // A prune deletes files, so tell the media server to rescan once the batch is gone (#98).
+      refreshLibrary: () => void this.media()?.refreshLibrary().catch((err) => this.log.warn({ err: String(err) }, "Library refresh failed")),
       log: this.log,
     });
     this.downloads = new DownloadManager(this.db, this.settings, this.events, this.log, () => this.torbox(), onLibraryChanged, this.fetchImpl);
@@ -210,7 +214,10 @@ export class HubContext {
   }
 
   private rebuildClients(s: Settings): void {
+    // One media server at a time. Jellyfin wins if both are somehow left set (a household that
+    // switched to Plex has the Jellyfin key cleared when it connects, but settings can be edited).
     this.jf = s.jellyfin ? new JellyfinClient(s.jellyfin, this.fetchImpl) : null;
+    this.ms = this.jf ?? (s.plex ? new PlexClient(s.plex, this.fetchImpl) : null);
     this.tm = s.tmdbApiKey ? new TmdbClient(s.tmdbApiKey, this.db, this.fetchImpl) : null;
     this.om = s.omdbApiKey ? new OmdbClient(s.omdbApiKey, this.db, this.fetchImpl) : null;
     this.os = s.openSubtitles?.apiKey ? new OpenSubtitlesClient(s.openSubtitles, this.db, this.fetchImpl, this.log) : null;
@@ -221,6 +228,15 @@ export class HubContext {
     if (this.jf && this.jellyfinProgress.size()) void this.flushJellyfinProgress().catch((err) => this.log.warn({ err: String(err) }, "Couldn't send Jellyfin its places"));
   }
 
+  /** The media server the library is read from, whichever it is; null when none is set up. */
+  media(): MediaServer | null {
+    return this.ms;
+  }
+
+  /**
+   * The Jellyfin client, when Jellyfin is the media server. Kept apart from media() because the
+   * offline progress queue (#80) is Jellyfin's own: only Jellyfin can be sent a place it missed.
+   */
   jellyfin(): JellyfinClient | null {
     return this.jf;
   }
@@ -274,8 +290,14 @@ export class HubContext {
     return this.addonClients;
   }
 
+  /** Connects Jellyfin, which replaces any Plex server: only one is ever connected. */
   saveJellyfin(auth: JellyfinAuth): void {
-    this.settings.update({ jellyfin: auth });
+    this.settings.update({ jellyfin: auth, plex: undefined });
+  }
+
+  /** Connects Plex instead, which replaces any Jellyfin server: only one is ever connected. */
+  savePlex(auth: PlexAuth): void {
+    this.settings.update({ plex: auth, jellyfin: undefined });
   }
 
   close(): void {
