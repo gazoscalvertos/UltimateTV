@@ -30,6 +30,8 @@ pop up what's new after an update. So:
 
 ## 2026-11-03
 
+- **The TV app measures itself, so "slow" can be pointed at** ([TESTING.md](TESTING.md#10-when-the-tv-app-feels-slow)): Settings › About › Measure the UI times the picker, Home taking a key press, a step in the guide and the gap between frames while a film plays, against the targets the TV app is meant to hit. The numbers go to the Hub and show on the Stats page and in the diagnostics. On the development machine everything was already well inside target at 4K, so this adds the measuring rather than a change to how the screens draw. (#108)
+  Household: no visible change — this is how a slow TV gets looked at instead of guessed about.
 - **A Fire TV app, on Fire OS sticks and boxes** ([docs/firetv.md](docs/firetv.md)): a second Android
   build with no Google Play services in it, because a Fire OS stick has none and the old single APK
   crashed at launch on one. It sits in the Fire TV home row, the remote's D-pad, Select, Back,

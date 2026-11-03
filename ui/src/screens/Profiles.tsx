@@ -1,6 +1,6 @@
 // "Who's watching?" Picking a profile with a PIN asks for it first.
 
-import { createResource, For, Show } from "solid-js";
+import { createEffect, createResource, For, Show } from "solid-js";
 import type { Profile } from "@ultimatetv/shared";
 import { ApiError, hub, session } from "../api";
 import { askPin } from "../components/Dialog";
@@ -8,6 +8,7 @@ import { Icon } from "../components/Icon";
 import { useKeys } from "../keys";
 import { askForMoreTime, kidsProfileEntered } from "../kidstime";
 import { loadChannels } from "../player";
+import { markReady, profilePicked } from "../perf";
 import { errorToast, nav, setProfile } from "../store";
 
 export async function enterProfile(p: Profile): Promise<boolean> {
@@ -30,6 +31,7 @@ export async function enterProfile(p: Profile): Promise<boolean> {
     }
     session.set(p.id, token);
     setProfile(p);
+    profilePicked();
     await loadChannels().catch(() => undefined);
     nav.reset({ name: "home" });
     if (p.kind === "kids") kidsProfileEntered();
@@ -43,6 +45,10 @@ export async function enterProfile(p: Profile): Promise<boolean> {
 export function Profiles() {
   const [data] = createResource(() => hub.profiles());
   useKeys((a) => a === "back"); // Nowhere to go back to.
+  // #108: the picker is on screen once the profiles have arrived — that is "the app has booted".
+  createEffect(() => {
+    if (data()) markReady();
+  });
   return (
     <div class="screen profiles-screen" data-layer>
       <h1 class="profiles-title">Who's watching?</h1>

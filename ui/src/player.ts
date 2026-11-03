@@ -7,6 +7,7 @@ import { agent, agentHas, onBox } from "./agent";
 import { ApiError, hub } from "./api";
 import { choose } from "./components/Dialog";
 import { playRefused } from "./kidstime";
+import { startFrameWatch, stopFrameWatch } from "./perf";
 import { startedPlaying } from "./queue";
 import { autoSubtitles, subtitleModeFor } from "./subtitles";
 import { autoAudioDescription } from "./accessibility";
@@ -182,6 +183,8 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
     await agent.setLayout({ mode: "fullscreen" });
     if (nav.current().name !== "player") nav.push({ name: "player" });
   }
+  // #108: a film is the only time frame spacing matters, so watch it only while one plays.
+  if (!info.live) startFrameWatch();
   return true;
 }
 
@@ -215,6 +218,7 @@ export function playLink(url: string, title: string): Promise<boolean> {
 }
 
 export async function stopPlayback(): Promise<void> {
+  stopFrameWatch();
   clearInterval(reportTimer);
   await report("stop");
   setNowPlaying(null);

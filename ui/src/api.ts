@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras, SelfTestReport } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras, SelfTestReport, PerfReport } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -201,6 +201,10 @@ export const hub = {
   selfTest: () => api<{ report: SelfTestReport | null }>("/api/selftest"),
   saveSelfTest: (report: SelfTestReport) => api<{ ok: true; report: SelfTestReport }>("/api/selftest", { method: "POST", body: report }),
   clearSelfTest: () => api<{ ok: true }>("/api/selftest", { method: "DELETE" }),
+  /** The TV app's own timings (#108), kept on the Hub for the phone and /api/diagnostics. */
+  perf: () => api<{ report: PerfReport | null }>("/api/perf"),
+  savePerf: (report: PerfReport) => api<{ ok: true; report: PerfReport }>("/api/perf", { method: "POST", body: report }),
+  clearPerf: () => api<{ ok: true }>("/api/perf", { method: "DELETE" }),
 
   /** The nightly backup of the Hub's data to the NAS. */
   backup: () => api<BackupState>("/api/backup"),

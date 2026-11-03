@@ -35,6 +35,7 @@ import { HubContext } from "./context.js";
 import { demoArt, seedDemo } from "./demo.js";
 import { hubHealth } from "./health.js";
 import { BoxReportStore, cleanBoxReport, renderDiagnostics, RollingFile, type LogRing } from "./diagnostics.js";
+import { cleanPerfReport } from "./perf.js";
 import { cleanSelfTestReport } from "./selftest.js";
 import { phoneReachable } from "./lan.js";
 import { buildLimitedSnapshot, jellyfinOfflineItems } from "./boxoffline.js";
@@ -321,6 +322,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "POST /api/plex/pin",
     "POST /api/plex/login",
     "DELETE /api/selftest",
+    "DELETE /api/perf",
     "DELETE /api/jellyfin",
     "DELETE /api/plex",
     "PATCH /api/channels/:id",
@@ -384,6 +386,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/offline/allowed", "tells a profile which of the box's downloads it may see, filtered by that profile"],
     ["POST /api/diagnostics/box", "the box sends a crash report before pairing is settled; body limit and cleaning apply"],
     ["POST /api/selftest", "the TV sends the run it just finished; cleaning applies and it changes no settings"],
+    ["POST /api/perf", "the TV sends its own timings; only numbers are kept and it changes no settings"],
     ["POST /api/probe-reports", "the probe page posts a speed report; the report is cleaned and only read by an adult"],
     ["POST /api/cast/share", "a laptop with no device key offers its screen: the share id is unguessable"],
     ["DELETE /api/cast/share/:id", "that laptop withdraws its own offer; only the id holder can, and it grants nothing"],
@@ -469,10 +472,21 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ctx.selfTest.clear();
     return { ok: true };
   });
+  // The UI timings (#108): the TV app times itself on the real screen and hands the numbers here.
+  app.get("/api/perf", () => ({ report: ctx.perf.get() }));
+  app.post("/api/perf", async (req, reply) => {
+    const report = cleanPerfReport(req.body);
+    if (!report) return reply.code(400).send({ error: "Not a timing report" });
+    return { ok: true, report: ctx.perf.save(report) };
+  });
+  app.delete("/api/perf", async () => {
+    ctx.perf.clear();
+    return { ok: true };
+  });
   app.get("/api/diagnostics", async (req: Req<Record<string, string>, { format?: string }>, reply) => {
     const hub = { version: HUB_VERSION, ...(HUB_BUILD.commit ? { commit: HUB_BUILD.commit } : {}), ...(HUB_BUILD.date ? { builtAt: HUB_BUILD.date } : {}), uptimeS: Math.round(process.uptime()), log: deps.logRing?.list() ?? [], advertScan: adSkipper.summary() };
-    if (req.query.format === "text") return reply.type("text/plain; charset=utf-8").send(renderDiagnostics(hub, boxReports.get(), ctx.selfTest.get()));
-    return { hub, box: boxReports.get(), selfTest: ctx.selfTest.get() };
+    if (req.query.format === "text") return reply.type("text/plain; charset=utf-8").send(renderDiagnostics(hub, boxReports.get(), ctx.selfTest.get(), ctx.perf.get()));
+    return { hub, box: boxReports.get(), selfTest: ctx.selfTest.get(), perf: ctx.perf.get() };
   });
 
   // The phone's Stats page: both machines, the last playback samples and plain warnings.
@@ -528,6 +542,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       },
       box: box ? { receivedAt: box.receivedAt, report: { ...box.report, samples: box.report.samples.slice(-30), log: box.report.log.slice(-150), kscreen: { text: box.report.kscreen.text } } } : null,
       selfTest: ctx.selfTest.get(),
+      perf: ctx.perf.get(),
     };
   });
 

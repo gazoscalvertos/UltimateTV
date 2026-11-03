@@ -16,6 +16,7 @@ import { appName, errorToast, setAppName, nav, previewTheme, profile, setProfile
 import { onCleanup } from "solid-js";
 import { Row, Status } from "../components/SettingRow";
 import { AdvertRows, AlertsSection, FeaturesSection, CastSection, HomeRowsSection, RecentChanges, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
+import { MeasureSection } from "./Measure";
 import { SelfTestSection } from "./SelfTest";
 import { BluetoothSection } from "./Bluetooth";
 
@@ -641,7 +642,20 @@ export function Settings(props: { section?: string }) {
         <nav class="settings-nav" data-focus-group>
           <For each={SECTIONS}>
             {(s, i) => (
-              <button class="settings-nav-item" classList={{ active: section() === s.id }} data-focus data-autofocus={s.id === (props.section ?? "profiles") ? "" : undefined} onFocus={() => setSection(s.id)} onClick={() => setSection(s.id)}>
+              <button
+                class="settings-nav-item"
+                classList={{ active: section() === s.id }}
+                data-focus
+                data-autofocus={s.id === section() ? "" : undefined}
+                // Walking down the list shows each section, as on Sky — but only when the focus
+                // arrives from the list itself. Without that check, opening a sub-panel (Self-test,
+                // Measure the UI) from an About row left the row gone, the shell put focus back on
+                // the first section, and its onFocus bounced the panel straight back to Profiles.
+                onFocus={(e) => {
+                  if ((e.relatedTarget as HTMLElement | null)?.closest(".settings-nav")) setSection(s.id);
+                }}
+                onClick={() => setSection(s.id)}
+              >
                 {s.label}
               </button>
             )}
@@ -1048,6 +1062,10 @@ export function Settings(props: { section?: string }) {
               <SelfTestSection />
             </Show>
 
+            <Show when={section() === "perf"}>
+              <MeasureSection />
+            </Show>
+
             <Show when={section() === "about"}>
               <h2>About</h2>
               <Row label="App name" value={appName()} hint="Rename the app on the TV, the phone remote and Spotify" icon="edit" onSelect={() => void rename()} />
@@ -1112,6 +1130,12 @@ export function Settings(props: { section?: string }) {
                 hint="Check HDR, the picture rate, the sound and every button on the remote, without a laptop"
                 icon="help"
                 onSelect={() => setSection("selftest")}
+              />
+              <Row
+                label="Measure the UI"
+                hint="Time the picker, Home, the guide and a playing film on this box, and send the numbers to the Hub"
+                icon="sparkle"
+                onSelect={() => setSection("perf")}
               />
               <Row label="Reload the app" icon="restart" onSelect={() => void agent.reload()} />
             </Show>

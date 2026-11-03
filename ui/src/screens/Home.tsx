@@ -1,7 +1,7 @@
 // Home: a hero for what you were watching or what's new, then your play queue and rails (live
 // now, continue watching, recordings, films on TV tonight, trending, recently added).
 
-import { createResource, For, onCleanup, Show } from "solid-js";
+import { createEffect, createResource, For, onCleanup, Show } from "solid-js";
 import { hub } from "../api";
 import { Icon } from "../components/Icon";
 import { QueueRow } from "../components/QueueRow";
@@ -17,12 +17,28 @@ import { continueOptions, undoLabel, type ContinuePick } from "../continueWatchi
 import { castSettings } from "../cast";
 import { HomeWeather } from "../components/HomeWeather";
 import { featureOn, shownRails, titleShown } from "../features";
+import { current } from "../focus";
+import { markHome } from "../perf";
 import type { TitleRef, WatchItem } from "@ultimatetv/shared";
 
 type SavedPick = "record" | "remind" | "open";
 
 export function Home() {
   const [home, { refetch }] = createResource(() => hub.home());
+  // #108: Home is usable once its content is drawn and the remote lands somewhere. Both happen a
+  // frame or two apart, so keep looking until both are true and stop after that.
+  // ("markHome" ignores the call when no profile was picked, e.g. a reload straight into Home.)
+  createEffect(() => {
+    if (!home()) return;
+    let raf = 0;
+    let tries = 0;
+    const look = () => {
+      if (current()) return markHome(); // the remote would land somewhere: Home is usable
+      if (++tries < 90) raf = requestAnimationFrame(look);
+    };
+    raf = requestAnimationFrame(look);
+    onCleanup(() => cancelAnimationFrame(raf));
+  });
   // What's switched off on this screen (features.ts) leaves Home too.
   const hero = () => {
     const h = home()?.hero;

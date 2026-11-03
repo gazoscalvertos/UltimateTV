@@ -19,6 +19,7 @@ import { focus, move } from "../focus";
 import { useHints } from "../hints";
 import { featureOn } from "../features";
 import { useKeys } from "../keys";
+import { guideKey } from "../perf";
 import { pointerMoved, wheelSteps } from "../mouse";
 import { channels as allChannels, guideList, liveChannelId, nowPlaying, play, setGuideList, setListChannels, stopPlayback } from "../player";
 import { errorToast, isKids, nav, now, profile, toast } from "../store";
@@ -292,6 +293,8 @@ export function Guide() {
       }
       return false;
     }
+    // #108: time every key that moves the guide, from the press to the frame that shows it.
+    if (a === "up" || a === "down" || a === "left" || a === "right" || a === "channelUp" || a === "channelDown") guideKey();
     const d = digitOf(a);
     if (d !== null) {
       const next = (digits() + d).slice(-3);
