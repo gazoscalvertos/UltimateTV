@@ -49,6 +49,7 @@ How UltimateTV fits together as of 2026-10-29 (main at PR #60). [PLAN.md](PLAN.m
 | Phone remote | `hub/public/remote/`, `android/app/` | Any phone browser; the Android app wraps it in a WebView | Plain HTML/JS PWA; Java WebView shell with speech and code scanning |
 | Setup page | `hub/public/setup/` | Any browser on the home network | Plain HTML/JS |
 | Android app | `android/client/` | Android phones and tablets | Kotlin, Jetpack Compose, Media3 ExoPlayer (+ Jellyfin ffmpeg audio decoder) |
+| PS5 app | `ps5/` | A jailbroken PlayStation 5, as a homebrew tile | C++20, SDL2 + ImGui, FFmpeg via SDL_kitchensink, plain-socket HTTP ([ps5.md](ps5.md)) |
 | Tools | `tools/` | Box installer, PXE server, Hub update and travel scripts, screenshot capture, Phase 0 probes | Bash, Docker, iPXE, Playwright |
 
 ## The Hub
