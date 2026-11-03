@@ -30,6 +30,14 @@ pop up what's new after an update. So:
 
 ## 2026-11-03
 
+- **A PS5 runs the desktop app, once it's in Linux** ([docs/ps5.md](docs/ps5.md)): there is no PS5
+  app and none is planned. A jailbroken console kept at firmware 13.60 or below, and kept offline so
+  it stays there, can be put into Linux with `ps5-linux-loader` and then runs the ordinary Linux
+  AppImage, with the console's GPU decoding H.264 and HEVC in hardware. The page says what works,
+  what is awkward (the exploit every boot, no suspend, a keyboard and mouse) and why a native client
+  would be a second C++ codebase for a firmware-capped audience;
+  [ADR 0004](docs/adr/0004-jailbroken-ps5-means-linux.md) records the decision. (#182)
+
 - **The six things people do most on the TV, tested by a machine**
   ([docs/TESTING.md](docs/TESTING.md#0-the-journeys-ci-runs-by-itself)): picking a
   profile, tuning a channel from the guide, recording a programme, setting a series link, playing a
