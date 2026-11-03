@@ -81,9 +81,17 @@ file="$work/build"
 say "Fetching $url"
 curl -fsSL --retry 3 -o "$file" "$url" || fail "Couldn't download $url"
 
-# 7-Zip opens all three and is what a Windows runner has; unzip and tar cover the rest.
-if command -v 7z >/dev/null 2>&1; then
-  7z x -y -o"$work/unpacked" "$file" >/dev/null || fail "$url isn't an archive 7z can read"
+# 7-Zip opens all three and is what a Windows runner has; unzip and tar cover the rest. On a
+# GitHub Windows runner 7-Zip is installed but not always on PATH, so the usual place is checked
+# too: shinchiro's Windows builds are .7z and nothing else here can open one.
+seven="$(command -v 7z || true)"
+if [ -z "$seven" ]; then
+  for guess in '/c/Program Files/7-Zip/7z.exe' '/c/Program Files (x86)/7-Zip/7z.exe'; do
+    [ -x "$guess" ] && { seven="$guess"; break; }
+  done
+fi
+if [ -n "$seven" ]; then
+  "$seven" x -y -o"$work/unpacked" "$file" >/dev/null || fail "$url isn't an archive 7z can read"
 else
   case "$url" in
     *.zip)
@@ -97,6 +105,9 @@ else
       tar xzf "$file" -C "$work" --one-top-level=unpacked || fail "$url isn't a tar.gz this can read"
       ;;
     *)
+      if [ "${url##*.}" = "7z" ]; then
+        fail "This is a .7z and 7-Zip isn't installed here. Either install 7-Zip (p7zip on Linux), or unpack it by hand and put its contents in $dest."
+      fi
       fail "Don't know how to unpack $url: give it a .zip, .tar.xz or .tar.gz, or unpack it by hand"
       ;;
   esac
@@ -108,16 +119,41 @@ found="$(find "$work/unpacked" -type f -name "$binary" -print -quit)"
 [ -n "$found" ] || fail "No $binary anywhere in $url: is this a build for this platform?"
 root="$(dirname "$found")"
 
+# A Mac build from laboratory.stolendata.net keeps its dylibs in a lib/ subfolder and addresses
+# them as @executable_path/lib/libavcodec.60.dylib, so that folder has to travel with the binary.
+# Copying only files beside the binary (what a Windows build has) would ship an mpv that cannot
+# load a single library. Keeping the layout is also what makes the binary's own @executable_path
+# references resolve, with no install_name_tool rewriting needed.
+copy_lib_dir=""
+if [ -d "$root/lib" ] && find "$root/lib" -name '*.dylib' -print -quit | grep -q .; then
+  copy_lib_dir="yes"
+fi
+
 mkdir -p "$dest"
-say "Copying $(find "$root" -maxdepth 1 -type f | wc -l | tr -d ' ') file(s) into $dest"
-# The binary and the libraries beside it, and nothing nested: that is what extraResources copies
-# and what mpv looks next to itself for.
+count="$(find "$root" -maxdepth 1 -type f | wc -l | tr -d ' ')"
+if [ -n "$copy_lib_dir" ]; then
+  count="$((count + $(find "$root/lib" -maxdepth 1 -type f | wc -l | tr -d ' ')))"
+  rm -rf "$dest/lib"
+fi
+say "Copying $count file(s) into $dest"
+# The binary and the libraries beside it, and nothing else nested: that is what extraResources
+# copies and what mpv looks next to itself for. lib/ is the one exception, explained above.
 find "$root" -maxdepth 1 -type f -exec cp {} "$dest/" \;
+if [ -n "$copy_lib_dir" ]; then
+  mkdir -p "$dest/lib"
+  find "$root/lib" -maxdepth 1 -type f -exec cp {} "$dest/lib/" \;
+fi
 
 if [ "$which" = "mac" ]; then
   # An .app runs the binary from inside the bundle, so a library addressed by its build path won't
   # be found. Saying so now is cheaper than a Mac that opens and can't play.
   if command -v otool >/dev/null 2>&1; then
+    # A library addressed as @executable_path/lib/... that is not in the folder we just copied is
+    # the same failure with a less obvious cause, so name it rather than letting it fail on a Mac.
+    while IFS= read -r line; do
+      lib="${line#@executable_path/}"
+      [ -f "$dest/$lib" ] || fail "$dest/$binary asks for @executable_path/$lib, which is not in $dest. Use a build that carries its libraries with it, or copy them in by hand."
+    done < <(otool -L "$dest/$binary" 2>/dev/null | grep -o '@executable_path/[^ ]*' || true)
     if otool -L "$dest/$binary" | grep -qE '/(opt/homebrew|usr/local)/'; then
       printf '\033[1;31m==>\033[0m %s\n' "$dest/$binary still points at libraries outside the app:" >&2
       otool -L "$dest/$binary" | grep -E '/(opt/homebrew|usr/local)/' >&2
