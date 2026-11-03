@@ -11,7 +11,7 @@ import { useKeys } from "../keys";
 import { activeMusic, duration, likedSongs, music, musicPlayPause, musicSkip, openWebApp, spotify, spotifyPosition, spotifySetup, webApp } from "../music";
 import { pairStamp } from "../pairing";
 import { stopPlayback } from "../player";
-import { radioPlaying } from "../radio";
+import { radioPlaying, radioSettings } from "../radio";
 import { appName, errorToast, isKids, nav } from "../store";
 import { PodcastSection, RadioNowPlaying, RadioSection } from "./Radio";
 
@@ -335,7 +335,9 @@ export function Music() {
           <RadioNowPlaying />
         </Show>
         <RadioSection />
-        <PodcastSection />
+        <Show when={radioSettings().showPodcasts}>
+          <PodcastSection />
+        </Show>
         <Show when={grown()}>
           <Switch>
             <Match when={!signedIn()}>

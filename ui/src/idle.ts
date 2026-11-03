@@ -8,7 +8,7 @@ import { onHubEvent } from "./events";
 import { setWakeHandler } from "./keys";
 import { webApp } from "./music";
 import { playerState, starting } from "./player";
-import { radioOn } from "./radio";
+import { radioOn, radioSettings } from "./radio";
 
 export type IdleMode = "awake" | "dim" | "saver";
 
@@ -34,12 +34,13 @@ export function previewScreensaver(): void {
 
 /**
  * Video playing (not paused), something starting, or a music web player on screen keeps it awake.
- * Radio and podcasts don't: there's no picture to watch, so the screensaver is where the station
- * shows, as it does with Spotify.
+ * Radio and podcasts don't unless the household asked them to (Settings › Radio and podcasts):
+ * there's no picture to watch, so the screensaver is where the station shows, as it does with
+ * Spotify.
  */
 function busy(): boolean {
   const st = playerState().status;
-  if (radioOn()) return st === "loading" || st === "buffering" || Boolean(starting());
+  if (radioOn()) return st === "loading" || st === "buffering" || Boolean(starting()) || (radioSettings().keepAwake && st === "playing");
   return st === "playing" || st === "loading" || st === "buffering" || Boolean(starting()) || webApp().open;
 }
 

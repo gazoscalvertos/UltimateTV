@@ -3,6 +3,7 @@
 
 import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState, SubtitleMode, SubtitleStyle } from "./agent.js";
 import type { SpotifyState, WebAppState } from "./music.js";
+import type { RadioSettings } from "./radio.js";
 import type { ScreensaverSettings } from "./screensaver.js";
 import type { CastLink, ShareOffer } from "./cast.js";
 import type { AdBreak, Alert, SleepChoice, SleepState } from "./household.js";
@@ -675,6 +676,8 @@ export interface Settings {
   channelFilter: string;
   /** Dimming the screen and the screensaver when the TV is left with nothing playing. */
   screensaver: ScreensaverSettings;
+  /** How the radio and podcasts behave: the screensaver, now playing, the station order. */
+  radio: RadioSettings;
 }
 
 /** Settings as the UI sees them: secrets replaced by a flag saying they're set. */
@@ -699,6 +702,7 @@ export interface PublicSettings {
   channelFilter: string;
   library: Settings["library"];
   screensaver: ScreensaverSettings;
+  radio: RadioSettings;
   setupUrl: string;
 }
 

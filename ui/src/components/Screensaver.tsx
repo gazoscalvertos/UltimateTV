@@ -7,7 +7,7 @@ import { describeWeather, formatTemp, shuffleThemes, type ScreensaverPhoto, type
 import { hub } from "../api";
 import { idleMode, screensaverConfig } from "../idle";
 import { activeMusic, spotify, webApp } from "../music";
-import { radioLine } from "../radio";
+import { radioLine, radioSettings } from "../radio";
 import { artwork, landscape, svgUrl } from "../screensavers/pictures";
 import { SCENES } from "../screensavers/scenes";
 import { appName, now, reducedMotion } from "../store";
@@ -148,7 +148,8 @@ function Clock() {
   const date = () => new Date(now()).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   const song = () => {
     const which = activeMusic();
-    if (which === "radio") return radioLine();
+    // Settings › Radio and podcasts can leave the station off the clock.
+    if (which === "radio") return radioSettings().onScreensaver ? radioLine() : "";
     if (which === "spotify") {
       const tr = spotify().track;
       return tr && spotify().status === "playing" ? `${tr.name} · ${tr.artists.join(", ")}` : "";

@@ -30,6 +30,13 @@ pop up what's new after an update. So:
 
 ## 2026-11-02
 
+- **Music controls on every screen**: music, the radio and podcasts now have a chip at the top right
+  of every screen but the Music tab, naming what's playing and pausing it in a press. (#181)
+  Household: you can see what's playing and pause it without leaving the screen you're on.
+- **Settings for the radio and podcasts**: keep the screen awake while the radio plays, leave the
+  station off the screensaver, turn off what's playing, hide podcasts from the Music tab, and put
+  your own stations first or list the lot by name. On the TV's Settings and the setup page. (#180)
+  Household: the radio can be made to behave the way you want it to, from the TV or a phone.
 - **A TV app that draws nothing now shows the box's own screen**: the box only watched the Hub, so a
   Hub that answered while the app it sent drew nothing left the TV black with nothing in any log and
   no way out but a restart. The box now looks at what the page drew, reloads it without the cache,

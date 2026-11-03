@@ -4749,6 +4749,48 @@ html.mirroring #app > :not(.mirroring-layer):not(.toasts) {
   color: var(--fg);
   font-variant-numeric: tabular-nums;
 }
+
+/* What's playing, from any screen: a pause button and the song or station, in the top bar. */
+.music-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 34rem;
+  padding-left: 0.4rem;
+  padding-right: 0.9rem;
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+.music-chip-key,
+.music-chip-name {
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+}
+.music-chip-key {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+}
+.music-chip-key .icon {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+.music-chip-name {
+  max-width: 26rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 1.15rem;
+  opacity: 0.85;
+}
+.music-chip-key:focus-visible,
+.music-chip-name:focus-visible {
+  outline: 2px solid var(--focus, #fff);
+  outline-offset: 2px;
+}
 .weather-chip .wx-icon {
   width: 2rem;
   height: 2rem;
