@@ -50,9 +50,14 @@ The Android app is the same remote in its own app, with two extras: the phone's 
    and tap **Connect**, then type the code from the TV.) The scanner is Google Play services'
    own, so the app needs no camera permission.
 
-When a newer app is on the Hub, the remote shows a banner: tap it to install the update. From 0.3.0
-every build is signed with the same key (`android/remote.keystore`), so updates install over the
-top. Moving from 0.1 or 0.2 to 0.3 needs the old app uninstalled first, once.
+When a newer app is on the Hub, the remote shows a banner: tap it to install the update. Every build
+is signed with the household's own key, which is kept in the repository's secrets and never in the
+repo itself ([android-signing.md](android-signing.md)), so updates install over the top.
+
+**Moving to 0.8.0 needs the old app uninstalled first, once.** Builds up to 0.7.0 were signed with a
+key that used to be committed, and Android won't install over a different one. The banner says so
+before you tap it: uninstall the old remote, install the new one, then scan the TV's pairing code
+again. After that, updates are normal.
 
 To point it at a different Hub later, use **Change Hub** at the bottom of the remote.
 

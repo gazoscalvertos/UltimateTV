@@ -290,6 +290,13 @@ jobs:
           gh release upload desktop-app tools/desktop/out/ultimatetv-macos.json --clobber
           gh release upload desktop-app tools/desktop/out/ultimatetv-desktop.json --clobber
 
+  # The phone remote (android/app) and, below, the watching client. Both follow #93's rule: a build
+  # from main carries the household's own release key, which lives in repository secrets and never in
+  # the repo; a pull request has no secrets, so it builds a debug APK instead.
+  #
+  # Why it matters: Android refuses to install an APK over one signed with a different key, so every
+  # APK the Hub hands out has to be signed the same way. Gradle makes a fresh debug key per machine,
+  # which is what the committed keystore used to paper over — at the cost of the key being public.
   android-remote:
     runs-on: ubuntu-latest
     permissions:
@@ -307,25 +314,66 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "9.8.2"
+      # Absent on a fork's pull request (secrets aren't passed to those), which is why this does
+      # nothing rather than failing: the build then makes a debug APK.
+      - name: Put the release key in place
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "No release key in this run: the APK will be a debug build."
+            exit 0
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/release.keystore
+          chmod 600 android/release.keystore
       - name: Build the phone remote APK
         working-directory: android
-        run: gradle --no-daemon :app:assembleDebug
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # Repo-relative, because upload-artifact and the publish step below both run from the root.
+          if [ -f release.keystore ]; then
+            ANDROID_KEYSTORE_PATH=release.keystore gradle --no-daemon :app:assembleRelease
+            echo "apk=android/app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_ENV"
+          else
+            gradle --no-daemon :app:assembleDebug
+            echo "apk=android/app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_ENV"
+          fi
       - uses: actions/upload-artifact@v7
         with:
           name: ultimatetv-remote-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.apk }}
           if-no-files-found: error
-      # The Hub downloads the app from this release for phones (Settings › the remote's banner).
+      # The Hub downloads the app from this release for phones (Settings > the remote's banner).
       - name: Publish the APK for the Hub
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk ultimatetv-remote.apk
+          # Never publish a debug-signed APK: it would be one Android refuses to install over, and
+          # every phone would be stuck until the next release-signed one. Failing here is loud.
+          case "$apk" in
+            */release/*-release.apk) ;;
+            *) echo "This run had no release key, so it built a debug APK. Publishing that would break"; \
+               echo "every installed copy. Set ANDROID_KEYSTORE_BASE64 and the other signing secrets."; \
+               exit 1 ;;
+          esac
+          cp "$apk" ultimatetv-remote.apk
           gh release view remote-app > /dev/null 2>&1 || gh release create remote-app --title "Phone remote (latest)" --notes "Built from main by CI. The Hub serves it at /api/remote/app.apk." --latest=false
           gh release upload remote-app ultimatetv-remote.apk --clobber
+      # The certificate of a release-signed APK, in the log: proof the build used the household's key
+      # and not a debug one. apksigner ships in the Android SDK the runner already has.
+      - name: Say what signed it
+        if: hashFiles('android/release.keystore') != ''
+        working-directory: android
+        run: |
+          signer="$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner -type f | sort | tail -1)"
+          "$signer" verify --print-certs app/build/outputs/apk/release/app-release.apk | head -3
 
-  # The watching client for phones and tablets (android/client): its own APK beside the remote.
+  # The watching client for phones and tablets (android/client): its own APK beside the remote, and
+  # the same #93 rule — the release key comes from secrets, a PR without them gets a debug build.
   android-client:
     runs-on: ubuntu-latest
     permissions:
@@ -343,13 +391,34 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "9.8.2"
+      - name: Put the release key in place
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "No release key in this run: the APK will be a debug build."
+            exit 0
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/release.keystore
+          chmod 600 android/release.keystore
       - name: Build the Android client APK
         working-directory: android
-        run: gradle --no-daemon :client:assembleDebug
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -f release.keystore ]; then
+            ANDROID_KEYSTORE_PATH=release.keystore gradle --no-daemon :client:assembleRelease
+            echo "apk=android/client/build/outputs/apk/release/client-release.apk" >> "$GITHUB_ENV"
+          else
+            gradle --no-daemon :client:assembleDebug
+            echo "apk=android/client/build/outputs/apk/debug/client-debug.apk" >> "$GITHUB_ENV"
+          fi
       - uses: actions/upload-artifact@v7
         with:
           name: ultimatetv-client-apk
-          path: android/client/build/outputs/apk/debug/client-debug.apk
+          path: ${{ env.apk }}
           if-no-files-found: error
       # The Hub serves it to phones at /api/client/app.apk.
       - name: Publish the APK for the Hub
@@ -357,6 +426,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/client/build/outputs/apk/debug/client-debug.apk ultimatetv.apk
+          case "$apk" in
+            */release/*-release.apk) ;;
+            *) echo "This run had no release key, so it built a debug APK. Publishing that would break"; \
+               echo "every installed copy. Set ANDROID_KEYSTORE_BASE64 and the other signing secrets."; \
+               exit 1 ;;
+          esac
+          cp "$apk" ultimatetv.apk
           gh release view client-app > /dev/null 2>&1 || gh release create client-app --title "Android client (latest)" --notes "Built from main by CI. The Hub serves it at /api/client/app.apk." --latest=false
           gh release upload client-app ultimatetv.apk --clobber

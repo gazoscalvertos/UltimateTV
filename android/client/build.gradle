@@ -14,26 +14,33 @@ android {
         applicationId "tv.ultimate.client"
         minSdk 26
         targetSdk 35
-        versionCode 11
-        versionName "0.5.0"
+        versionCode 12
+        versionName "0.6.0"
     }
 
-    // The same key as the remote (see app/build.gradle), so every build installs over the last.
+    // The same release key as the remote, and the same rules: it comes from the environment / CI
+    // secrets and is never committed. See app/build.gradle and docs/android-signing.md.
+    def keyPath = System.getenv("ANDROID_KEYSTORE_PATH")
+    def keyFile = keyPath ? rootProject.file(keyPath) : null
+    def hasReleaseKey = keyFile != null && keyFile.isFile()
+
     signingConfigs {
-        shared {
-            storeFile rootProject.file("remote.keystore")
-            storePassword "android"
-            keyAlias "remote"
-            keyPassword "android"
+        release {
+            if (hasReleaseKey) {
+                storeFile keyFile
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
         }
     }
 
     buildTypes {
         debug {
-            signingConfig signingConfigs.shared
+            // Gradle's own debug key, so a build with no secrets still works.
         }
         release {
-            signingConfig signingConfigs.shared
+            signingConfig hasReleaseKey ? signingConfigs.release : null
             minifyEnabled false
         }
     }
@@ -50,6 +57,10 @@ android {
     // Media3's download and extension APIs are marked unstable; we pin the version, so that's fine.
     lint {
         disable "UnsafeOptInUsageError"
+        // Fires on any registerForActivityResult() unless androidx.fragment is on the classpath, but
+        // this app has no fragments at all, so there is nothing to upgrade. It only bites
+        // assembleRelease (and so #93's release signing); assembleDebug never runs this check.
+        disable "InvalidFragmentVersionForActivityResult"
     }
 }
 
