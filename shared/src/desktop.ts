@@ -59,7 +59,7 @@ export function desktopBuildFile(kind: DesktopKind): string {
  * x86_64 spelling of x64, the Windows build is a per-user Setup .exe, and the Mac gets one .dmg per
  * architecture rather than a universal binary.
  */
-export function desktopAsset(kind: DesktopKind, arch: string = process.arch): string {
+export function desktopAsset(kind: DesktopKind, arch: string): string {
   // Only the two architectures electron-builder is asked for; anything else becomes x64, so a link
   // is still made instead of a broken name.
   const wanted = arch === "arm64" ? "arm64" : "x64";
@@ -68,8 +68,14 @@ export function desktopAsset(kind: DesktopKind, arch: string = process.arch): st
   return `UltimateTV-${wanted === "x64" ? "x86_64" : "arm64"}.AppImage`;
 }
 
-/** The desktop build a platform runs, so the app and the Hub agree which file is "the update". */
-export function desktopKind(platform: string = process.platform): DesktopKind {
+/**
+ * The desktop build a platform runs, so the app and the Hub agree which file is "the update".
+ *
+ * `platform` is a parameter rather than a default of `process.platform` because this module is
+ * compiled for the browser too (the probe reads it), where `process` does not exist. The callers
+ * that care pass Node's value: box/src/platform.ts and box/src/desktop-app-updates.ts.
+ */
+export function desktopKind(platform: string): DesktopKind {
   if (platform === "win32") return "windows";
   if (platform === "darwin") return "macos";
   return "linux";
@@ -145,7 +151,7 @@ export function otherAsset(kind: DesktopKind, arch?: string | null): { arch: "x6
  * `head` is the file's first bytes and `tail` its last (up to 512 of each), so the check doesn't
  * need the whole download in memory.
  */
-export function looksLikeDesktopDownload(kind: DesktopKind, head: Buffer, tail: Buffer, size: number): boolean {
+export function looksLikeDesktopDownload(kind: DesktopKind, head: Uint8Array, tail: Uint8Array, size: number): boolean {
   if (kind === "windows") return size > 100_000 && head.length >= 2 && head[0] === 0x4d && head[1] === 0x5a;
   if (kind === "macos") return size > 1_000_000 && tail.length >= 4 && tail[0] === 0x6b && tail[1] === 0x6f && tail[2] === 0x6c && tail[3] === 0x79;
   return size > 20 * 1024 * 1024 && head.length >= 4 && head[0] === 0x7f && head[1] === 0x45 && head[2] === 0x4c && head[3] === 0x46;

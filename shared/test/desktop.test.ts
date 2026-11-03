@@ -24,8 +24,8 @@ describe("desktop downloads", () => {
   it("falls back to x64 rather than inventing a name it can't build", () => {
     expect(desktopAsset("windows", "ia32")).toBe("UltimateTV-Setup-x64.exe");
     expect(desktopAsset("macos", "riscv64")).toBe("UltimateTV-x64.dmg");
-    // No architecture given at all (a Hub route without ?arch=) means this machine's.
-    expect(desktopAsset("linux")).toBe(desktopAsset("linux", process.arch === "arm64" ? "arm64" : "x64"));
+    // The Hub's route without ?arch= uses the platform's usual build, which it looks up itself.
+    expect(desktopAsset("linux", process.arch === "arm64" ? "arm64" : "x64")).toBe(process.arch === "arm64" ? "UltimateTV-arm64.AppImage" : "UltimateTV-x86_64.AppImage");
   });
 
   it("knows which platform runs which build", () => {
@@ -34,7 +34,10 @@ describe("desktop downloads", () => {
     expect(desktopKind("linux")).toBe("linux");
     // Anything else is treated as Linux: the box is Linux and so is everything we can't name.
     expect(desktopKind("freebsd")).toBe("linux");
-    expect(desktopKind()).toBe(desktopKind(process.platform));
+    // No default argument: this module is compiled for the browser too, so the caller passes Node's
+    // value (box/src/platform.ts, box/src/desktop-app-updates.ts). Whatever this machine is, it has
+    // to land on one of the three builds rather than fall through to undefined.
+    expect(["windows", "macos", "linux"]).toContain(desktopKind(process.platform));
   });
 
   it("lists the three downloads with what a person does with each", () => {
