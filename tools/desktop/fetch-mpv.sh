@@ -81,39 +81,40 @@ file="$work/build"
 say "Fetching $url"
 curl -fsSL --retry 3 -o "$file" "$url" || fail "Couldn't download $url"
 
-# 7-Zip opens all three and is what a Windows runner has; unzip and tar cover the rest. On a
-# GitHub Windows runner 7-Zip is installed but not always on PATH, so the usual place is checked
-# too: shinchiro's Windows builds are .7z and nothing else here can open one.
-seven="$(command -v 7z || true)"
-if [ -z "$seven" ]; then
-  for guess in '/c/Program Files/7-Zip/7z.exe' '/c/Program Files (x86)/7-Zip/7z.exe'; do
-    [ -x "$guess" ] && { seven="$guess"; break; }
-  done
-fi
-if [ -n "$seven" ]; then
-  "$seven" x -y -o"$work/unpacked" "$file" >/dev/null || fail "$url isn't an archive 7z can read"
-else
-  case "$url" in
-    *.zip)
-      command -v unzip >/dev/null 2>&1 || fail "This needs unzip or 7z to open $url"
-      unzip -q "$file" -d "$work/unpacked" || fail "$url isn't a zip this can read"
-      ;;
-    *.tar.xz | *.tar.gz | *.tgz)
-      # Plain `tar xf` and a folder made by hand, rather than --one-top-level: that is a GNU tar
-      # option and the macOS runner's tar is bsdtar, which does not take it. `xf` lets both read
-      # the compression from the file, and the find below copes with an archive that has a folder
-      # inside it (the Mac builds do) or not (some Windows zips).
-      mkdir -p "$work/unpacked"
-      tar xf "$file" -C "$work/unpacked" || fail "$url isn't a tar this can read"
-      ;;
-    *)
+# Which tool to use follows the file's own extension, NOT which tools happen to be installed. That
+# matters: the macOS runners have 7-Zip too, and `7z x` on a .tar.gz just unpacks the inner .tar
+# without expanding it, so an earlier version of this failed on a Mac with "No mpv anywhere". The
+# Mac builds are .tar.gz, so they go to tar; shinchiro's Windows builds are .7z, so they go to 7-Zip
+# (installed on a Windows runner but not always on PATH, hence the usual places are checked too).
+case "$url" in
+  *.zip)
+    command -v unzip >/dev/null 2>&1 || fail "This needs unzip to open $url"
+    unzip -q "$file" -d "$work/unpacked" || fail "$url isn't a zip this can read"
+    ;;
+  *.tar.xz | *.tar.gz | *.tgz)
+    # Plain `tar xf` and a folder made by hand, rather than --one-top-level: that is a GNU tar
+    # option and the macOS runner's tar is bsdtar, which does not take it. `xf` lets both read the
+    # compression from the file, and the find below copes with an archive that has a folder inside
+    # it (the Mac builds do) or not (some Windows zips).
+    mkdir -p "$work/unpacked"
+    tar xf "$file" -C "$work/unpacked" || fail "$url isn't a tar this can read"
+    ;;
+  *)
+    seven="$(command -v 7z || true)"
+    if [ -z "$seven" ]; then
+      for guess in '/c/Program Files/7-Zip/7z.exe' '/c/Program Files (x86)/7-Zip/7z.exe'; do
+        [ -x "$guess" ] && { seven="$guess"; break; }
+      done
+    fi
+    if [ -z "$seven" ]; then
       if [ "${url##*.}" = "7z" ]; then
         fail "This is a .7z and 7-Zip isn't installed here. Either install 7-Zip (p7zip on Linux), or unpack it by hand and put its contents in $dest."
       fi
       fail "Don't know how to unpack $url: give it a .zip, .tar.xz or .tar.gz, or unpack it by hand"
-      ;;
-  esac
-fi
+    fi
+    "$seven" x -y -o"$work/unpacked" "$file" >/dev/null || fail "$url isn't an archive 7z can read"
+    ;;
+esac
 
 # A build is often one folder inside the archive; find the one holding the binary rather than
 # assuming a depth.
