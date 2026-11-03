@@ -76,6 +76,7 @@ const DESKTOP_MISSING = "The Hub couldn't get the app from GitHub. Try again in 
  */
 function appDownloadPath(app: string): string | null {
   if (app === "client") return "/api/client/app.apk";
+  if (app === "firetv") return "/api/firetv/app.apk";
   if (app === "remote") return "/api/remote/app.apk";
   const kind = desktopDownloads().find((d) => d.kind === app);
   return kind ? `/api/desktop/${kind.kind}/installer` : null;
@@ -940,6 +941,20 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       .type("application/vnd.android.package-archive")
       .header("Content-Length", apk.size)
       .header("Content-Disposition", 'attachment; filename="ultimatetv.apk"')
+      .send(apk.stream);
+  });
+
+  // The same app built for a Fire TV or a Fire stick (#183): one APK with no Google Play services
+  // in it, because Fire OS has none. A separate download and a separate cache, so a stick can fetch
+  // it while a phone is mid-way through its own copy.
+  const firetvApp = new RemoteApp(config.dataDir, fetch, { tag: "firetv-app", file: "ultimatetv-firetv.apk" });
+  app.get("/api/firetv/app.apk", async (_req, reply) => {
+    const apk = await firetvApp.open();
+    if (!apk) return reply.code(503).type("text/plain").send("The Hub couldn't get the app from GitHub. Try again in a minute.");
+    return reply
+      .type("application/vnd.android.package-archive")
+      .header("Content-Length", apk.size)
+      .header("Content-Disposition", 'attachment; filename="ultimatetv-firetv.apk"')
       .send(apk.stream);
   });
 

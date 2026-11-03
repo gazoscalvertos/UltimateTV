@@ -18,6 +18,41 @@ android {
         versionName "0.6.0"
     }
 
+    // Two builds of one app. They share a version and an application id, so only one can be
+    // installed at a time — that is intended: a Fire stick and a phone are different devices, and
+    // pairing is per device anyway.
+    //
+    //  google: phones and tablets. Includes Google Play services' QR scanner, which is what the
+    //          "Scan the TV's code" button uses.
+    //  firetv: Amazon Fire TV and Fire sticks (#183). Fire OS has no Google Play services at all,
+    //          and the scanner's library puts Google components in the merged manifest that the
+    //          system starts with the app — so the app would crash on launch, not on first use.
+    //          This flavour has no Google dependency, and the button is replaced by the typed code.
+    //
+    // Nothing in src/main may refer to Google Play services: that is what keeps both builds
+    // honest. The scanner is behind ui/QrScanner.kt, which each flavour provides its own copy of.
+    flavorDimensions "store"
+    productFlavors {
+        google {
+            dimension "store"
+            isDefault true
+            // Where this build finds its own next version. Kept in BuildConfig so "Check for
+            // updates" downloads the build that can actually be installed over the one running.
+            buildConfigField "String", "UPDATE_PATH", "\"/api/client/app.apk\""
+            buildConfigField "String", "UPDATE_PAGE", "\"/setup/client-app.json\""
+            buildConfigField "String", "DEVICE_LABEL", "\"Android\""
+        }
+        firetv {
+            dimension "store"
+            // A Fire stick runs Fire OS 7 or 8, which is Android 11 or newer: no older floor needed.
+            // Every Fire TV device is 32-bit ARM, but the FFmpeg decoder library ships every ABI,
+            // so the APK works on all of them without an ABI filter.
+            buildConfigField "String", "UPDATE_PATH", "\"/api/firetv/app.apk\""
+            buildConfigField "String", "UPDATE_PAGE", "\"/setup/firetv-app.json\""
+            buildConfigField "String", "DEVICE_LABEL", "\"Fire TV\""
+        }
+    }
+
     // The same release key as the remote, and the same rules: it comes from the environment / CI
     // secrets and is never committed. See app/build.gradle and docs/android-signing.md.
     def keyPath = System.getenv("ANDROID_KEYSTORE_PATH")
@@ -79,8 +114,9 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0"
     implementation "io.coil-kt:coil-compose:2.7.0"
     implementation "com.google.code.gson:gson:2.15.0"
-    // Scans the TV's pairing QR code with Google Play services' scanner: no camera permission needed.
-    implementation "com.google.android.gms:play-services-code-scanner:16.1.0"
+    // Only in the phone build: Fire OS has no Google Play services, and this library's manifest
+    // components run at process start, so the Fire TV build must not contain it at all (#183).
+    googleImplementation "com.google.android.gms:play-services-code-scanner:16.1.0"
 
     // The player: ExoPlayer plays MPEG-TS (live TV), MKV, HEVC and HLS; Jellyfin's FFmpeg build
     // adds the sound formats phones can't decode themselves (AC-3, E-AC-3, DTS, TrueHD).

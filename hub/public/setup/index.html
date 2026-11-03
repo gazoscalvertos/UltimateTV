@@ -384,6 +384,13 @@
         <code class="link" id="client-app-link"></code>
       </div>
       <div class="app">
+        <img src="/api/apps/firetv/qr.svg" alt="">
+        <b><span class="brand">UltimateTV</span> for Fire TV <small id="firetv-app-version"></small></b>
+        <small>The same app for a Fire TV or a Fire stick, with no Google Play services in it. Sideload it with the Downloader app, or over the network with adb.</small>
+        <a class="dl" href="/api/firetv/app.apk" download>Download</a>
+        <code class="link" id="firetv-app-link"></code>
+      </div>
+      <div class="app">
         <img src="/api/apps/remote/qr.svg" alt="">
         <b><span class="brand">UltimateTV</span> Remote <small id="remote-app-version"></small></b>
         <small>This remote as an app, with voice control and the volume keys for channels.</small>
@@ -1959,13 +1966,14 @@ $("#px-pin").onclick = async () => {
 // even when the PC that is being set up can't reach GitHub.
 for (const [path, id] of [
   ["/api/client/app.apk", "#client-app-link"],
+  ["/api/firetv/app.apk", "#firetv-app-link"],
   ["/api/remote/app.apk", "#remote-app-link"],
   ["/api/desktop/windows/installer", "#windows-app-link"],
   ["/api/desktop/macos/installer", "#macos-app-link"],
 ]) {
   $(id).textContent = new URL(path, location.href).href;
 }
-for (const [file, id] of [["/setup/client-app.json", "#client-app-version"], ["/remote/app-version.json", "#remote-app-version"]]) {
+for (const [file, id] of [["/setup/client-app.json", "#client-app-version"], ["/setup/firetv-app.json", "#firetv-app-version"], ["/remote/app-version.json", "#remote-app-version"]]) {
   fetch(file, { cache: "no-store" }).then((r) => r.json()).then((v) => { $(id).textContent = v.versionName; }).catch(() => {});
 }
 

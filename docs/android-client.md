@@ -8,6 +8,8 @@
 2. Open the downloaded file and allow installing from Chrome the first time.
 3. Open **UltimateTV** and choose who's watching. Profiles with a PIN ask for it, and a Kids profile only sees what it sees on the TV.
 
+**On a Fire TV:** this page is for phones and tablets. A Fire TV stick or Fire TV takes a separate build with no Google Play services in it, installed a different way ([firetv.md](firetv.md)).
+
 The app looks for the Hub at `http://192.168.0.19:8095`. Change it in Settings if the Hub moves. Settings › Check for updates offers a newer build when the Hub has one, and it installs over the top.
 
 **0.6.0 is a one-time uninstall.** Every build is signed with the household's own key, kept in the repository's secrets ([android-signing.md](android-signing.md)); 0.5.0 and older were signed with a key that used to be committed, and Android refuses to install over a different one. Check for updates explains it before it downloads: uninstall the old app, install the new one, then pick your profile and pair again. Downloads saved on the phone are kept.

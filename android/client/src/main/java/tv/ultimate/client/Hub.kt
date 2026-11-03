@@ -253,7 +253,7 @@ class Hub(private val prefs: Prefs) {
 
     /** With `seen` (the newest entry shown last time, "" for none), also what's new since. */
     suspend fun changelog(seen: String? = null): Changelog = get("/api/changelog" + (if (seen != null) "?seen=${enc(seen)}" else ""), 8000)
-    suspend fun clientVersion(): AppVersion = get("/setup/client-app.json", 5000)
+    suspend fun clientVersion(): AppVersion = get(BuildConfig.UPDATE_PAGE, 5000)
 
     /** Saves a small file (artwork, subtitles) for offline use. */
     suspend fun fetchTo(url: String, file: File): Boolean = withContext(Dispatchers.IO) {

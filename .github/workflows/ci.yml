@@ -397,18 +397,22 @@ jobs:
           signer="$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner -type f | sort | tail -1)"
           "$signer" verify --print-certs app/build/outputs/apk/release/app-release.apk | head -3
 
-  # The watching client for phones and tablets (android/client): its own APK beside the remote, and
-  # the same #93 rule — the release key comes from secrets, a PR without them gets a debug build.
+  # The watching client (android/client) in two builds: the Play-store-style one for phones and
+  # tablets, and the Fire TV one (#183) with no Google Play services in it, because Fire OS has
+  # none and the scanner's manifest parts would crash the app at launch there. Both are signed
+  # with the same #93 release key, and each is published as its own release for the Hub to serve.
   android-client:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
-      - name: The Hub's client-app.json matches the app
+      - name: The Hub's app version files match the app
         run: |
           code="$(sed -n 's/^ *versionCode \([0-9]*\)$/\1/p' android/client/build.gradle)"
-          grep -q "\"versionCode\": $code," hub/public/setup/client-app.json || { echo "Update hub/public/setup/client-app.json to versionCode $code"; exit 1; }
+          for f in hub/public/setup/client-app.json hub/public/setup/firetv-app.json; do
+            grep -q "\"versionCode\": $code," "$f" || { echo "Update $f to versionCode $code"; exit 1; }
+          done
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -421,12 +425,12 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "No release key in this run: the APK will be a debug build."
+            echo "No release key in this run: the APKs will be debug builds."
             exit 0
           fi
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/release.keystore
           chmod 600 android/release.keystore
-      - name: Build the Android client APK
+      - name: Build both client APKs
         working-directory: android
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -434,29 +438,36 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -f release.keystore ]; then
-            ANDROID_KEYSTORE_PATH=release.keystore gradle --no-daemon :client:assembleRelease
-            echo "apk=android/client/build/outputs/apk/release/client-release.apk" >> "$GITHUB_ENV"
+            ANDROID_KEYSTORE_PATH=release.keystore gradle --no-daemon :client:assembleGoogleRelease :client:assembleFiretvRelease
+            echo "apk=android/client/build/outputs/apk/google/release/client-google-release.apk" >> "$GITHUB_ENV"
+            echo "firetv_apk=android/client/build/outputs/apk/firetv/release/client-firetv-release.apk" >> "$GITHUB_ENV"
           else
-            gradle --no-daemon :client:assembleDebug
-            echo "apk=android/client/build/outputs/apk/debug/client-debug.apk" >> "$GITHUB_ENV"
+            gradle --no-daemon :client:assembleGoogleDebug :client:assembleFiretvDebug
+            echo "apk=android/client/build/outputs/apk/google/debug/client-google-debug.apk" >> "$GITHUB_ENV"
+            echo "firetv_apk=android/client/build/outputs/apk/firetv/debug/client-firetv-debug.apk" >> "$GITHUB_ENV"
           fi
       - uses: actions/upload-artifact@v7
         with:
           name: ultimatetv-client-apk
-          path: ${{ env.apk }}
+          path: |
+            ${{ env.apk }}
+            ${{ env.firetv_apk }}
           if-no-files-found: error
-      # The Hub serves it to phones at /api/client/app.apk.
-      - name: Publish the APK for the Hub
+      # The Hub serves these to phones at /api/client/app.apk and to Fire TVs at /api/firetv/app.apk.
+      - name: Publish the APKs for the Hub
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           case "$apk" in
             */release/*-release.apk) ;;
-            *) echo "This run had no release key, so it built a debug APK. Publishing that would break"; \
+            *) echo "This run had no release key, so it built debug APKs. Publishing those would break"; \
                echo "every installed copy. Set ANDROID_KEYSTORE_BASE64 and the other signing secrets."; \
                exit 1 ;;
           esac
           cp "$apk" ultimatetv.apk
+          cp "$firetv_apk" ultimatetv-firetv.apk
           gh release view client-app > /dev/null 2>&1 || gh release create client-app --title "Android client (latest)" --notes "Built from main by CI. The Hub serves it at /api/client/app.apk." --latest=false
           gh release upload client-app ultimatetv.apk --clobber
+          gh release view firetv-app > /dev/null 2>&1 || gh release create firetv-app --title "Android client for Fire TV (latest)" --notes "Built from main by CI. The Hub serves it at /api/firetv/app.apk. No Google Play services in this build." --latest=false
+          gh release upload firetv-app ultimatetv-firetv.apk --clobber

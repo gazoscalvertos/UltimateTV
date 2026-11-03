@@ -30,6 +30,13 @@ pop up what's new after an update. So:
 
 ## 2026-11-03
 
+- **A Fire TV app, on Fire OS sticks and boxes** ([docs/firetv.md](docs/firetv.md)): a second Android
+  build with no Google Play services in it, because a Fire OS stick has none and the old single APK
+  crashed at launch on one. It sits in the Fire TV home row, the remote's D-pad, Select, Back,
+  Play/Pause and skips work, and pairing is by typing the TV's code since a stick has no camera.
+  Updates come from the Hub, and Vega OS devices can't run it at all. (#183)
+  Household: Fire TV sticks can install UltimateTV from the Hub now, and update it from there.
+
 - **The six things people do most on the TV, tested by a machine**
   ([docs/TESTING.md](docs/TESTING.md#0-the-journeys-ci-runs-by-itself)): picking a
   profile, tuning a channel from the guide, recording a programme, setting a series link, playing a
