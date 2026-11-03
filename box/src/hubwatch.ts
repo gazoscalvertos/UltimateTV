@@ -6,6 +6,9 @@
 // While the TV app shows, the Hub is asked every 20 seconds; after three misses in a row (a minute),
 // and only while nothing is playing, the box switches to its own screen. While that shows, it asks
 // every 5 seconds, and goes back once nothing is playing.
+//
+// When the Hub comes back during a film, the box notes it (`hubBack`) but waits for the film to end
+// before swapping the page: reloading mid-film would kill it.
 
 export type HubMode = "app" | "offline";
 
@@ -29,6 +32,7 @@ export class HubWatch {
   private downSince: number | undefined;
   private timer: NodeJS.Timeout | undefined;
   private checking = false;
+  private sawHub = false;
 
   constructor(private readonly o: HubWatchOptions) {}
 
@@ -39,6 +43,14 @@ export class HubWatch {
   /** When the Hub stopped answering, while it isn't. */
   get since(): number | undefined {
     return this.downSince;
+  }
+
+  /**
+   * True while the box's own screen is showing but the Hub has answered and only a film is keeping
+   * it there: Limited mode says so, so nobody wonders why the full app hasn't come back.
+   */
+  get hubBack(): boolean {
+    return this.mode === "offline" && this.sawHub;
   }
 
   /** The box has put its own screen up (the TV app didn't load). */
@@ -52,6 +64,7 @@ export class HubWatch {
   wentToApp(): void {
     this.mode = "app";
     this.misses = 0;
+    this.sawHub = false;
     this.downSince = undefined;
     this.schedule();
   }
@@ -79,7 +92,8 @@ export class HubWatch {
       const up = await this.o.probe().catch(() => false);
       if (up) {
         this.misses = 0;
-        // A download playing from the box's screen carries on; the TV app comes back after it.
+        this.sawHub = this.mode === "offline";
+        // A download or a film playing from the box's screen carries on; the TV app comes back after it.
         if (this.mode === "offline" && !this.o.busy()) {
           this.o.log("The Hub is back: showing the TV app");
           this.o.showApp();
@@ -89,6 +103,7 @@ export class HubWatch {
         return true;
       }
       this.misses++;
+      this.sawHub = false;
       this.downSince ??= this.now();
       if (this.mode === "app" && this.misses >= (this.o.missesBeforeOffline ?? 3) && !this.o.busy()) {
         this.o.log(`The Hub hasn't answered ${this.misses} times: showing the box's own screen`);

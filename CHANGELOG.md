@@ -58,6 +58,8 @@ pop up what's new after an update. So:
   while everything under `/api/` always goes to the Hub. (#129)
   Household: an iPhone can keep the remote on its Home Screen like an app, and it opens in a moment
   even when the Wi-Fi is poor.
+- **A TV app without the Hub: Limited mode** ([backup.md](docs/backup.md#when-the-hub-is-down-limited-mode)): with the Hub off the box no longer shows a dead screen. While the Hub is up it keeps a small saved copy of the channel list (with each channel's own address), a week of guide, every profile's rules and the Jellyfin sign-in; with the Hub down it runs a reduced TV app from that copy, playing live TV and Jellyfin films itself and reporting where you got to. Recording, series links, TorBox/saves and settings are there but off, each with a sentence saying why, and Kids rules still apply from the saved profile. When the Hub answers it swaps back to the full app by itself, waiting for a playing film to finish instead of cutting it off. (#78)
+  Household: if the Hub is down or restarting, the TV still has live channels, a week of guide and your Jellyfin films, and it goes back to normal on its own.
 - **A TV app that draws nothing now shows the box's own screen**: the box only watched the Hub, so a
   Hub that answered while the app it sent drew nothing left the TV black with nothing in any log and
   no way out but a restart. The box now looks at what the page drew, reloads it without the cache,

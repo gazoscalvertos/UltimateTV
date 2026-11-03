@@ -1,45 +1,68 @@
 <!doctype html>
-<!-- The box's own screen for when the Hub is down (see box/src/hubwatch.ts). It runs from the box's
-     disk with no network: the time, what's wrong, and what still works without the Hub. -->
+<!-- The box's own screen for when the Hub is down (see box/src/hubwatch.ts and box/src/limited.ts).
+     It runs from the box's disk with no network at all: the time, what's wrong, and Limited mode -
+     the channels and guide the box saved, the films it has downloaded, and a plain sentence for
+     everything that needs the Hub. Still needs no build step: plain HTML, CSS and one script. -->
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: http: https:; style-src 'self' 'unsafe-inline'; script-src 'self'">
 <title>UltimateTV</title>
 <style>
-  :root { --bg: #0a0f1a; --panel: #131b2b; --panel-2: #1b2539; --fg: #e8edf5; --muted: #8a97ad; --accent: #4f8cff; --warn: #f2b84b; --bad: #ff6b6b; --ok: #4cd18a; }
+  :root { --bg: #070B14; --panel: #101827; --panel-2: #1b2539; --fg: #e8edf5; --muted: #8a97ad; --accent: #4f8cff; --warn: #f2b84b; --bad: #ff6b6b; --ok: #4cd18a; }
   * { box-sizing: border-box; cursor: none !important; }
   html, body { margin: 0; height: 100%; overflow: hidden; }
   body { background: var(--bg); color: var(--fg); font: 1.25vw/1.4 system-ui, "Segoe UI", sans-serif; }
-  main { padding: 2.2vw 4vw; height: 100%; display: flex; flex-direction: column; gap: 1.6vw; }
+  main { padding: 2vw 4vw 3vw; height: 100%; display: flex; flex-direction: column; gap: 1.4vw; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+  main::-webkit-scrollbar { display: none; }
   header { display: flex; justify-content: space-between; align-items: flex-end; }
   .brand { font-size: 1.6vw; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+  .brand b { color: var(--warn); font-weight: 700; }
   .clock { text-align: right; }
-  .clock b { display: block; font-size: 4vw; font-weight: 300; line-height: 1; }
-  .clock span { color: var(--muted); font-size: 1.4vw; }
-  .status { background: var(--panel); border-radius: 1vw; padding: 1.3vw 2vw; display: grid; grid-template-columns: auto 1fr; gap: .3vw 1.6vw; align-items: center; }
-  .status .dot { grid-row: span 4; align-self: start; margin-top: .6vw; width: 1.4vw; height: 1.4vw; border-radius: 50%; background: var(--warn); box-shadow: 0 0 1.2vw var(--warn); animation: pulse 2s infinite; }
+  .clock b { display: block; font-size: 3.4vw; font-weight: 300; line-height: 1; }
+  .clock span { color: var(--muted); font-size: 1.3vw; }
+  .status { background: var(--panel); border-radius: 1vw; padding: 1.1vw 1.8vw; display: grid; grid-template-columns: auto 1fr; gap: .25vw 1.5vw; align-items: center; }
+  .status .dot { grid-row: span 4; align-self: start; margin-top: .5vw; width: 1.2vw; height: 1.2vw; border-radius: 50%; background: var(--warn); box-shadow: 0 0 1.2vw var(--warn); animation: pulse 2s infinite; }
   .status.nonet .dot { background: var(--bad); box-shadow: 0 0 1.2vw var(--bad); }
-  .status h1 { margin: 0; font-size: 2vw; font-weight: 650; }
-  .status p { margin: 0; color: var(--muted); }
+  .status.back .dot { background: var(--ok); box-shadow: 0 0 1.2vw var(--ok); animation: none; }
+  .status h1 { margin: 0; font-size: 1.7vw; font-weight: 650; }
+  .status p { margin: 0; color: var(--muted); font-size: 1.05vw; }
   @keyframes pulse { 50% { opacity: .35; } }
-  h2 { margin: 0 0 .8vw; font-size: 1.5vw; font-weight: 600; }
-  h2 small { color: var(--muted); font-weight: 400; font-size: 1.1vw; margin-left: .8vw; }
-  .rail { display: flex; gap: 1.2vw; overflow: hidden; padding: .5vw; margin: -.5vw; }
-  .card { flex: 0 0 9.5vw; background: var(--panel-2); border-radius: .8vw; overflow: hidden; outline: .25vw solid transparent; transition: transform .12s, outline-color .12s; }
-  .card .art { height: 11vw; background: #222c40 center/cover no-repeat; display: grid; place-items: center; font-size: 3vw; color: var(--muted); }
-  .card .text { padding: .7vw .9vw; }
-  .card .text b { display: block; font-size: 1.1vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card .text small { display: block; color: var(--muted); font-size: .95vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card .bar { height: .3vw; background: #ffffff22; }
+  h2 { margin: 0 0 .7vw; font-size: 1.35vw; font-weight: 600; }
+  h2 small { color: var(--muted); font-weight: 400; font-size: 1vw; margin-left: .8vw; }
+  .rail { display: flex; gap: 1vw; overflow: hidden; padding: .45vw; margin: -.45vw; }
+  .card { flex: 0 0 9vw; background: var(--panel-2); border-radius: .8vw; overflow: hidden; outline: .22vw solid transparent; transition: transform .12s, outline-color .12s; }
+  .card .art { height: 8.5vw; background: #222c40 center/cover no-repeat; display: grid; place-items: center; font-size: 2.4vw; color: var(--muted); }
+  .card .text { padding: .6vw .8vw; }
+  .card .text b { display: block; font-size: 1.05vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .text small { display: block; color: var(--muted); font-size: .9vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .bar { height: .25vw; background: #ffffff22; }
   .card .bar i { display: block; height: 100%; background: var(--accent); }
-  .actions { display: flex; gap: 1vw; }
-  .status .actions { margin-top: .9vw; }
-  .button { background: var(--panel-2); border-radius: 99vw; padding: .8vw 1.8vw; font-weight: 600; outline: .25vw solid transparent; }
-  .focus { outline-color: var(--fg) !important; transform: scale(1.04); }
+  .card.channel { flex-basis: 12vw; }
+  .card.channel .art { height: 6vw; font-size: 2.6vw; font-weight: 700; color: var(--fg); background: #1d2740; }
+  /* Present but off: everything that needs the Hub. The sentence under each name is the whole
+     explanation, so nobody has to guess why the press did nothing. */
+  .card.off { flex-basis: 15vw; opacity: .72; }
+  .card.off .art { height: 4.2vw; font-size: .95vw; color: var(--warn); background: #241f14; }
+  .card.off .text b { font-size: .95vw; }
+  .card.off .text small { white-space: normal; font-size: .85vw; line-height: 1.25; }
+  .days { display: flex; gap: .6vw; padding: .4vw; margin: -.4vw -.4vw .6vw; }
+  .pill { background: var(--panel-2); border-radius: 99vw; padding: .5vw 1.1vw; font-size: .95vw; font-weight: 600; outline: .2vw solid transparent; transition: transform .12s, outline-color .12s; }
+  .pill.on { background: var(--accent); }
+  .grid { display: flex; flex-direction: column; gap: .4vw; }
+  .grow { display: flex; gap: .5vw; align-items: stretch; }
+  .grow .ch { flex: 0 0 9vw; display: flex; flex-direction: column; justify-content: center; padding: .3vw .6vw; background: var(--panel); border-radius: .5vw; overflow: hidden; }
+  .grow .ch b { font-size: .95vw; }
+  .grow .ch small { color: var(--muted); font-size: .8vw; }
+  .cells { flex: 1; display: flex; gap: .3vw; overflow-x: auto; scrollbar-width: none; padding: .25vw; margin: -.25vw; }
+  .cells::-webkit-scrollbar { display: none; }
+  .cell { flex: 0 0 auto; background: var(--panel-2); border-radius: .5vw; padding: .35vw .6vw; min-width: 5vw; max-width: 22vw; outline: .2vw solid transparent; transition: transform .12s, outline-color .12s; overflow: hidden; }
+  .cell b { display: block; font-size: .9vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cell small { color: var(--muted); font-size: .78vw; }
   .empty { color: var(--muted); margin: 0; }
-  footer { margin-top: auto; color: var(--muted); font-size: 1vw; }
-  /* While a download plays, mpv draws it underneath and this page steps aside. */
+  footer { margin-top: auto; color: var(--muted); font-size: .95vw; }
+  .focus { outline-color: var(--fg) !important; transform: scale(1.04); }
+  /* While a film plays, mpv draws it underneath and this page steps aside. */
   body.playing { background: transparent; }
   body.playing main { display: none; }
   .osd { position: fixed; left: 4vw; right: 4vw; bottom: 3vw; background: #000000b0; border-radius: 1vw; padding: 1.2vw 1.6vw; display: none; }
@@ -61,10 +84,24 @@
     <h1 id="headline">Can't reach the Hub</h1>
     <p id="detail">Trying again every few seconds. The TV app comes back by itself as soon as it answers.</p>
     <p id="network"></p>
+    <p id="limited"></p>
     <div class="actions" data-row>
-      <div class="button" id="retry" data-focus>Try again now</div>
-      <div class="button" id="standby" data-focus>Turn the TV off</div>
+      <div class="pill" id="retry" data-focus>Try the Hub again</div>
+      <div class="pill" id="standby" data-focus>Turn the TV off</div>
     </div>
+  </section>
+  <section id="live-section" hidden>
+    <h2>Live TV <small id="live-note"></small></h2>
+    <div class="rail" id="live" data-row></div>
+  </section>
+  <section id="guide-section" hidden>
+    <h2>Guide <small id="guide-note"></small></h2>
+    <div class="days" id="days" data-row></div>
+    <div class="grid" id="grid"></div>
+  </section>
+  <section id="jellyfin-section" hidden>
+    <h2 id="jellyfin-title">Jellyfin <small id="jellyfin-note">carrying on where you left off</small></h2>
+    <div class="rail" id="jellyfin" data-row></div>
   </section>
   <section id="downloads-section">
     <h2>Downloads on this box <small id="downloads-note"></small></h2>
@@ -72,7 +109,11 @@
   </section>
   <section id="games-section" hidden>
     <h2>Games</h2>
-    <div class="actions" id="games" data-row></div>
+    <div class="rail" id="games" data-row></div>
+  </section>
+  <section id="off-section" hidden>
+    <h2>Needs the Hub <small>these come back by themselves</small></h2>
+    <div class="rail" id="off" data-row></div>
   </section>
   <footer id="footer"></footer>
 </main>

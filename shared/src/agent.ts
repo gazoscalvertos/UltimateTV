@@ -8,6 +8,7 @@ import type { MusicPage, MusicTracks, SpotifyCommand, SpotifySetup, SpotifyState
 
 import type { SelfTestCall, SelfTestPlayed, SelfTestReady } from "./selftest.js";
 import type { BtAction, BtState } from "./bluetooth.js";
+import type { LimitedPlayAnswer, LimitedPlayRequest, LimitedView } from "./limited.js";
 
 export interface AudioTrack {
   id: number;
@@ -386,6 +387,16 @@ export interface BoxAgent {
   // The screen the box shows when the Hub is down (box/offline). Older box shells lack this.
   /** Who's watching, so that screen only offers what this profile may see. */
   offlineProfile(p: OfflineProfile): Promise<void>;
+
+  // Limited mode (#78): the reduced app the box shows with the Hub off, from its own cache.
+  // Older box shells lack these: check with agentHas first.
+  /** What this box saved before the Hub went away, cut down to what the current profile may see. */
+  limitedView?(): Promise<LimitedView>;
+  /**
+   * Plays a channel or a Jellyfin film from the cache. The box checks the Kids rules itself before
+   * it hands anything to mpv, so the answer is a refusal in plain words rather than an error.
+   */
+  limitedPlay?(request: LimitedPlayRequest): Promise<LimitedPlayAnswer>;
 }
 
 /** What the box's Hub-down screen may show: it follows the profile last used on the TV. */

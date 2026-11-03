@@ -4,7 +4,7 @@
 // the sections (guest.ts), no settings, recordings or downloads, and nothing it watches is kept.
 
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import type { AccessibilitySettings, Certification, Channel, ChannelCategory, FeatureId, Profile, Programme, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Channel, ChannelCategory, FeatureId, Profile, Programme, TitleDetails, TitleRef } from "@ultimatetv/shared";
 import { CERTIFICATIONS, cleanAccessibility, cleanFeatureList, cleanKidsLimits, DEFAULT_ACCESSIBILITY, GUEST_NEVER, hasKidsLimits, isDefaultAccessibility, kidsAllowSays, NO_KIDS_ALLOW_LOOKUP, SUBTITLE_MODES, type KidsAllowKind, type KidsAllowLookup } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 import { newId } from "./db.js";
@@ -16,21 +16,11 @@ interface StoredProfile extends Profile {
 
 const COLOURS = ["#4f8cff", "#f2b33d", "#35c27a", "#ff6b9a", "#a77bff", "#2ec4d6"];
 
-/** Genres that make an unrated title acceptable for a Kids profile. Animation alone isn't enough (adult cartoons). */
-const KIDS_GENRES = /\b(family|kids|children|children's)\b/i;
-
-/** TV and US ratings mapped onto the UK scale, so Jellyfin's OfficialRating can be compared. */
-const RATING_MAP: Record<string, Certification> = {
-  U: "U", UC: "U", G: "U", "TV-Y": "U", "TV-Y7": "U", "TV-G": "U", "0": "U", "6": "U",
-  PG: "PG", "TV-PG": "PG", "12": "12", "12A": "12A", "PG-13": "12A", "TV-14": "15", "15": "15", "16": "15", R: "18", "18": "18", "NC-17": "18", "TV-MA": "18", R18: "18",
-};
-
-export function certificationRank(rating: string | undefined): number | null {
-  if (!rating) return null;
-  const key = rating.toUpperCase().replace(/^GB-|^UK-|^US-/, "").trim();
-  const cert = RATING_MAP[key];
-  return cert ? CERTIFICATIONS.indexOf(cert) : null;
-}
+// certificationRank and KIDS_GENRES live in the shared package: the box's Limited mode applies the
+// same Kids rules with the Hub off, so a second copy here could let the two drift apart. Re-exported
+// so the rest of the Hub keeps importing them from here.
+export { certificationRank } from "@ultimatetv/shared";
+import { certificationRank, KIDS_GENRES } from "@ultimatetv/shared";
 
 // ---------------------------------------------------------------------------
 // PIN lockout. A four-digit PIN is only 10,000 guesses, so anyone on the LAN could work through
