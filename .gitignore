@@ -14,3 +14,5 @@ android/local.properties
 *.jks
 android/*.keystore
 tools/pxe/arch-cache/
+# Screenshots from a failed e2e journey: written per run, uploaded by CI, never committed.
+e2e/.failures/

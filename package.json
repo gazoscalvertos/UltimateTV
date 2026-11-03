@@ -14,12 +14,14 @@
     "build": "npm run build -w shared && npm run build -w tools/probe && npm run build -w hub && npm run build -w box && npm run build -w ui",
     "typecheck": "tsc -b && tsc -p tools/probe/tsconfig.json && tsc -p ui --noEmit",
     "test": "vitest run",
+    "e2e": "npm run build && node e2e/run.mjs",
     "dev:hub": "npm run dev -w hub",
     "screenshots": "node tools/screenshots/capture.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "esbuild": "^0.28.2",
+    "playwright-core": "^1.64.1",
     "tsx": "^4.19.0",
     "typescript": "~7.0.2",
     "vitest": "^5.0.5"
