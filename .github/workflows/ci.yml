@@ -27,6 +27,31 @@ jobs:
       - name: Check the probe bundle parses as ES2017
         run: npx esbuild tools/probe/dist/probe.js --target=es2017 --log-level=error > /dev/null
 
+  # The six TV journeys (docs/testing.md). Keys only, so this catches broken focus and navigation,
+  # the ways a TV app most often becomes unusable without anyone noticing. Fails on console errors
+  # and on focus getting lost, and uploads a screenshot of whatever was on screen when it broke.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Only chromium: the journeys drive the TV app, not a phone or a desktop browser.
+      - run: npx playwright-core install --with-deps chromium
+      - name: Run the TV journeys
+        run: npm run e2e
+      - name: Keep the screenshots of anything that failed
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-failures
+          path: e2e/.failures/
+          if-no-files-found: warn
+
   box-scripts:
     runs-on: ubuntu-latest
     steps:

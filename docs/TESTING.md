@@ -2,6 +2,19 @@
 
 Everything is built ahead of testing on the real hardware. This is the order to test it in, from the Hub to the sofa. Note anything that fails and the step number.
 
+## 0. The journeys CI runs by itself
+
+Six everyday journeys are driven with remote keys only, in a real browser, against a demo Hub: picking a profile, tuning a channel from the guide, recording a programme, setting a series link, playing a film from Home and resuming it, and checking a Kids profile can't reach Settings.
+
+```bash
+npm run e2e                  # all six, about 25 seconds after the build
+npm run e2e -- --only=guide  # one of them, by part of its name
+```
+
+It fails on a console error and on focus getting lost — a key press that leaves nothing focused, which is the way a TV app most often becomes unusable without anyone noticing. Each journey gets its own Hub and browser, so a recording in one can't change what the next sees. When one fails, a screenshot of the screen at the moment it broke, the page's own view of it, and whatever the page reported are written to `e2e/.failures/`; CI uploads that folder as the `e2e-failures` artifact.
+
+These are not a substitute for section 2 below: they prove the screens navigate and talk to the Hub, not that a 4K film shows HDR on the Hisense.
+
 ## 1. Hub (Docker LXC 107)
 
 1. `bash /containers/UltimateTV/tools/hub/update.sh` (pulls, rebuilds and checks the Hub is up)

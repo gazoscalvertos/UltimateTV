@@ -30,6 +30,15 @@ pop up what's new after an update. So:
 
 ## 2026-11-03
 
+- **The six things people do most on the TV, tested by a machine**
+  ([docs/TESTING.md](docs/TESTING.md#0-the-journeys-ci-runs-by-itself)): picking a
+  profile, tuning a channel from the guide, recording a programme, setting a series link, playing a
+  film from Home and resuming it, and checking a Kids profile can't reach Settings are each driven
+  with the remote's own keys in a real browser, against a demo Hub. A run that leaves a screen with
+  nothing focused, or that makes the browser report an error, fails and keeps a picture of the screen
+  at that moment. It takes about half a minute. (#104)
+  Household: no visible change — this catches broken screens before an update reaches the TV.
+
 - **The Android apps are signed with the house's own key, kept out of the repo**
   ([docs/android-signing.md](docs/android-signing.md)): the two Android apps used to be signed with a
   keystore committed to the repository, password and all, so anyone who could read the code could
