@@ -298,16 +298,17 @@ export class Playback {
       info.url = `${hubBase}/api/stream/${token}`;
     }
 
-    if (chosen.kind === "jellyfin") {
-      const jf = this.ctx.jellyfin();
+    // The media server, Jellyfin or Plex: the same item shape either way, so one block.
+    if (chosen.kind === "jellyfin" || chosen.kind === "plex") {
+      const media = this.ctx.media();
       const [, itemId, mediaSourceId] = chosen.id.split(":");
-      if (jf && itemId) {
-        const item = await jf.item(itemId);
+      if (media && itemId && media.kind === chosen.kind) {
+        const item = await media.item(itemId);
         const resume = item.UserData?.PlaybackPositionTicks;
         if (resume) info.startMs = ticksToMs(resume);
         else {
-          // Jellyfin keeps no place under 5% of the runtime; the Hub's own record does.
-          const p = this.ctx.progress.get(`jellyfin:${itemId}`);
+          // The server keeps no place under 5% of the runtime; the Hub's own record does.
+          const p = this.ctx.progress.get(media.key(itemId));
           if (p && !p.watched && !item.UserData?.Played) info.startMs = p.positionMs;
         }
         if (item.RunTimeTicks) info.durationMs = ticksToMs(item.RunTimeTicks);
@@ -316,17 +317,19 @@ export class Playback {
         const fps = video?.RealFrameRate ?? video?.AverageFrameRate;
         if (fps) info.fps = fps;
         for (const s of src?.MediaStreams ?? []) {
-          if (s.Type === "Subtitle" && s.IsExternal && src) info.externalSubtitles.push({ url: jf.subtitleUrl(itemId, src.Id, s.Index, s.Codec), lang: s.Language ?? "und", label: s.DisplayTitle ?? s.Language ?? "Subtitles" });
+          if (s.Type === "Subtitle" && s.IsExternal && src) info.externalSubtitles.push({ url: media.subtitleUrl(itemId, src.Id, s.Index, s.Codec), lang: s.Language ?? "und", label: s.DisplayTitle ?? s.Language ?? "Subtitles" });
         }
-        const segments = await jf.segments(itemId);
+        const segments = await media.segments(itemId);
         info.skip = skipMarkersFrom(segments);
-        info.progressKey = `jellyfin:${itemId}`;
-        if (pc.smaller) {
-          info.url = jf.hlsUrl(itemId, src?.Id, randomBytes(8).toString("hex"));
+        info.progressKey = media.key(itemId);
+        if (pc.smaller && media.kind !== "plex") {
+          info.url = media.hlsUrl(itemId, src?.Id, randomBytes(8).toString("hex"));
           info.hls = true;
           // Roughly 3.2 Mbit/s for the picture and sound together.
           if (info.durationMs && info.quality) info.quality = { ...info.quality, sizeBytes: Math.round((info.durationMs / 1000) * 400_000), height: Math.min(info.quality.height, 720), codec: "h264", audio: "aac", hdr: "sdr", channels: 2 };
         }
+        // Plex has no smaller copy here, so the direct file the candidate already carries is what
+        // plays: the phone gets the original rather than nothing.
       }
     } else {
       const p = this.ctx.progress.get(info.progressKey);
@@ -352,28 +355,33 @@ export class Playback {
    * watching). A stop tells the TV, so Home shows it in Continue watching straight away.
    */
   async report(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused = false, ref?: TitleRef, at?: number, keepHistory = true): Promise<void> {
-    // A Guest leaves no history: no row here, nothing passed on to Jellyfin, no Continue watching.
+    // A Guest leaves no history: no row here, nothing passed on to the media server, no Continue watching.
     if (!keepHistory) return;
     await this.save(key, positionMs, durationMs, event, paused, ref, at);
     if (event === "stop") this.ctx.events.emit({ type: "progress.changed" });
   }
 
   private async save(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused: boolean, ref?: TitleRef, at?: number): Promise<void> {
-    if (key.startsWith("jellyfin:")) {
-      const itemId = key.slice(9);
-      const jf = this.ctx.jellyfin();
-      // Away from home the Hub runs on the box and Jellyfin is out of reach, so the place is kept
-      // and sent when Jellyfin answers again (#80). It is kept on a failure too, not just when
-      // Jellyfin isn't set up at all.
-      const queued = { itemId, positionMs, ...(durationMs ? { durationMs } : {}), event, ...(finished(event, positionMs, durationMs) ? { played: true } : {}), ...(at !== undefined ? { at } : {}) };
-      if (!jf) {
-        this.ctx.jellyfinProgress.queue(queued);
+    const media = this.ctx.media();
+    const serverItem = media?.parseKey(key);
+    const queued = (itemId: string) => ({ itemId, positionMs, ...(durationMs ? { durationMs } : {}), event, ...(finished(event, positionMs, durationMs) ? { played: true } : {}), ...(at !== undefined ? { at } : {}) });
+    if (media && serverItem) {
+      // Away from home the Hub runs on the box and Jellyfin is out of reach. Its places are kept
+      // and sent when it answers again (#80). Plex's are not queued: the Hub's own progress below
+      // still holds them, so a Plex film resumes from this Hub either way.
+      const jf = media.kind === "jellyfin" ? this.ctx.jellyfin() : null;
+      if (media.kind === "jellyfin" && !jf) {
+        this.ctx.jellyfinProgress.queue(queued(serverItem));
       } else {
-        await jf.reportProgress(itemId, positionMs, event, paused).catch((err) => {
-          this.ctx.log.warn({ err: String(err) }, "Jellyfin progress failed: kept to send later");
-          this.ctx.jellyfinProgress.queue(queued);
+        await media.reportProgress(serverItem, positionMs, event, paused).catch((err) => {
+          this.ctx.log.warn({ err: String(err), server: media.name }, "Progress to the media server failed: kept to send later");
+          if (media.kind === "jellyfin") this.ctx.jellyfinProgress.queue(queued(serverItem));
         });
       }
+    } else {
+      // No server connected at all: a Jellyfin place is still worth keeping for when it is back.
+      const own = /^jellyfin:(.+)$/.exec(key)?.[1];
+      if (own) this.ctx.jellyfinProgress.queue(queued(own));
     }
     if (key.startsWith("channel:")) return;
     if (key.startsWith("recording:")) {

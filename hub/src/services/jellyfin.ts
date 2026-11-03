@@ -1,8 +1,24 @@
 // Jellyfin API client: Quick Connect sign-in, libraries, playback URLs (always direct play: the box
 // plays every format), progress sync, skip markers and library refresh.
 
-import type { Episode, Season, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import type { Episode, TitleDetails, TitleRef } from "@ultimatetv/shared";
 import { fetchJson, fetchOk, type Fetch } from "../http.js";
+import {
+  groupSeasons,
+  resumeEpisode,
+  type ItemsQuery,
+  type JfItem,
+  type JfMediaSource,
+  type MediaImageKind,
+  type MediaProvider,
+  type MediaSegment,
+  type MediaServer,
+} from "./media.js";
+
+// The internal item shape is shared with Plex, so it lives in media.ts; it is re-exported here
+// because this is where it grew up and where the rest of the Hub still imports it from.
+export type { JfItem, JfMediaSource, JfStream } from "./media.js";
+export { groupSeasons, resumeEpisode } from "./media.js";
 
 export interface JellyfinAuth {
   url: string;
@@ -11,65 +27,12 @@ export interface JellyfinAuth {
   serverName?: string;
 }
 
-export interface JfItem {
-  Id: string;
-  Name: string;
-  Type: "Movie" | "Series" | "Season" | "Episode" | "BoxSet" | "Folder" | "CollectionFolder" | string;
-  ProductionYear?: number;
-  Overview?: string;
-  Genres?: string[];
-  CommunityRating?: number;
-  OfficialRating?: string;
-  RunTimeTicks?: number;
-  ProviderIds?: Record<string, string>;
-  ImageTags?: Record<string, string>;
-  BackdropImageTags?: string[];
-  ParentBackdropItemId?: string;
-  ParentBackdropImageTags?: string[];
-  SeriesId?: string;
-  SeriesName?: string;
-  SeasonId?: string;
-  IndexNumber?: number;
-  ParentIndexNumber?: number;
-  PremiereDate?: string;
-  UserData?: { PlaybackPositionTicks?: number; Played?: boolean; PlayedPercentage?: number; LastPlayedDate?: string };
-  People?: { Name: string; Type: string }[];
-  MediaSources?: JfMediaSource[];
-  Path?: string;
-  CollectionType?: string;
-}
-
-export interface JfMediaSource {
-  Id: string;
-  Path?: string;
-  Container?: string;
-  Size?: number;
-  Bitrate?: number;
-  MediaStreams?: JfStream[];
-}
-
-export interface JfStream {
-  Type: "Video" | "Audio" | "Subtitle" | string;
-  Index: number;
-  Codec?: string;
-  Language?: string;
-  DisplayTitle?: string;
-  Title?: string;
-  IsExternal?: boolean;
-  Height?: number;
-  Width?: number;
-  Channels?: number;
-  Profile?: string;
-  VideoRange?: string;
-  VideoRangeType?: string;
-  RealFrameRate?: number;
-  AverageFrameRate?: number;
-  IsDefault?: boolean;
-}
-
 const TICKS_PER_MS = 10_000;
 
-export class JellyfinClient {
+export class JellyfinClient implements MediaServer {
+  readonly kind = "jellyfin" as const;
+  readonly name = "Jellyfin";
+
   private deviceId = "ultimatetv-hub";
 
   constructor(
@@ -100,6 +63,16 @@ export class JellyfinClient {
   private get userId(): string {
     if (!this.auth.userId) throw new Error("Jellyfin isn't signed in");
     return this.auth.userId;
+  }
+
+  /** The Hub's id for one of Jellyfin's items: "jellyfin:abc123". */
+  key(itemId: string): string {
+    return `${this.kind}:${itemId}`;
+  }
+
+  /** The Jellyfin item id inside one of the Hub's ids, or undefined for another server's. */
+  parseKey(id: string): string | undefined {
+    return id.startsWith(`${this.kind}:`) ? id.slice(this.kind.length + 1) : undefined;
   }
 
   // Sign-in --------------------------------------------------------------
@@ -157,7 +130,7 @@ export class JellyfinClient {
     return this.get<JfItem[]>(`/Users/${this.userId}/Items/Latest?IncludeItemTypes=${type}&Limit=${limit}&GroupItems=true&Fields=${JellyfinClient.FIELDS}`);
   }
 
-  async items(params: { type: "Movie" | "Series"; sortBy?: string; limit?: number; start?: number; genre?: string; search?: string; maxRating?: string }): Promise<{ items: JfItem[]; total: number }> {
+  async items(params: ItemsQuery): Promise<{ items: JfItem[]; total: number }> {
     const q = new URLSearchParams({
       IncludeItemTypes: params.type,
       Recursive: "true",
@@ -185,13 +158,13 @@ export class JellyfinClient {
    * returns the first item in the library, which made every film "available" as the same file, so
    * the Hub builds its own index of provider ids instead (cached for ten minutes).
    */
-  async byProviderId(provider: "tmdb" | "imdb" | "tvdb", id: string, type: "Movie" | "Series"): Promise<JfItem | undefined> {
+  async byProviderId(provider: MediaProvider, id: string, type: "Movie" | "Series"): Promise<JfItem | undefined> {
     const itemId = (await this.providerIds()).get(`${type}|${provider}|${id.toLowerCase()}`);
     return itemId ? this.item(itemId) : undefined;
   }
 
   /** Whether the library has a title, without fetching it. */
-  async hasProviderId(provider: "tmdb" | "imdb" | "tvdb", id: string, type: "Movie" | "Series"): Promise<boolean> {
+  async hasProviderId(provider: MediaProvider, id: string, type: "Movie" | "Series"): Promise<boolean> {
     return (await this.providerIds()).has(`${type}|${provider}|${id.toLowerCase()}`);
   }
 
@@ -223,9 +196,9 @@ export class JellyfinClient {
     return r.Items;
   }
 
-  async segments(itemId: string): Promise<{ Type: string; StartTicks: number; EndTicks: number }[]> {
+  async segments(itemId: string): Promise<MediaSegment[]> {
     try {
-      const r = await this.get<{ Items: { Type: string; StartTicks: number; EndTicks: number }[] }>(`/MediaSegments/${itemId}`);
+      const r = await this.get<{ Items: MediaSegment[] }>(`/MediaSegments/${itemId}`);
       return r.Items ?? [];
     } catch {
       return []; // Older servers, or no segment provider installed.
@@ -308,7 +281,7 @@ export class JellyfinClient {
 
   // Mapping --------------------------------------------------------------
 
-  image(item: JfItem, kind: "Primary" | "Backdrop" | "Logo" | "Thumb", maxWidth: number): string | undefined {
+  image(item: JfItem, kind: MediaImageKind, maxWidth: number): string | undefined {
     if (kind === "Backdrop") {
       if (item.BackdropImageTags?.length) return `${this.base}/Items/${item.Id}/Images/Backdrop/0?maxWidth=${maxWidth}&tag=${item.BackdropImageTags[0]}&quality=85`;
       if (item.ParentBackdropItemId && item.ParentBackdropImageTags?.length) return `${this.base}/Items/${item.ParentBackdropItemId}/Images/Backdrop/0?maxWidth=${maxWidth}&tag=${item.ParentBackdropImageTags[0]}&quality=85`;
@@ -387,36 +360,6 @@ export class JellyfinClient {
   }
 }
 
-export function groupSeasons<T>(episodes: T[], map: (e: T) => Episode): Season[] {
-  const bySeason = new Map<number, Episode[]>();
-  for (const e of episodes) {
-    const ep = map(e);
-    const list = bySeason.get(ep.season) ?? [];
-    list.push(ep);
-    bySeason.set(ep.season, list);
-  }
-  return [...bySeason.entries()]
-    .sort(([a], [b]) => (a === 0 ? 1 : b === 0 ? -1 : a - b))
-    .map(([season, eps]) => ({ season, name: season === 0 ? "Specials" : `Series ${season}`, episodes: eps.sort((a, b) => a.episode - b.episode) }));
-}
-
 export function ticksToMs(ticks: number): number {
   return Math.round(ticks / TICKS_PER_MS);
-}
-
-/**
- * The episode of a series to carry on with: the one played last if it was stopped part way, else
- * the one after it. Undefined when none has been played (Play then starts the first unwatched).
- */
-export function resumeEpisode(episodes: JfItem[]): JfItem | undefined {
-  let last = -1;
-  let lastAt = 0;
-  episodes.forEach((e, i) => {
-    const at = Date.parse(e.UserData?.LastPlayedDate ?? "") || 0;
-    if (at > lastAt) [last, lastAt] = [i, at];
-  });
-  if (last < 0) return undefined;
-  const e = episodes[last]!;
-  if (!e.UserData?.Played) return e;
-  return episodes.slice(last + 1).find((n) => !n.UserData?.Played && (n.ParentIndexNumber ?? 0) > 0);
 }

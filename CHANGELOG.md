@@ -37,6 +37,17 @@ pop up what's new after an update. So:
   station off the screensaver, turn off what's playing, hide podcasts from the Music tab, and put
   your own stations first or list the lot by name. On the TV's Settings and the setup page. (#180)
   Household: the radio can be made to behave the way you want it to, from the TV or a phone.
+- **Plex instead of Jellyfin** ([docs/plex.md](docs/plex.md)): Settings › Plex connects a Plex
+  server with its address and token, or with a PIN approved in a browser, and the Hub uses it for
+  the same job Jellyfin does: Home's Continue watching (Plex's On Deck), Next up (derived from a
+  show's episodes, as Plex has no such list), Recently added, search, Details, playback direct from
+  the original file, progress both ways, Mark as watched, intro and credits skip markers and
+  external subtitles. One media server at a time: connecting Plex disconnects Jellyfin and the other
+  way round. The setup page has the same box. What it doesn't do is Plex's smaller 720p copy (a
+  Plex title plays its original file) or tell Plex about a single new file (the Hub asks it to
+  rescan its libraries instead, and says so). (#187)
+  Household: a Plex household can now use UltimateTV with the library it already has, without
+  running Jellyfin as well.
 - **A TV app that draws nothing now shows the box's own screen**: the box only watched the Hub, so a
   Hub that answered while the app it sent drew nothing left the TV black with nothing in any log and
   no way out but a restart. The box now looks at what the page drew, reloads it without the cache,

@@ -107,6 +107,7 @@ const KIND_SCORE: Record<SourceKind, number> = {
   nas: 40,
   recording: 40,
   jellyfin: 40,
+  plex: 40,
   torbox: 20,
   addon: 15,
   xtream: 5,

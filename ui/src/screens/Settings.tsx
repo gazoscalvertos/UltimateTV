@@ -942,6 +942,7 @@ export function Settings(props: { section?: string }) {
                   <Row label="IPTV" value={<Status ok={settings()!.iptv.length > 0 || Boolean(status()?.demo)} text={settings()!.iptv.map((s) => `${s.name} (${s.connections} connection${s.connections === 1 ? "" : "s"})`).join(", ") || (status()?.demo ? "Demo channels" : "Not set up")} />} />
                   <Row label="TV guide" value={<Status ok={(status()?.programmes ?? 0) > 0} text={`${status()?.channels ?? 0} channels, ${status()?.programmes ?? 0} programmes`} />} />
                   <Row label="Jellyfin" value={<Status ok={Boolean(settings()!.jellyfin)} text={settings()!.jellyfin?.serverName ?? (settings()!.jellyfin ? "Connected" : "Not connected")} />} />
+                  <Row label="Plex" value={<Status ok={Boolean(settings()!.plex)} text={settings()!.plex?.serverName ?? (settings()!.plex ? "Connected" : "Not connected")} />} />
                   <Row label="Film and TV info (TMDB)" value={<Status ok={settings()!.tmdb} text={settings()!.tmdb ? "Connected" : "Not set up"} />} />
                   <Row label="AIOStreams and add-ons" value={<Status ok={settings()!.addons.length > 0} text={settings()!.addons.map((a) => a.name).join(", ") || "None"} />} />
                   <Row label="TorBox" value={<Status ok={settings()!.torbox} text={settings()!.torbox ? "Connected" : "Not set up"} />} />

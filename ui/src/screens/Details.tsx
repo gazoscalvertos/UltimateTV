@@ -21,7 +21,7 @@ import { canSave, saveEpisodes, saveToNas } from "../save";
 import { isFavouriteTitle, toggleFavouriteTitle } from "../favourites";
 import { errorToast, isKids, isLimited, nav, openDialog, toast } from "../store";
 
-const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
+const SOURCE_NAMES: Record<string, string> = { jellyfin: "Jellyfin", plex: "Plex", nas: "Your library", recording: "Recording", xtream: "IPTV", addon: "Online", torbox: "TorBox" };
 
 /** Season and episode from "s2e5". */
 function episodeNumbers(id?: string): { season: number; episode: number } | undefined {

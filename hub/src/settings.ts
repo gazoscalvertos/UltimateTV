@@ -186,6 +186,10 @@ export function publicSettings(s: Settings, setupUrl: string, statusOf?: (source
     result.jellyfin = { url: s.jellyfin.url };
     if (s.jellyfin.serverName) result.jellyfin.serverName = s.jellyfin.serverName;
   }
+  if (s.plex) {
+    result.plex = { url: s.plex.url };
+    if (s.plex.serverName) result.plex.serverName = s.plex.serverName;
+  }
   return result;
 }
 
