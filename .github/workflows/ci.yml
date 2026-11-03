@@ -135,6 +135,161 @@ jobs:
           gh release upload desktop-app tools/desktop/out/UltimateTV-x86_64.AppImage --clobber
           gh release upload desktop-app tools/desktop/out/ultimatetv-desktop.json --clobber
 
+  # The TV app as a Windows installer (#127). NSIS, installed for the current user, so it needs no
+  # administrator. docs/desktop.md has the Windows section.
+  #
+  # Skipped until MPV_WIN_URL is set (Settings -> Secrets and variables -> Actions -> Variables):
+  # the installer has to carry mpv, and no mpv binary is committed. A skipped job shows as grey
+  # rather than a permanent red X, and the job starts working the moment the variable is added.
+  desktop-windows:
+    if: vars.MPV_WIN_URL != ''
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # Every step that runs a shell script says shell: bash: a Windows runner's default is
+      # PowerShell, which would mangle it. bash there is Git Bash, which is what the scripts are
+      # written for.
+      - name: Put mpv inside the installer
+        shell: bash
+        env:
+          MPV_WIN_URL: ${{ vars.MPV_WIN_URL }}
+        run: bash tools/desktop/fetch-mpv.sh win
+      - name: Build the x64 installer
+        shell: bash
+        env:
+          BRANCH: main
+          ARCH: x64
+        run: bash tools/desktop/build-win.sh
+      # Each build deletes tools/desktop/out before it starts (stage-app.sh), so this
+      # architecture's files are moved out of the way first. The folder is beside out, not inside
+      # it, or the second build would delete them too.
+      - name: Keep the x64 output
+        shell: bash
+        run: |
+          mkdir -p tools/desktop/kept
+          mv tools/desktop/out/UltimateTV-Setup-x64.exe tools/desktop/out/UltimateTV-x64.zip \
+            tools/desktop/out/ultimatetv-windows.json tools/desktop/out/ultimatetv-desktop.json tools/desktop/kept/
+      # Windows on ARM is a small share of PCs: skipped rather than failed when no ARM mpv is set.
+      - name: Put the ARM mpv in
+        if: vars.MPV_WIN_ARM64_URL != ''
+        shell: bash
+        env:
+          MPV_WIN_URL: ${{ vars.MPV_WIN_ARM64_URL }}
+        run: |
+          rm -rf tools/desktop/vendor/mpv
+          bash tools/desktop/fetch-mpv.sh win
+      - name: Build the arm64 installer
+        if: vars.MPV_WIN_ARM64_URL != ''
+        shell: bash
+        env:
+          BRANCH: main
+          ARCH: arm64
+        run: bash tools/desktop/build-win.sh
+      - name: Gather the output
+        shell: bash
+        run: |
+          mv tools/desktop/kept/* tools/desktop/out/
+          rmdir tools/desktop/kept
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ultimatetv-desktop-windows
+          path: |
+            tools/desktop/out/UltimateTV-Setup-x64.exe
+            tools/desktop/out/UltimateTV-Setup-arm64.exe
+            tools/desktop/out/UltimateTV-x64.zip
+            tools/desktop/out/UltimateTV-arm64.zip
+            tools/desktop/out/ultimatetv-windows.json
+            tools/desktop/out/ultimatetv-desktop.json
+          if-no-files-found: error
+      - name: Publish the installers
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view desktop-app > /dev/null 2>&1 || gh release create desktop-app --title "Desktop app (latest)" --notes "The TV app for Windows, macOS and Linux desktops, built from main by CI. See docs/desktop.md. The app updates itself from here (Settings › About)." --latest=false
+          # Only what this run built: the ARM files are absent when that leg was skipped.
+          for f in UltimateTV-Setup-x64.exe UltimateTV-Setup-arm64.exe UltimateTV-x64.zip UltimateTV-arm64.zip; do
+            if [ -f "tools/desktop/out/$f" ]; then gh release upload desktop-app "tools/desktop/out/$f" --clobber; fi
+          done
+          # The build descriptions last, so an app that sees a new commit always finds its installer.
+          gh release upload desktop-app tools/desktop/out/ultimatetv-windows.json --clobber
+          gh release upload desktop-app tools/desktop/out/ultimatetv-desktop.json --clobber
+
+  # The TV app as a Mac disk image (#128), one per architecture. It has to run on macOS: the .app is
+  # assembled with Apple's codesign and the disk image with hdiutil. docs/desktop.md has the Mac
+  # section. Skipped until MPV_MAC_URL is set, for the same reason as the Windows job.
+  desktop-macos:
+    if: vars.MPV_MAC_URL != ''
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Put mpv inside the app
+        env:
+          MPV_MAC_URL: ${{ vars.MPV_MAC_URL }}
+        run: bash tools/desktop/fetch-mpv.sh mac
+      - name: Build the Apple Silicon disk image
+        env:
+          BRANCH: main
+          ARCH: arm64
+        run: bash tools/desktop/build-macos.sh
+      # Beside out, not inside it: the Intel build deletes out before it starts.
+      - name: Keep the Apple Silicon output
+        run: |
+          mkdir -p tools/desktop/kept
+          mv tools/desktop/out/UltimateTV-arm64.dmg \
+            tools/desktop/out/ultimatetv-macos.json tools/desktop/out/ultimatetv-desktop.json tools/desktop/kept/
+      # The Intel build needs an Intel mpv, so the vendor folder is replaced for it.
+      - name: Put the Intel mpv in
+        if: vars.MPV_MAC_X64_URL != ''
+        env:
+          MPV_MAC_URL: ${{ vars.MPV_MAC_X64_URL }}
+        run: |
+          rm -rf tools/desktop/vendor/mpv
+          bash tools/desktop/fetch-mpv.sh mac
+      - name: Build the Intel disk image
+        if: vars.MPV_MAC_X64_URL != ''
+        env:
+          BRANCH: main
+          ARCH: x64
+        run: bash tools/desktop/build-macos.sh
+      - name: Gather the disk images
+        run: |
+          mv tools/desktop/kept/* tools/desktop/out/
+          rmdir tools/desktop/kept
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ultimatetv-desktop-macos
+          path: |
+            tools/desktop/out/UltimateTV-arm64.dmg
+            tools/desktop/out/UltimateTV-x64.dmg
+            tools/desktop/out/ultimatetv-macos.json
+            tools/desktop/out/ultimatetv-desktop.json
+          if-no-files-found: error
+      - name: Publish the disk images
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view desktop-app > /dev/null 2>&1 || gh release create desktop-app --title "Desktop app (latest)" --notes "The TV app for Windows, macOS and Linux desktops, built from main by CI. See docs/desktop.md. The app updates itself from here (Settings › About)." --latest=false
+          for f in UltimateTV-arm64.dmg UltimateTV-x64.dmg; do
+            if [ -f "tools/desktop/out/$f" ]; then gh release upload desktop-app "tools/desktop/out/$f" --clobber; fi
+          done
+          gh release upload desktop-app tools/desktop/out/ultimatetv-macos.json --clobber
+          gh release upload desktop-app tools/desktop/out/ultimatetv-desktop.json --clobber
+
   android-remote:
     runs-on: ubuntu-latest
     permissions:

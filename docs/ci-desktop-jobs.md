@@ -1,24 +1,21 @@
 # The Windows and Mac desktop jobs for CI (#127 and #128)
 
-The AppImage job in `.github/workflows/ci.yml` already does for Linux what these two do for Windows
-and Mac: build the app, put it on the `desktop-app` GitHub release, and let the app update itself
-from there. This file is the exact YAML for the two missing jobs, and where each part goes.
+The AppImage job in `.github/workflows/ci.yml` does for Linux what these two do for Windows and Mac:
+build the app, put it on the `desktop-app` GitHub release, and let the app update itself from there.
 
-**Why it is a file and not a commit to `ci.yml`:** the git token this work was done with has no
-`workflow` scope, so GitHub rejects any push touching `.github/workflows/`. `ci.yml` is therefore
-byte-for-byte unchanged, and this is the copy to paste in. **Nothing here is live until it is.**
+**These jobs are live in `ci.yml` as of PR #193.** They are gated on the repository variables below:
+until `MPV_WIN_URL` and `MPV_MAC_URL` are set the two jobs **skip** (grey, not a red X), so CI stays
+green and the first Windows or Mac installer appears the moment the variables are filled in. This
+file is kept because it explains each step and what to check on that first run.
 
-Everything the jobs call is in this branch already: `tools/desktop/build-win.sh`,
-`tools/desktop/build-macos.sh`, `tools/desktop/fetch-mpv.sh`, and the `win`/`mac` sections of
-`tools/desktop/electron-builder.yml`.
+Everything the jobs call is in the repo: `tools/desktop/build-win.sh`, `tools/desktop/build-macos.sh`,
+`tools/desktop/fetch-mpv.sh`, and the `win`/`mac` sections of `tools/desktop/electron-builder.yml`.
 
 ---
 
-## 1. Where the jobs go
+## 1. Where the jobs are
 
-Both are new jobs in `.github/workflows/ci.yml`, beside `desktop-appimage` (which starts at the
-comment `# The TV app as an AppImage for Linux desktops`). Paste them immediately after that job's
-last step, before `android-remote:`.
+Both sit in `.github/workflows/ci.yml`, beside `desktop-appimage`, between it and `android-remote:`.
 
 ## 2. The repository variables they need
 
@@ -42,6 +39,9 @@ open but cannot play (an app with no mpv), add `ALLOW_NO_MPV: "1"` to the build 
 delete the fetch step; docs/desktop.md says so in "What still isn't done".
 
 ## 3. The jobs
+
+The copies below are the YAML as landed; the only addition is the job-level `if:` that skips each
+job until its variable exists.
 
 ```yaml
   # The TV app as a Windows installer (#127). NSIS, installed for the current user, so it needs no

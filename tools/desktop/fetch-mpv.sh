@@ -81,26 +81,40 @@ file="$work/build"
 say "Fetching $url"
 curl -fsSL --retry 3 -o "$file" "$url" || fail "Couldn't download $url"
 
-# 7-Zip opens all three and is what a Windows runner has; unzip and tar cover the rest.
-if command -v 7z >/dev/null 2>&1; then
-  7z x -y -o"$work/unpacked" "$file" >/dev/null || fail "$url isn't an archive 7z can read"
-else
-  case "$url" in
-    *.zip)
-      command -v unzip >/dev/null 2>&1 || fail "This needs unzip or 7z to open $url"
-      unzip -q "$file" -d "$work/unpacked" || fail "$url isn't a zip this can read"
-      ;;
-    *.tar.xz)
-      tar xJf "$file" -C "$work" --one-top-level=unpacked || fail "$url isn't a tar.xz this can read"
-      ;;
-    *.tar.gz | *.tgz)
-      tar xzf "$file" -C "$work" --one-top-level=unpacked || fail "$url isn't a tar.gz this can read"
-      ;;
-    *)
+# Which tool to use follows the file's own extension, NOT which tools happen to be installed. That
+# matters: the macOS runners have 7-Zip too, and `7z x` on a .tar.gz just unpacks the inner .tar
+# without expanding it, so an earlier version of this failed on a Mac with "No mpv anywhere". The
+# Mac builds are .tar.gz, so they go to tar; shinchiro's Windows builds are .7z, so they go to 7-Zip
+# (installed on a Windows runner but not always on PATH, hence the usual places are checked too).
+case "$url" in
+  *.zip)
+    command -v unzip >/dev/null 2>&1 || fail "This needs unzip to open $url"
+    unzip -q "$file" -d "$work/unpacked" || fail "$url isn't a zip this can read"
+    ;;
+  *.tar.xz | *.tar.gz | *.tgz)
+    # Plain `tar xf` and a folder made by hand, rather than --one-top-level: that is a GNU tar
+    # option and the macOS runner's tar is bsdtar, which does not take it. `xf` lets both read the
+    # compression from the file, and the find below copes with an archive that has a folder inside
+    # it (the Mac builds do) or not (some Windows zips).
+    mkdir -p "$work/unpacked"
+    tar xf "$file" -C "$work/unpacked" || fail "$url isn't a tar this can read"
+    ;;
+  *)
+    seven="$(command -v 7z || true)"
+    if [ -z "$seven" ]; then
+      for guess in '/c/Program Files/7-Zip/7z.exe' '/c/Program Files (x86)/7-Zip/7z.exe'; do
+        [ -x "$guess" ] && { seven="$guess"; break; }
+      done
+    fi
+    if [ -z "$seven" ]; then
+      if [ "${url##*.}" = "7z" ]; then
+        fail "This is a .7z and 7-Zip isn't installed here. Either install 7-Zip (p7zip on Linux), or unpack it by hand and put its contents in $dest."
+      fi
       fail "Don't know how to unpack $url: give it a .zip, .tar.xz or .tar.gz, or unpack it by hand"
-      ;;
-  esac
-fi
+    fi
+    "$seven" x -y -o"$work/unpacked" "$file" >/dev/null || fail "$url isn't an archive 7z can read"
+    ;;
+esac
 
 # A build is often one folder inside the archive; find the one holding the binary rather than
 # assuming a depth.
@@ -108,16 +122,41 @@ found="$(find "$work/unpacked" -type f -name "$binary" -print -quit)"
 [ -n "$found" ] || fail "No $binary anywhere in $url: is this a build for this platform?"
 root="$(dirname "$found")"
 
+# A Mac build from laboratory.stolendata.net keeps its dylibs in a lib/ subfolder and addresses
+# them as @executable_path/lib/libavcodec.60.dylib, so that folder has to travel with the binary.
+# Copying only files beside the binary (what a Windows build has) would ship an mpv that cannot
+# load a single library. Keeping the layout is also what makes the binary's own @executable_path
+# references resolve, with no install_name_tool rewriting needed.
+copy_lib_dir=""
+if [ -d "$root/lib" ] && find "$root/lib" -name '*.dylib' -print -quit | grep -q .; then
+  copy_lib_dir="yes"
+fi
+
 mkdir -p "$dest"
-say "Copying $(find "$root" -maxdepth 1 -type f | wc -l | tr -d ' ') file(s) into $dest"
-# The binary and the libraries beside it, and nothing nested: that is what extraResources copies
-# and what mpv looks next to itself for.
+count="$(find "$root" -maxdepth 1 -type f | wc -l | tr -d ' ')"
+if [ -n "$copy_lib_dir" ]; then
+  count="$((count + $(find "$root/lib" -maxdepth 1 -type f | wc -l | tr -d ' ')))"
+  rm -rf "${dest:?}/lib"
+fi
+say "Copying $count file(s) into $dest"
+# The binary and the libraries beside it, and nothing else nested: that is what extraResources
+# copies and what mpv looks next to itself for. lib/ is the one exception, explained above.
 find "$root" -maxdepth 1 -type f -exec cp {} "$dest/" \;
+if [ -n "$copy_lib_dir" ]; then
+  mkdir -p "$dest/lib"
+  find "$root/lib" -maxdepth 1 -type f -exec cp {} "$dest/lib/" \;
+fi
 
 if [ "$which" = "mac" ]; then
   # An .app runs the binary from inside the bundle, so a library addressed by its build path won't
   # be found. Saying so now is cheaper than a Mac that opens and can't play.
   if command -v otool >/dev/null 2>&1; then
+    # A library addressed as @executable_path/lib/... that is not in the folder we just copied is
+    # the same failure with a less obvious cause, so name it rather than letting it fail on a Mac.
+    while IFS= read -r line; do
+      lib="${line#@executable_path/}"
+      [ -f "$dest/$lib" ] || fail "$dest/$binary asks for @executable_path/$lib, which is not in $dest. Use a build that carries its libraries with it, or copy them in by hand."
+    done < <(otool -L "$dest/$binary" 2>/dev/null | grep -o '@executable_path/[^ ]*' || true)
     if otool -L "$dest/$binary" | grep -qE '/(opt/homebrew|usr/local)/'; then
       printf '\033[1;31m==>\033[0m %s\n' "$dest/$binary still points at libraries outside the app:" >&2
       otool -L "$dest/$binary" | grep -E '/(opt/homebrew|usr/local)/' >&2

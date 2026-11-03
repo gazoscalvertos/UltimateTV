@@ -348,8 +348,15 @@ tools/desktop/vendor/mpv/          <- the source folder, not in git (tools/deskt
   libmpv-2.dll, *.dll              … and every library that came with it
 or
   mpv                              Mac: the binary …
-  libmpv.2.dylib, *.dylib          … and every library it loads
+  lib/                             … and the folder of libraries it loads
+    libavcodec.60.dylib, *.dylib
 ```
+
+The Mac folder keeps its `lib/` subfolder because that is how a relocatable macOS build addresses
+its libraries: `@executable_path/lib/libavcodec.60.dylib`. Flattening them beside the binary, as a
+Windows build has them, produces an app whose mpv cannot load a single library. `fetch-mpv.sh`
+keeps the subfolder for that reason and checks every `@executable_path/...` it finds actually
+resolves.
 
 `electron-builder.yml` copies that folder into the app's resources (`extraResources`), so inside an
 installed app it is at:
@@ -369,19 +376,26 @@ belong to other projects), and neither is downloaded by the build:
 - **Windows:** [shinchiro's builds](https://github.com/shinchiro/mpv-winbuild-cmake/releases) are the
   usual source. Take `mpv-x86_64-*.7z` (or `mpv-aarch64-*` for an ARM PC), unpack it, and its
   contents are what goes in `vendor/mpv`.
-- **macOS:** there is no official binary. A Homebrew build works on the machine that installed it,
-  but its libraries are addressed by absolute path, so it must be made relocatable first — rewrite
-  every install name to point inside the bundle and copy the libraries in beside the binary:
+- **macOS:** there is no official binary, but there are relocatable builds: the ones at
+  [laboratory.stolendata.net](https://laboratory.stolendata.net/~djinn/mpv_osx/) are an `.app` whose
+  `Contents/MacOS/` already has `mpv` beside a `lib/` folder addressed as
+  `@executable_path/lib/...`, which is exactly the layout `vendor/mpv` wants. Take
+  `mpv-arm64-*.tar.gz` for Apple Silicon and `mpv-*.tar.gz` for Intel (mind the `arm64` in the
+  name — the plain one is the Intel build). `fetch-mpv.sh mac` unpacks either and copies both parts.
+  A Homebrew build also works, but it must be made relocatable first, because its libraries are
+  addressed by absolute path — rewrite every install name to point inside the bundle and copy the
+  libraries into `vendor/mpv/lib`:
 
   ```sh
   brew install mpv            # the binary and its libraries, on the Mac doing the build
+  mkdir -p tools/desktop/vendor/mpv/lib
   cp "$(command -v mpv)" tools/desktop/vendor/mpv/
   # Then, for each /opt/homebrew/… path otool -L reports (and for each of those libraries'
   # own dependencies, one level at a time):
   otool -L tools/desktop/vendor/mpv/mpv
-  cp /opt/homebrew/opt/mpv/lib/libmpv.2.dylib tools/desktop/vendor/mpv/
-  install_name_tool -change /opt/homebrew/opt/mpv/lib/libmpv.2.dylib @executable_path/libmpv.2.dylib \
-    tools/desktop/vendor/mpv/mpv
+  cp /opt/homebrew/opt/mpv/lib/libmpv.2.dylib tools/desktop/vendor/mpv/lib/
+  install_name_tool -change /opt/homebrew/opt/mpv/lib/libmpv.2.dylib \
+    @executable_path/lib/libmpv.2.dylib tools/desktop/vendor/mpv/mpv
   ```
 
   Repeat until `otool -L` on the binary and on every library names only `@executable_path/…` and
