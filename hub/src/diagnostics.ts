@@ -7,7 +7,7 @@
 import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { redactUrls, selfTestSummary, type AdvertScan, type BoxDiagnostics, type PlaybackSample, type SelfTestReport } from "@ultimatetv/shared";
+import { perfSummary, perfVerdict, redactUrls, selfTestSummary, type AdvertScan, type BoxDiagnostics, type PerfReport, type PlaybackSample, type SelfTestReport } from "@ultimatetv/shared";
 
 const MAX_LINES = 1000;
 
@@ -222,6 +222,7 @@ export function renderDiagnostics(
   hub: { version: string; commit?: string; builtAt?: string; uptimeS: number; log: string[]; advertScan?: AdvertScan },
   box: StoredBoxReport | null,
   selfTest?: SelfTestReport | null,
+  perf?: PerfReport | null,
 ): string {
   const out: string[] = [];
   out.push("== Hub ==", `version ${hub.version}${hub.commit ? ` (${hub.commit.slice(0, 7)})` : ""}${hub.builtAt ? ` built ${hub.builtAt}` : ""} · up ${Math.round(hub.uptimeS / 60)} min`);
@@ -279,6 +280,15 @@ export function renderDiagnostics(
     out.push("");
   } else {
     out.push("== Self-test ==", "No self-test run yet: Settings › About › Self-test.", "");
+  }
+  if (perf) {
+    const screen = perf.width && perf.height ? `${perf.width}×${perf.height}${perf.refreshHz ? ` at ${perf.refreshHz} Hz` : ""}` : "unknown screen";
+    out.push("== How the TV app feels ==", `${perf.at}${perf.device ? ` on ${perf.device}` : ""}${perf.appVersion ? ` (app ${perf.appVersion})` : ""} · ${screen} · ${perfVerdict(perf)}`, "");
+    for (const line of perfSummary(perf)) out.push(`  ${line}`);
+    for (const note of perf.notes ?? []) out.push(`  note: ${note}`);
+    out.push("");
+  } else {
+    out.push("== How the TV app feels ==", "No timing run yet: Settings › About › Measure the UI.", "");
   }
   out.push("== Hub log ==", ...hub.log, "");
   return out.join("\n");

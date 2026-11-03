@@ -228,3 +228,35 @@ Accessibility: see [accessibility.md](accessibility.md).
 ## 9. The WAF test
 
 Hand over the remote with no instructions and ask for: watch BBC One; find tonight's film and record it; set a series link; carry on the film from yesterday; find a 4K comedy.
+
+## 10. When the TV app feels slow
+
+The TV app times itself all the time — it costs nothing and leaves no trace on screen — and Settings ›
+About › **Measure the UI** sends what it has to the Hub. Read it back on the phone's Stats page, in
+`/api/diagnostics` (add `?format=text` for the plain version), or in the JSON from `/api/stats` under
+`perf`. The section is `== How the TV app feels ==`.
+
+Each number has a target, so "the guide is sluggish" becomes a number and a target:
+
+| What | Measured | Target |
+| --- | --- | --- |
+| Boot to "Who's watching?" | first line of script → picker on screen | under 15 s |
+| Home, ready to take a key press | picking a profile → first rail drawn and something focused | under 1.5 s |
+| A guide step | middle of the last arrow presses, press → next frame | 20 ms (50 fps) |
+| A frame while a film plays | middle gap between frames with the player and overlays up | 17 ms (about 60 Hz) |
+
+A run is per TV box, not per Hub: two boxes report separately, and the newest run wins. Press **Forget
+the last run** before measuring again so the numbers are from that session.
+
+Things worth knowing when reading a real box's numbers:
+
+- **The first frame after the player regains focus shows up as the worst frame.** A `worst` far above
+  the middle is usually that one frame, not a stutter — compare the middle, not the worst.
+- **A tab that was hidden for more than 250 ms is ignored**, so switching away from the TV app mid-run
+  does not fake a slow frame.
+- **This measures the UI, not the film.** It says whether screens draw and answer the remote in time; it
+  does not say a 4K HDR film reaches the Hisense intact — that is section 2.
+
+On this development machine everything is already well inside its target at 3840×2160 (boot 0.6 s,
+Home 0.24 s, a guide step 16.7 ms median, frame gaps 16.7 ms median), so the numbers are there for the
+box and the TV rather than for CI.

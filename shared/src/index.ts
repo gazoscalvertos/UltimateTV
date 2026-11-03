@@ -24,6 +24,7 @@ export * from "./features.js";
 export * from "./homerows.js";
 export * from "./kidsallow.js";
 export * from "./radio.js";
+export * from "./perf.js";
 export * from "./selftest.js";
 export * from "./desktop.js";
 export * from "./limited.js";
