@@ -16,7 +16,7 @@ It needs a **jailbroken console**, because that is the only way to run anything 
 
 The app is built from source in this repository — the console app is about 50 MB and the installable tile about 36 MB, so neither is checked in the tree. Building it needs [the SDK and the libraries](#building-it), which is a job for a computer, not the console.
 
-**If you would rather not build it**, [the PS5 release page](https://github.com/gazoscalvertos/UltimateTV/releases/tag/ps5-app) carries the three files, built from `main`:
+**If you would rather not build it**, [the PS5 release page](https://github.com/gazoscalvertos/UltimateTV/releases/tag/ps5-app) carries the three files. CI rebuilds the `.elf` and the tile zip on every merge to `main` (the `ps5-console` job), so they always match `main`; every pull request's run also has them as a downloadable artifact. The `.pkg` is built by hand:
 
 | File | Route into the console |
 | --- | --- |
