@@ -176,8 +176,13 @@ function readAccessibility(): AccessibilitySettings {
 }
 const [accessibility, setAccessibilitySignal] = createSignal<AccessibilitySettings>(readAccessibility());
 export { accessibility };
-const systemReducedMotion = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-/** Nothing moving that doesn't have to: the profile asked, or the system did. */
+// The computer's own "reduce motion" counts on a desktop or in a browser, where a person set it. The TV
+// box has no settings of its own for it: Chromium reads it from the box's desktop (GTK or KDE), and
+// a kiosk session with animations turned off reads as "reduce". Since Electron 45 that silently
+// stopped every projected clip on the box, so there only the profile's own switch counts.
+const onTvBox = typeof window !== "undefined" && Boolean((window as { ultimatetv?: { desktop?: boolean } }).ultimatetv) && !(window as { ultimatetv?: { desktop?: boolean } }).ultimatetv?.desktop;
+const systemReducedMotion = !onTvBox && typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** Nothing moving that doesn't have to: the profile asked, or (not on the TV box) the system did. */
 export const reducedMotion = () => accessibility().reducedMotion || systemReducedMotion;
 /** Puts the text size, focus ring and motion on the page. */
 export function wearAccessibility(a: AccessibilitySettings): void {
