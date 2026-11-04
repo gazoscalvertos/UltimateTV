@@ -22,12 +22,12 @@ unpack_all() {
 
 echo "SDK release assets:" >&2
 gh release view -R ps5-payload-dev/sdk --json tagName,assets -q '.tagName, (.assets[].name)' >&2
-gh release download -R ps5-payload-dev/sdk -D "$dest/sdk-dl" --clobber
+gh release download -R ps5-payload-dev/sdk --pattern '*' -D "$dest/sdk-dl" --clobber
 unpack_all "$dest/sdk-dl"
 
 echo "Library release assets:" >&2
 gh release view -R ps5-payload-dev/pacbrew-repo --json tagName,assets -q '.tagName, (.assets[].name)' >&2
-gh release download -R ps5-payload-dev/pacbrew-repo -D "$dest/libs-dl" --clobber
+gh release download -R ps5-payload-dev/pacbrew-repo --pattern '*' -D "$dest/libs-dl" --clobber
 unpack_all "$dest/libs-dl"
 # A bundle of packages: each package is itself an archive, unpacked into one shared root.
 find "$dest/libs-dl/x" -name '*.pkg.tar.*' -print0 2>/dev/null | while IFS= read -r -d '' p; do
