@@ -65,7 +65,7 @@ export class Library {
 
   private prefs() {
     const p = this.ctx.settings.get().playback;
-    return { maxSizeGb: p.maxSizeGb, avoidDvProfile5: p.avoidDvProfile5, preferredLang: p.preferredAudioLang };
+    return { maxSizeGb: p.maxSizeGb, avoidDvProfile5: p.avoidDvProfile5, preferredLang: p.preferredAudioLang, otherLanguages: p.otherLanguages };
   }
 
   // -------------------------------------------------------------------------
