@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-04
 
+- **Watch on other screens, and Sync play** ([docs/watching-elsewhere.md](docs/watching-elsewhere.md)): every TV, phone and tablet now says what it's playing, and any other screen can carry it on from the same place (Resume here), take it over and stop it there (Move here), or play it in step (Sync play), where pausing or skipping on one does it on all of them. On the TV it's the On other screens row on Home; in the Android app (0.7.0) Home › Elsewhere and a TV button in the player; on the phone remote Watch › Elsewhere. (#211)
+  Household: swap from the TV to a phone or tablet and back without losing your place, or watch the same thing in two rooms with Sync play.
+
 - **The PlayStation 5 app starts on a current console** ([docs/ps5.md](docs/ps5.md)): a console on firmware 12.00 or above installs a fake `.pkg` and then refuses to launch it, because the console's own package filesystem mount fails — a rule of the console, not of this app, and the same for every fake package on those firmwares. `make -C ps5 homebrew` now builds the one thing that has nothing for the console to refuse: a plain folder for `/data/homebrew/`, which a folder mounter registers as a tile. The tile and the folder are on the PS5 release page, the package is still there for older firmwares, and the docs say which to use. The app also writes `/data/ultimatetv/last-run.log` on every start — which window, which address, what the Hub said — so a black screen can be read rather than guessed at, and it can finally be pointed at the Hub from the controller, a number at a time, instead of only from the command line. (#182)
   Household: the PS5 app now installs the way a current console accepts, and a black screen comes with a note on the console saying what went wrong.
 
