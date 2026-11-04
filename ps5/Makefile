@@ -127,6 +127,40 @@ package: tile
 	cp sce_sys/param.json sce_sys/param.json.system sce_sys/icon0.png build/$(TITLE_ID)/
 	@echo "packaged build/$(TITLE_ID)/: eboot.bin, icon0.png and both param.json files"
 
+# A .pkg to install the way the console expects a title to be installed.
+#
+# Two routes put UltimateTV on a PS5, and they need different files:
+#   make install   copies the folder and asks the console's installer to register it (the
+#                  homebrew route; needs the payload loader and FTP server running)
+#   make pkg       wraps the same folder in a signed-looking .pkg (the route a console that
+#                  has a package installer expects)
+#
+# Building a .pkg is NOT part of `make package`: it needs a .NET 9 SDK and a PKG tool that are
+# not part of this repo (they are 200 MB and 80 MB of tooling for one optional file). Point
+# PS5_PKG_TOOL at a built ffpfsc-pkg-tool and the target works.
+PS5_PKG_TOOL ?=
+PKG_CONTENT_ID := UP9000-$(TITLE_ID)_00-ULTIMATETV000000
+
+.PHONY: pkg
+pkg: tile
+ifeq ($(strip $(PS5_PKG_TOOL)),)
+	@echo "make pkg needs a PKG tool: point PS5_PKG_TOOL at an ffpfsc-pkg-tool binary." >&2
+	@echo "ps5/README.md has the steps; 'make package' already made the folder by hand." >&2
+	@exit 1
+endif
+	@# A .pkg wants the title laid out the way the console sees it: eboot.bin at the top and
+	@# the metadata under sce_sys/. That is not the shape 'make package' makes for the folder
+	@# route, so it is staged separately here.
+	@rm -rf build/pkg-src build/pkg
+	@mkdir -p build/pkg-src/$(TITLE_ID)/sce_sys
+	cp build/$(TITLE_ID)/eboot.bin build/pkg-src/$(TITLE_ID)/
+	cp sce_sys/param.json sce_sys/icon0.png build/pkg-src/$(TITLE_ID)/sce_sys/
+	$(PS5_PKG_TOOL) build build/pkg-src/$(TITLE_ID) build/pkg \
+	    --content-id $(PKG_CONTENT_ID) --title-id $(TITLE_ID) \
+	    --title UltimateTV --version 01.000.000 --mode none
+	@$(PS5_PKG_TOOL) validate build/pkg/*.pkg | tail -2
+	@ls -l build/pkg/*.pkg
+
 # The console-side installer. Copying files to the console is not enough: the console's own
 # installer has to be told the folder is a title before it appears on the home screen, and this
 # is the small ELF that tells it. It is the same route the SDK's install_app sample takes.

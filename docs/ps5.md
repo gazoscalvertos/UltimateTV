@@ -38,6 +38,16 @@ The app is built from source in this repository — the console app is about 50 
    - **The folder-mounter route**, which is how most 2026 PS5 homebrew installs: put `eboot.bin` and `sce_sys/` in one folder named `PPSA26001`, copy that folder to `/data/homebrew/`, and let ShadowMountPlus pick it up. It appears under *Media* on the home screen.
    - **Copy `/system_ex/app/PPSA26001/eboot.bin`** with it. Some firmware needs the app's own file there even when a mounter made the tile.
 
+   **If you would rather install a `.pkg`**, the same build can be wrapped in one:
+
+   ```
+   make -C ps5 pkg PS5_PKG_TOOL=/path/to/ffpfsc-pkg-tool
+   ```
+
+   That writes `ps5/build/pkg/UP9000-PPSA26001_00-ULTIMATETV000000-A0100-V0100.pkg`, and the target runs the tool's own checker over it before it finishes (29 checks, including the fake-signed `eboot.bin` inside and the metadata the console reads). The packaging tool is not part of this repository — it is .NET and about 80 MB — so the target refuses to guess and tells you to point `PS5_PKG_TOOL` at one. [ps5/README.md](https://github.com/gazoscalvertos/UltimateTV/blob/main/ps5/README.md) has the steps to build it.
+
+   Either route ends the same way: the console has a tile called UltimateTV.
+
 4. **Start it from the home screen.** The tile is called UltimateTV. The first start asks for nothing: the first screen to ask the Hub is let in, exactly like a TV, and the app shows a short code only if another screen is already paired and the Hub wants a "yes" from one of them.
 
 5. **Tell it where the Hub is** if it can't find it. The app remembers the address once it has paired; on a fresh install it tries the address it was built with, and if it can't reach a Hub it says so and offers an address box.
@@ -92,6 +102,7 @@ make -C ps5 test       # the tests, on any Linux machine, no console and no SDK
 make -C ps5 console    # the app itself: ps5/build/ultimatetv.elf
 make -C ps5 tile       # the installable tile: ps5/build/PPSA26001/eboot.bin
 make -C ps5 package    # the tile plus icon0.png and param.json
+make -C ps5 pkg        # the same, wrapped in a .pkg (needs PS5_PKG_TOOL, see Installing)
 make -C ps5 clean
 ```
 

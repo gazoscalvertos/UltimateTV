@@ -52,7 +52,25 @@ describe("the PlayStation 5 home screen tile", () => {
     for (const file of [param, system]) {
       expect(file.contentVersion).toMatch(/^\d{2}\.\d{3}\.\d{3}$/);
       expect(file.applicationDrmType).toBe("free");
+      // A .pkg is checked for this by the packaging tool: without it the package still builds
+      // but a checker calls the package incoherent, and the console is the last word on that.
+      // Shape: <publisher 6>-<title id>_00-<16 chars>, e.g. UP9000-PPSA26001_00-ULTIMATETV000000.
+      expect(file.contentId).toMatch(/^[A-Z0-9]{6}-[A-Z]{4}\d{5}_00-[A-Z0-9]{16}$/);
+      expect(file.contentId).toContain(file.titleId);
     }
+  });
+
+  it("can be wrapped in a .pkg, which needs a layout the folder route does not use", () => {
+    const makefile = read("ps5/Makefile");
+    // The package tool wants eboot.bin at the top of the title folder and the metadata under
+    // sce_sys/; 'make package' makes the flat shape the FTP copy needs. Both exist on purpose.
+    expect(makefile).toContain(".PHONY: pkg");
+    expect(makefile).toContain("build/pkg-src/$(TITLE_ID)/sce_sys");
+    expect(makefile).toContain("--content-id $(PKG_CONTENT_ID)");
+    expect(makefile).toContain("$(PS5_PKG_TOOL) validate");
+    // The tool is 80 MB of .NET, so it is never assumed: the target says what to do instead.
+    expect(makefile).toContain("PS5_PKG_TOOL ?=");
+    expect(makefile).toContain("point PS5_PKG_TOOL at an ffpfsc-pkg-tool binary");
   });
 
   it("ships the 512×512 picture the console draws on the tile", () => {
