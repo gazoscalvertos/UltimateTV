@@ -44,9 +44,7 @@ import java.util.ArrayList;
 
 import org.json.JSONObject;
 
-import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
+import tv.ultimate.scanner.QrScanner;
 
 /**
  * The UltimateTV phone remote. It asks once for the Hub's address, then shows the Hub's remote
@@ -59,6 +57,9 @@ public class MainActivity extends Activity {
     private static final String DEFAULT_HUB = "http://192.168.0.19:8095";
     private static final int BG = Color.rgb(7, 11, 20);
     private static final int VOICE_REQUEST = 1;
+    private static final int SCAN_REQUEST = 2;
+    /** Which screen asked for the scan: the setup page or the remote's pairing sheet. */
+    private boolean scanFromSetup = false;
     private static final int FILE_REQUEST = 2;
     private static final int NOTIFICATION_REQUEST = 3;
 
@@ -287,36 +288,51 @@ public class MainActivity extends Activity {
     /**
      * Scans the TV's pairing code, an address like http://192.168.0.19:8095/remote/?pair=ABCDEFGH.
      * From the setup screen it also sets the Hub's address and opens the remote, which pairs.
+     *
+     * The camera is {@link QrScanner}'s, which uses CameraX and ZXing rather than Google Play
+     * services, so this works on a phone with no Google apps on it (#198).
      */
     private void startScan(boolean fromSetup) {
-        GmsBarcodeScannerOptions options = new GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build();
-        GmsBarcodeScanning.getClient(this, options).startScan()
-                .addOnSuccessListener(code -> {
-                    String text = code.getRawValue() != null ? code.getRawValue() : "";
-                    Uri uri = Uri.parse(text);
-                    String pair = null;
-                    try {
-                        pair = uri.getQueryParameter("pair");
-                    } catch (UnsupportedOperationException ignored) {
-                        // Not an address at all (a Wi-Fi code, say): handled below.
-                    }
-                    if (fromSetup) {
-                        if (uri.getScheme() == null || !uri.getScheme().startsWith("http") || uri.getAuthority() == null) {
-                            showSetup("That isn't the TV's code. Scan the one in Settings › Phones and remotes.");
-                            return;
-                        }
-                        hub = uri.getScheme() + "://" + uri.getAuthority();
-                        prefs.edit().putString("hub", hub).apply();
-                        showRemote(hub + "/remote/" + (pair != null ? "?pair=" + Uri.encode(pair) : ""));
-                    } else if (web != null) {
-                        web.evaluateJavascript("window.utvScanResult && window.utvScanResult(" + JSONObject.quote(text) + ")", null);
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    String message = "The scanner didn't start. Type the code shown on the TV instead.";
-                    if (fromSetup) showSetup(message);
-                    else if (web != null) web.evaluateJavascript("window.utvScanError && window.utvScanError(" + JSONObject.quote(message) + ")", null);
-                });
+        scanFromSetup = fromSetup;
+        if (!QrScanner.canScan(this)) {
+            String message = "This device has no camera. Type the code shown on the TV instead.";
+            if (fromSetup) showSetup(message);
+            else if (web != null) web.evaluateJavascript("window.utvScanError && window.utvScanError(" + JSONObject.quote(message) + ")", null);
+            return;
+        }
+        QrScanner.scan(this, SCAN_REQUEST);
+    }
+
+    /** What the camera read, or why it didn't. The setup screen and the remote want it differently. */
+    private void scanFinished(Intent data, boolean cancelled) {
+        boolean fromSetup = scanFromSetup;
+        scanFromSetup = false;
+        String problem = QrScanner.problem(data, cancelled);
+        if (problem != null) {
+            if (fromSetup) showSetup(problem);
+            else if (web != null) web.evaluateJavascript("window.utvScanError && window.utvScanError(" + JSONObject.quote(problem) + ")", null);
+            return;
+        }
+        String text = QrScanner.text(data);
+        if (text == null) return;
+        Uri uri = Uri.parse(text);
+        String pair = null;
+        try {
+            pair = uri.getQueryParameter("pair");
+        } catch (UnsupportedOperationException ignored) {
+            // Not an address at all (a Wi-Fi code, say): handled below.
+        }
+        if (fromSetup) {
+            if (uri.getScheme() == null || !uri.getScheme().startsWith("http") || uri.getAuthority() == null) {
+                showSetup("That isn't the TV's code. Scan the one in Settings › Phones and remotes.");
+                return;
+            }
+            hub = uri.getScheme() + "://" + uri.getAuthority();
+            prefs.edit().putString("hub", hub).apply();
+            showRemote(hub + "/remote/" + (pair != null ? "?pair=" + Uri.encode(pair) : ""));
+        } else if (web != null) {
+            web.evaluateJavascript("window.utvScanResult && window.utvScanResult(" + JSONObject.quote(text) + ")", null);
+        }
     }
 
     @Override
@@ -347,6 +363,11 @@ public class MainActivity extends Activity {
         if (requestCode == FILE_REQUEST) {
             if (fileCallback != null) fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
             fileCallback = null;
+            return;
+        }
+        if (requestCode == SCAN_REQUEST) {
+            // The scanner answers whoever asked: the setup page, or the remote's own pairing sheet.
+            scanFinished(data, resultCode == RESULT_CANCELED);
             return;
         }
         if (requestCode != VOICE_REQUEST || web == null) return;

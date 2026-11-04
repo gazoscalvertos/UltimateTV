@@ -47,8 +47,9 @@ The Android app is the same remote in its own app, with two extras: the phone's 
 2. Open the downloaded file. Android asks to allow installing from that app the first time.
 3. Open **UltimateTV Remote** and tap **Scan the TV's code**, then scan the code in Settings ›
    Phones and remotes on the TV. That finds the Hub and pairs the phone. (Or type the Hub's address
-   and tap **Connect**, then type the code from the TV.) The scanner is Google Play services'
-   own, so the app needs no camera permission.
+   and tap **Connect**, then type the code from the TV.) The scanner is the app's own, built on
+   CameraX and ZXing, so it needs the camera permission and nothing from Google
+   ([dependencies.md](dependencies.md)).
 
 When a newer app is on the Hub, the remote shows a banner: tap it to install the update. Every build
 is signed with the household's own key, which is kept in the repository's secrets and never in the

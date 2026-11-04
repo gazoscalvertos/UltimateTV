@@ -1,0 +1,46 @@
+// Reading the TV's pairing QR code, with no Google Play services at all (#198).
+//
+// The camera scanner used to come from com.google.android.gms:play-services-code-scanner, which
+// only works on a phone with Play services installed and drags a pile of Google libraries (and
+// their manifest components) into the app. This module does the same job with CameraX for the
+// camera and ZXing for the decode: both are ordinary AndroidX / Apache-2.0 libraries that run on
+// anything with a camera, including a phone with no Google apps at all.
+//
+// It is a library rather than a copy in each app so the watching app (client/, Kotlin) and the
+// phone remote (app/, Java) read the code through exactly the same activity.
+plugins {
+    id "com.android.library"
+}
+
+android {
+    namespace "tv.ultimate.scanner"
+    // CameraX 1.5.3 asks for 35, which is what both apps already build against.
+    compileSdk 35
+
+    defaultConfig {
+        minSdk 26
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // The decoder is plain Java, so its tests run on the build machine with no phone and no
+    // camera: `gradle :scanner:test`.
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+dependencies {
+    implementation "androidx.camera:camera-core:1.5.3"
+    implementation "androidx.camera:camera-camera2:1.5.3"
+    implementation "androidx.camera:camera-lifecycle:1.5.3"
+    implementation "androidx.camera:camera-view:1.5.3"
+    implementation "androidx.activity:activity-ktx:1.9.3"
+    // Apache-2.0, no Play services, and the decoder is the same one every Android barcode app uses.
+    implementation "com.google.zxing:core:3.5.3"
+
+    testImplementation "junit:junit:4.13.2"
+}

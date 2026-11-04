@@ -22,6 +22,7 @@ All the screenshots are in [docs/screenshots](docs/screenshots/README.md).
 | [docs/PLAN.md](docs/PLAN.md) | The original plan and why each choice was made (**historical**: for what exists now see FEATURES and ROADMAP) |
 | [docs/adr/](docs/adr/) | Decision records (VIDAA ruled out, the Linux mini PC chosen, profiles and mobile apps in scope, a native PS5 app) |
 | [docs/android-signing.md](docs/android-signing.md) | How the two Android apps are signed, and the one-time uninstall when the key changes |
+| [docs/dependencies.md](docs/dependencies.md) | What it is built from, and every service it can talk to |
 | [CHANGELOG.md](CHANGELOG.md) | Every change since 0.1.0, and how to update |
 
 Guides for each feature are linked from the steps below.
@@ -35,6 +36,7 @@ Guides for each feature are linked from the steps below.
 - **The Android apps are signed with the household's own key**, kept in the repository secrets and never in the repo ([docs/android-signing.md](docs/android-signing.md)).
 - **The PlayStation 5 app** is the same viewer as a native console app on a jailbroken PS5, on the console's home screen as a tile ([docs/ps5.md](docs/ps5.md)).
 - **The desktop app** is the same TV app on a computer: a Windows installer, a Mac `.dmg` (Apple Silicon or Intel) and an AppImage for any Linux desktop, in a normal window with its video in mpv's own window ([docs/desktop.md](docs/desktop.md)). It installs for the user alone on Windows, needs no administrator and no extra downloads, and the TV's Settings › Apps for your devices shows a QR code for it.
+- **Nothing in it reports on you**: no Google Play services in the Android apps, no analytics, no crash reporter and no advertising library, and the TV app loads no third-party scripts — every service the Hub contacts is one you asked for, and all of them are listed in [docs/dependencies.md](docs/dependencies.md).
 
 ## Setting it up
 
