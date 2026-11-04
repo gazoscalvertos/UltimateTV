@@ -15,3 +15,5 @@ dependencyResolutionManagement {
 rootProject.name = "UltimateTVRemote"
 include ":app"
 include ":client"
+// Reading the TV's pairing code, with no Google Play services (#198).
+include ":scanner"

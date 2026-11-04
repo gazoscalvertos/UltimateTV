@@ -1,8 +1,9 @@
 // The Android build for a Fire TV or Fire stick (#183). A stick runs Fire OS, which has no Google
 // Play services, so the app that worked on a phone crashed at launch there: the Play services
-// barcode scanner the phone uses puts components in the merged manifest that the system starts
-// before any of our code runs, and on a Fire TV those classes don't exist. So there are two builds
-// from one source tree, and the Fire TV one must not carry the scanner at all.
+// barcode scanner the phone used put components in the merged manifest that the system starts
+// before any of our code runs, and on a Fire TV those classes don't exist. There are still two
+// builds from one source tree - the Fire TV one also needs a leanback launcher entry and a banner -
+// but neither carries Play services any more (#198): the scanner is our own code in :scanner.
 //
 // This reads the build files rather than building the APK: the APK needs the Android SDK, and what
 // actually goes wrong here (a dependency back in the wrong place, a launcher entry removed, the
@@ -35,31 +36,40 @@ describe("the Fire TV build", () => {
     expect(g.match(/applicationId/g)?.length ?? 0, "a second applicationId would make two apps").toBe(1);
   });
 
-  it("has no Google Play services in it", () => {
+  it("has no Google Play services in it, in either build", () => {
     const g = gradle();
-    // The scanner is the only Play services dependency, and the whole reason for the second build.
-    const scanner = g.split("\n").filter((l) => l.includes("play-services-code-scanner"));
-    expect(scanner.length, "the scanner dependency is missing entirely").toBeGreaterThan(0);
-    for (const line of scanner) {
-      expect(line.trim().startsWith("googleImplementation"), `"${line.trim()}" would put Play services in the Fire TV build too`).toBe(true);
+    // Nothing in this app may declare Play services (#198). The scanner that used to was the only
+    // one, and it is now our own code in the :scanner module.
+    for (const line of g.split("\n")) {
+      expect(line, `"${line.trim()}" puts Google Play services back in`).not.toContain("com.google.android.gms");
+      expect(line, `"${line.trim()}" puts ML Kit back in`).not.toContain("com.google.mlkit");
     }
-    // The one place the scanner is called has to go through something the Fire TV build can replace.
+    expect(g, "the scanner module isn't used").toContain('implementation project(":scanner")');
+    // And the settings screen goes through the shim, so a device with no camera simply has no button.
     const more = read("android/client/src/main/java/tv/ultimate/client/ui/MoreScreens.kt");
-    expect(more, "MoreScreens still imports Play services directly").not.toContain("com.google.mlkit");
-    expect(more, "MoreScreens doesn't ask whether this device can scan").toContain("canScanQr()");
+    expect(more, "MoreScreens still imports a Google scanner").not.toMatch(/com\.google\.(mlkit|android\.gms)/);
+    expect(more, "MoreScreens doesn't check whether this device has a camera").toContain("rememberQrScanner");
   });
 
-  it("has a scanner for the phone and a plain one for the Fire TV", () => {
-    // Each flavour supplies the same two functions. The phone one hands over to Play services; the
-    // Fire TV one says there is no camera, which is true of every stick and box.
-    const phone = "android/client/src/google/java/tv/ultimate/client/ui/QrScanner.kt";
-    const tv = "android/client/src/firetv/java/tv/ultimate/client/ui/QrScanner.kt";
-    for (const file of [phone, tv]) expect(existsSync(path.join(root, file)), `${file} is missing`).toBe(true);
-    expect(read(phone), "the phone build can't scan").toContain("GmsBarcodeScanning");
-    expect(read(phone), "the phone build says it can't scan").toContain("fun canScanQr(): Boolean = true");
-    expect(read(tv), "the Fire TV build pulls in Play services").not.toContain("com.google.android.gms");
-    expect(read(tv), "the Fire TV build offers a scanner it can't run").toContain("fun canScanQr(): Boolean = false");
-    expect(read(tv), "the Fire TV build doesn't say why").toContain("no camera");
+  it("scans with the phone's own camera, in a module both builds share", () => {
+    // CameraX + ZXing, in :scanner: it works on a phone with no Google apps at all, and the Fire TV
+    // build links the same module but reports that there is no camera to use it with.
+    const scanner = read("android/scanner/build.gradle");
+    expect(scanner, "no CameraX").toContain("androidx.camera:camera-camera2");
+    expect(scanner, "no decoder").toContain("com.google.zxing:core");
+    // Only the dependency lines matter here: the file's own comment explains what it replaced.
+    const declared = scanner
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => /^(implementation|api|testImplementation)\b/.test(line));
+    for (const line of declared) {
+      expect(line, `Play services crept back in: ${line}`).not.toContain("com.google.android.gms");
+    }
+    expect(read("android/settings.gradle"), "the scanner module isn't part of the build").toContain('include ":scanner"');
+    // The shim asks the device whether it has a camera; a Fire stick has none.
+    const shim = read("android/client/src/main/java/tv/ultimate/client/ui/QrScanner.kt");
+    expect(shim, "no camera check, so a Fire stick would offer a scanner that can't work").toContain("FEATURE_CAMERA_ANY");
+    expect(read("android/scanner/src/main/java/tv/ultimate/scanner/QrScanner.java"), "no camera check in the module").toContain("FEATURE_CAMERA_ANY");
   });
 
   it("appears in the Fire TV home row, with a picture rather than a square icon", () => {

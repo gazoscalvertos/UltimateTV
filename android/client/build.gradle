@@ -22,15 +22,15 @@ android {
     // installed at a time — that is intended: a Fire stick and a phone are different devices, and
     // pairing is per device anyway.
     //
-    //  google: phones and tablets. Includes Google Play services' QR scanner, which is what the
-    //          "Scan the TV's code" button uses.
-    //  firetv: Amazon Fire TV and Fire sticks (#183). Fire OS has no Google Play services at all,
-    //          and the scanner's library puts Google components in the merged manifest that the
-    //          system starts with the app — so the app would crash on launch, not on first use.
-    //          This flavour has no Google dependency, and the button is replaced by the typed code.
+    //  google: phones and tablets. The same app as firetv; the flavour exists because the two
+    //          update from different Hub addresses, so an installed phone never picks up the Fire
+    //          TV build over itself (and the other way round).
+    //  firetv: Amazon Fire TV and Fire sticks (#183): leanback launcher entry, banner, and a
+    //          BuildConfig that points "Check for updates" at the Fire TV release.
     //
-    // Nothing in src/main may refer to Google Play services: that is what keeps both builds
-    // honest. The scanner is behind ui/QrScanner.kt, which each flavour provides its own copy of.
+    // Neither build has any Google Play services in it (#198): the QR scanner lives in the
+    // :scanner module, which uses CameraX and ZXing. What makes the Fire TV build work on Fire OS
+    // is that the module has no Google components in its merged manifest at all.
     flavorDimensions "store"
     productFlavors {
         google {
@@ -116,10 +116,13 @@ dependencies {
     implementation "com.google.code.gson:gson:2.15.0"
     // Only in the phone build: Fire OS has no Google Play services, and this library's manifest
     // components run at process start, so the Fire TV build must not contain it at all (#183).
-    googleImplementation "com.google.android.gms:play-services-code-scanner:16.1.0"
 
     // The player: ExoPlayer plays MPEG-TS (live TV), MKV, HEVC and HLS; Jellyfin's FFmpeg build
     // adds the sound formats phones can't decode themselves (AC-3, E-AC-3, DTS, TrueHD).
+    // Reading the TV's pairing code from the camera. A module of its own so the phone remote uses
+    // exactly the same camera code, and neither app depends on Google Play services (#198).
+    implementation project(":scanner")
+
     implementation "androidx.media3:media3-exoplayer:$media3"
     implementation "androidx.media3:media3-exoplayer-hls:$media3"
     implementation "androidx.media3:media3-datasource:$media3"

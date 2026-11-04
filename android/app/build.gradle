@@ -54,6 +54,7 @@ android {
 }
 
 dependencies {
-    // Scans the TV's pairing QR code with Google Play services' scanner: no camera permission needed.
-    implementation "com.google.android.gms:play-services-code-scanner:16.1.0"
+    // The camera scanner lives in :scanner, which uses CameraX and ZXing. It used to come from
+    // Google Play services, which meant the app only scanned on a phone with Google apps (#198).
+    implementation project(":scanner")
 }

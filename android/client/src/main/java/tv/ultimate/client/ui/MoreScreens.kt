@@ -163,21 +163,22 @@ fun SettingsScreen(nav: NavHostController) {
         }
     }
     // The TV's QR code is an address like http://192.168.0.19:8095/remote/?pair=ABCDEFGH: it gives the Hub too.
-    // How the code is read depends on the build: the phone's flavour scans it with Google Play
-    // services, the Fire TV flavour has no camera and asks for the letters instead (#183).
-    fun scanTv() {
-        scanQr(context, onCode = { text ->
+    // The camera scanner is the :scanner module (CameraX + ZXing, no Google Play services). It is
+    // null on a device with no camera — a Fire TV stick — which then asks for the letters instead.
+    val scanTv = rememberQrScanner(
+        onCode = { text ->
             val uri = Uri.parse(text)
             val pair = runCatching { uri.getQueryParameter("pair") }.getOrNull()
             if (pair == null || uri.scheme?.startsWith("http") != true) {
                 ui.say("That isn't the TV's code. Scan the one in Settings › Phones and remotes.")
-                return@scanQr
+            } else {
+                prefs.hub = "${uri.scheme}://${uri.authority}"
+                hubUrl = prefs.hub
+                pairWith(pair)
             }
-            prefs.hub = "${uri.scheme}://${uri.authority}"
-            hubUrl = prefs.hub
-            pairWith(pair)
-        }, onProblem = { ui.say(it) })
-    }
+        },
+        onProblem = { ui.say(it) },
+    )
     fun browse(url: String) = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
     Column {
         Header("Settings", nav, back = !isWide())
@@ -215,7 +216,7 @@ fun SettingsScreen(nav: NavHostController) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (paired != true) {
-                if (canScanQr()) OutlinedButton(onClick = { scanTv() }, modifier = Modifier.fillMaxWidth()) { Text("Scan the TV's code") }
+                if (scanTv != null) OutlinedButton(onClick = { scanTv() }, modifier = Modifier.fillMaxWidth()) { Text("Scan the TV's code") }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value = pairCode, onValueChange = { pairCode = it }, label = { Text("Code on the TV") }, singleLine = true, modifier = Modifier.weight(1f))
                     OutlinedButton(onClick = { pairWith(pairCode) }, enabled = pairCode.isNotBlank() && ui.online) { Text("Pair") }
