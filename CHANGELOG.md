@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-04
 
+- **The PlayStation 5 app starts on a current console** ([docs/ps5.md](docs/ps5.md)): a console on firmware 12.00 or above installs a fake `.pkg` and then refuses to launch it, because the console's own package filesystem mount fails — a rule of the console, not of this app, and the same for every fake package on those firmwares. `make -C ps5 homebrew` now builds the one thing that has nothing for the console to refuse: a plain folder for `/data/homebrew/`, which a folder mounter registers as a tile. The tile and the folder are on the PS5 release page, the package is still there for older firmwares, and the docs say which to use. The app also writes `/data/ultimatetv/last-run.log` on every start — which window, which address, what the Hub said — so a black screen can be read rather than guessed at, and it can finally be pointed at the Hub from the controller, a number at a time, instead of only from the command line. (#182)
+  Household: the PS5 app now installs the way a current console accepts, and a black screen comes with a note on the console saying what went wrong.
+
 - **The PlayStation 5 app fills a 4K television** ([docs/ps5.md](docs/ps5.md)): it used to ask the console for a 1080p picture and draw everything at that size, so a 4K film was shrunk to 1080p and then stretched back up by the console — two resamplings of every frame for nothing. It now takes the biggest picture the console offers (up to 3840×2160) and scales the text and the layout with it, so the picture is real 4K and the writing is the same size on the wall either way; the film decoder is told the real size too. Decoding is still done by the console's own processor, so a 4K film may drop frames — `ultimatetv.elf --1080p` asks for a smaller picture when it does. (#182)
   Household: on a 4K television the PlayStation 5 now shows the picture at 4K instead of stretching a smaller one.
 

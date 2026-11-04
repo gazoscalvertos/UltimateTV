@@ -167,7 +167,7 @@ describe("the PlayStation 5 app's sources", () => {
   it("keeps the drawing out of the part that can be tested on a build machine", () => {
     // The screens, the keys and the Hub calls are plain C++ with no SDL, which is why
     // `make -C ps5 test` runs anywhere. Only the platform file may include SDL.
-    const portable = ["json", "model", "http", "hub", "text", "ui", "display"];
+    const portable = ["json", "model", "http", "hub", "text", "ui", "display", "address"];
     for (const name of portable) {
       const source = read(`ps5/src/${name}.cpp`);
       expect(source, `ps5/src/${name}.cpp`).not.toMatch(/#include\s*<SDL/);
@@ -212,8 +212,57 @@ describe("the PlayStation 5 app's sources", () => {
     expect(main).toContain('"--1080p"');
   });
 
+  it("can be pointed at the Hub from the controller, because a console has no keyboard", () => {
+    // The app used to start hard-coded to http://127.0.0.1:8095 — the console itself — and the
+    // only way to change it was the command line. A tile has no command line, so the address
+    // has to be editable on screen, a number at a time.
+    const address = read("ps5/src/address.cpp");
+    const addressHeader = read("ps5/src/address.hpp");
+    const ui = read("ps5/src/ui.cpp");
+    const hub = read("ps5/src/hub.hpp");
+
+    // The fields exist as separate numbers, and the address is rebuilt from them.
+    expect(addressHeader).toContain("struct AddressFields");
+    expect(address).toContain("formatAddress");
+    expect(address).toContain("stepAddressField");
+    // The connect screen moves between them and changes the one under the cursor.
+    expect(ui).toContain("stepAddressField(view_.addressFields, view_.addressField");
+    expect(ui).toContain("hub_.setBaseUrl(view_.address)");
+    // And the address it tries is the one on screen, not the one it started with.
+    expect(ui).toContain("view_.address = formatAddress(view_.addressFields)");
+    // The house Hub, so a fresh tile finds it without being told.
+    expect(hub).toContain("http://192.168.0.19:8095");
+    expect(hub).not.toContain("http://127.0.0.1:8095");
+  });
+
+  it("leaves a note on the console's disk about how far it got", () => {
+    // A console that fails to start shows a black screen and nothing else. This file is the
+    // only way to tell "the console wouldn't run it" from "it ran and couldn't find the Hub".
+    const main = read("ps5/src/main.cpp");
+    expect(main).toContain("/data/ultimatetv/last-run.log");
+    expect(main).toContain("LOG_PATH");
+    // The first thing it writes is which Hub it is going to look for.
+    expect(main).toMatch(/say\([^)]*(address|Hub)/);
+  });
+
+  it("builds the folder a mounter needs, not only a package that won't launch", () => {
+    // A fake .pkg installs on firmware 12.00+ and then will not launch, because the console
+    // refuses to mount its filesystem. A folder has nothing to mount, so `make homebrew` is the
+    // route that works there and it must keep producing the layout monters scan for.
+    const makefile = read("ps5/Makefile");
+    expect(makefile).toContain("HOMEBREW_DIR");
+    expect(makefile).toContain("homebrew");
+    expect(makefile).toContain("/data/homebrew/");
+    // The layout is one folder named after the title, holding eboot.bin and sce_sys/.
+    expect(makefile).toContain("$(HOMEBREW_DIR)/sce_sys");
+    expect(makefile).toContain("cp build/$(TITLE_ID)/eboot.bin $(HOMEBREW_DIR)/");
+    expect(makefile).toContain("cp sce_sys/param.json sce_sys/icon0.png $(HOMEBREW_DIR)/sce_sys/");
+    // The folder gets the title's param.json, not the .system one.
+    expect(makefile).not.toContain("param.json.system $(HOMEBREW_DIR)");
+  });
+
   it("never writes the device token or a PIN to the log", () => {
-    for (const name of ["json", "model", "http", "hub", "text", "ui", "platform_sdl", "video", "main"]) {
+    for (const name of ["json", "model", "http", "hub", "text", "address", "ui", "platform_sdl", "video", "main"]) {
       const source = read(`ps5/src/${name}.cpp`);
       // There is no logging of secrets anywhere: the only printed things are errors.
       expect(source, name).not.toMatch(/printf\([^)]*token/i);

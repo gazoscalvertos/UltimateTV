@@ -19,6 +19,8 @@ make test       # the tests, anywhere, with no console and no SDK
 make console    # build/ultimatetv.elf, the app
 make tile       # build/PPSA26001/eboot.bin, the installable tile
 make package    # the tile plus icon0.png and param.json
+make homebrew   # build/homebrew/PPSA26001/, the folder a mounter registers
+make homebrew-upload PS5_HOST=192.168.0.42   # and copy it to /data/homebrew/ on the console
 make install PS5_HOST=192.168.0.42   # copy it to a console and register the tile
 make pkg PS5_PKG_TOOL=/path/to/ffpfsc-pkg-tool   # wrap the same tile in a .pkg
 make clean
@@ -51,6 +53,19 @@ make package
 
 Nothing built here is committed: the app is about 55 MB and the tile about 36 MB, and both are
 generated from source. `build/` and `.hosttest/` are gitignored.
+
+### The folder route is the one that works on a current console
+
+`make homebrew` builds `build/homebrew/PPSA26001/`, holding `eboot.bin` and `sce_sys/` — one
+folder named after the title, which is the shape a folder mounter (ShadowMountPlus and friends)
+scans `/data/homebrew/` for. `make homebrew-upload PS5_HOST=…` copies exactly that to the
+console.
+
+**This is the route to use on firmware 12.00 and above.** A fake `.pkg` installs there and then
+will not launch, because the console's own package filesystem mount fails (`sceFsMountPprPkg() ret
+= 80020016`) — the patches that allow a fake package were never ported past 12.00. A folder has
+no filesystem to mount, so there is nothing for the console to refuse. Keep `make pkg` for a
+console on older firmware or one that already has the fake-package patches.
 
 ### Making a `.pkg`
 
@@ -85,6 +100,8 @@ matches the title id, and a package without one builds but is called incoherent.
 | `src/hub.cpp` | The Hub's API: health, pairing, profiles, PIN, Home, the guide, play, progress | no |
 | `src/model.cpp` | The Hub's answers as C++ types | no |
 | `src/text.cpp` | Times, dates and lengths in words ("Today 21:00", "1 h 2 min") | no |
+| `src/address.cpp` | The Hub's address as four numbers and a port, because the console has no keyboard | no |
+| `src/display.cpp` | What size to draw at, and how much bigger the text has to be for it | no |
 | `src/ui.cpp` | Every screen and every key: the picker, the PIN pad, Home, the guide, the player | no |
 | `src/platform_sdl.cpp` | The window, the controller and the drawing: the only SDL and ImGui in the tree | yes |
 | `src/video.cpp` | A film on screen with its sound: the only SDL_kitchensink in the tree | yes |
@@ -128,6 +145,10 @@ script draws.
   metadata goes under `/user/app/<id>/sce_sys/` — that split is the console's, not ours. The other
   route is the one most 2026 homebrew uses: drop the folder in `/data/homebrew/` and let
   ShadowMountPlus register it.
+- **A `.pkg` installs but does not launch on firmware 12.00 and above.** The console refuses to
+  mount a fake package's filesystem (`sceFsMountPprPkg() ret = 80020016`) because the patches that
+  allow it were never ported past 12.00. That is the console's rule, not the app's, and it is why
+  `make homebrew` exists and is the first route in the docs.
 - **The tile is ET_EXEC, not PIE.** `make_fself.py` refuses a position-independent executable, so
   the tile link uses `-Wl,--no-pie -T src/eboot.x`, and `eboot.x` has to keep the `.eh_frame`
   symbols that libunwind asks for — without them a C++ app cannot link.

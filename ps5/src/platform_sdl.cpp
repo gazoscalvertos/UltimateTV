@@ -11,6 +11,7 @@
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
 
+#include "address.hpp"
 #include "display.hpp"
 #include "platform.hpp"
 #include "text.hpp"
@@ -411,7 +412,39 @@ void SdlWindow::draw(App& app) {
         ImGui::PopStyleColor();
       }
       ImGui::Separator();
-      ImGui::Text("Hub: %s", view.address.c_str());
+      // The address is the one thing this screen can change, and it has to be reachable with a
+      // controller alone: the console has no keyboard.
+      ImGui::PushStyleColor(ImGuiCol_Text, kMuted);
+      ImGui::TextUnformatted("The Hub's address");
+      ImGui::PopStyleColor();
+      ImGui::TextUnformatted("http://");
+      ImGui::SameLine(0.0f, 0.0f);
+      for (int f = 0; f < ADDRESS_FIELDS; ++f) {
+        if (f == 4) {
+          ImGui::TextUnformatted(":");
+          ImGui::SameLine(0.0f, 0.0f);
+        } else if (f > 0) {
+          ImGui::TextUnformatted(".");
+          ImGui::SameLine(0.0f, 0.0f);
+        }
+        const std::string text = addressFieldText(view.addressFields, f) + " ";
+        if (f == view.addressField) {
+          ImGui::PushStyleColor(ImGuiCol_Text, kText);
+          ImGui::PushStyleColor(ImGuiCol_Header, kFocus);
+          ImGui::PushStyleColor(ImGuiCol_HeaderHovered, kFocus);
+          ImGui::PushStyleColor(ImGuiCol_HeaderActive, kFocus);
+          ImGui::Selectable(text.c_str(), true, ImGuiSelectableFlags_None);
+          ImGui::PopStyleColor(4);
+        } else {
+          ImGui::TextUnformatted(text.c_str());
+        }
+        ImGui::SameLine(0.0f, 0.0f);
+      }
+      ImGui::NewLine();
+      ImGui::PushStyleColor(ImGuiCol_Text, kMuted);
+      ImGui::TextUnformatted(
+          "Up/Down change the number, Left/Right pick one, Cross tries it.");
+      ImGui::PopStyleColor();
       break;
     }
     case Screen::Message: {

@@ -469,3 +469,46 @@ TEST(the_screens_compile_one_set_of_rows_for_the_drawing_code) {
 }
 
 int main() { return utvtest::run(); }
+
+TEST(the_address_is_changed_with_the_controller) {
+  Fixture fixture;
+  fixture.client.setBaseUrl("http://192.168.0.19:8095");
+  // No Hub answering, so the app stays on the screen that asks where the Hub is.
+  fixture.hub.health = "<html>no hub here</html>";
+  fixture.begin();
+  CHECK_EQ(fixture.app.view().screen, Screen::Connect);
+  CHECK_EQ(fixture.app.view().address, "http://192.168.0.19:8095");
+  fixture.press(Key::Right);
+  fixture.press(Key::Right);
+  fixture.press(Key::Right);
+  CHECK_EQ(fixture.app.view().addressField, 3);
+  fixture.press(Key::Up);
+  fixture.press(Key::Up);
+  CHECK_EQ(fixture.app.view().address, "http://192.168.0.21:8095");
+  // Left and right move between the five fields, and past the port it wraps back to the first.
+  fixture.press(Key::Right);
+  CHECK_EQ(fixture.app.view().addressField, 4);
+  // The port moves in tens, because a wrong port is usually a long way off.
+  fixture.press(Key::Up);
+  CHECK_EQ(fixture.app.view().address, "http://192.168.0.21:8105");
+  fixture.press(Key::Right);
+  CHECK_EQ(fixture.app.view().addressField, 0);
+}
+
+TEST(trying_a_new_address_asks_the_hub_at_the_new_one) {
+  Fixture fixture;
+  fixture.client.setBaseUrl("http://192.168.0.19:8095");
+  fixture.hub.health = "<html>no hub here</html>";
+  fixture.begin();
+  fixture.press(Key::Right);
+  fixture.press(Key::Right);
+  fixture.press(Key::Right);
+  fixture.press(Key::Up);
+  fixture.hub.seen.clear();
+  // Okay means "try this": it goes to the Hub rather than just redrawing the screen.
+  fixture.press(Key::Ok);
+  const HttpRequest* asked = fixture.hub.last("/api/health");
+  // The address the user set, not the one the fixture started with.
+  CHECK(asked != nullptr);
+  CHECK(asked != nullptr && asked->url.find("192.168.0.20") != std::string::npos);
+}

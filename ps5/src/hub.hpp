@@ -83,7 +83,9 @@ class Hub {
   HubResult call(const std::string& method, const std::string& path, const std::string& body,
                  bool withToken);
   HttpTransport& transport_;
-  std::string baseUrl_ = "http://127.0.0.1:8095";
+  // The house Hub, so a console with no keyboard finds it without being told. `main()` and the
+  // Connect screen can change it, and the change is remembered in the session file.
+  std::string baseUrl_ = "http://192.168.0.19:8095";
   std::string deviceToken_;
   std::string profileId_;
   std::string profileToken_;
