@@ -28,7 +28,7 @@ AUTHINFO := 00 00 00 00 00 00 00 00 00 00 00 00 00 1C 00 40 00 FF 00 00 00 00 00
             00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 # The portable half: no SDL, no console, no drawing. Everything the tests use.
-PORTABLE := json model http hub text ui
+PORTABLE := json model http hub text ui display
 # The parts that only exist on a console or with SDL.
 CONSOLE_ONLY := platform_sdl video main
 
@@ -41,7 +41,7 @@ PORTABLE_SRC := $(addprefix src/,$(addsuffix .cpp,$(PORTABLE)))
 
 HOST_CXX ?= $(shell command -v clang++ || command -v g++)
 HOST_CXXFLAGS ?= -std=c++20 -O1 -Wall -Wextra -Werror
-TEST_NAMES := json text model http hub ui
+TEST_NAMES := json text model http hub ui display
 HOSTTEST_DIR := .hosttest
 HOSTTEST_BINS := $(addprefix $(HOSTTEST_DIR)/,$(addsuffix _test,$(TEST_NAMES)))
 
@@ -52,6 +52,7 @@ $(HOSTTEST_DIR)/model_test: test/model_test.cpp $(PORTABLE_SRC)
 $(HOSTTEST_DIR)/http_test: test/http_test.cpp $(PORTABLE_SRC)
 $(HOSTTEST_DIR)/hub_test: test/hub_test.cpp $(PORTABLE_SRC)
 $(HOSTTEST_DIR)/ui_test: test/ui_test.cpp $(PORTABLE_SRC)
+$(HOSTTEST_DIR)/display_test: test/display_test.cpp $(PORTABLE_SRC)
 
 $(HOSTTEST_DIR)/%_test: test/%_test.cpp $(PORTABLE_SRC) test/test.hpp $(wildcard src/*.hpp)
 	@mkdir -p $(HOSTTEST_DIR)

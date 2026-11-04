@@ -271,10 +271,11 @@ That part is tested on any Linux machine with a C++20 compiler, and CI runs it o
 make -C ps5 test
 ```
 
-That builds and runs six test programs (JSON, times and dates, the Hub's answers as types, HTTP
-against a real socket, the Hub API against a fake transport, and a whole session against a fake
-Hub and a fake video player). The runner is `ps5/test/test.hpp` — a few dozen lines, because the
-console has no test framework.
+That builds and runs seven test programs (JSON, times and dates, the Hub's answers as types, HTTP
+against a real socket, the Hub API against a fake transport, a whole session against a fake Hub
+and a fake video player, and the sizes the app asks the console for — that last one is what says
+the app draws at 4K rather than at 1080p stretched up). The runner is `ps5/test/test.hpp` — a few
+dozen lines, because the console has no test framework.
 
 Two things about it worth knowing:
 

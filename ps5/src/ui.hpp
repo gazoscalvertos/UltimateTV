@@ -108,6 +108,15 @@ class ThreadJobs : public Jobs {
 class Video {
  public:
   virtual ~Video() = default;
+  /**
+   * Tells the player how big the picture on screen is, so it asks the decoder for that size
+   * instead of for 1080p. Called once the window exists; a player that can't do anything with
+   * it is free to ignore it.
+   */
+  virtual void setDisplaySize(int width, int height) {
+    (void)width;
+    (void)height;
+  }
   /** Opens `info`, starting at `startMs`. Answers false with a reason when it can't play. */
   virtual bool open(const PlaybackInfo& info, long startMs, std::string& problem) = 0;
   virtual void close() = 0;

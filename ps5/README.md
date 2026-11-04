@@ -107,8 +107,13 @@ script draws.
 
 ## Things worth knowing before changing it
 
-- **The app draws at 1080p** and asks the Hub for a stream, not a transcode. The console decodes in
-  software; there is no hardware decoder in the SDK. Asking for 4K would drop frames.
+- **The app draws at the size the console gives it** — 3840×2160 on a 4K television, 1920×1080
+  otherwise — and scales the font and the layout with the height, so the picture is not a 1080p
+  canvas stretched up. It asks the Hub for a stream, not a transcode, and tells the decoder the
+  surface size so a 4K film reaches the screen at 4K. The console decodes in software (there is no
+  hardware decoder in the SDK), so 1080p is comfortable and 4K may drop frames; `--1080p` asks for
+  a 1080p picture when it does. `src/display.cpp` holds the arithmetic and `make -C ps5 test` proves
+  it.
 - **A PIN's token has to be kept.** The Hub answers a PIN-protected profile that sends no token
   with the Kids profile instead of refusing (see `Profiles.resolve` in `hub/src/profiles.ts`), so
   dropping the token after a correct PIN silently shows the wrong profile. `Hub::setProfileToken`
