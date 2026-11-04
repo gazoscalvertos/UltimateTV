@@ -3,6 +3,7 @@
 // Everything that decides what happens lives in ui.cpp; this file only wires it together and
 // keeps the picture moving. That split is why `make -C ps5 test` can test the whole app on a
 // build machine without a PlayStation.
+#include <cstdio>
 #include <memory>
 #include <string>
 
@@ -35,6 +36,27 @@ const char* const SESSION_PATH = "/data/ultimatetv/session.txt";
  */
 const char* const LOG_PATH = "/data/ultimatetv/last-run.log";
 
+/**
+ * A file holding one renderer name to try first. The tile can't be given a command line, so
+ * this is how a console is told to try, say, "opengles2" without a new build: put the word in
+ * this file over FTP and start the app again. The log lists the names that exist.
+ */
+const char* const RENDERER_PATH = "/data/ultimatetv/renderer.txt";
+
+/** The first line of `path`, or empty when there is no such file. */
+std::string firstLine(const char* path) {
+  std::FILE* file = std::fopen(path, "rb");
+  if (!file) return std::string();
+  char buffer[128] = {0};
+  const char* got = std::fgets(buffer, sizeof(buffer), file);
+  std::fclose(file);
+  std::string line = got ? std::string(buffer) : std::string();
+  while (!line.empty() && (line.back() == '\n' || line.back() == '\r' || line.back() == ' ')) {
+    line.pop_back();
+  }
+  return line;
+}
+
 /** The app's own log line, which is the one in log.cpp. */
 using utv::logLine;
 
@@ -54,14 +76,23 @@ int main(int argc, char** argv) {
   //   `--1080p` asks for a 1080p picture instead of the console's biggest, which is the way to
   //   find out whether 4K is the thing the console can't keep up with.
   std::string hubAddress;
+  std::string renderer = firstLine(RENDERER_PATH);
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i] ? argv[i] : "";
     if (arg == "--1080p" || arg == "--1080") {
       setWant4k(false);
+    } else if (arg.rfind("--renderer=", 0) == 0) {
+      renderer = arg.substr(11);
     } else if (!arg.empty() && arg[0] != '-') {
       hubAddress = arg;
     }
   }
+
+  if (!renderer.empty()) {
+    logLine("renderer to try first: %s (from %s)", renderer.c_str(),
+            renderer == firstLine(RENDERER_PATH) ? RENDERER_PATH : "the command line");
+  }
+  setPreferredRenderer(renderer);
 
   // The video player first: it owns the console's decoder, so a failure here is worth saying
   // before a window is on screen.
