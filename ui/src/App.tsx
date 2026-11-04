@@ -47,6 +47,8 @@ import { startQueue } from "./queue";
 import { startDownloads } from "./downloads";
 import { startSaveNotices } from "./save";
 import { DownloadsScreen } from "./screens/Downloads";
+import { ElsewhereScreen } from "./screens/Elsewhere";
+import { startWatching } from "./watching";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
 import { startIdle, wake } from "./idle";
@@ -209,6 +211,7 @@ export function App() {
     startIdle();
     startQueue();
     startDownloads();
+    startWatching();
     startCast();
     startSleep();
     startKidsTime();
@@ -321,6 +324,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "cast"}>
             <CastScreen />
+          </Match>
+          <Match when={nav.current().name === "elsewhere"}>
+            <ElsewhereScreen />
           </Match>
           <Match when={nav.current().name === "weather"}>
             <Weather />

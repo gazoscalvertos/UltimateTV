@@ -1227,6 +1227,7 @@
       if (what === "recordings") await showRecordings();
       if (what === "reminders") await showReminders();
       if (what === "queue") await showQueue();
+      if (what === "elsewhere") await showElsewhere();
       if (what === "saved") await showSaved();
       if (what === "downloads") await showDownloads();
       if (what === "music") await showMusic("playlists");
@@ -1426,6 +1427,47 @@
       <div class="actions"><button id="wx-tv">Show on the TV</button></div>
       <p class="meta">From Open-Meteo, updated ${clock(r.fetchedAt)}${st.error ? ` · ${esc(st.error)}` : ""}</p>`;
     $("wx-tv").onclick = () => post("/api/weather/show", {}).then(() => toast("On the TV"), (err) => toast(err.message, true));
+  }
+
+  // Watching elsewhere: what every TV, phone and tablet is playing. Tap one and the TV this remote
+  // works carries on from the same place; Move also stops it where it was, and Sync plays both
+  // together, pausing and skipping as one (hub/src/watching.ts).
+  const clockOf = (ms) => {
+    const t = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(t / 3600);
+    const m = Math.floor((t % 3600) / 60);
+    const s = String(t % 60).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+  };
+  const watchLine = (s) => {
+    const who = s.deviceName || "Another screen";
+    if (s.live) return `${who} · ${s.stopped ? "was watching live" : "watching live"}`;
+    const at = clockOf(s.positionMs) + (s.durationMs ? ` of ${clockOf(s.durationMs)}` : "");
+    return `${who} · ${s.stopped ? "stopped at" : s.paused ? "paused at" : "at"} ${at}`;
+  };
+  async function showElsewhere() {
+    const [{ sessions }, boxes] = await Promise.all([get("/api/watching", null), get("/api/boxes", null).catch(() => ({}))]);
+    if (current !== "elsewhere") return;
+    // The TV this remote works can't carry on from itself.
+    const target = boxId || boxes.main || null;
+    if (!sessions.length)
+      return (body.innerHTML = `<p class="empty">Nothing is playing on the other screens. Start something on a TV, or in the Android app on a phone or tablet, and it shows up here.</p>`);
+    body.innerHTML = `<p class="meta">Tap one to carry it on on the TV. Move stops it where it was; Sync plays both together, pausing and skipping as one.</p><div class="list">${sessions
+      .map((s, i) => {
+        const here = Boolean(target && s.box === target);
+        const art = s.artwork ?? s.title?.backdrop ?? s.title?.poster;
+        const extra = [s.subtitle, s.sync ? "Sync play" : "", s.profile?.name].filter(Boolean).join(" · ");
+        return `<div class="ep-row"><button class="item" data-ei="${i}"${here ? " disabled" : ""}><span class="logo">${art ? `<img src="${esc(art)}" alt="" loading="lazy" style="object-fit:cover;width:100%;height:100%">` : "▶"}</span><span class="text"><b>${esc(s.name)}</b>${extra ? `<span>${esc(extra)}</span>` : ""}<small>${esc(watchLine(s))}${here ? " · this TV" : ""}</small></span></button>${!here && !s.stopped ? `<button class="qbtn wide" data-emove="${i}">Move</button><button class="qbtn wide" data-esync="${i}">Sync</button>` : ""}</div>`;
+      })
+      .join("")}</div>`;
+    const go = (s, mode, said) =>
+      call("watchHere", { device: s.device, mode }).then(
+        () => (toast(said), setTimeout(() => current === "elsewhere" && showElsewhere(), 1500)),
+        (e) => toast(e.message, true),
+      );
+    for (const b of body.querySelectorAll("[data-ei]")) b.onclick = () => go(sessions[Number(b.dataset.ei)], "resume", "Carrying on on the TV");
+    for (const b of body.querySelectorAll("[data-emove]")) b.onclick = () => go(sessions[Number(b.dataset.emove)], "move", "Moved to the TV");
+    for (const b of body.querySelectorAll("[data-esync]")) b.onclick = () => go(sessions[Number(b.dataset.esync)], "sync", "Sync play: pausing or skipping on one does both");
   }
 
   // The queue: tap to play now, ↑ to play next, ✕ to take off.

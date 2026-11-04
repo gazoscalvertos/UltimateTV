@@ -19,6 +19,7 @@ import { mouseMode, onMouse } from "../mouse";
 import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
 import { queue } from "../queue";
+import { leaveSync, syncGroup, userSeek } from "../watching";
 import { canSave, saveToNas } from "../save";
 import { advertMarks } from "../seekMarks";
 import { isFavouriteChannel, isFavouriteTitle, toggleFavouriteChannel, toggleFavouriteTitle } from "../favourites";
@@ -337,7 +338,7 @@ export function Player() {
     const key = `${np.info.progressKey}:${s.startMs}`;
     if (skippedBreaks.has(key)) return;
     skippedBreaks.add(key);
-    void agent.seek(s.endMs, "absolute");
+    void userSeek(s.endMs, "absolute");
     toast("Skipped the adverts");
   });
 
@@ -471,6 +472,20 @@ export function Player() {
               </>
             )}
           </Show>
+          <Show when={syncGroup()}>
+            {(g) => (
+              <>
+                <h4>
+                  <Icon name="screens" /> Sync play
+                </h4>
+                <div class="option-list">
+                  <button class="option" data-focus onClick={() => (close(), void leaveSync().then(() => toast("Left Sync play: carrying on here on its own")))}>
+                    Leave Sync play with {g().members.length - 1 === 1 ? "1 other screen" : `${g().members.length - 1} other screens`}
+                  </button>
+                </div>
+              </>
+            )}
+          </Show>
           <Show when={savable()}>
             <h4>
               <Icon name="download" /> Keep a copy
@@ -555,11 +570,11 @@ export function Player() {
         return true;
       }
       case "rewind":
-        void agent.seek(-30_000, "relative");
+        void userSeek(-30_000, "relative");
         poke();
         return true;
       case "fastForward":
-        void agent.seek(live() ? 30_000 : 60_000, "relative");
+        void userSeek(live() ? 30_000 : 60_000, "relative");
         poke();
         return true;
     }
@@ -610,18 +625,18 @@ export function Player() {
     switch (a) {
       case "ok":
         if (!osd() && skip()) {
-          void agent.seek(skip()!.endMs, "absolute");
+          void userSeek(skip()!.endMs, "absolute");
           return true;
         }
         void agent.pause(st.status !== "paused");
         poke(st.status === "paused" ? 4000 : 60_000);
         return true;
       case "left":
-        void agent.seek(-10_000, "relative");
+        void userSeek(-10_000, "relative");
         poke();
         return true;
       case "right":
-        void agent.seek(30_000, "relative");
+        void userSeek(30_000, "relative");
         poke();
         return true;
       case "up":
@@ -797,7 +812,7 @@ export function Player() {
                     <AdvertMarks skip={np()?.info.skip ?? []} duration={duration()} />
                   </div>
                 }>
-                  <SeekBar duration={duration()} position={st().positionMs} skip={np()?.info.skip ?? []} onDrag={(ms) => (setDragMs(ms), poke(8000))} onSeek={(ms) => (setDragMs(null), void agent.seek(ms, "absolute"), poke())} />
+                  <SeekBar duration={duration()} position={st().positionMs} skip={np()?.info.skip ?? []} onDrag={(ms) => (setDragMs(ms), poke(8000))} onSeek={(ms) => (setDragMs(null), void userSeek(ms, "absolute"), poke())} />
                 </Show>
                 <span class="osd-time">{duration() ? `-${fmt(duration() - (dragMs() ?? st().positionMs))}` : ""}</span>
               </div>
@@ -834,7 +849,7 @@ export function Player() {
       </Show>
 
       <Show when={!live() && skip() && !showNextCard()}>
-        <button class="skip-button" data-focus onClick={() => skip() && void agent.seek(skip()!.endMs, "absolute")}>
+        <button class="skip-button" data-focus onClick={() => skip() && void userSeek(skip()!.endMs, "absolute")}>
           Skip {skip()!.kind === "credits" ? "credits" : skip()!.kind} <kbd>OK</kbd>
         </button>
       </Show>
