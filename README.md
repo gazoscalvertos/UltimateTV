@@ -34,7 +34,7 @@ Guides for each feature are linked from the steps below.
 - **The phone remote** works over Wi-Fi from any Android phone, as a web app or a small installable app.
 - **The Android app** watches everything on a phone or tablet at home, and downloads films, episodes and recordings for the road ([docs/android-client.md](docs/android-client.md)).
 - **The Android apps are signed with the household's own key**, kept in the repository secrets and never in the repo ([docs/android-signing.md](docs/android-signing.md)).
-- **The PlayStation 5 app** is the same viewer as a native console app on a jailbroken PS5, on the console's home screen as a tile ([docs/ps5.md](docs/ps5.md)).
+- **The PlayStation 5 app** is the same viewer as a native console app on a jailbroken PS5, on the console's home screen as a tile ([docs/ps5.md](docs/ps5.md)). The [release page](https://github.com/gazoscalvertos/UltimateTV/releases/tag/ps5-app) has it ready to install — a `.pkg`, the app on its own, or the tile folder.
 - **The desktop app** is the same TV app on a computer: a Windows installer, a Mac `.dmg` (Apple Silicon or Intel) and an AppImage for any Linux desktop, in a normal window with its video in mpv's own window ([docs/desktop.md](docs/desktop.md)). It installs for the user alone on Windows, needs no administrator and no extra downloads, and the TV's Settings › Apps for your devices shows a QR code for it.
 - **Nothing in it reports on you**: no Google Play services in the Android apps, no analytics, no crash reporter and no advertising library, and the TV app loads no third-party scripts — every service the Hub contacts is one you asked for, and all of them are listed in [docs/dependencies.md](docs/dependencies.md).
 

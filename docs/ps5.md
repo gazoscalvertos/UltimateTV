@@ -14,7 +14,17 @@ It needs a **jailbroken console**, because that is the only way to run anything 
 
 ## Installing
 
-The app is built from source in this repository — the console app is about 50 MB and the installable tile about 36 MB, so neither is checked in. Building it needs [the SDK and the libraries](#building-it), which is a job for a computer, not the console.
+The app is built from source in this repository — the console app is about 50 MB and the installable tile about 36 MB, so neither is checked in the tree. Building it needs [the SDK and the libraries](#building-it), which is a job for a computer, not the console.
+
+**If you would rather not build it**, [the PS5 release page](https://github.com/gazoscalvertos/UltimateTV/releases/tag/ps5-app) carries the three files, built from `main`:
+
+| File | Route into the console |
+| --- | --- |
+| `UltimateTV-PS5.pkg` | Install it as a package — the console puts the tile up itself. The simplest of the three. |
+| `UltimateTV-PS5.elf` | Run it straight away over the payload loader on port 9021. No install, no tile, gone when the console restarts. |
+| `UltimateTV-PS5-tile.zip` | The folder route: unzip it and put the `PPSA26001` folder in `/data/homebrew/`, where a folder mounter picks it up. Has its own `README.txt`. |
+
+The steps below are the same whichever way you got the files.
 
 1. **Build the tile.** On a Linux machine with the SDK:
 

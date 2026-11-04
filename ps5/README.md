@@ -8,6 +8,10 @@ The instructions for installing it, using the controller, and what it can and ca
 [../docs/ps5.md](../docs/ps5.md). Why it is a native app rather than a web page or a Linux install
 is [../docs/adr/0004-the-ps5-gets-a-native-app.md](../docs/adr/0004-the-ps5-gets-a-native-app.md).
 
+**If you just want it on a console**, you do not need to build anything: [the PS5 release
+page](https://github.com/gazoscalvertos/UltimateTV/releases/tag/ps5-app) has a `.pkg`, the app on
+its own, and the tile folder, all built from `main`.
+
 ## Building
 
 ```
