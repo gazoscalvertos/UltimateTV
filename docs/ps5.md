@@ -35,11 +35,32 @@ PfsMountGameData_PPR() ret = 0x80020016
 PrepareProcessLaunchPkg() ret = 80020016
 ```
 
-`0x80020016` is the console refusing to mount the package's filesystem. The patch that lets a
-fake package mount was never ported past firmware 12.00, so the console installs the tile and
-then cannot open it. This is not specific to UltimateTV — it is the same for every fake package
-on those firmwares. **Use the folder route** (`UltimateTV-PS5-tile.zip`, or
+`0x80020016` is the console refusing to mount the package's filesystem. It is not about the
+package: it is a one-line gate in the jailbreak. In kstuff-lite's `ps5-kstuff/uelf/fpkg.c` the
+function `get_ppr_profile()` returns `NULL` for anything above firmware 11.60 —
+
+```c
+/* Keep the newer profiles and offsets available for later work, but do
+ * not arm plaintext PPR interception above 11.60. */
+if (FWVER > 0x1160)
+    return NULL;
+```
+
+— and `control_ppr_plaintext_request()` refuses the mount when it gets `NULL`, which ShellCore
+reports as `0x80020016`. The firmware 12.00 and 13.60 profiles are still in the source; that
+guard is what makes them unreachable. The history is explicit: commit `a7ca1c3` (2026-09-19)
+enabled plaintext PPR interception through 13.60, and `bd8928c` (2026-09-20) limited it back to
+11.60.
+
+So **every** fake package fails to mount on 12.00–13.60, and `ffpfsc-pkg-tool` — the tool that
+builds this one — documents the same ceiling: install-and-launch works "up to at least 11.60 …
+with kstuff-lite 1.13+". **Use the folder route** (`UltimateTV-PS5-tile.zip`, or
 `make -C ps5 homebrew-upload`): nothing about a folder is fake, so there is nothing to patch.
+
+A project whose packages do work on a current console is not a counter-example. BlackBox, for
+instance, ships no `.pkg` at all: its release asset is a `.ffpkg`, a UFS2 filesystem image that
+ShadowMountPlus mounts from `/data/homebrew` and registers through `sceAppInstUtilAppInstallAll`.
+It never asks the console to mount a package, so the gate above never applies to it.
 
 The steps below are the same whichever way you got the files.
 
@@ -138,6 +159,8 @@ A film plays full screen with a bar along the bottom that fades out; press any b
 ## If it won't start
 
 - **The tile is there but the screen stays black.** Read `/data/ultimatetv/last-run.log` first. If it exists, the app is running and the file says how far it got — usually that the window would not open, or the Hub was not where it looked. If it does not exist, the app never started: that is the console refusing the tile, which for a `.pkg` on firmware 12.00 and above is [expected](#the-package-does-not-launch), and for a folder usually means the folder is in the wrong place or no mounter is running.
+- **The log says "Couldn't find matching render driver" or "wouldn't give us a picture".** The window opened but nothing could draw into it. The log now has a block near the top listing the SDL version, the video driver, every display mode and every render driver this console's SDL has, then one `tried renderer ...` line per attempt with the console's own reason. The app tries software first, then the others, then the window's surface, then 1080p and 720p windows. To put one driver first without a new build, write its name (say `opengles2`) into `/data/ultimatetv/renderer.txt` over FTP and start the app again; delete the file to go back. Send the whole log if none of them work.
+- **The log says the console gave no sound.** The app starts anyway and films play silently: a console's audio driver can refuse to initialise while the picture is fine, and the app now carries on instead of stopping at the first frame. Everything else works.
 - **It says it can't reach the Hub.** The address is wrong or the Hub is off. The Hub is at `http://<the house's server>:8095`; the first screen has the four numbers and the port, and the controller changes them.
 - **It says it needs a code.** Another screen is already paired, so the Hub wants a "yes" from one of them: the app shows a four-letter code, and you let it in from the TV's Settings › Phones and remotes. Then press Cross on the app to try again.
 - **A film is sound but no picture, or stutters.** The CPU is doing the decoding and the source is too big for it, especially at 4K. Try the TV for that title, or start the app with `--1080p`.
@@ -155,8 +178,16 @@ make -C ps5 package    # the tile plus icon0.png and param.json
 make -C ps5 pkg        # the same, wrapped in a .pkg (needs PS5_PKG_TOOL, see Installing)
 make -C ps5 homebrew   # the folder route: ps5/build/homebrew/PPSA26001/
 make -C ps5 homebrew-upload PS5_HOST=...   # and copy it to /data/homebrew/ on the console
+make -C ps5 ffpkg UFS2_TOOL=...   # the folder wrapped in a .ffpkg UFS2 image
 make -C ps5 clean
 ```
+
+`make ffpkg` makes the one-file form of the folder route: a UFS2 filesystem image, the layout
+ShadowMountPlus mounts and the one the projects that work on a current console distribute. It
+needs a UFS2 image builder (`mkufs2.sh`, or `UFS2Tool newfs -O 2 -b 65536 -f 65536 -m 0 -S 4096 -i
+262144`), which is not part of this repository, so the target tells you to point `UFS2_TOOL` at
+one rather than guessing. The files have to sit at the image's root, with no extra top-level
+folder, or the mounter ignores the image.
 
 `make test` needs nothing but a C++20 compiler, which is why it runs in CI on every change. `console`, `tile` and `package` need two things:
 
