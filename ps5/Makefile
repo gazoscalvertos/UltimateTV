@@ -28,7 +28,7 @@ AUTHINFO := 00 00 00 00 00 00 00 00 00 00 00 00 00 1C 00 40 00 FF 00 00 00 00 00
             00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 # The portable half: no SDL, no console, no drawing. Everything the tests use.
-PORTABLE := json model http hub text ui display address startup
+PORTABLE := json model http hub text ui display address startup renderer
 # The parts that only exist on a console or with SDL.
 CONSOLE_ONLY := platform_sdl video main
 
@@ -41,7 +41,7 @@ PORTABLE_SRC := $(addprefix src/,$(addsuffix .cpp,$(PORTABLE)))
 
 HOST_CXX ?= $(shell command -v clang++ || command -v g++)
 HOST_CXXFLAGS ?= -std=c++20 -O1 -Wall -Wextra -Werror
-TEST_NAMES := json text model http hub ui display address startup
+TEST_NAMES := json text model http hub ui display address startup renderer
 HOSTTEST_DIR := .hosttest
 HOSTTEST_BINS := $(addprefix $(HOSTTEST_DIR)/,$(addsuffix _test,$(TEST_NAMES)))
 

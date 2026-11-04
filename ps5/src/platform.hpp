@@ -48,6 +48,13 @@ class Window {
  */
 void setWant4k(bool on);
 
+/**
+ * The SDL render driver to try first ("software", "opengles2", ...), from `--renderer=NAME` or
+ * /data/ultimatetv/renderer.txt. Empty lets the app choose; every driver is tried either way, and
+ * the log lists the names this console's SDL has.
+ */
+void setPreferredRenderer(const std::string& name);
+
 /** Opens the window. Answers nullptr with a reason in `problem` when it can't. */
 std::unique_ptr<Window> openWindow(std::string& problem);
 
