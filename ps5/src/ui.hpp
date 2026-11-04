@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "address.hpp"
 #include "hub.hpp"
 #include "model.hpp"
 
@@ -138,10 +139,11 @@ struct View {
   /** True while the app is waiting for the Hub. */
   bool busy = false;
 
-  // Connect
+  // Connect. The address is held as four numbers and a port so the controller can change it:
+  // the console has no keyboard to type one with.
+  AddressFields addressFields;
+  int addressField = 0;   // 0..3 = a number, 4 = the port
   std::string address;
-  bool addressTyping = false;
-  int addressCursor = 0;
   /** Pairing: the code the TV shows, when this screen isn't the first. */
   std::string pairingCode;
   bool pairingWaiting = false;

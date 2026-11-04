@@ -74,6 +74,7 @@ void ThreadJobs::post(std::function<void()> job) {
 
 App::App(Hub& hub, Jobs& jobs, Video& video) : hub_(hub), jobs_(jobs), video_(video) {
   view_.address = hub_.baseUrl();
+  parseAddress(view_.address, view_.addressFields);
 }
 
 App::~App() = default;
@@ -117,6 +118,7 @@ void App::start() {
   if (!saved.profileId.empty()) hub_.setProfileId(saved.profileId);
   if (!saved.profileToken.empty()) hub_.setProfileToken(saved.profileToken);
   view_.address = hub_.baseUrl();
+  parseAddress(view_.address, view_.addressFields);
   connect();
 }
 
@@ -526,11 +528,39 @@ void App::rebuild() {
 bool App::key(const KeyPress& press) {
   switch (view_.screen) {
     case Screen::Connect: {
-      if (press.key == Key::Ok) {
-        connect();
-        return true;
+      // The console has no keyboard, so the address is edited a number at a time: up and down
+      // change the number under the cursor, left and right move between the five fields, and
+      // okay tries it. The port moves in tens because a wrong port is usually a long way off.
+      const int step = view_.addressField >= 4 ? 10 : 1;
+      switch (press.key) {
+        case Key::Left:
+          view_.addressField = (view_.addressField + ADDRESS_FIELDS - 1) % ADDRESS_FIELDS;
+          rebuild();
+          return true;
+        case Key::Right:
+          view_.addressField = (view_.addressField + 1) % ADDRESS_FIELDS;
+          rebuild();
+          return true;
+        case Key::Up:
+          stepAddressField(view_.addressFields, view_.addressField, step);
+          view_.address = formatAddress(view_.addressFields);
+          rebuild();
+          return true;
+        case Key::Down:
+          stepAddressField(view_.addressFields, view_.addressField, -step);
+          view_.address = formatAddress(view_.addressFields);
+          rebuild();
+          return true;
+        case Key::Ok:
+          // Whatever is on screen is what it tries, with the last edited numbers and all.
+          view_.address = formatAddress(view_.addressFields);
+          hub_.setBaseUrl(view_.address);
+          saveSessionNow();
+          connect();
+          return true;
+        default:
+          return false;
       }
-      return false;
     }
     case Screen::Profiles: {
       const int count = static_cast<int>(view_.profiles.profiles.size());

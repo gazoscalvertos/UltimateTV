@@ -3,7 +3,9 @@
 // Everything that decides what happens lives in ui.cpp; this file only wires it together and
 // keeps the picture moving. That split is why `make -C ps5 test` can test the whole app on a
 // build machine without a PlayStation.
+#include <cstdarg>
 #include <cstdio>
+#include <ctime>
 #include <memory>
 #include <string>
 
@@ -25,10 +27,45 @@ const int FRAME_MS = 30;
 /** Where the Hub's address is remembered between runs. */
 const char* const SESSION_PATH = "/data/ultimatetv/session.txt";
 
+/**
+ * Where the app writes down what it did on the way to a picture.
+ *
+ * A console that fails to start shows a black screen and nothing else: there is no terminal and
+ * the payload loader's output does not reach the living room. This file is the only way to find
+ * out afterwards whether the window failed, the decoder failed, or the Hub was never reached.
+ * It is rewritten on every start, so it always describes the last attempt.
+ */
+const char* const LOG_PATH = "/data/ultimatetv/last-run.log";
+
+std::FILE* gLog = nullptr;
+
+/** Writes one line to the log and to stderr. Safe to call before the log is open. */
+void say(const char* format, ...) {
+  char line[512];
+  va_list args;
+  va_start(args, format);
+  std::vsnprintf(line, sizeof(line), format, args);
+  va_end(args);
+  std::fprintf(stderr, "UltimateTV: %s\n", line);
+  if (!gLog) return;
+  const std::time_t now = std::time(nullptr);
+  std::tm local{};
+#if defined(_WIN32)
+  localtime_s(&local, &now);
+#else
+  localtime_r(&now, &local);
+#endif
+  std::fprintf(gLog, "%02d:%02d:%02d  %s\n", local.tm_hour, local.tm_min, local.tm_sec, line);
+  std::fflush(gLog);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
   using namespace utv;
+
+  gLog = std::fopen(LOG_PATH, "wb");
+  say("UltimateTV starting");
 
   std::string problem;
 
@@ -51,15 +88,25 @@ int main(int argc, char** argv) {
   // before a window is on screen.
   std::unique_ptr<Video> video = makeVideo(problem);
   if (!video) {
-    std::fprintf(stderr, "UltimateTV: %s\n", problem.c_str());
+    say("the video player wouldn't start: %s", problem.c_str());
+    say("nothing was drawn; this log is the whole story");
     return 1;
   }
+  say("the video player is up");
 
+  // Before the window: if this fails there is nothing to look at, and a console shows a black
+  // screen rather than an error. That is exactly why the log exists.
   std::unique_ptr<Window> window = openWindow(problem);
   if (!window) {
-    std::fprintf(stderr, "UltimateTV: %s\n", problem.c_str());
+    say("the window wouldn't open: %s", problem.c_str());
+    say("nothing was drawn; this log is the whole story");
     return 1;
   }
+  int width = 0;
+  int height = 0;
+  window->size(width, height);
+  // The height is what tells the two PS5 builds apart in a log after the fact.
+  say("the window is up at %dx%d%s", width, height, height >= 2000 ? " (4K)" : "");
 
   SocketTransport transport;
   Hub hub(transport);
@@ -67,9 +114,15 @@ int main(int argc, char** argv) {
   window->setVideo(video.get());
   App app(hub, jobs, *video);
   app.setSessionPath(SESSION_PATH);
-  if (!hubAddress.empty()) hub.setBaseUrl(hubAddress);
+  if (!hubAddress.empty()) {
+    hub.setBaseUrl(hubAddress);
+    say("the Hub was given on the command line: %s", hub.baseUrl().c_str());
+  } else {
+    say("looking for the Hub at %s", hub.baseUrl().c_str());
+  }
 
   app.start();
+  say("the app is running");
 
   bool closed = false;
   while (!closed) {
@@ -81,7 +134,9 @@ int main(int argc, char** argv) {
     window->draw(app);
   }
 
+  say("the console asked the app to close");
   window.reset();
   video.reset();
+  if (gLog) std::fclose(gLog);
   return 0;
 }

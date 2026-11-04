@@ -28,7 +28,7 @@ AUTHINFO := 00 00 00 00 00 00 00 00 00 00 00 00 00 1C 00 40 00 FF 00 00 00 00 00
             00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 # The portable half: no SDL, no console, no drawing. Everything the tests use.
-PORTABLE := json model http hub text ui display
+PORTABLE := json model http hub text ui display address
 # The parts that only exist on a console or with SDL.
 CONSOLE_ONLY := platform_sdl video main
 
@@ -41,7 +41,7 @@ PORTABLE_SRC := $(addprefix src/,$(addsuffix .cpp,$(PORTABLE)))
 
 HOST_CXX ?= $(shell command -v clang++ || command -v g++)
 HOST_CXXFLAGS ?= -std=c++20 -O1 -Wall -Wextra -Werror
-TEST_NAMES := json text model http hub ui display
+TEST_NAMES := json text model http hub ui display address
 HOSTTEST_DIR := .hosttest
 HOSTTEST_BINS := $(addprefix $(HOSTTEST_DIR)/,$(addsuffix _test,$(TEST_NAMES)))
 
@@ -52,7 +52,7 @@ $(HOSTTEST_DIR)/model_test: test/model_test.cpp $(PORTABLE_SRC)
 $(HOSTTEST_DIR)/http_test: test/http_test.cpp $(PORTABLE_SRC)
 $(HOSTTEST_DIR)/hub_test: test/hub_test.cpp $(PORTABLE_SRC)
 $(HOSTTEST_DIR)/ui_test: test/ui_test.cpp $(PORTABLE_SRC)
-$(HOSTTEST_DIR)/display_test: test/display_test.cpp $(PORTABLE_SRC)
+$(HOSTTEST_DIR)/address_test: test/address_test.cpp $(PORTABLE_SRC)
 
 $(HOSTTEST_DIR)/%_test: test/%_test.cpp $(PORTABLE_SRC) test/test.hpp $(wildcard src/*.hpp)
 	@mkdir -p $(HOSTTEST_DIR)
@@ -199,6 +199,35 @@ install: package build/installer.elf
 .PHONY: deploy
 deploy: build/ultimatetv.elf
 	$(PS5_DEPLOY) -h $(PS5_HOST) -p $(PS5_PORT) $<
+
+# The folder a mounter registers, which is how a title starts on firmware 12.00 and above.
+#
+# A fake .pkg installs on those firmwares and then refuses to launch: the console's own
+# package filesystem mount fails because the patches that allow a fake package were never
+# ported past 12.00. A plain folder has no such problem, because nothing about it is fake:
+# ShadowMountPlus scans /data/homebrew and registers whatever looks like a title.
+HOMEBREW_DIR := build/homebrew/$(TITLE_ID)
+
+.PHONY: homebrew
+homebrew: tile
+	@rm -rf build/homebrew
+	@mkdir -p $(HOMEBREW_DIR)/sce_sys
+	cp build/$(TITLE_ID)/eboot.bin $(HOMEBREW_DIR)/
+	cp sce_sys/param.json sce_sys/icon0.png $(HOMEBREW_DIR)/sce_sys/
+	@# The tile's own param.json, not the .system one: a mounter reads it as a title.
+	@echo "built $(HOMEBREW_DIR)/: copy this folder into /data/homebrew/ on the console"
+
+.PHONY: homebrew-upload
+homebrew-upload: homebrew
+	@echo "copying UltimateTV to /data/homebrew on $(PS5_HOST)"
+	curl -sS -Q "MTRW" $(FTPSRV_URL) -o /dev/null
+	-curl -sS -Q "MKD /data/homebrew" $(FTPSRV_URL) -o /dev/null
+	-curl -sS -Q "MKD /data/homebrew/$(TITLE_ID)" $(FTPSRV_URL) -o /dev/null
+	-curl -sS -Q "MKD /data/homebrew/$(TITLE_ID)/sce_sys" $(FTPSRV_URL) -o /dev/null
+	curl -sS -T $(HOMEBREW_DIR)/eboot.bin $(FTPSRV_URL)/data/homebrew/$(TITLE_ID)/
+	curl -sS -T $(HOMEBREW_DIR)/sce_sys/param.json $(FTPSRV_URL)/data/homebrew/$(TITLE_ID)/sce_sys/
+	curl -sS -T $(HOMEBREW_DIR)/sce_sys/icon0.png $(FTPSRV_URL)/data/homebrew/$(TITLE_ID)/sce_sys/
+	@echo "done: the mounter will add UltimateTV to the home screen"
 
 .PHONY: clean
 clean:
