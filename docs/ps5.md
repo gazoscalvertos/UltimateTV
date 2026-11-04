@@ -90,7 +90,7 @@ A film plays full screen with a bar along the bottom that fades out; press any b
 
 ## What it doesn't do
 
-- **No 4K.** The picture is decoded with the console's general-purpose CPU, not a video chip, so the app asks for 1080p on purpose. A 4K stream will play but may drop frames.
+- **4K is asked for, but decoding is the limit.** The app now draws at whatever the console gives it — 3840×2160 on a 4K television, so a 4K film isn't shrunk to 1080p and stretched back up — and the text is scaled to match, so it looks the same size either way. But the SDK has no hardware decoder, so the console's general-purpose CPU decodes the picture. A 1080p film is comfortable; a 4K one may drop frames. If it does, start the app with `--1080p` to ask for a 1080p picture and let the console do the upscaling instead.
 - **No downloads, recordings or Settings.** Those stay on the TV, the phone and the box. The console is a viewer.
 - **Nothing offline.** The app needs the Hub. The box's [Limited mode](backup.md#when-the-hub-is-down-limited-mode) is the thing for when the Hub is down, not this.
 - **No updates from the Hub.** The tile is copied to the console by hand; rebuilding and copying it again is how a new version arrives.
@@ -100,7 +100,7 @@ A film plays full screen with a bar along the bottom that fades out; press any b
 - **The tile is there but the screen stays black.** The app is starting but the picture isn't coming up. Check the console's own log if it has one, and tell the maintainer what the firmware version is — the sdks' SDL and video paths differ across firmware.
 - **It says it can't reach the Hub.** The address is wrong or the Hub is off. The Hub is at `http://<the house's server>:8095`; the address box on the app's first screen takes it.
 - **It says it needs a code.** Another screen is already paired, so the Hub wants a "yes" from one of them: the app shows a four-letter code, and you let it in from the TV's Settings › Phones and remotes. Then press Cross on the app to try again.
-- **A film is sound but no picture, or stutters.** The CPU is doing the decoding and the source is too big. Try the TV for that title; the console is built for 1080p.
+- **A film is sound but no picture, or stutters.** The CPU is doing the decoding and the source is too big for it, especially at 4K. Try the TV for that title, or start the app with `--1080p`.
 - **The console updated and the app stopped working.** The exploit only covers the firmware it covers. Once the console is past it, the app cannot run until a new exploit appears. Putting the console into Linux is the other way to use UltimateTV on it.
 
 ## Building it
@@ -126,6 +126,8 @@ PS5_PAYLOAD_SDK=/opt/ps5/ps5-payload-sdk \
 PS5_DEVROOT=/opt/ps5/devroot/opt/ps5-payload-sdk/target/user/homebrew \
 make -C ps5 package
 ```
+
+The size the app draws at is worked out in [`ps5/src/display.cpp`](../ps5/src/display.cpp): the biggest mode the console offers, up to 4K, and every other size — the font, the bars, the largest picture the decoder is asked for — follows the height it actually got. `make -C ps5 test` proves that arithmetic without a console.
 
 The tile's picture is generated, not drawn by hand: `node tools/ps5/make-icon.mjs` writes `ps5/sce_sys/icon0.png`, and `--check` proves the committed file is the one the script makes.
 

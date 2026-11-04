@@ -167,7 +167,7 @@ describe("the PlayStation 5 app's sources", () => {
   it("keeps the drawing out of the part that can be tested on a build machine", () => {
     // The screens, the keys and the Hub calls are plain C++ with no SDL, which is why
     // `make -C ps5 test` runs anywhere. Only the platform file may include SDL.
-    const portable = ["json", "model", "http", "hub", "text", "ui"];
+    const portable = ["json", "model", "http", "hub", "text", "ui", "display"];
     for (const name of portable) {
       const source = read(`ps5/src/${name}.cpp`);
       expect(source, `ps5/src/${name}.cpp`).not.toMatch(/#include\s*<SDL/);
@@ -184,6 +184,32 @@ describe("the PlayStation 5 app's sources", () => {
     expect(video).toContain("Kit_");
     // The core asks the platform for a player through this seam and nothing else.
     expect(read("ps5/src/platform.hpp")).toContain("makeVideo");
+  });
+
+  it("asks the console for the biggest picture it offers, not 1080p", () => {
+    // The console's SDL driver offers 1920x1080 and 3840x2160. Asking for 1080p meant a 4K film
+    // was decoded, shrunk, and stretched back up. This is the guard for the fix: the size comes
+    // from the console, and it can be turned back down with --1080p.
+    const display = read("ps5/src/display.cpp");
+    const platform = read("ps5/src/platform_sdl.cpp");
+    const main = read("ps5/src/main.cpp");
+
+    // The surface is what the console gave, never a hard-coded 1080p canvas.
+    expect(display).toContain("MAX_WIDTH = 3840");
+    expect(display).toContain("MAX_HEIGHT = 2160");
+    expect(platform).toContain("SDL_GetNumDisplayModes");
+    expect(platform).toContain("SDL_GetRendererOutputSize");
+    expect(platform).toContain("SDL_RenderSetLogicalSize(renderer_, width_, height_)");
+    // It used to be this, whatever the television was.
+    expect(platform).not.toContain("SDL_RenderSetLogicalSize(renderer_, 1920, 1080)");
+    // The text has to be the same size on the wall at 1080p and at 4K.
+    expect(platform).toContain("uiScaleFor(height_)");
+    // The decoder is asked for the surface size, so a 4K film isn't shrunk on the way.
+    expect(platform).toContain("setDisplaySize");
+    expect(read("ps5/src/video.cpp")).toContain("displayWidth_");
+    expect(read("ps5/src/video.cpp")).not.toContain("&audioRequest, MAX_VIDEO_WIDTH, MAX_VIDEO_HEIGHT");
+    // There is a way to ask for 1080p on a console that can't keep up with 4K.
+    expect(main).toContain('"--1080p"');
   });
 
   it("never writes the device token or a PIN to the log", () => {

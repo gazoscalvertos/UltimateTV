@@ -32,6 +32,21 @@ int main(int argc, char** argv) {
 
   std::string problem;
 
+  // The command line is read first, because what it says changes how the window is made:
+  //   `ultimatetv.elf http://192.168.0.19:8095` points a fresh console at the house Hub, which
+  //   is how the installer finishes a new one;
+  //   `--1080p` asks for a 1080p picture instead of the console's biggest, which is the way to
+  //   find out whether 4K is the thing the console can't keep up with.
+  std::string hubAddress;
+  for (int i = 1; i < argc; ++i) {
+    const std::string arg = argv[i] ? argv[i] : "";
+    if (arg == "--1080p" || arg == "--1080") {
+      setWant4k(false);
+    } else if (!arg.empty() && arg[0] != '-') {
+      hubAddress = arg;
+    }
+  }
+
   // The video player first: it owns the console's decoder, so a failure here is worth saying
   // before a window is on screen.
   std::unique_ptr<Video> video = makeVideo(problem);
@@ -52,9 +67,7 @@ int main(int argc, char** argv) {
   window->setVideo(video.get());
   App app(hub, jobs, *video);
   app.setSessionPath(SESSION_PATH);
-  // `ultimatetv.elf http://192.168.0.19:8095` sets the Hub from the command line, which is how
-  // the installer points a fresh console at the house Hub.
-  if (argc > 1 && argv[1] && argv[1][0] != '\0') hub.setBaseUrl(argv[1]);
+  if (!hubAddress.empty()) hub.setBaseUrl(hubAddress);
 
   app.start();
 

@@ -11,6 +11,7 @@
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
 
+#include "display.hpp"
 #include "platform.hpp"
 #include "text.hpp"
 #include "ui.hpp"
@@ -22,6 +23,15 @@ namespace {
 /** How long a direction must be held before it repeats, and how often after that. */
 const Uint32 REPEAT_DELAY_MS = 380;
 const Uint32 REPEAT_EVERY_MS = 90;
+
+/**
+ * Whether to ask the console for its biggest picture. On by default; `--1080p` turns it off,
+ * which is the way to find out whether a 4K picture is too much for the console to decode.
+ */
+bool want4k = true;
+
+/** The layout was drawn for this height, so the font grows with the surface. */
+const float BASE_FONT_SCALE = 1.9f;
 
 Key keyForButton(Uint8 button) {
   switch (button) {
@@ -77,7 +87,11 @@ class SdlWindow : public Window {
   void draw(App& app) override;
   std::vector<int> pump(int timeoutMs, bool& closed) override;
   void size(int& width, int& height) override;
-  void setVideo(Video* video) override { video_ = video; }
+  void setVideo(Video* video) override {
+    video_ = video;
+    // The window may already be open when the player arrives, so it is told the size here too.
+    if (video_ && width_ > 0 && height_ > 0) video_->setDisplaySize(width_, height_);
+  }
 
  private:
   void handleEvent(const SDL_Event& event, std::vector<int>& keys, bool& closed);
@@ -100,7 +114,21 @@ bool SdlWindow::open(std::string& problem) {
     problem = std::string("The console wouldn't start a window: ") + SDL_GetError();
     return false;
   }
-  // The console reports its own size; asking for 1080p and letting it scale is the safe path.
+  // What the console can show, asked before the window is made: the driver offers 1080p and
+  // 4K, and asking for the biggest one is the only way a 4K film reaches a 4K television
+  // without being shrunk to 1080p and stretched back up.
+  std::vector<ModeSize> offered;
+  const int displays = SDL_GetNumVideoDisplays();
+  for (int d = 0; d < displays; ++d) {
+    const int modes = SDL_GetNumDisplayModes(d);
+    for (int m = 0; m < modes; ++m) {
+      SDL_DisplayMode mode;
+      if (SDL_GetDisplayMode(d, m, &mode) == 0) offered.push_back({mode.w, mode.h});
+    }
+  }
+  const PixelSize wanted = pickOutputSize(offered, want4k);
+  width_ = wanted.width;
+  height_ = wanted.height;
   window_ = SDL_CreateWindow("UltimateTV", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width_,
                              height_, SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
   if (!window_) {
@@ -116,7 +144,16 @@ bool SdlWindow::open(std::string& problem) {
     problem = std::string("The console wouldn't give us a picture: ") + SDL_GetError();
     return false;
   }
-  SDL_RenderSetLogicalSize(renderer_, 1920, 1080);
+  // The canvas follows the surface, so the layout is drawn at real 4K instead of at 1080p and
+  // stretched. The console may answer a smaller drawable than asked for; the size it actually
+  // gave is the one to trust.
+  SDL_GetRendererOutputSize(renderer_, &width_, &height_);
+  if (width_ <= 0 || height_ <= 0) {
+    width_ = 1920;
+    height_ = 1080;
+  }
+  SDL_RenderSetLogicalSize(renderer_, width_, height_);
+  if (video_) video_->setDisplaySize(width_, height_);
 
   // The first pad that answers. On the console that is the DualSense (or the remote).
   for (int i = 0; i < SDL_NumJoysticks(); ++i) {
@@ -326,8 +363,9 @@ void SdlWindow::draw(App& app) {
                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
                    ImGuiWindowFlags_NoBringToFrontOnFocus);
-  // One big font: this is a television, not a laptop.
-  ImGui::SetWindowFontScale(1.9f);
+  // One big font: this is a television, not a laptop. It grows with the surface so the text is
+  // the same size on the wall whether the console is drawing 1080p or 4K.
+  ImGui::SetWindowFontScale(BASE_FONT_SCALE * uiScaleFor(height_));
 
   switch (view.screen) {
     case Screen::Player: {
@@ -346,7 +384,9 @@ void SdlWindow::draw(App& app) {
                                    ? static_cast<float>(view.positionMs) /
                                          static_cast<float>(view.durationMs)
                                    : 0.0f;
-        ImGui::ProgressBar(fraction, ImVec2(-1, 14));
+        // A pixel height doesn't follow the font, so it is scaled by hand to stay the same
+        // thickness on the wall at 4K.
+        ImGui::ProgressBar(fraction, ImVec2(-1, 14.0f * uiScaleFor(height_)));
       } else {
         ImGui::TextUnformatted("Live");
       }
@@ -371,7 +411,7 @@ void SdlWindow::draw(App& app) {
         ImGui::PopStyleColor();
       }
       ImGui::Separator();
-      ImGui::TextUnformatted("Hub: %s", view.address.c_str());
+      ImGui::Text("Hub: %s", view.address.c_str());
       break;
     }
     case Screen::Message: {
@@ -417,6 +457,8 @@ void SdlWindow::draw(App& app) {
 }
 
 }  // namespace
+
+void setWant4k(bool on) { want4k = on; }
 
 std::unique_ptr<Window> openWindow(std::string& problem) {
   auto window = std::unique_ptr<SdlWindow>(new SdlWindow());

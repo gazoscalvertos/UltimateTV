@@ -35,6 +35,7 @@ class KitVideo : public Video {
  public:
   ~KitVideo() override { close(); }
 
+  void setDisplaySize(int width, int height) override;
   bool open(const PlaybackInfo& info, long startMs, std::string& problem) override;
   void close() override;
   void setPaused(bool paused) override;
@@ -55,6 +56,9 @@ class KitVideo : public Video {
   SDL_AudioDeviceID audio_ = 0;
   int textureWidth_ = MAX_VIDEO_WIDTH;
   int textureHeight_ = MAX_VIDEO_HEIGHT;
+  /** What the window came up at; the decoder is asked for no more than this. */
+  int displayWidth_ = MAX_VIDEO_WIDTH;
+  int displayHeight_ = MAX_VIDEO_HEIGHT;
   bool paused_ = false;
   bool opened_ = false;
   /** The last position the player reported, so a live stream still answers something. */
@@ -66,6 +70,15 @@ void KitVideo::closeTexture() {
   if (texture_) {
     SDL_DestroyTexture(texture_);
     texture_ = nullptr;
+  }
+}
+
+void KitVideo::setDisplaySize(int width, int height) {
+  // Only ever grow: a 4K surface shouldn't make a 1080p film be upscaled by the decoder, but a
+  // 4K film on a 4K surface must not be shrunk to 1080p on the way.
+  if (width > 0 && height > 0) {
+    displayWidth_ = width;
+    displayHeight_ = height;
   }
 }
 
@@ -104,7 +117,7 @@ bool KitVideo::open(const PlaybackInfo& info, long startMs, std::string& problem
 
   player_ = Kit_CreatePlayer(source_, videoStream, audioStream,
                              Kit_GetBestSourceStream(source_, KIT_STREAMTYPE_SUBTITLE),
-                             &videoRequest, &audioRequest, MAX_VIDEO_WIDTH, MAX_VIDEO_HEIGHT);
+                             &videoRequest, &audioRequest, displayWidth_, displayHeight_);
   if (!player_) {
     problem = std::string("The console couldn't start the video: ") + Kit_GetError();
     Kit_CloseSource(source_);
@@ -115,9 +128,9 @@ bool KitVideo::open(const PlaybackInfo& info, long startMs, std::string& problem
   Kit_PlayerInfo playerInfo;
   Kit_GetPlayerInfo(player_, &playerInfo);
   textureWidth_ = playerInfo.video_format.width > 0 ? playerInfo.video_format.width
-                                                   : MAX_VIDEO_WIDTH;
+                                                   : displayWidth_;
   textureHeight_ = playerInfo.video_format.height > 0 ? playerInfo.video_format.height
-                                                      : MAX_VIDEO_HEIGHT;
+                                                      : displayHeight_;
 
   // Sound: the format comes from the player, and SDL's queue takes it from there.
   if (audioStream >= 0) {

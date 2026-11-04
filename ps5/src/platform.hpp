@@ -33,6 +33,14 @@ class Window {
   virtual void setVideo(Video* video) = 0;
 };
 
+/**
+ * Whether to ask the console for its biggest picture (4K) or for 1080p.
+ *
+ * On by default. 1080p uses less of the console, so `--1080p` on the command line is the way to
+ * tell whether a 4K picture is the thing the console can't keep up with.
+ */
+void setWant4k(bool on);
+
 /** Opens the window. Answers nullptr with a reason in `problem` when it can't. */
 std::unique_ptr<Window> openWindow(std::string& problem);
 
