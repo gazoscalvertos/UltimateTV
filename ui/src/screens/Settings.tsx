@@ -39,6 +39,9 @@ const whenAgo = (at: number) => {
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const SUB_LABELS: Record<SubtitleStyle["size"], string> = { small: "Small", medium: "Medium", large: "Large", huge: "Huge" };
 const MODE_LABELS: Record<SubtitleMode, string> = { off: "Off", on: "On", foreign: "Only for other languages" };
+const LANG_NAMES: Record<string, string> = { eng: "English", spa: "Spanish", fra: "French", deu: "German", ita: "Italian", pol: "Polish", por: "Portuguese", nld: "Dutch" };
+const langName = (code: string) => LANG_NAMES[code] ?? code.toUpperCase();
+const OTHER_LANG_LABELS = { last: (l: string) => `${l} first`, hide: (l: string) => `${l} only`, any: () => "All languages" } as const;
 const cycle = <T,>(list: readonly T[], value: T): T => list[(list.indexOf(value) + 1) % list.length]!;
 
 export function Settings(props: { section?: string }) {
@@ -700,6 +703,12 @@ export function Settings(props: { section?: string }) {
                 <Row label="Subtitles from OpenSubtitles" hint="For films that come without any: add a free key on the phone's setup page (Scores and subtitles)" value="Not set up" />
               </Show>
               <Row label="Audio language" value={playback().preferredAudioLang.toUpperCase()} onSelect={() => void save({ playback: { ...playback(), preferredAudioLang: cycle(["eng", "spa", "fra", "deu", "ita", "pol"], playback().preferredAudioLang) } })} />
+              <Row
+                label="Versions"
+                hint={`Which language's copies to offer for films and shows. ${langName(playback().preferredAudioLang)} only hides dubbed copies (unless there's nothing else); copies that don't say their language always stay`}
+                value={OTHER_LANG_LABELS[playback().otherLanguages ?? "last"](langName(playback().preferredAudioLang))}
+                onSelect={() => void save({ playback: { ...playback(), otherLanguages: cycle(["last", "hide", "any"] as const, playback().otherLanguages ?? "last") } })}
+              />
               <Row label="Play the next episode automatically" value={playback().autoplayNext ? "On" : "Off"} onSelect={() => void save({ playback: { ...playback(), autoplayNext: !playback().autoplayNext } })} />
               <Row label="When the TV turns on" value={playback().startOn === "live" ? "Live TV" : "Home"} onSelect={() => void save({ playback: { ...playback(), startOn: playback().startOn === "live" ? "home" : "live" } })} />
               <Row label="Playback stats" hint="Show the stream, picture and sound details over the video. The blue button turns them on and off while watching" value={showStats() ? "On" : "Off"} onSelect={() => setShowStats(!showStats())} />
