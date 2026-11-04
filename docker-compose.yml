@@ -28,6 +28,8 @@ services:
       HTTPS_PUBLIC_PORT: ${HUB_HTTPS_PORT:-8096}
       # The nightly backup (docs/backup.md): BACKUP=off turns it off, BACKUP_OFFSITE adds a second
       # copy somewhere that isn't the NAS (a path, or an rclone remote:path).
+      # Share Play links (docs/share-play.md): the public address the share tunnel below answers on.
+      SHARE_URL: ${SHARE_URL:-}
       BACKUP: ${BACKUP:-on}
       BACKUP_DIR: ${BACKUP_DIR:-}
       BACKUP_KEEP: ${BACKUP_KEEP:-14}
@@ -76,6 +78,21 @@ services:
     volumes:
       # Read-write: autoheal restarts containers through this socket.
       - /var/run/docker.sock:/var/run/docker.sock
+
+  # Opt-in: Share Play links for people outside the home (docs/share-play.md). A Cloudflare Tunnel
+  # that publishes ONLY /share/ on the Hub; everything else gets a 404 from the tunnel, and the Hub
+  # refuses anything but /share/ that arrives through it too. tools/share/setup-tunnel.sh sets it
+  # up (it writes share-tunnel/config.yml and adds "share" to COMPOSE_PROFILES in .env).
+  share-tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["share"]
+    container_name: ultimatetv-share-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - ${SHARE_TUNNEL_DIR:-./share-tunnel}:/etc/cloudflared:ro
+    depends_on:
+      - hub
 
 volumes:
   hub-data:

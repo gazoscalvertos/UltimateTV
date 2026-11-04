@@ -6,7 +6,7 @@
 
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import type { Channel, SyncAction, SyncGroup, WatchClient, WatchCommand, WatchReport, WatchSession } from "@ultimatetv/shared";
+import type { Channel, SyncAction, SyncGroup, SyncMember, WatchClient, WatchCommand, WatchReport, WatchSession } from "@ultimatetv/shared";
 import { cleanWatchReport, positionAt, WATCH_KEEP_STOPPED_MS, WATCH_STALE_MS, watchFinished } from "@ultimatetv/shared";
 import type { ContentFilter } from "./profiles.js";
 
@@ -140,41 +140,59 @@ export class Watching {
    */
   startSync(who: Asker & { client: WatchClient }, other: string): SyncGroup {
     if (other === who.device) throw new SyncError("That's this screen", 400);
+    const g = this.hostGroup(other);
+    return this.join(g.id, { device: who.device, deviceName: who.deviceName, client: who.client });
+  }
+
+  /**
+   * The Sync play group `other` is in, or a new one started from where it has got to (and `other`
+   * told to follow it). Share Play (shareplay.ts) uses this to put a link holder alongside a TV.
+   */
+  hostGroup(other: string): SyncGroup {
     const s = this.session(other);
     if (!s || s.stopped) throw new SyncError("That has stopped playing. Use Resume here instead.", 409);
-    const now = this.now();
     const existing = s.sync ? this.groups.get(s.sync) : undefined;
-    let g: Group;
-    if (existing && !existing.ended) {
-      g = existing;
-    } else {
-      g = {
-        id: randomBytes(6).toString("hex"),
-        req: s.req,
-        name: s.name,
-        ...(s.subtitle ? { subtitle: s.subtitle } : {}),
-        ...(s.artwork ? { artwork: s.artwork } : {}),
-        ...(s.title ? { title: s.title } : {}),
-        live: s.live,
-        ...(s.durationMs ? { durationMs: s.durationMs } : {}),
-        positionMs: Math.round(positionAt(s, now)),
-        paused: s.paused,
-        at: now,
-        seq: 1,
-        members: [{ device: s.device, deviceName: s.deviceName, client: s.client }],
-        ended: false,
-        seen: new Map([[s.device, now]]),
-      };
-      this.groups.set(g.id, g);
-      this.sessions.set(s.device, { ...s, sync: g.id });
-      this.command(s.device, { type: "sync", group: g.id });
-    }
-    // Out of any group it was in before: a screen follows one thing at a time.
-    for (const old of this.groups.values()) if (old.id !== g.id && old.members.some((m) => m.device === who.device)) this.leave(old.id, who.device);
-    if (!g.members.some((m) => m.device === who.device)) g.members.push({ device: who.device, deviceName: who.deviceName, client: who.client });
-    g.seen.set(who.device, now);
-    this.changed(g, { device: who.device, deviceName: who.deviceName, action: "join" });
+    if (existing && !existing.ended) return this.view(existing);
+    const now = this.now();
+    const g: Group = {
+      id: randomBytes(6).toString("hex"),
+      req: s.req,
+      name: s.name,
+      ...(s.subtitle ? { subtitle: s.subtitle } : {}),
+      ...(s.artwork ? { artwork: s.artwork } : {}),
+      ...(s.title ? { title: s.title } : {}),
+      live: s.live,
+      ...(s.durationMs ? { durationMs: s.durationMs } : {}),
+      positionMs: Math.round(positionAt(s, now)),
+      paused: s.paused,
+      at: now,
+      seq: 1,
+      members: [{ device: s.device, deviceName: s.deviceName, client: s.client }],
+      ended: false,
+      seen: new Map([[s.device, now]]),
+    };
+    this.groups.set(g.id, g);
+    this.sessions.set(s.device, { ...s, sync: g.id });
+    this.command(s.device, { type: "sync", group: g.id });
     return this.view(g);
+  }
+
+  /** Adds a screen to a group (taking it out of any other group first). */
+  join(id: string, member: SyncMember): SyncGroup {
+    const g = this.groups.get(id);
+    if (!g || g.ended) throw new SyncError("Sync play has ended", 404);
+    // Out of any group it was in before: a screen follows one thing at a time.
+    for (const old of this.groups.values()) if (old.id !== g.id && old.members.some((m) => m.device === member.device)) this.leave(old.id, member.device);
+    if (!g.members.some((m) => m.device === member.device)) g.members.push({ ...member });
+    g.seen.set(member.device, this.now());
+    this.changed(g, { device: member.device, deviceName: member.deviceName, action: "join" });
+    return this.view(g);
+  }
+
+  /** A member that doesn't send playback reports (a Share Play browser) saying it is still there. */
+  touch(id: string, device: string): void {
+    const g = this.groups.get(id);
+    if (g && !g.ended && g.members.some((m) => m.device === device)) g.seen.set(device, this.now());
   }
 
   /** The group as members see it, with anyone who has gone quiet taken out. */

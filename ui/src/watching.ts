@@ -5,7 +5,7 @@
 // in a Sync play group, the group's shared clock, which the TV follows.
 
 import { createSignal } from "solid-js";
-import type { PlaybackRequest, SyncAction, SyncGroup, WatchClient, WatchCommand, WatchReport, WatchSession } from "@ultimatetv/shared";
+import type { PlaybackRequest, ShareLinkView, SyncAction, SyncGroup, WatchClient, WatchCommand, WatchReport, WatchSession } from "@ultimatetv/shared";
 import { positionAt, syncCorrection, WATCH_REPORT_MS } from "@ultimatetv/shared";
 import { agent, onBox, onDesktop } from "./agent";
 import { api } from "./api";
@@ -134,9 +134,9 @@ function follow(g: SyncGroup): void {
   }
   setSyncGroup(g);
   if (!before || before.seq !== g.seq) {
-    if (before && g.last && g.last.action !== "join" && g.last.action !== "leave" && before.id === g.id) {
-      const verb = g.last.action === "pause" ? "paused" : g.last.action === "play" ? "pressed play" : "skipped";
-      if (!isMe(g.last.device)) toast(`${g.last.deviceName} ${verb}`);
+    if (before && g.last && before.id === g.id && !isMe(g.last.device)) {
+      const verb = { pause: "paused", play: "pressed play", seek: "skipped", join: "is watching along", leave: "stopped watching along" }[g.last.action];
+      toast(`${g.last.deviceName} ${verb}`);
     }
     void line();
   }
@@ -307,4 +307,17 @@ export function startWatching(): void {
     if (!g || !prev || prev === st.status || Date.now() < applyingUntil || !np || !sameReq(np.req, g.req)) return;
     void tellGroup(st.status === "paused" ? "pause" : "play", st.positionMs);
   });
+}
+
+// -------------------------------------------------------------------------------------------------
+// Share Play (issue #210): a link so someone with no app can watch along in a web browser.
+
+/** Makes a Share Play link to what this TV is playing (telling the Hub where it's got to first). */
+export async function shareNow(): Promise<ShareLinkView> {
+  await reportWatching("progress");
+  return api<ShareLinkView>("/api/share", { method: "POST", body: {} });
+}
+
+export async function cancelShare(id: string): Promise<void> {
+  await api(`/api/share/${enc(id)}`, { method: "DELETE" });
 }

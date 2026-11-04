@@ -4,7 +4,7 @@
 //
 // Bump SHELL whenever the remote's HTML, its script or its icons change. The new worker installs a
 // fresh cache and the old one is deleted on activate, so a Hub update can't leave an old page behind.
-const SHELL = "utv-remote-v3";
+const SHELL = "utv-remote-v4";
 
 // Everything the page needs to draw itself before the Hub has answered.
 const FILES = [

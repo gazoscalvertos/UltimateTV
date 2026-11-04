@@ -19,7 +19,7 @@ import { mouseMode, onMouse } from "../mouse";
 import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
 import { queue } from "../queue";
-import { leaveSync, syncGroup, userSeek } from "../watching";
+import { cancelShare, leaveSync, shareNow, syncGroup, userSeek } from "../watching";
 import { canSave, saveToNas } from "../save";
 import { advertMarks } from "../seekMarks";
 import { isFavouriteChannel, isFavouriteTitle, toggleFavouriteChannel, toggleFavouriteTitle } from "../favourites";
@@ -390,6 +390,39 @@ export function Player() {
     return t && (t.kind === "movie" || t.kind === "series") ? { name: t.name, on: isFavouriteTitle(t.id), toggle: () => toggleFavouriteTitle(t) } : null;
   };
 
+  // Share Play (issue #210): a link someone opens in any web browser to watch along with the TV.
+  const canShare = () => {
+    const np = nowPlaying();
+    return Boolean(np && np.req.kind === "title" && !np.info.live);
+  };
+  const shareWithLink = async () => {
+    const link = await shareNow().catch((err: Error) => (errorToast(err), null));
+    if (!link) return;
+    openDialog((close) => (
+      <DialogFrame close={() => close()} class="share-play">
+        <h2>Watch together</h2>
+        <div class="share-play-body">
+          <div class="qr-card">
+            <img src={`/api/qr.svg?text=${encodeURIComponent(link.url)}`} alt="" />
+          </div>
+          <div>
+            <p>Scan this with a phone, or send the link from the phone remote (Browse › Elsewhere). Whoever opens it watches {link.name} in a web browser, pausing and skipping together with this TV.</p>
+            <p class="share-play-url">{link.url}</p>
+            <p class="muted">One person, one browser. The link stops when this TV moves on to something else, or in {Math.round((link.expiresAt - link.createdAt) / 3_600_000)} hours.</p>
+          </div>
+        </div>
+        <div class="option-list">
+          <button class="option" data-focus onClick={() => close()}>
+            Done
+          </button>
+          <button class="option" data-focus onClick={() => void cancelShare(link.id).then(() => (toast("Link cancelled"), close()), errorToast)}>
+            Cancel the link
+          </button>
+        </div>
+      </DialogFrame>
+    ));
+  };
+
   const options = () =>
     openDialog((close) => {
       const st = playerState();
@@ -471,6 +504,16 @@ export function Player() {
                 </div>
               </>
             )}
+          </Show>
+          <Show when={canShare()}>
+            <h4>
+              <Icon name="screens" /> Share Play
+            </h4>
+            <div class="option-list">
+              <button class="option" data-focus onClick={() => (close(), void shareWithLink())}>
+                Watch together with a link
+              </button>
+            </div>
           </Show>
           <Show when={syncGroup()}>
             {(g) => (
