@@ -16,6 +16,7 @@ make console    # build/ultimatetv.elf, the app
 make tile       # build/PPSA26001/eboot.bin, the installable tile
 make package    # the tile plus icon0.png and param.json
 make install PS5_HOST=192.168.0.42   # copy it to a console and register the tile
+make pkg PS5_PKG_TOOL=/path/to/ffpfsc-pkg-tool   # wrap the same tile in a .pkg
 make clean
 ```
 
@@ -46,6 +47,30 @@ make package
 
 Nothing built here is committed: the app is about 55 MB and the tile about 36 MB, and both are
 generated from source. `build/` and `.hosttest/` are gitignored.
+
+### Making a `.pkg`
+
+`make install` is the homebrew route: it copies the folder and asks the console's installer to
+register it. A console with a package installer wants a `.pkg` instead, and `make pkg` makes one
+— but it needs a packaging tool that is deliberately not in this repository (it is .NET, about
+80 MB, and only one of the two install routes uses it).
+
+```
+# once, somewhere outside the repo:
+git clone --depth 1 https://github.com/knutwurst/ps5-ultrapack
+cd ps5-ultrapack
+./BUILD_PKG_TOOL.sh          # needs a .NET 9 SDK; edit the RID to linux-x64 on Linux
+# then, in this repository:
+make pkg PS5_PKG_TOOL=/path/to/ps5-ultrapack/backend/native/ffpfsc-pkg-tool
+```
+
+The target stages the tile in the shape a package wants (`eboot.bin` at the top, metadata under
+`sce_sys/` — a different layout from the flat folder `make package` makes), builds
+`build/pkg/UP9000-PPSA26001_00-ULTIMATETV000000-A0100-V0100.pkg`, and runs the tool's own checker
+over it, which must report 29 passed and 0 failed.
+
+`ps5/sce_sys/param.json` carries a `contentId` for exactly this reason: the tool checks that it
+matches the title id, and a package without one builds but is called incoherent.
 
 ## How it is split, and why
 
