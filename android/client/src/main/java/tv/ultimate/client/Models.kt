@@ -320,3 +320,70 @@ data class FeatureInfo(val id: String, val label: String, val detail: String, va
 
 /** GET /api/features: this phone's paired id and what's switched off on it. */
 data class FeatureState(val device: String?, val client: String?, val off: List<String>?, val features: List<FeatureInfo>?)
+
+// Watching elsewhere and Sync play (Hub: shared/src/watching.ts).
+
+data class WatchProfile(val id: String, val name: String?)
+
+/** Another screen's playback: what, where it has got to (at `at`, Hub clock) and whether it stopped. */
+data class WatchSession(
+    val device: String,
+    val deviceName: String?,
+    val client: String?,
+    val box: String?,
+    val req: PlaybackRequest,
+    val name: String,
+    val subtitle: String?,
+    val artwork: String?,
+    val title: TitleRef?,
+    val live: Boolean,
+    val positionMs: Long,
+    val durationMs: Long?,
+    val paused: Boolean,
+    val at: Long,
+    val stopped: Boolean,
+    val profile: WatchProfile?,
+    val sync: String?,
+)
+
+data class WatchingState(val now: Long?, val me: String?, val sessions: List<WatchSession>?)
+
+data class SyncMember(val device: String, val deviceName: String?, val client: String?)
+data class SyncLast(val device: String?, val deviceName: String?, val action: String?)
+
+/** A Sync play group's shared clock: where everyone should be at `at` (Hub clock), and paused or not. */
+data class SyncGroup(
+    val id: String,
+    val req: PlaybackRequest,
+    val name: String,
+    val subtitle: String?,
+    val title: TitleRef?,
+    val live: Boolean,
+    val durationMs: Long?,
+    val positionMs: Long,
+    val paused: Boolean,
+    val at: Long,
+    val seq: Int,
+    val members: List<SyncMember>?,
+    val ended: Boolean,
+    val last: SyncLast?,
+)
+
+data class SyncReply(val now: Long?, val group: SyncGroup?)
+data class WatchCommand(val type: String, val group: String?)
+data class WatchReply(val now: Long?, val me: String?, val commands: List<WatchCommand>?, val sync: SyncGroup?)
+
+/** Where a session or group is now, given where it was at `at` (both by the Hub's clock). */
+fun placeAt(positionMs: Long, paused: Boolean, at: Long, durationMs: Long?, hubNow: Long): Long {
+    val pos = positionMs + if (paused) 0L else maxOf(0L, hubNow - at)
+    return if (durationMs != null && durationMs > 0) minOf(pos, durationMs) else pos
+}
+
+/** "3:05" or "1:02:09". */
+fun clockLabel(ms: Long): String {
+    val total = maxOf(0L, ms / 1000)
+    val h = total / 3600
+    val m = (total % 3600) / 60
+    val s = total % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}

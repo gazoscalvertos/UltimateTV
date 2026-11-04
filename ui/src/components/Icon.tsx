@@ -12,6 +12,14 @@ const PATHS: Record<string, () => JSX.Element> = {
     </>
   ),
   record: () => <circle cx="12" cy="12" r="6" fill="currentColor" stroke="none" />,
+  // A TV and a phone side by side: Watching elsewhere and Sync play.
+  screens: () => (
+    <>
+      <rect x="2.5" y="5" width="13" height="9.5" rx="1.5" />
+      <path d="M6 18.5h6" />
+      <rect x="17.5" y="8" width="4.5" height="10.5" rx="1" />
+    </>
+  ),
   series: () => (
     <>
       <circle cx="9" cy="12" r="5" fill="currentColor" stroke="none" />

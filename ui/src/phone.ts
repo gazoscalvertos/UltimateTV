@@ -18,6 +18,7 @@ import { playStationById } from "./radio";
 import { saveEpisodes, saveToNas } from "./save";
 import { sleep, setSleep } from "./sleep";
 import { isKids, nav, profile } from "./store";
+import { loadElsewhere, resumeHere, syncWith, userSeek } from "./watching";
 
 /** What the phone's "On the TV box" list shows: no pictures (they're data: URLs on the box), just links to them. */
 async function downloadsForPhone() {
@@ -117,20 +118,28 @@ async function castForPhone() {
 
 const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
   now,
-  play: async (a: { req: PlaybackRequest; title?: TitleRef; fromStart?: boolean }) => {
-    const ok = await play(a.req, { ...(a.title ? { title: a.title } : {}), ...(a.fromStart ? { fromStart: true } : {}) });
+  play: async (a: { req: PlaybackRequest; title?: TitleRef; fromStart?: boolean; startMs?: number }) => {
+    const ok = await play(a.req, { ...(a.title ? { title: a.title } : {}), ...(a.fromStart ? { fromStart: true } : {}), ...(typeof a.startMs === "number" ? { startMs: a.startMs } : {}) });
     if (!ok) throw new Error("It didn't start on the TV");
     return { ok };
   },
   seek: async (a: { ms: number; mode: "absolute" | "relative" | "live" }) => {
     if (a.mode === "live") await agent.goLive();
-    else await agent.seek(a.ms, a.mode === "absolute" ? "absolute" : "relative");
+    else await userSeek(a.ms, a.mode === "absolute" ? "absolute" : "relative");
     return { ok: true };
   },
   track: async (a: { audio?: number; subtitle?: number | null }) => {
     if (typeof a.audio === "number") await agent.setAudioTrack(a.audio);
     if (a.subtitle !== undefined) await agent.setSubtitleTrack(a.subtitle);
     return { ok: true };
+  },
+  // The phone remote's Watching elsewhere: carry on here what another screen is playing, or join it.
+  watchHere: async (a: { device: string; mode: "resume" | "move" | "sync" }) => {
+    const s = (await loadElsewhere()).find((x) => x.device === a.device);
+    if (!s) throw new Error("That isn't playing any more");
+    const ok = a.mode === "sync" ? await syncWith(s) : await resumeHere(s, a.mode === "move");
+    if (!ok) throw new Error("It didn't start on the TV");
+    return { ok };
   },
   // The phone's Cast sheet: over to the TV's own apps (Netflix and the rest).
   musicLibrary: async (a: { kind: "playlists" | "albums" | "artists"; offset?: number }) => music().spotifyLibrary(a.kind, a.offset ?? 0),

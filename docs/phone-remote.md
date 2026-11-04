@@ -143,6 +143,13 @@ The **Watch** tab at the bottom chooses what the TV plays, without using the TV'
 ![Films on the phone](screenshots/38-phone-films.png)
 ![A film on the phone](screenshots/39-phone-title.png)
 
+## Watching elsewhere
+
+Watch › **Elsewhere** lists what every TV, phone and tablet in the house is playing. Tap one and the
+TV the remote works carries on from the same place; **Move** also stops it where it was, and
+**Sync** plays both together, pausing and skipping as one. See
+[watching-elsewhere.md](watching-elsewhere.md).
+
 ## Stats
 
 **Stats** (bottom right, and at the top of Settings) shows both machines in one page, refreshed
