@@ -30,6 +30,8 @@ pop up what's new after an update. So:
 
 ## 2026-11-04
 
+- **CI builds the PlayStation 5 app** ([docs/ps5.md](docs/ps5.md)): a new `ps5-console` job fetches the PS5 payload SDK and the homebrew libraries, builds the app and the tile on every pull request, and on a merge to `main` replaces `UltimateTV-PS5.elf` and `UltimateTV-PS5-tile.zip` on the PS5 release. Before this the release was built by hand and could lag behind `main`. (#182)
+
 - **The PlayStation 5 app tries every way of drawing before it gives up** ([docs/ps5.md](docs/ps5.md)): with the sound fixed, the window opened and then SDL answered "Couldn't find matching render driver" — its one-line summary of every driver failing, which says nothing about why any of them did. The app now lists the render drivers the console's SDL was built with and tries each by itself: software first (the console's SDL can always back it with its own framebuffer, and trying OpenGL first can hand the display to Mesa and lock the software path out), then every other driver, then drawing straight into the window's surface, then a 1080p and a 720p window. It also stops SDL quietly backing the window with a GPU texture. Every attempt and its reason, the SDL version, the video driver, every display mode and every render driver go into `/data/ultimatetv/last-run.log`, along with whether the first three frames reached the console. A renderer can be put first without a new build by writing its name into `/data/ultimatetv/renderer.txt` (or `--renderer=NAME`). (#182)
   Household: the PlayStation 5 app should now show its picture where it used to stop with a render driver error.
 
