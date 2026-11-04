@@ -15,7 +15,7 @@ import { GreenScreenImage, GreenScreenVideo } from "./GreenScreen";
 import { onHubEvent } from "../events";
 import { addOverlayKeys } from "../keys";
 import { isLive, playerState } from "../player";
-import { isKids, reducedMotion } from "../store";
+import { isKids, reducedMotion, toast } from "../store";
 
 /** How often the TV asks itself whether it's time for a scare. */
 const TICK_MS = 60_000;
@@ -96,6 +96,14 @@ async function clipSound(on: boolean): Promise<void> {
   await new Promise((r) => window.setTimeout(r, 250));
 }
 
+/** A <video> error in words. */
+function clipError(code: number | undefined): string {
+  if (code === 4) return "its format isn't one the TV app can play (try MP4 with H.264, or WebM)";
+  if (code === 3) return "the file is damaged";
+  if (code === 2) return "it couldn't be fetched from the Hub";
+  return "the TV app gave no reason";
+}
+
 export function JumpScare() {
   const [state, setState] = createSignal<ScareState>({ settings: DEFAULT_SCARE_SETTINGS, clips: [], mixes: [] });
   const settings = () => state().settings;
@@ -146,7 +154,16 @@ export function JumpScare() {
   let starting = false;
   const show = (scare: Scare) => {
     // Reduce motion (Settings › Accessibility): no frights at all, even ones sent from a phone.
-    if (isKids() || document.hidden || reducedMotion() || starting) return;
+    const blocked = isKids() ? "this is a Kids profile" : reducedMotion() ? "Reduce motion is on (Settings › Accessibility)" : document.hidden ? "the TV app is in the background" : starting ? "another clip is starting" : null;
+    if (blocked) {
+      // One sent from the phone says why it didn't appear, rather than the phone saying "on the TV
+      // now" over a TV that shows nothing. Random ones stay quiet.
+      if (scare.byHand) {
+        toast(`Clip not shown: ${blocked}`);
+        console.warn(`Projected clip not shown: ${blocked}`);
+      }
+      return;
+    }
     lastAt = Date.now();
     if (hasSound(scare) && !clipSoundOn && agentHas("setClipSound") && playerState().audio?.passthrough) {
       // A film with Dolby or DTS: let its sound make room first (a moment's quiet, then the fright).
@@ -176,7 +193,16 @@ export function JumpScare() {
     // is still going, when the video loops until it's time.
     if (scare.audio) el.loop = true;
     else el.onended = hide;
-    void el.play().catch(() => undefined);
+    // A file the TV can't play (a codec the page has no decoder for, or a clip that has gone) would
+    // otherwise leave a black square for the clip's seconds: say so, and take it down.
+    el.onerror = () => {
+      const code = el.error?.code;
+      console.warn(`Projected clip couldn't play: ${clipError(code)}`);
+      if (scare.byHand) toast(`That clip couldn't play on the TV: ${clipError(code)}`, "bad");
+      hide();
+    };
+    // (An AbortError only means the source was set after this call: the autoplay attribute carries on.)
+    void el.play().catch((e: Error) => e.name !== "AbortError" && console.warn(`Projected clip didn't start: ${e.message}`));
   };
 
   /** True when a random scare would be welcome right now. */
