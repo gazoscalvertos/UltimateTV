@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Watch together</title>
+<style>
+  /* Share Play (issue #210): someone with a link watches along with the TV, nothing to install. */
+  :root {
+    --bg: #0b1220; --card: #131c2e; --line: #24324d; --fg: #eef3fb; --muted: #9aa8c2;
+    --accent: #4f8cff; --ok: #35c27a; --bad: #ff6b6b; --radius: 14px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #4f8cff, #8a5cff); display: grid; place-items: center; font-weight: 800; font-size: 18px; flex: none; }
+  header b { font-size: 17px; }
+  header small { display: block; color: var(--muted); font-size: 14px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .art { aspect-ratio: 16 / 9; background: #000 center / cover no-repeat; }
+  .body { padding: 20px; }
+  h1 { font-size: 24px; line-height: 1.25; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 0 0 4px; }
+  input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: #0d1526; color: var(--fg); font: inherit; }
+  button { margin-top: 14px; width: 100%; padding: 14px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font: 600 17px/1 inherit; cursor: pointer; }
+  button.secondary { background: transparent; border: 1px solid var(--line); color: var(--fg); width: auto; padding: 10px 14px; margin: 0; font-size: 15px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .hint { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
+  video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
+  .state { display: flex; align-items: center; gap: 10px; font-weight: 600; flex: 1; min-width: 200px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 4px rgba(53, 194, 122, .2); }
+  .dot.bad { background: var(--bad); }
+  .dot.wait { background: var(--accent); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .problem { padding: 24px 20px; }
+  .problem p { margin: 0 0 8px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo">▶</div>
+    <div><b id="app">UltimateTV</b><small>Watch together</small></div>
+  </header>
+
+  <section id="loading"><div class="problem"><p>Opening the link…</p></div></section>
+
+  <section id="problem" hidden>
+    <div class="problem">
+      <p id="problem-text"></p>
+      <button id="retry" class="secondary" hidden>Try again</button>
+    </div>
+  </section>
+
+  <section id="intro" hidden>
+    <div class="art" id="art"></div>
+    <div class="body">
+      <h1 id="name"></h1>
+      <p class="sub" id="sub"></p>
+      <label for="viewer">Your name (so they know who joined)</label>
+      <input id="viewer" maxlength="40" autocomplete="nickname" placeholder="Optional">
+      <button id="join">Watch together</button>
+      <p class="hint">Pause or skip here and it does the same on the TV, and the other way round. This link works in one browser only: once it's open here, nobody else can use it.</p>
+    </div>
+  </section>
+
+  <section id="watch" hidden>
+    <video id="video" controls playsinline></video>
+    <div class="bar">
+      <div class="state"><span class="dot wait" id="dot"></span><span id="status">Starting…</span></div>
+      <button class="secondary" id="leave">Stop watching</button>
+    </div>
+  </section>
+</main>
+<script src="/share/hls.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const token = location.pathname.split("/").filter(Boolean)[1] || "";
+  const base = `/share/${encodeURIComponent(token)}`;
+  const video = $("video");
+
+  /** Hub clock minus ours. */
+  let offset = 0;
+  const hubNow = () => Date.now() + offset;
+  let group = null;
+  let me = null;
+  let hostName = "the TV";
+  let stopped = false;
+  /** While we line ourselves up with the TV, our own pause and seek aren't news to send back. */
+  let applyingUntil = 0;
+  let hls = null;
+  /** A jump we made to line up: its "seeked" isn't news either, however long the copy takes to catch up. */
+  let ourSeek = false;
+
+  const show = (id) => {
+    for (const s of ["loading", "problem", "intro", "watch"]) $(s).hidden = s !== id;
+  };
+  const fail = (text, retry) => {
+    stopped = true;
+    if (hls) hls.destroy();
+    video.pause();
+    $("problem-text").textContent = text;
+    $("retry").hidden = !retry;
+    show("problem");
+  };
+  const status = (text, kind) => {
+    $("status").textContent = text;
+    $("dot").className = `dot ${kind || "ok"}`;
+  };
+
+  async function call(path, opts) {
+    const res = await fetch(base + path, { credentials: "same-origin", cache: "no-store", ...(opts || {}) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(body.error || "Something went wrong"), { problem: body.problem, status: res.status });
+    return body;
+  }
+  const post = (path, body) => call(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+
+  /** Where the TV is now, from the shared clock. */
+  function groupPosition() {
+    if (!group) return 0;
+    const moved = group.paused ? 0 : Math.max(0, hubNow() - group.at);
+    const pos = group.positionMs + moved;
+    return group.durationMs ? Math.min(pos, group.durationMs) : pos;
+  }
+
+  async function load() {
+    show("loading");
+    try {
+      const info = await call("/info");
+      $("app").textContent = info.appName || "UltimateTV";
+      document.title = `${info.name} · Watch together`;
+      hostName = info.hostName || "the TV";
+      $("name").textContent = info.name;
+      $("sub").textContent = [info.subtitle, `Playing on ${hostName}`].filter(Boolean).join(" · ");
+      if (info.artwork) $("art").style.backgroundImage = `url("${info.artwork}")`;
+      else $("art").hidden = true;
+      try {
+        $("viewer").value = localStorage.getItem("utv-share-name") || "";
+      } catch {}
+      show("intro");
+    } catch (err) {
+      fail(err.message, err.problem === "stopped");
+    }
+  }
+
+  async function join() {
+    $("join").disabled = true;
+    const name = $("viewer").value.trim();
+    try {
+      localStorage.setItem("utv-share-name", name);
+    } catch {}
+    try {
+      const res = await post("/join", { name });
+      offset = res.now - Date.now();
+      me = res.me;
+      group = res.group;
+      stopped = false;
+      show("watch");
+      status("Loading the picture…", "wait");
+      start(res.stream);
+      void poll();
+    } catch (err) {
+      fail(err.message, err.problem === "stopped");
+    } finally {
+      $("join").disabled = false;
+    }
+  }
+
+  function start(src) {
+    const begin = () => {
+      applyingUntil = Date.now() + 3000;
+      ourSeek = true;
+      video.currentTime = groupPosition() / 1000;
+      if (!group.paused) video.play().catch(() => status("Tap play to start", "wait"));
+    };
+    video.addEventListener("loadedmetadata", begin, { once: true });
+    if (window.Hls && window.Hls.isSupported()) {
+      hls = new window.Hls({ startPosition: groupPosition() / 1000, maxBufferLength: 30 });
+      hls.on(window.Hls.Events.ERROR, (_e, data) => {
+        if (!data.fatal) return;
+        if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
+          status("Lost the picture, trying again…", "wait");
+          setTimeout(() => hls && hls.startLoad(), 2000);
+        } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+        else fail("This browser couldn't play it. Try Chrome, Edge, Firefox or Safari.", false);
+      });
+      hls.loadSource(src);
+      hls.attachMedia(video);
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src;
+    } else {
+      fail("This browser can't play the video. Try Chrome, Edge, Firefox or Safari.", false);
+    }
+  }
+
+  /** Long-polls the shared clock, so a pause on the TV pauses here within a moment. */
+  async function poll() {
+    while (!stopped && group) {
+      try {
+        const res = await call(`/sync?since=${group.seq}&wait=20000`);
+        offset = res.now - Date.now();
+        const before = group;
+        group = res.group;
+        if (before.seq !== group.seq && group.last && group.last.device !== me) {
+          const who = group.last.deviceName;
+          const said = { pause: `${who} paused`, play: `${who} pressed play`, seek: `${who} skipped`, join: `${who} joined`, leave: `${who} left` }[group.last.action];
+          if (said) flash(said);
+        }
+        line(true);
+      } catch (err) {
+        if (stopped) return;
+        if (err.problem) return fail(err.message, err.problem === "stopped");
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+  }
+
+  let flashUntil = 0;
+  function flash(text) {
+    flashUntil = Date.now() + 4000;
+    status(text, "ok");
+  }
+
+  /** Lines us up with the TV: pause or play, a nudge in speed for a small gap, a jump for a big one. */
+  function line(changed) {
+    if (!group || stopped || video.readyState < 2) return;
+    const want = groupPosition() / 1000;
+    const diff = video.currentTime - want;
+    if (group.paused !== video.paused) {
+      applyingUntil = Date.now() + 1500;
+      if (group.paused) video.pause();
+      else video.play().catch(() => status("Tap play to carry on", "wait"));
+    }
+    if (video.seeking) return;
+    const gap = Math.abs(diff);
+    // A paused picture should match; a playing one has a little slack before anyone notices.
+    if (gap > (group.paused ? 1 : 4) || (changed && gap > 2)) {
+      applyingUntil = Date.now() + 3000;
+      video.playbackRate = 1;
+      ourSeek = true;
+      video.currentTime = want;
+    } else if (!group.paused && gap > 0.5) {
+      video.playbackRate = diff > 0 ? 0.95 : 1.05;
+    } else {
+      video.playbackRate = 1;
+    }
+    if (Date.now() > flashUntil) {
+      const others = group.members.filter((m) => m.device !== me).map((m) => m.deviceName).join(" and ") || hostName;
+      if (video.readyState < 3 && !video.paused) status("Catching up…", "wait");
+      else status(group.paused ? `Paused with ${others}` : `In step with ${others}`, "ok");
+    }
+  }
+  setInterval(() => line(false), 1000);
+
+  async function tell(action) {
+    if (Date.now() < applyingUntil || !group || stopped) return;
+    try {
+      const res = await post("/action", { action, positionMs: Math.round(video.currentTime * 1000) });
+      offset = res.now - Date.now();
+      group = res.group;
+    } catch (err) {
+      if (err.problem) fail(err.message, err.problem === "stopped");
+    }
+  }
+  video.addEventListener("play", () => tell("play"));
+  video.addEventListener("pause", () => {
+    // The end of the film isn't a pause for everyone.
+    if (!video.ended) tell("pause");
+  });
+  video.addEventListener("seeked", () => {
+    if (ourSeek) ourSeek = false;
+    else tell("seek");
+  });
+
+  function leave() {
+    stopped = true;
+    group = null;
+    if (hls) hls.destroy();
+    video.pause();
+    navigator.sendBeacon ? navigator.sendBeacon(`${base}/leave`) : fetch(`${base}/leave`, { method: "POST", keepalive: true });
+  }
+  $("leave").onclick = () => {
+    leave();
+    $("problem-text").textContent = `You've stopped watching along. ${hostName} carries on.`;
+    $("retry").hidden = false;
+    show("problem");
+  };
+  window.addEventListener("pagehide", () => group && leave());
+  $("join").onclick = join;
+  $("retry").onclick = load;
+  if (!token) fail("This link isn't complete. Ask for a new one.", false);
+  else load();
+})();
+</script>
+</body>
+</html>

@@ -27,6 +27,9 @@ the end isn't offered.
 
 Kids and Guests only see things their profile may watch.
 
+To watch along with someone who doesn't have the app, use [Share Play](share-play.md): a link that
+opens in any web browser and joins the TV's Sync play.
+
 ## How Sync play stays in step
 
 The Hub keeps one clock for the group: where the film was, whether it's paused, and when that was

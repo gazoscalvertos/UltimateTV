@@ -29,3 +29,4 @@ export * from "./selftest.js";
 export * from "./desktop.js";
 export * from "./limited.js";
 export * from "./watching.js";
+export * from "./shareplay.js";
