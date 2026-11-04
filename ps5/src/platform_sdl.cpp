@@ -13,13 +13,30 @@
 
 #include "address.hpp"
 #include "display.hpp"
+#include "log.hpp"
 #include "platform.hpp"
+#include "startup.hpp"
 #include "text.hpp"
 #include "ui.hpp"
 
 namespace utv {
 
 namespace {
+
+/**
+ * Starts one SDL subsystem and keeps the driver's own reason if it won't.
+ *
+ * The previous message is cleared first, because a driver that fails without explaining itself
+ * would otherwise leave the last unrelated error in place — which is exactly how the audio
+ * driver's failure came to be reported as "Unknown pixel format" from the cursor code.
+ */
+Subsystem startSubsystem(Uint32 flags, const char* what) {
+  SDL_ClearError();
+  if (SDL_InitSubSystem(flags) == 0) return Subsystem{true, ""};
+  const char* why = SDL_GetError();
+  std::string reason = (why && *why) ? why : "the console did not say why";
+  return Subsystem{false, std::string(what) + ": " + reason};
+}
 
 /** How long a direction must be held before it repeats, and how often after that. */
 const Uint32 REPEAT_DELAY_MS = 380;
@@ -93,6 +110,7 @@ class SdlWindow : public Window {
     // The window may already be open when the player arrives, so it is told the size here too.
     if (video_ && width_ > 0 && height_ > 0) video_->setDisplaySize(width_, height_);
   }
+  bool hasSound() const override { return hasSound_; }
 
  private:
   void handleEvent(const SDL_Event& event, std::vector<int>& keys, bool& closed);
@@ -101,6 +119,8 @@ class SdlWindow : public Window {
   SDL_Renderer* renderer_ = nullptr;
   SDL_GameController* pad_ = nullptr;
   Video* video_ = nullptr;
+  /** Whether the console's sound came up, so the app knows not to promise any. */
+  bool hasSound_ = false;
   int width_ = 1920;
   int height_ = 1080;
   /** The direction being held, and when it started. */
@@ -111,8 +131,27 @@ class SdlWindow : public Window {
 };
 
 bool SdlWindow::open(std::string& problem) {
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0) {
-    problem = std::string("The console wouldn't start a window: ") + SDL_GetError();
+  // The three things are asked for one at a time, because asking for them together made a
+  // single failure take all three down. On a current console the audio driver refuses to
+  // initialise and leaves a stale "Unknown pixel format" behind from the cursor code, so the
+  // one combined call answered "no" with an error about the window — and the app died before it
+  // drew a frame. Separately is the only way to know which part failed and to keep the picture.
+  const Subsystem video = startSubsystem(SDL_INIT_VIDEO, "the console wouldn't start a window");
+  if (!video.ok) {
+    problem = video.why;
+    return false;
+  }
+  // The pad is asked for next: without it the app can still draw, and a window that is already
+  // up starts listening for a controller plugged in later, so this is a note and not a failure.
+  const Subsystem pad = startSubsystem(SDL_INIT_GAMECONTROLLER, "the console wouldn't give us a pad");
+  // Sound last and least: a film with no sound is worse than one with, but a black screen is
+  // worse than both, so an audio driver that refuses is noted and the app carries on.
+  const Subsystem audio = startSubsystem(SDL_INIT_AUDIO, "the console wouldn't give us sound");
+  const Startup startup = decideStartup(video, pad, audio);
+  for (const std::string& note : startup.notes) logLine("carrying on without it: %s", note.c_str());
+  hasSound_ = startup.hasSound;
+  if (!startup.canDraw) {
+    problem = startup.fatal;
     return false;
   }
   // What the console can show, asked before the window is made: the driver offers 1080p and

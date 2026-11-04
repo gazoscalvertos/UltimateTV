@@ -31,6 +31,13 @@ class Window {
   virtual void size(int& width, int& height) = 0;
   /** The player to draw under the on-screen controls while a film is on. */
   virtual void setVideo(Video* video) = 0;
+  /**
+   * Whether the console's sound came up.
+   *
+   * False on a console whose audio driver refuses to initialise, where the app runs silently
+   * rather than not at all. The player asks before it tries to open a device.
+   */
+  virtual bool hasSound() const = 0;
 };
 
 /**
