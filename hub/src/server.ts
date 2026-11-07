@@ -49,6 +49,7 @@ import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
 import { guestBlocks } from "./guest.js";
 import { ContentFilter, certificationRank } from "./profiles.js";
 import { ReportStore } from "./reports.js";
+import { orderPatch, pausePatch, testSource, UnknownSourceError } from "./sourceoptions.js";
 import { JellyfinClient } from "./services/jellyfin.js";
 import { PlexClient, plexPinCheck, plexPinStart, plexResources } from "./services/plex.js";
 import { publicSettings, sourceKey } from "./settings.js";
@@ -316,6 +317,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/kids-allow/:id/:kind/:titleId",
     "POST /api/settings/iptv",
     "DELETE /api/settings/iptv/:id",
+    "POST /api/sources/:id/test",
+    "POST /api/sources/:id/pause",
+    "PUT /api/sources/order",
     "POST /api/refresh",
     "POST /api/jellyfin/quickconnect",
     "POST /api/jellyfin/login",
@@ -676,6 +680,47 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       ctx.events.emit({ type: "guide.updated" });
     });
     return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
+  });
+
+  // Source options (#219). A source is addressed by its key: "iptv:<id>", "jellyfin", "plex", "torbox"
+  // or "addon:<hash>" (the ids /api/settings lists in providerOrder). Removing one uses the existing
+  // DELETE routes.
+  const sourceError = (err: unknown, reply: FastifyReply) => {
+    if (err instanceof UnknownSourceError) return reply.code(404).send({ error: err.message });
+    return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
+  };
+  app.post("/api/sources/:id/test", async (req: Req<{ id: string }>, reply) => {
+    try {
+      return await testSource(ctx.settings.get(), req.params.id, ctx.fetchImpl);
+    } catch (err) {
+      return sourceError(err, reply);
+    }
+  });
+  app.post("/api/sources/:id/pause", async (req: Req<{ id: string }, Record<string, string>, { paused?: boolean }>, reply) => {
+    try {
+      const paused = req.body?.paused !== false;
+      const wasIptv = req.params.id.startsWith("iptv:");
+      ctx.settings.update(pausePatch(ctx.settings.get(), req.params.id, paused));
+      ctx.events.emit({ type: "settings.changed" });
+      if (wasIptv) {
+        void ctx.ingest.refreshAll().then(() => {
+          ctx.scheduler.replan();
+          ctx.events.emit({ type: "guide.updated" });
+        });
+      }
+      return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
+    } catch (err) {
+      return sourceError(err, reply);
+    }
+  });
+  app.put("/api/sources/order", async (req: Req<Record<string, string>, Record<string, string>, { order?: string[] }>, reply) => {
+    try {
+      ctx.settings.update(orderPatch(ctx.settings.get(), req.body?.order));
+      ctx.events.emit({ type: "settings.changed" });
+      return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
+    } catch (err) {
+      return sourceError(err, reply);
+    }
   });
 
   app.post("/api/refresh", async () => {

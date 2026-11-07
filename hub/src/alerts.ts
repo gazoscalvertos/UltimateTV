@@ -8,6 +8,7 @@ import { statfs } from "node:fs/promises";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { cleanAlertSettings, daysFromNow, DEFAULT_ALERT_SETTINGS, type Alert, type AlertLevel, type AlertSettings, type AlertState, type BoxSoftware } from "@ultimatetv/shared";
 import type { HubContext } from "./context.js";
+import { activeIptv } from "./sourceoptions.js";
 import { readBoots, restartAlert } from "./restarts.js";
 
 const CHECK_MS = 30 * 60_000;
@@ -218,7 +219,7 @@ export class Alerts {
 
   private async expiries(): Promise<{ name: string; at: number }[]> {
     const out: { name: string; at: number }[] = [];
-    for (const src of this.ctx.settings.get().iptv) {
+    for (const src of activeIptv(this.ctx.settings.get())) {
       const at = this.ctx.ingest.sourceMeta(src.id)?.expires;
       if (at) out.push({ name: src.name, at });
     }
@@ -253,7 +254,7 @@ export class Alerts {
     const inputs: AlertInputs = {
       now,
       settings,
-      iptv: s.iptv.map((src) => {
+      iptv: activeIptv(s).map((src) => {
         const meta = this.ctx.ingest.sourceMeta(src.id);
         const status = this.ctx.ingest.sourceStatus(src.id);
         return { id: src.id, name: src.name, ...(meta?.expires ? { expires: meta.expires } : {}), ...(status ? { ok: status.ok, ...(status.error ? { error: status.error } : {}) } : {}) };
