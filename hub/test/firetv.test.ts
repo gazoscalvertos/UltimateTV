@@ -118,7 +118,7 @@ describe("the version the Hub offers", () => {
     // Android refuses to install over the old signing key, so the Hub has to be able to say which
     // builds are on it; a missing uninstallBelow leaves the household with "App not installed".
     expect(version.uninstallBelow, `${file} has no uninstallBelow — update it`).toBe(12);
-    expect(version.versionName, `${file} has no versionName — update it`).toBe("0.6.0");
+    expect(version.versionName, `${file} has no versionName — update it`).toBe("0.6.1");
   });
 
   it("is offered on the setup page, with a code and a link of its own", () => {
