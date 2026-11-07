@@ -252,6 +252,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/screensaver", "paired"],
     ["GET /api/screensaver/photos", "paired"],
     ["GET /api/screensaver/photos/:id", "paired"],
+    ["GET /api/art", "paired"],
+    ["GET /api/art/items", "paired"],
+    ["GET /api/art/image/:id", "paired"],
     // The phone's Saved tab reads the list too, so reading it needs pairing just as saving does:
     // the list says what the household is interested in.
     ["GET /api/watchlist", "paired"],
@@ -396,6 +399,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "GET /api/mix/nas",
     "DELETE /api/mix-channels/:id/videos/:videoId",
     "GET /api/screensaver/nas",
+    "POST /api/art/refresh",
+    "DELETE /api/art",
     "PUT /api/alerts/settings",
     "PUT /api/ha/settings",
     "PUT /api/weather/settings",
@@ -688,6 +693,12 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     }
     ctx.settings.update(patch);
     ctx.events.emit({ type: "settings.changed" });
+    // Choosing the art gallery (or other paintings) starts fetching them now, not tomorrow.
+    if (patch.screensaver && ["gallery", "shuffle"].includes(patch.screensaver.theme)) {
+      const a = s.screensaver;
+      const b = patch.screensaver;
+      if (a.theme !== b.theme || a.artKids !== b.artKids || a.artCount !== b.artCount || a.artCollections.join() !== b.artCollections.join()) void ctx.art.refill().catch(() => undefined);
+    }
     const refresh = body.xmltvUrls !== undefined || body.channelFilter !== undefined || body.numbering !== undefined;
     if (refresh) void ctx.ingest.refreshAll().then(() => ctx.events.emit({ type: "guide.updated" }));
     return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
@@ -1841,6 +1852,26 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (!file) return reply.code(404).send({ error: "That photo has gone" });
     reply.header("Cache-Control", "private, max-age=3600");
     return sendFile(req, reply, file);
+  });
+
+  // Art mode's paintings (see art.ts): what's kept, the list to show, the pictures themselves.
+  app.get("/api/art", async () => ctx.art.status());
+  app.get("/api/art/items", async (req: Req<Record<string, string>, { kids?: string }>) => ({ items: await ctx.art.list({ kids: req.query.kids === "1" }) }));
+  app.get("/api/art/image/:id", async (req: Req<{ id: string }>, reply) => {
+    const file = ctx.art.imagePath(req.params.id);
+    if (!existsSync(file)) return reply.code(404).send({ error: "That painting has gone" });
+    // A painting never changes, so it is kept a long time (the id is the painting's).
+    reply.header("Cache-Control", "private, max-age=2592000, immutable");
+    return sendFile(req, reply, file);
+  });
+  /** Fetches paintings now (returns at once; progress shows in GET /api/art). */
+  app.post("/api/art/refresh", async () => {
+    void ctx.art.refill().catch(() => undefined);
+    return { ok: true };
+  });
+  app.delete("/api/art", async () => {
+    await ctx.art.clear();
+    return { ok: true };
   });
 
   /** The NAS shares, or a folder in them, for picking video files for a music channel. */

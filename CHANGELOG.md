@@ -30,6 +30,10 @@ pop up what's new after an update. So:
 
 ## 2026-11-07
 
+- **Art gallery screensaver** ([docs/screensaver.md](docs/screensaver.md#art-gallery)): famous paintings full screen in high resolution, from the Art Institute of Chicago, the Met and the Cleveland Museum, all free to use. Choose how long each stays (30 seconds to an hour), shuffled or by artist, which collections (Impressionism, landscapes, Japan…), a matte or gold frame, a museum card with the title and artist, brightness, and a Kids-friendly option. The Hub keeps them, so they show smoothly and without the internet.
+  Household: the screensaver can now show famous paintings like pictures on the wall, chosen in Settings › Screensaver.
+- **More screensaver options**: clock size, 12-hour clock, date on or off, fade length, slow drift on or off, and night hours when the screensaver gets dimmer or goes black.
+  Household: the screensaver has more choices, including a clock size and quiet night hours.
 - **More Kids films and shows rows**: the Kids profile's Films and TV Shows pages now have far more to pick from: top rated, new additions you haven't seen, for little ones (U) and bigger kids (PG), animation, adventure, comedy, family, fantasy, superheroes, animals, musicals, mystery, Watch again, and Best of 2026, 2025, 2024 and back. All rows follow the profile's rating limit and allow list. (#246)
   Household: the Kids profile has many more categories on Films and TV Shows, including Best of each year.
 

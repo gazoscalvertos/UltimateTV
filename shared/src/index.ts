@@ -8,6 +8,7 @@ export * from "./boxes.js";
 export * from "./text.js";
 export * from "./agent.js";
 export * from "./music.js";
+export * from "./art.js";
 export * from "./screensaver.js";
 export * from "./cast.js";
 export * from "./household.js";
