@@ -707,6 +707,11 @@ export interface Settings {
     avoidDvProfile5: boolean;
     autoplayNext: boolean;
     startOn: "home" | "live";
+    /**
+     * When the TV goes to standby (or switches to another input), the box pauses what's playing
+     * (live TV stops, as it holds the IPTV connection), stops it, or carries on. Older Hubs: "stop".
+     */
+    whenTvOff?: "pause" | "stop" | "keep";
     /** How subtitles look on the TV, for everyone. Whether they come on is per profile. */
     subtitleStyle: SubtitleStyle;
   };

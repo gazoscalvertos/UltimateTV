@@ -31,6 +31,7 @@ export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
       avoidDvProfile5: true,
       autoplayNext: true,
       startOn: "home",
+      whenTvOff: "pause",
       subtitleStyle: { ...DEFAULT_SUBTITLE_STYLE },
     },
     numbering: "uk",

@@ -38,6 +38,7 @@ const whenAgo = (at: number) => {
   return days === 0 ? `Today ${time}` : days === 1 ? `Yesterday ${time}` : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
 };
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const TV_OFF_LABELS = { pause: "Pause", stop: "Stop", keep: "Keep playing" } as const;
 const SUB_LABELS: Record<SubtitleStyle["size"], string> = { small: "Small", medium: "Medium", large: "Large", huge: "Huge" };
 const MODE_LABELS: Record<SubtitleMode, string> = { off: "Off", on: "On", foreign: "Only for other languages" };
 const cycle = <T,>(list: readonly T[], value: T): T => list[(list.indexOf(value) + 1) % list.length]!;
@@ -703,6 +704,12 @@ export function Settings(props: { section?: string }) {
               <Row label="Audio language" value={playback().preferredAudioLang.toUpperCase()} onSelect={() => void save({ playback: { ...playback(), preferredAudioLang: cycle(["eng", "spa", "fra", "deu", "ita", "pol"], playback().preferredAudioLang) } })} />
               <Row label="Play the next episode automatically" value={playback().autoplayNext ? "On" : "Off"} onSelect={() => void save({ playback: { ...playback(), autoplayNext: !playback().autoplayNext } })} />
               <Row label="When the TV turns on" value={playback().startOn === "live" ? "Live TV" : "Home"} onSelect={() => void save({ playback: { ...playback(), startOn: playback().startOn === "live" ? "home" : "live" } })} />
+              <Row
+                label="When the TV turns off"
+                hint="Or switches to another input. Live TV always stops, as it holds the IPTV connection"
+                value={TV_OFF_LABELS[playback().whenTvOff ?? "stop"]}
+                onSelect={() => void save({ playback: { ...playback(), whenTvOff: cycle(["pause", "stop", "keep"] as const, playback().whenTvOff ?? "stop") } })}
+              />
               <Row label="Playback stats" hint="Show the stream, picture and sound details over the video. The blue button turns them on and off while watching" value={showStats() ? "On" : "Off"} onSelect={() => setShowStats(!showStats())} />
               <Row label="Largest file to stream" hint="Bigger versions are moved down the list" value={`${playback().maxSizeGb} GB`} onSelect={() => void save({ playback: { ...playback(), maxSizeGb: cycle([20, 40, 60, 100], playback().maxSizeGb) } })} />
             </Show>
