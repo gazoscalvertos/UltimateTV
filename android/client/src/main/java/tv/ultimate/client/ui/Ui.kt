@@ -94,13 +94,14 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
         scope.launch { snackbar.showSnackbar(message) }
     }
 
-    fun play(req: PlaybackRequest, title: TitleRef? = null, name: String? = null) {
+    /** Plays here. `startMs` starts from that place (carrying on from another screen); `sync` joins that Sync play group. */
+    fun play(req: PlaybackRequest, title: TitleRef? = null, name: String? = null, startMs: Long? = null, sync: String? = null) {
         blockedBy(req, title)?.let { say("${featureLabel(it)} is switched off on this phone"); return }
         scope.launch {
             working = if (req.kind == "channel") "Tuning…" else "Starting ${name ?: title?.name ?: ""}…".replace("  ", " ")
             try {
                 val info = resolve(req) ?: return@launch
-                PlayerActivity.play(context, info, req, title)
+                PlayerActivity.play(context, info, req, title, startMs, sync)
             } catch (e: Throwable) {
                 say(explain(e))
             } finally {

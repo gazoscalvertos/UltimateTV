@@ -168,6 +168,8 @@ describe("the npm dependencies", () => {
       "@fastify/websocket",
       "@ultimatetv/shared",
       "fastify",
+      // Served to a Share Play browser as a file (shareplay.ts), so it can play the HLS copy; the Hub never runs it.
+      "hls.js",
       "qrcode",
       "sax",
     ]);

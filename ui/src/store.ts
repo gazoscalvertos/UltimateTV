@@ -21,7 +21,8 @@ export type Route =
   | { name: "mix-channel"; id: string }
   | { name: "downloads" }
   | { name: "cast" }
-  | { name: "weather" };
+  | { name: "weather" }
+  | { name: "elsewhere" };
 
 export type PlannerTab = "recorded" | "scheduled" | "reminders" | "series" | "downloads";
 
@@ -36,6 +37,11 @@ function offHere(route: Route): FeatureId | undefined {
 }
 
 function refused(route: Route): boolean {
+  // Easy mode keeps Settings out of reach (#229); an adult profile without it still gets there.
+  if (route.name === "settings" && profile()?.easy) {
+    toast("Settings are switched off in Easy mode", "bad");
+    return true;
+  }
   const off = offHere(route);
   if (off) {
     toast(`${featureLabel(off)} is switched off on this screen`, "bad");
@@ -157,6 +163,8 @@ export function previewTheme(name: ThemeName | null): void {
 
 const [profile, setProfileSignal] = createSignal<Profile | null>(null);
 export { profile };
+/** Easy mode (#229): four big tiles on Home, a short top menu, and no Settings. */
+export const isEasy = () => Boolean(profile()?.easy);
 export const isKids = () => profile()?.kind === "kids";
 /** A Guest: here for a visit, rated up to its own limit and kept out of settings and recordings. */
 export const isGuest = () => isGuestProfile(profile());
@@ -176,8 +184,13 @@ function readAccessibility(): AccessibilitySettings {
 }
 const [accessibility, setAccessibilitySignal] = createSignal<AccessibilitySettings>(readAccessibility());
 export { accessibility };
-const systemReducedMotion = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-/** Nothing moving that doesn't have to: the profile asked, or the system did. */
+// The computer's own "reduce motion" counts on a desktop or in a browser, where a person set it. The TV
+// box has no settings of its own for it: Chromium reads it from the box's desktop (GTK or KDE), and
+// a kiosk session with animations turned off reads as "reduce". Since Electron 45 that silently
+// stopped every projected clip on the box, so there only the profile's own switch counts.
+const onTvBox = typeof window !== "undefined" && Boolean((window as { ultimatetv?: { desktop?: boolean } }).ultimatetv) && !(window as { ultimatetv?: { desktop?: boolean } }).ultimatetv?.desktop;
+const systemReducedMotion = !onTvBox && typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** Nothing moving that doesn't have to: the profile asked, or (not on the TV box) the system did. */
 export const reducedMotion = () => accessibility().reducedMotion || systemReducedMotion;
 /** Puts the text size, focus ring and motion on the page. */
 export function wearAccessibility(a: AccessibilitySettings): void {

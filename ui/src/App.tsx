@@ -21,7 +21,8 @@ import { startFavourites } from "./favourites";
 import { activeLayer, current, focus, focusFirst } from "./focus";
 import { onAnyKey, onBack, useKeys } from "./keys";
 import { onMouse } from "./mouse";
-import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, starting, cancelStarting, stopPlayback } from "./player";
+import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, playerState, starting, cancelStarting, stopPlayback } from "./player";
+import { tvOffAction, tvOnAction } from "./tvpower";
 import { activeMusic, musicPlayPause, pauseAllMusic, startMusic } from "./music";
 import { radioPauseToggle, radioPlaying, startPodcastPlaces, startRadioSettings } from "./radio";
 import { Browse } from "./screens/Browse";
@@ -29,6 +30,7 @@ import { Details } from "./screens/Details";
 import { Guide } from "./screens/Guide";
 import { GuideEditor } from "./screens/GuideEditor";
 import { Home } from "./screens/Home";
+import { EasyHome } from "./screens/EasyHome";
 import { MixChannelScreen } from "./screens/MixChannel";
 import { Music } from "./screens/Music";
 import { PodcastShowScreen } from "./screens/Radio";
@@ -42,12 +44,14 @@ import { Weather } from "./screens/Weather";
 import { startWeather } from "./weather";
 import { startHomeAssistant } from "./homeassistant";
 import { startWhatsNew } from "./whatsnew";
-import { closeTopDialog, dropToast, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
+import { closeTopDialog, dropToast, isEasy, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
 import { startDownloads } from "./downloads";
 import { startSaveNotices } from "./save";
 import { DownloadsScreen } from "./screens/Downloads";
+import { ElsewhereScreen } from "./screens/Elsewhere";
+import { startWatching } from "./watching";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
 import { startIdle, wake } from "./idle";
@@ -210,6 +214,7 @@ export function App() {
     startIdle();
     startQueue();
     startDownloads();
+    startWatching();
     startCast();
     startSleep();
     startKidsTime();
@@ -262,16 +267,36 @@ export function App() {
         }
       }),
     );
-    // TV off: stop playing. TV back on: Home, or the profile picker if a PIN is set.
+    // TV off (standby, or another input): pause or stop what's playing, as Settings says. TV back
+    // on: the paused video, or Home (the profile picker if a PIN is set).
+    let pausedForTv = false;
     onCleanup(
       agent.onPower(async (active) => {
         if (!active) {
-          await stopPlayback();
+          const np = nowPlaying();
+          const settings = await hub.settings().catch(() => null);
+          const action = tvOffAction(settings?.playback.whenTvOff, np ? { live: np.info.live, status: playerState().status } : null);
+          if (action === "pause") {
+            await agent.pause(true).catch(() => undefined);
+            pausedForTv = true;
+          } else if (action === "stop") {
+            pausedForTv = false;
+            await stopPlayback();
+          }
           await pauseAllMusic();
           return;
         }
         wake();
         const { locked } = await hub.profiles().catch(() => ({ locked: false }));
+        const stillPaused = pausedForTv && playerState().status === "paused";
+        pausedForTv = false;
+        if (tvOnAction(Boolean(nowPlaying()), locked) === "back-to-video") {
+          if (nav.current().name !== "player") nav.push({ name: "player" });
+          if (stillPaused) toast("Paused while the TV was off. Press OK to carry on");
+          return;
+        }
+        // Behind a PIN: nothing carries on until someone picks their profile.
+        if (nowPlaying()) await stopPlayback();
         nav.reset({ name: locked ? "profiles" : "home" });
       }),
     );
@@ -285,7 +310,9 @@ export function App() {
             <Profiles />
           </Match>
           <Match when={nav.current().name === "home"}>
-            <Home />
+            <Show when={isEasy()} fallback={<Home />}>
+              <EasyHome />
+            </Show>
           </Match>
           <Match when={nav.current().name === "guide"}>
             <Guide />
@@ -323,6 +350,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "cast"}>
             <CastScreen />
+          </Match>
+          <Match when={nav.current().name === "elsewhere"}>
+            <ElsewhereScreen />
           </Match>
           <Match when={nav.current().name === "weather"}>
             <Weather />

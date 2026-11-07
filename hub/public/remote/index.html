@@ -126,6 +126,8 @@
   .ep-row .item { flex: 1; min-width: 0; }
   .qbtn { flex: none; width: 40px; height: 40px; border-radius: 12px; font-size: 18px; font-weight: 700; display: grid; place-items: center; }
   .qbtn.danger { color: var(--bad); }
+  /* Watching elsewhere's Move and Sync: words, not a symbol. */
+  .qbtn.wide { width: auto; padding: 0 10px; font-size: 13px; }
   .rec { color: var(--bad); font-style: normal; font-size: 11px; }
   .bar { display: block; height: 3px; border-radius: 2px; background: rgb(var(--hi) / .12); overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--accent); }
@@ -404,7 +406,7 @@
 </main>
 <main class="browse" id="tab-browse" hidden>
   <div class="chips">
-    <button data-browse="guide" class="on">TV Guide</button><button data-browse="movie">Films</button><button data-browse="series">TV</button><button data-browse="recordings">Recordings</button><button data-browse="reminders">Reminders</button><button data-browse="queue">Queue</button><button data-browse="saved">Saved</button><button data-browse="downloads">On the box</button><button data-browse="music">Music</button><button data-browse="radio">Radio</button><button data-browse="weather">Weather</button><button data-browse="search">Search</button>
+    <button data-browse="guide" class="on">TV Guide</button><button data-browse="movie">Films</button><button data-browse="series">TV</button><button data-browse="recordings">Recordings</button><button data-browse="reminders">Reminders</button><button data-browse="queue">Queue</button><button data-browse="saved">Saved</button><button data-browse="elsewhere">Elsewhere</button><button data-browse="downloads">On the box</button><button data-browse="music">Music</button><button data-browse="radio">Radio</button><button data-browse="weather">Weather</button><button data-browse="search">Search</button>
   </div>
   <div id="browse-body"></div>
 </main>

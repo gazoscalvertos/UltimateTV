@@ -19,11 +19,13 @@ import { mouseMode, onMouse } from "../mouse";
 import { chooseVersion } from "./Details";
 import { channelById, channelByNumber, liveChannelId, nowPlaying, play, playerState, stepChannel, stopPlayback } from "../player";
 import { queue } from "../queue";
+import { cancelShare, leaveSync, shareNow, syncGroup, userSeek } from "../watching";
 import { canSave, saveToNas } from "../save";
 import { advertMarks } from "../seekMarks";
 import { isFavouriteChannel, isFavouriteTitle, toggleFavouriteChannel, toggleFavouriteTitle } from "../favourites";
 import { errorToast, nav, now, openDialog, setShowStats, showStats, toast } from "../store";
 import { openSleepMenu, sleep } from "../sleep";
+import { openXray } from "../xray";
 import { canFindSubtitles, findSubtitles } from "../subtitles";
 
 interface UpNext {
@@ -337,7 +339,7 @@ export function Player() {
     const key = `${np.info.progressKey}:${s.startMs}`;
     if (skippedBreaks.has(key)) return;
     skippedBreaks.add(key);
-    void agent.seek(s.endMs, "absolute");
+    void userSeek(s.endMs, "absolute");
     toast("Skipped the adverts");
   });
 
@@ -387,6 +389,39 @@ export function Player() {
     }
     const t = np.req.kind === "title" ? np.title : undefined;
     return t && (t.kind === "movie" || t.kind === "series") ? { name: t.name, on: isFavouriteTitle(t.id), toggle: () => toggleFavouriteTitle(t) } : null;
+  };
+
+  // Share Play (issue #210): a link someone opens in any web browser to watch along with the TV.
+  const canShare = () => {
+    const np = nowPlaying();
+    return Boolean(np && np.req.kind === "title" && !np.info.live);
+  };
+  const shareWithLink = async () => {
+    const link = await shareNow().catch((err: Error) => (errorToast(err), null));
+    if (!link) return;
+    openDialog((close) => (
+      <DialogFrame close={() => close()} class="share-play">
+        <h2>Watch together</h2>
+        <div class="share-play-body">
+          <div class="qr-card">
+            <img src={`/api/qr.svg?text=${encodeURIComponent(link.url)}`} alt="" />
+          </div>
+          <div>
+            <p>Scan this with a phone, or send the link from the phone remote (Browse › Elsewhere). Whoever opens it watches {link.name} in a web browser, pausing and skipping together with this TV.</p>
+            <p class="share-play-url">{link.url}</p>
+            <p class="muted">One person, one browser. The link stops when this TV moves on to something else, or in {Math.round((link.expiresAt - link.createdAt) / 3_600_000)} hours.</p>
+          </div>
+        </div>
+        <div class="option-list">
+          <button class="option" data-focus onClick={() => close()}>
+            Done
+          </button>
+          <button class="option" data-focus onClick={() => void cancelShare(link.id).then(() => (toast("Link cancelled"), close()), errorToast)}>
+            Cancel the link
+          </button>
+        </div>
+      </DialogFrame>
+    ));
   };
 
   const options = () =>
@@ -466,6 +501,30 @@ export function Player() {
                 <div class="option-list">
                   <button class="option option-favourite" classList={{ selected: f().on }} data-focus onClick={() => f().toggle()}>
                     <Icon name={f().on ? "hearted" : "heart"} /> {f().on ? `${f().name} is a favourite` : `Add ${f().name} to Favourites`}
+                  </button>
+                </div>
+              </>
+            )}
+          </Show>
+          <Show when={canShare()}>
+            <h4>
+              <Icon name="screens" /> Share Play
+            </h4>
+            <div class="option-list">
+              <button class="option" data-focus onClick={() => (close(), void shareWithLink())}>
+                Watch together with a link
+              </button>
+            </div>
+          </Show>
+          <Show when={syncGroup()}>
+            {(g) => (
+              <>
+                <h4>
+                  <Icon name="screens" /> Sync play
+                </h4>
+                <div class="option-list">
+                  <button class="option" data-focus onClick={() => (close(), void leaveSync().then(() => toast("Left Sync play: carrying on here on its own")))}>
+                    Leave Sync play with {g().members.length - 1 === 1 ? "1 other screen" : `${g().members.length - 1} other screens`}
                   </button>
                 </div>
               </>
@@ -555,11 +614,11 @@ export function Player() {
         return true;
       }
       case "rewind":
-        void agent.seek(-30_000, "relative");
+        void userSeek(-30_000, "relative");
         poke();
         return true;
       case "fastForward":
-        void agent.seek(live() ? 30_000 : 60_000, "relative");
+        void userSeek(live() ? 30_000 : 60_000, "relative");
         poke();
         return true;
     }
@@ -610,22 +669,25 @@ export function Player() {
     switch (a) {
       case "ok":
         if (!osd() && skip()) {
-          void agent.seek(skip()!.endMs, "absolute");
+          void userSeek(skip()!.endMs, "absolute");
           return true;
         }
         void agent.pause(st.status !== "paused");
         poke(st.status === "paused" ? 4000 : 60_000);
         return true;
       case "left":
-        void agent.seek(-10_000, "relative");
+        void userSeek(-10_000, "relative");
         poke();
         return true;
       case "right":
-        void agent.seek(30_000, "relative");
+        void userSeek(30_000, "relative");
         poke();
         return true;
-      case "up":
       case "info":
+        poke();
+        openXray();
+        return true;
+      case "up":
         poke();
         return true;
       case "down":
@@ -797,7 +859,7 @@ export function Player() {
                     <AdvertMarks skip={np()?.info.skip ?? []} duration={duration()} />
                   </div>
                 }>
-                  <SeekBar duration={duration()} position={st().positionMs} skip={np()?.info.skip ?? []} onDrag={(ms) => (setDragMs(ms), poke(8000))} onSeek={(ms) => (setDragMs(null), void agent.seek(ms, "absolute"), poke())} />
+                  <SeekBar duration={duration()} position={st().positionMs} skip={np()?.info.skip ?? []} onDrag={(ms) => (setDragMs(ms), poke(8000))} onSeek={(ms) => (setDragMs(null), void userSeek(ms, "absolute"), poke())} />
                 </Show>
                 <span class="osd-time">{duration() ? `-${fmt(duration() - (dragMs() ?? st().positionMs))}` : ""}</span>
               </div>
@@ -834,7 +896,7 @@ export function Player() {
       </Show>
 
       <Show when={!live() && skip() && !showNextCard()}>
-        <button class="skip-button" data-focus onClick={() => skip() && void agent.seek(skip()!.endMs, "absolute")}>
+        <button class="skip-button" data-focus onClick={() => skip() && void userSeek(skip()!.endMs, "absolute")}>
           Skip {skip()!.kind === "credits" ? "credits" : skip()!.kind} <kbd>OK</kbd>
         </button>
       </Show>
