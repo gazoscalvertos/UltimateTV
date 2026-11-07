@@ -205,7 +205,7 @@ export type TitleKind = "movie" | "series";
 export type HdrFormat = "dv" | "hdr10plus" | "hdr10" | "hlg" | "sdr";
 export type AudioFormat = "atmos" | "truehd" | "dtsx" | "dtshd" | "dts" | "eac3" | "ac3" | "aac" | "flac" | "opus" | "mp3" | "unknown";
 export type VideoCodec = "hevc" | "h264" | "av1" | "vp9" | "mpeg2" | "unknown";
-export type SourceKind = "nas" | "jellyfin" | "plex" | "recording" | "torbox" | "addon" | "xtream";
+export type SourceKind = "nas" | "jellyfin" | "plex" | "emby" | "recording" | "torbox" | "addon" | "xtream";
 
 export interface StreamQuality {
   height: number;
@@ -665,8 +665,10 @@ export interface Settings {
   iptv: IptvSource[];
   xmltvUrls: string[];
   jellyfin?: { url: string; userId: string; token: string; serverName?: string };
-  /** Plex Media Server, when it is the one on-disk library the Hub is connected to instead of Jellyfin. */
+  /** Plex Media Server. Jellyfin, Plex and Emby can all be connected at once; their libraries are merged. */
   plex?: { url: string; token: string; clientId?: string; serverName?: string };
+  /** Emby Server (#216). */
+  emby?: { url: string; userId: string; token: string; serverName?: string };
   tmdbApiKey?: string;
   /** OMDb (omdbapi.com, free) for IMDb, Rotten Tomatoes and Metacritic scores. */
   omdbApiKey?: string;
@@ -728,6 +730,7 @@ export interface PublicSettings {
   xmltvCount: number;
   jellyfin?: { url: string; serverName?: string };
   plex?: { url: string; serverName?: string };
+  emby?: { url: string; serverName?: string };
   tmdb: boolean;
   omdb: boolean;
   /** OpenSubtitles is set up (and signed in, which allows more downloads a day). */
@@ -762,7 +765,7 @@ export interface HubStatus {
   recordingNow: Recording[];
   diskFreeBytes?: number;
   diskTotalBytes?: number;
-  configured: { iptv: boolean; jellyfin: boolean; plex: boolean; tmdb: boolean; addons: boolean; torbox: boolean };
+  configured: { iptv: boolean; jellyfin: boolean; plex: boolean; emby: boolean; tmdb: boolean; addons: boolean; torbox: boolean };
 }
 
 export type HubEvent =

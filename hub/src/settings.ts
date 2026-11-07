@@ -194,6 +194,10 @@ export function publicSettings(s: Settings, setupUrl: string, statusOf?: (source
     result.plex = { url: s.plex.url };
     if (s.plex.serverName) result.plex.serverName = s.plex.serverName;
   }
+  if (s.emby) {
+    result.emby = { url: s.emby.url };
+    if (s.emby.serverName) result.emby.serverName = s.emby.serverName;
+  }
   return result;
 }
 

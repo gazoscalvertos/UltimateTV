@@ -34,6 +34,10 @@ pop up what's new after an update. So:
   Household: you can add or change IPTV, Jellyfin, Plex, add-ons and TorBox from the TV's own remote, without a phone.
 - **Source options: test, pause, put in order, remove** ([docs/sources.md](docs/sources.md#source-options)): every source (each IPTV provider, Jellyfin, Plex, TorBox and each add-on) has an Options menu in Settings › Sources and a Source options section on the setup page. Test connection says whether it is reachable, signed in and how long it took, and for an Xtream IPTV account the expiry date and connections in use. Pause hides a source from the guide, library and Versions without losing its login; Resume brings it back. Move up and Move down set the order Play and Versions prefer sources in, after the quality rules (a clearly better picture or the right language still wins). Remove asks first. (#219)
   Household: a provider that is down or being rebuilt can be paused and resumed instead of removed and set up again, and you can say which source to prefer.
+- **Emby, and Jellyfin, Plex and Emby together** ([docs/emby.md](docs/emby.md)): Emby Server can be connected (setup page › Emby, name and password), and any of Jellyfin, Plex and Emby can now be connected at the same time instead of one replacing the other. Their films and series are merged on Home, Films, TV and Search, a title on two servers is a single card with a copy from each under Versions, Continue watching and Mark as watched go to whichever server the title is on, and one server being off never hides the others. Emby's intro and credits markers come from its chapter markers. Built from the servers' API documentation and not yet tried against real Emby or two live servers. (#216, #217)
+  Household: you can connect Emby, and keep Jellyfin and Plex connected together, all in one library.
+
+- **Nuvio works as an add-on link** ([docs/nuvio.md](docs/nuvio.md)): checked what "Nuvio" is in a source list. The Nuvio Streams server is a Stremio add-on, which the Hub already supports in Settings › AIOStreams / add-ons, so no new client is needed; the doc says how to add it. (#220)
 
 ## 2026-11-04
 

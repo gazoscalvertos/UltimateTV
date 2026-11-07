@@ -141,7 +141,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#radio">Radio</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#bluetooth">Bluetooth</a><a href="#devices">Phones</a><a href="#apps">Apps</a><a href="#iptv">Live TV</a><a href="#sources">Source options</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin or Plex</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#radio">Radio</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#bluetooth">Bluetooth</a><a href="#devices">Phones</a><a href="#apps">Apps</a><a href="#iptv">Live TV</a><a href="#sources">Source options</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin, Plex or Emby</a><a href="#vod">Films</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -499,8 +499,8 @@
       <button type="button" class="secondary" id="jf-disconnect" hidden>Disconnect Jellyfin</button>
     </form>
 
-    <h3 style="margin-top:28px">Plex instead <span class="pill" id="px-pill">Not connected</span></h3>
-    <p class="hint">The same library, kept by Plex. One or the other, not both: connecting Plex disconnects Jellyfin. Easiest is to say where your Plex server is and approve the code on plex.tv; a token typed in by hand works too.</p>
+    <h3 style="margin-top:28px">Plex <span class="pill" id="px-pill">Not connected</span></h3>
+    <p class="hint">Another library, kept by Plex. It can be connected at the same time as Jellyfin or Emby: their films and series are shown together on the TV, and a title on more than one appears once with every copy under Versions. Easiest is to say where your Plex server is and approve the code on plex.tv; a token typed in by hand works too.</p>
     <form id="px-form">
       <label>Plex server address</label><input name="url" value="http://192.168.0.23:32400" inputmode="url">
       <div class="row">
@@ -513,6 +513,18 @@
         <p class="hint">A token is the long string under your Plex account's “Authorised Devices”, or from plex.tv/api/resources?X-Plex-Token=… .</p>
       </div>
       <button type="button" class="secondary" id="px-disconnect" hidden>Disconnect Plex</button>
+    </form>
+
+    <h3 style="margin-top:28px">Emby <span class="pill" id="em-pill">Not connected</span></h3>
+    <p class="hint">An Emby server's library, alongside Jellyfin and Plex if you have them. Sign in with an Emby user's name and password (Emby has no Quick Connect for other apps).</p>
+    <form id="em-form">
+      <label>Emby address</label><input name="url" value="http://192.168.0.23:8096" inputmode="url">
+      <div class="row">
+        <div><label>Username</label><input name="username" autocapitalize="none"></div>
+        <div><label>Password</label><input name="password" type="password"></div>
+      </div>
+      <button>Sign in to Emby</button>
+      <button type="button" class="secondary" id="em-disconnect" hidden>Disconnect Emby</button>
     </form>
   </section>
 
@@ -1474,6 +1486,15 @@ $("#jf-disconnect").onclick = async () => {
   if (!confirm("Disconnect Jellyfin? Your library stops showing on the TV until you sign in again.")) return;
   try { await api("/api/jellyfin", { method: "DELETE" }); toast("Jellyfin disconnected"); load(); } catch (e) { toast(e.message, true); }
 };
+$("#em-disconnect").onclick = async () => {
+  if (!confirm("Disconnect Emby? Its films and series stop showing on the TV until you sign in again.")) return;
+  try { await api("/api/emby", { method: "DELETE" }); toast("Emby disconnected"); load(); } catch (e) { toast(e.message, true); }
+};
+$("#em-form").onsubmit = async (e) => {
+  e.preventDefault(); const f = e.target;
+  try { await api("/api/emby/login", { method: "POST", body: { url: f.url.value.trim(), username: f.username.value.trim(), password: f.password.value } }); f.password.value = ""; toast("Emby connected"); load(); }
+  catch (err) { toast(err.message, true); }
+};
 $("#px-disconnect").onclick = async () => {
   if (!confirm("Disconnect Plex? Your library stops showing on the TV until you connect it again.")) return;
   try { await api("/api/plex", { method: "DELETE" }); toast("Plex disconnected"); load(); } catch (e) { toast(e.message, true); }
@@ -1807,6 +1828,10 @@ async function load() {
   $("#px-pill").className = "pill" + (s.plex ? " ok" : "");
   if (s.plex) $("#px-form").url.value = s.plex.url;
   $("#px-disconnect").hidden = !s.plex;
+  $("#em-pill").textContent = s.emby ? `Connected${s.emby.serverName ? " to " + s.emby.serverName : ""}` : "Not connected";
+  $("#em-pill").className = "pill" + (s.emby ? " ok" : "");
+  if (s.emby) $("#em-form").url.value = s.emby.url;
+  $("#em-disconnect").hidden = !s.emby;
   for (const el of document.querySelectorAll("[data-pb]")) setValue(el, s.playback[el.dataset.pb]);
   for (const el of document.querySelectorAll("[data-sub]")) if (s.playback.subtitleStyle) setValue(el, s.playback.subtitleStyle[el.dataset.sub]);
   for (const el of document.querySelectorAll("[data-rec]")) setValue(el, s.recording[el.dataset.rec]);
@@ -1991,7 +2016,7 @@ $("#px-token-toggle").onclick = () => { $("#px-token").hidden = false; $("#px-co
 $("#px-form").onsubmit = async (e) => {
   e.preventDefault(); const f = e.target;
   if (!f.token.value.trim()) { toast("Paste your Plex token, or use Connect with Plex.", true); return; }
-  try { await api("/api/plex/login", { method: "POST", body: { url: f.url.value.trim(), token: f.token.value.trim() } }); toast("Plex connected. Jellyfin is disconnected."); load(); }
+  try { await api("/api/plex/login", { method: "POST", body: { url: f.url.value.trim(), token: f.token.value.trim() } }); toast("Plex connected."); load(); }
   catch (err) { toast(err.message, true); }
 };
 $("#px-pin").onclick = async () => {
@@ -2004,7 +2029,7 @@ $("#px-pin").onclick = async () => {
     for (let i = 0; i < 100; i++) {
       await new Promise((r) => setTimeout(r, 3000));
       const s = await api(`/api/plex/pin/${encodeURIComponent(id)}?url=${encodeURIComponent(url)}`);
-      if (s.authenticated) { $("#px-code").hidden = true; toast("Plex connected. Jellyfin is disconnected."); load(); return; }
+      if (s.authenticated) { $("#px-code").hidden = true; toast("Plex connected."); load(); return; }
     }
   } catch (err) { toast(err.message, true); }
 };

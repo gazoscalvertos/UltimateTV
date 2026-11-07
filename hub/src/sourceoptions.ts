@@ -17,7 +17,7 @@ export interface SourceInfo {
   key: string;
   name: string;
   /** Which kind of provider it is, for the Options menu. */
-  type: "iptv" | "jellyfin" | "plex" | "torbox" | "addon";
+  type: "iptv" | "jellyfin" | "plex" | "emby" | "torbox" | "addon";
 }
 
 export function iptvKey(id: string): string {
@@ -34,6 +34,7 @@ export function listProviders(s: Settings, addonName: (url: string) => string = 
   const out: SourceInfo[] = s.iptv.map((src) => ({ key: iptvKey(src.id), name: src.name, type: "iptv" as const }));
   if (s.jellyfin) out.push({ key: "jellyfin", name: "Jellyfin", type: "jellyfin" });
   if (s.plex) out.push({ key: "plex", name: "Plex", type: "plex" });
+  if (s.emby) out.push({ key: "emby", name: "Emby", type: "emby" });
   if (s.torboxApiKey) out.push({ key: "torbox", name: "TorBox", type: "torbox" });
   for (const url of s.addonUrls) out.push({ key: addonKey(url), name: addonName(url), type: "addon" });
   return out;
@@ -87,6 +88,7 @@ export function removePatch(s: Settings, key: string): Partial<Settings> {
   if (info.type === "iptv") patch.iptv = s.iptv.filter((x) => iptvKey(x.id) !== key);
   else if (info.type === "jellyfin") patch.jellyfin = undefined;
   else if (info.type === "plex") patch.plex = undefined;
+  else if (info.type === "emby") patch.emby = undefined;
   else if (info.type === "torbox") patch.torboxApiKey = "";
   else patch.addonUrls = s.addonUrls.filter((u) => addonKey(u) !== key);
   return patch;
@@ -249,6 +251,7 @@ export async function testSource(s: Settings, key: string, fetchImpl: Fetch = fe
     if (info.type === "iptv") r = await testIptv(s.iptv.find((x) => iptvKey(x.id) === key)!, fetchImpl);
     else if (info.type === "jellyfin") r = await testJellyfin(s.jellyfin!, fetchImpl);
     else if (info.type === "plex") r = await testPlex(s.plex!, fetchImpl);
+    else if (info.type === "emby") r = await testJellyfin(s.emby!, fetchImpl);
     else if (info.type === "torbox") r = await testTorbox(s.torboxApiKey!, fetchImpl);
     else r = await testAddon(s.addonUrls.find((u) => addonKey(u) === key)!, fetchImpl);
     return { id: key, name: info.name, ...r };
