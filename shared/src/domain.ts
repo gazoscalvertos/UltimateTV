@@ -11,6 +11,7 @@ import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
 import { seasonOn } from "./seasons.js";
 import type { ThemeChoice, ThemeName } from "./themes.js";
 import type { AccessibilitySettings } from "./accessibility.js";
+import type { KidsAsk } from "./kidsallow.js";
 import type { FeatureId } from "./features.js";
 import type { BoxTarget } from "./boxes.js";
 
@@ -325,6 +326,37 @@ export interface TitleExtras {
   similar: TitleRef[];
 }
 
+/** One person in a film or episode, for the X-Ray panel in the player. */
+export interface CastMember {
+  /** TMDB person id; absent when the list came from the media server alone. */
+  id?: number;
+  name: string;
+  /** The character they play ("Hannibal Smith"). */
+  character?: string;
+  photo?: string;
+  /** Guest star in this episode, rather than in the main cast. */
+  guest?: boolean;
+}
+
+/** Everyone in a title (and the guest stars in one episode). There is no per-scene timing: no free source has it. */
+export interface TitleCast {
+  cast: CastMember[];
+  /** Where the list came from, so the TV can say so. */
+  source: "tmdb" | "server";
+}
+
+/** A person's page: their bio and what else they are known for. */
+export interface PersonDetails {
+  id: number;
+  name: string;
+  bio?: string;
+  born?: string;
+  birthplace?: string;
+  died?: string;
+  photo?: string;
+  knownFor: string[];
+}
+
 /** A subtitle file OpenSubtitles has for a film or episode. */
 export interface SubtitleResult {
   fileId: number;
@@ -515,6 +547,13 @@ export interface Profile {
   accessibility?: AccessibilitySettings;
   /** Kids: a daily allowance and a bedtime (see hub/src/kidstime.ts). Missing = no limits. */
   limits?: KidsLimits;
+  /**
+   * Easy mode (#229): Home is four big tiles and Continue watching, the top menu is the short
+   * list, and Settings is out of reach. Missing = off.
+   */
+  easy?: boolean;
+  /** The first-time tour has been shown (or skipped) for this profile; missing = not yet. */
+  toured?: boolean;
 }
 
 /** A bedtime as "HH:MM" (24-hour), or null for none. */
@@ -705,8 +744,15 @@ export interface Settings {
     subtitlesByDefault: boolean;
     maxSizeGb: number;
     avoidDvProfile5: boolean;
+    /** Versions in another language than preferredAudioLang: ranked last, hidden, or treated like any other. */
+    otherLanguages: "last" | "hide" | "any";
     autoplayNext: boolean;
     startOn: "home" | "live";
+    /**
+     * When the TV goes to standby (or switches to another input), the box pauses what's playing
+     * (live TV stops, as it holds the IPTV connection), stops it, or carries on. Older Hubs: "stop".
+     */
+    whenTvOff?: "pause" | "stop" | "keep";
     /** How subtitles look on the TV, for everyone. Whether they come on is per profile. */
     subtitleStyle: SubtitleStyle;
   };
@@ -778,6 +824,8 @@ export type HubEvent =
   | { type: "guide.updated" }
   /** A parent changed what a Kids profile may see by hand (issue #110): fetch the lists again. */
   | { type: "kids.allow.changed"; profileId: string }
+  /** A Kids or Guest profile asked a parent for something (issue #224), or the first adult answered. */
+  | { type: "kids.ask"; ask: KidsAsk }
   /** A music video channel changed: videos downloaded or removed, or the channel edited. */
   | { type: "mix.changed"; channelId?: Id }
   | { type: "reminder"; reminder: Reminder }
@@ -931,7 +979,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "radio" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite" | "bluetooth";
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "radio" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite" | "bluetooth" | "watchHere";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {

@@ -1,6 +1,6 @@
 // TMDB client for artwork, discovery rails and metadata. Responses are cached in SQLite.
 
-import type { Episode, Season, TitleDetails, TitleKind, TitleRef, Trailer } from "@ultimatetv/shared";
+import type { CastMember, Episode, PersonDetails, Season, TitleDetails, TitleKind, TitleRef, Trailer } from "@ultimatetv/shared";
 import type { Db } from "../db.js";
 import { fetchJson, type Fetch } from "../http.js";
 
@@ -34,6 +34,25 @@ interface TmdbDetails extends TmdbResult {
   images?: { logos?: { file_path: string; iso_639_1: string | null }[] };
   release_dates?: { results: { iso_3166_1: string; release_dates: { certification: string }[] }[] };
   content_ratings?: { results: { iso_3166_1: string; rating: string }[] };
+}
+
+interface TmdbCastCredit {
+  id: number;
+  name: string;
+  character?: string;
+  roles?: { character?: string }[];
+  profile_path?: string | null;
+}
+
+interface TmdbPerson {
+  id: number;
+  name: string;
+  biography?: string;
+  birthday?: string | null;
+  deathday?: string | null;
+  place_of_birth?: string | null;
+  profile_path?: string | null;
+  combined_credits?: { cast?: { title?: string; name?: string; vote_count?: number }[] };
 }
 
 export interface TmdbVideo {
@@ -168,6 +187,51 @@ export class TmdbClient {
     const r = await this.get<{ results: TmdbResult[] }>(kind === "movie" ? "/search/movie" : "/search/tv", params, 7 * DAY);
     const first = r.results[0];
     return first ? this.toRef(first, kind) : null;
+  }
+
+  /** Everyone credited, billing order, with photos and characters. For an episode, its guest stars come after the regulars. */
+  async castOf(kind: TitleKind, id: number, episode?: { season: number; episode: number }, limit = 40): Promise<CastMember[]> {
+    const toMember = (c: TmdbCastCredit, guest: boolean): CastMember => {
+      const m: CastMember = { id: c.id, name: c.name };
+      const character = c.character?.replace(/\s*\(.*?\)\s*/g, " ").trim();
+      if (character) m.character = character;
+      const photo = TmdbClient.image(c.profile_path, "w300");
+      if (photo) m.photo = photo;
+      if (guest) m.guest = true;
+      return m;
+    };
+    const main = await this.get<{ cast?: TmdbCastCredit[] }>(kind === "movie" ? `/movie/${id}/credits` : `/tv/${id}/aggregate_credits`, {}, 7 * DAY);
+    const regulars = (main.cast ?? []).map((c) => toMember({ ...c, character: c.character ?? c.roles?.[0]?.character }, false));
+    if (kind === "movie" || !episode) return regulars.slice(0, limit);
+    const ep = await this.get<{ guest_stars?: TmdbCastCredit[]; cast?: TmdbCastCredit[] }>(`/tv/${id}/season/${episode.season}/episode/${episode.episode}/credits`, {}, 7 * DAY).catch((): { guest_stars?: TmdbCastCredit[]; cast?: TmdbCastCredit[] } => ({}));
+    const guests = (ep.guest_stars ?? []).map((c) => toMember(c, true));
+    // The episode's own cast list is who is really in it; the series list is who is usually in it.
+    const inEpisode = new Set((ep.cast ?? []).map((c) => c.id));
+    const shown = inEpisode.size ? regulars.filter((r) => inEpisode.has(r.id!)) : regulars;
+    const seen = new Set(shown.map((r) => r.id));
+    return [...shown, ...guests.filter((g) => !seen.has(g.id))].slice(0, limit);
+  }
+
+  async person(id: number): Promise<PersonDetails> {
+    const p = await this.get<TmdbPerson>(`/person/${id}`, { append_to_response: "combined_credits" }, 7 * DAY);
+    const out: PersonDetails = { id: p.id, name: p.name, knownFor: [] };
+    const bio = p.biography?.trim();
+    if (bio) out.bio = bio.length > 700 ? `${bio.slice(0, 700).replace(/\s+\S*$/, "")}…` : bio;
+    if (p.birthday) out.born = p.birthday;
+    if (p.deathday) out.died = p.deathday;
+    if (p.place_of_birth) out.birthplace = p.place_of_birth;
+    const photo = TmdbClient.image(p.profile_path, "w500");
+    if (photo) out.photo = photo;
+    const credits = [...(p.combined_credits?.cast ?? [])].sort((a, b) => (b.vote_count ?? 0) - (a.vote_count ?? 0));
+    const seen = new Set<string>();
+    for (const c of credits) {
+      const t = c.title ?? c.name;
+      if (!t || seen.has(t)) continue;
+      seen.add(t);
+      out.knownFor.push(t);
+      if (out.knownFor.length >= 6) break;
+    }
+    return out;
   }
 
   async details(kind: TitleKind, id: number): Promise<TitleDetails> {

@@ -222,6 +222,7 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
                         composable("search") { SearchScreen(nav) }
                         composable("saved") { SavedScreen(nav) }
                         composable("queue") { QueueScreen(nav) }
+                        composable("elsewhere") { ElsewhereScreen(nav) }
                         composable("settings") { SettingsScreen(nav) }
                         composable("profiles") { ProfilesScreen(nav) }
                         composable("whatsnew") { WhatsNewScreen(nav) }

@@ -215,6 +215,7 @@
     <p class="hint">The box switches the TV to each film's frame rate and sends HDR, and passes Dolby Digital Plus (with Atmos) to the TV's speakers.</p>
     <label class="opt"><span>Subtitles<small>Turn on automatically when available</small></span><input type="checkbox" data-pb="subtitlesByDefault"></label>
     <label class="opt"><span>Audio language</span><select data-pb="preferredAudioLang"></select></label>
+    <label class="opt"><span>Versions<small>Which language's copies films and shows offer. "Only" hides dubbed copies, unless there's nothing else</small></span><select data-pb="otherLanguages"><option value="last">My audio language first</option><option value="hide">My audio language only</option><option value="any">All languages</option></select></label>
     <label class="opt"><span>Subtitle language</span><select data-pb="preferredSubtitleLang"></select></label>
     <label class="opt"><span>Subtitle size</span><select data-sub="size"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option><option value="huge">Huge</option></select></label>
     <label class="opt"><span>Subtitle background<small>A dark box is easiest to read over bright scenes</small></span><select data-sub="background"><option value="outline">Outline</option><option value="box">Dark box</option></select></label>
@@ -222,6 +223,7 @@
     <label class="opt"><span>Subtitle position</span><select data-sub="position"><option value="bottom">Bottom</option><option value="raised">Raised</option></select></label>
     <label class="opt"><span>Play the next episode automatically</span><input type="checkbox" data-pb="autoplayNext"></label>
     <label class="opt"><span>When the TV turns on</span><select data-pb="startOn"><option value="home">Home</option><option value="live">Live TV</option></select></label>
+    <label class="opt"><span>When the TV turns off<small>Or switches to another input. Live TV always stops, as it holds the IPTV connection</small></span><select data-pb="whenTvOff"><option value="pause">Pause</option><option value="stop">Stop</option><option value="keep">Keep playing</option></select></label>
     <label class="opt"><span>Largest file to stream<small>Bigger versions are moved down the list</small></span><select data-pb="maxSizeGb" data-number><option value="20">20 GB</option><option value="40">40 GB</option><option value="60">60 GB</option><option value="100">100 GB</option></select></label>
     <label class="opt"><span>Avoid Dolby Vision profile 5<small>Those files show the wrong colours, as the box plays Dolby Vision as HDR10</small></span><input type="checkbox" data-pb="avoidDvProfile5"></label>
     <label class="opt"><span>Playback stats on the TV<small>The stream, picture and sound details over the video</small></span><input type="checkbox" id="stats"></label>
@@ -711,6 +713,13 @@ function kidsAllowBox(p, list, summary) {
       line.textContent = `${d.day}: ${hoursLabel(d.minutes)}${names ? ` — ${names}` : ""}`;
       box.append(line);
     }
+    for (const a of summary.asks || []) {
+      const line = document.createElement("p");
+      line.className = "hint";
+      const said = a.status === "pending" ? "not answered" : a.status === "no" ? "No" : a.status === "once" ? "Allowed once" : "Always allowed";
+      line.textContent = `Asked ${new Date(a.at).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}: ${a.name} — ${said}`;
+      box.append(line);
+    }
     if (summary.lockouts.length) {
       const pins = document.createElement("p");
       pins.className = "hint";
@@ -766,9 +775,21 @@ async function loadProfiles() {
       const mine = allows.find((a) => a.profileId === p.id);
       row.append(kidsAllowBox(p, mine ? mine.list : { allow: [], block: [] }, summaries.find((s) => s.profileId === p.id)));
     }
+    row.append(easyFor(p));
     row.append(accessibilityFor(p));
     list.append(row);
   }
+}
+// Easy mode (#229): four big tiles on Home, a short menu and no Settings on the TV. It can only
+// be switched off from here or from another profile's Settings, so a guest can't wander off.
+function easyFor(p) {
+  const box = document.createElement("label");
+  box.className = "opt";
+  box.innerHTML = `<span>Easy mode<small>Four big tiles on Home (Watch TV, Films and TV, Recordings, Search), a short menu, and no Settings</small></span><input type="checkbox">`;
+  const input = box.querySelector("input");
+  input.checked = Boolean(p.easy);
+  input.onchange = () => patchProfile(p, { easy: input.checked }, `Easy mode ${input.checked ? "on" : "off"} for ${p.name}`);
+  return box;
 }
 // Each profile's accessibility, the same as the TV's Settings › Accessibility. Stays open while
 // the list redraws after each change.

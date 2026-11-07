@@ -39,7 +39,7 @@ const EVERYWHERE: Hint[] = [
   { key: "ok", label: "Choose" },
   { key: "back", label: "Go back a step" },
   { key: "guide", label: "TV guide, from anywhere", feature: "live" },
-  { key: "info", label: "This help (or more about a programme in the guide)" },
+  { key: "info", label: "This help (more about a programme in the guide; who is in the film while it plays)" },
   { key: "play", label: "Play and pause" },
   { key: "digits", label: "Type a channel number while watching", feature: "live" },
 ];

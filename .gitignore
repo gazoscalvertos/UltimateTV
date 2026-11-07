@@ -5,6 +5,8 @@ dist/
 .env
 /test-clips/
 docker-compose.override.yml
+# The Share Play tunnel's credentials (tools/share/setup-tunnel.sh): a key to the tunnel, never committed.
+/share-tunnel/
 android/.gradle/
 android/.kotlin/
 android/**/build/

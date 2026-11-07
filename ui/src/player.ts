@@ -111,6 +111,8 @@ interface PlayOpts {
   quiet?: boolean;
   /** Already known how to play (a link sent from a phone): don't ask the Hub. */
   info?: PlaybackInfo;
+  /** Start here instead of the resume point (carrying on from another screen, Sync play). */
+  startMs?: number;
 }
 
 let playCount = 0;
@@ -151,6 +153,8 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
   if (!info || n !== playCount) return false;
   // Start again: ignore the resume point (seeking after loading races the player opening the file).
   if (opts.fromStart && !info.live) info = { ...info, startMs: 0 };
+  // Carrying on from where another screen got to.
+  if (opts.startMs !== undefined && !info.live) info = { ...info, startMs: Math.max(0, opts.startMs) };
   await report("stop");
   const settings = await hub.settings().catch(() => null);
   const s = settings?.playback;

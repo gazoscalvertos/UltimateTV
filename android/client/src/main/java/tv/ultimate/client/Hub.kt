@@ -255,6 +255,29 @@ class Hub(private val prefs: Prefs) {
         raw("/api/progress", "POST", body, 8000)
     }
 
+    // Watching elsewhere and Sync play (hub/src/watching.ts).
+
+    /** What the other TVs, phones and tablets are playing (needs pairing). */
+    suspend fun watching(): WatchingState = get("/api/watching", 8000)
+
+    /** Tells the Hub what this phone is playing; the answer says if another screen asked something of it. */
+    suspend fun reportWatching(body: Map<String, Any>): WatchReply = post("/api/watching", body, timeoutMs = 8000)
+
+    suspend fun watchCommand(device: String, type: String) = raw("/api/watching/${enc(device)}/command", "POST", mapOf("type" to type), 8000)
+
+    suspend fun startSync(with: String): SyncReply = post("/api/sync", mapOf("with" to with, "client" to "android", "deviceName" to android.os.Build.MODEL), timeoutMs = 8000)
+
+    /** The group's clock, held open by the Hub until it changes (or `waitMs` passes). */
+    suspend fun syncState(id: String, since: Int, waitMs: Int): SyncReply = get("/api/sync/${enc(id)}?since=$since&wait=$waitMs", waitMs + 10_000)
+
+    suspend fun syncAction(id: String, action: String, positionMs: Long): SyncReply =
+        post("/api/sync/${enc(id)}/action", mapOf("action" to action, "positionMs" to positionMs), timeoutMs = 8000)
+
+    suspend fun syncLeave(id: String) = raw("/api/sync/${enc(id)}/leave", "POST", emptyMap<String, String>(), 8000)
+
+    /** Asks the TV to carry on (or Sync play) what `device` is playing: "resume", "move" or "sync". */
+    suspend fun tvWatchHere(device: String, mode: String) = raw("/api/tv/call/watchHere", "POST", mapOf("device" to device, "mode" to mode), 45_000)
+
     /** Kids time limits: "still playing" every half minute; the answer says how long is left (hub/src/kidstime.ts). */
     suspend fun kidsReport(playing: Boolean): Map<String, Any?>? =
         post<Map<String, Any?>>("/api/kids-time/report", mapOf("playing" to playing), timeoutMs = 8000)["status"] as? Map<String, Any?>

@@ -11,6 +11,14 @@ A film or series page shows its scores under the title, and a **Trailer** button
 - **Scores:** TMDB's own score, and IMDb, Rotten Tomatoes and Metacritic from [OMDb](https://www.omdbapi.com/apikey.aspx). A free OMDb key allows 1,000 lookups a day and the Hub keeps each answer for a week. Add the key on the phone's setup page under **Scores and subtitles** (or `OMDB_API_KEY` in the Hub's `.env`). Without it, only TMDB's score shows. Green is 70 or over, amber 50 to 69, red under 50.
 - **Trailer:** the official English trailer from TMDB (a teaser if there's no trailer). It's a YouTube video, which mpv on the box plays through yt-dlp, in 4K when YouTube has it. Back stops it. In a laptop browser the demo page shows the artwork instead.
 
+## X-Ray: who's in it
+
+Press **Info** while a film or episode plays (or is paused) for a row of cast photos with the character each plays. OK on a person opens their bio, birth details and what they are known for; Back returns to the cast and then the picture.
+
+- **Source:** TMDB credits (cast, characters, photos), and for an episode that episode's guest stars. Without a TMDB key the Hub falls back to the media server's names, with no photos or bios.
+- **Limit, plainly:** Prime Video's X-Ray shows who is on screen at that second, from face data Amazon builds itself. No free source publishes that, so this is "everyone in this film", not "on screen now". Scene-level X-Ray would mean matching faces against the TMDB photos on the box (local models, issues #83 and #84).
+- Hub: `GET /api/titles/:id/cast?episode=s1e2` and `GET /api/people/:tmdbId`. Both respect a Kids profile's content limits.
+
 ## More like this, and Because you watched
 
 At the bottom of every film and series page, **More like this** lists TMDB's recommendations. With AIOStreams set up almost anything plays, so the whole list shows. Without it, only titles in Jellyfin or the IPTV catalogue are kept, with a badge saying which.

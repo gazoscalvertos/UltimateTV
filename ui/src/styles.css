@@ -5337,3 +5337,206 @@ html.mouse .skip-button {
   outline: 0.2rem solid #fff;
   outline-offset: 0.15rem;
 }
+
+/* Ask a parent (#224): what a Kids or Guest profile sees for something it isn't allowed. */
+.ask-parent-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  height: 100%;
+  padding: 0 10%;
+  text-align: center;
+}
+.ask-parent-page h1 {
+  margin: 0;
+}
+.ask-parent-page p,
+.ask-parent-status {
+  margin: 0;
+  font-size: 1.4rem;
+/* Easy mode (#229): four big tiles on Home. */
+.easy-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.6rem;
+  padding: 1rem 0 2rem;
+}
+.easy-tile {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  min-height: 11rem;
+  padding: 1.6rem 2.4rem;
+  border-radius: 1.6rem;
+  background: var(--panel);
+  color: var(--fg);
+  font-size: calc(2.4rem * var(--ts));
+  font-weight: 700;
+  text-align: left;
+}
+.easy-tile .icon,
+.easy-tile svg {
+  width: 4rem;
+  height: 4rem;
+  flex: none;
+  color: var(--accent);
+}
+.easy-tile small {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: calc(1.1rem * var(--ts));
+  font-weight: 500;
+  color: var(--muted);
+}
+.easy-tile:focus,
+.easy-tile.focused {
+  background: var(--accent);
+  color: var(--on-accent);
+  transform: scale(1.04);
+}
+.easy-tile:focus svg,
+.easy-tile.focused svg,
+.easy-tile:focus small,
+.easy-tile.focused small {
+  color: inherit;
+}
+
+/* The first-time tour (#229) lights the button it is talking about. */
+.tour-count {
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-size: calc(0.9rem * var(--ts));
+}
+.tour-body {
+  font-size: calc(1.3rem * var(--ts));
+  line-height: 1.5;
+}
+.tour-dots {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.4rem;
+}
+.tour-dots i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.4;
+}
+.tour-dots i.on {
+  background: var(--accent);
+  opacity: 1;
+}
+.remote-btn.lit,
+.remote-pad.lit,
+.remote-row.lit {
+  outline: 0.25rem solid #ffd23f;
+  outline-offset: 0.2rem;
+  box-shadow: 0 0 1.6rem rgba(255, 210, 63, 0.7);
+/* X-Ray cast panel (player Info key) */
+.xray-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 1rem;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding: 0.4rem;
+}
+.xray-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem;
+  background: var(--surface, rgba(255, 255, 255, 0.06));
+  border: 0.2rem solid transparent;
+  border-radius: 0.8rem;
+  color: inherit;
+  text-align: center;
+  font-size: calc(1.2rem * var(--ts));
+}
+.xray-card:focus,
+.xray-card.focused {
+  border-color: var(--accent, #6ea8fe);
+}
+.xray-photo {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 0.6rem;
+}
+.xray-nophoto {
+  display: grid;
+  place-items: center;
+  font-size: 3rem;
+  background: rgba(255, 255, 255, 0.1);
+}
+.xray-name {
+  font-weight: 600;
+}
+.xray-character,
+.xray-guest,
+.xray-meta,
+.xray-note {
+  opacity: 0.75;
+}
+.xray-note {
+  margin: 0.8rem 0 0;
+  font-size: calc(1.05rem * var(--ts));
+}
+.xray-person-body {
+  display: flex;
+  gap: 1.6rem;
+  margin-bottom: 1rem;
+}
+.xray-photo-big {
+  width: 16rem;
+  height: 24rem;
+  object-fit: cover;
+  border-radius: 0.8rem;
+}
+.xray-bio {
+  line-height: 1.5;
+/* Watching elsewhere: a chip in the top bar while another screen plays, and its list. */
+.elsewhere-chip {
+  gap: 0.4rem;
+  color: var(--fg);
+  white-space: nowrap;
+}
+.elsewhere-chip .icon {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.sync-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.sync-banner .icon {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+/* With the chip in, the song's name gives way so the clock and the profile still fit. */
+.topbar-right:has(.elsewhere-chip) .music-chip-name {
+  max-width: 14rem;
+}
+
+/* Share Play: the link's QR code beside what it does (issue #210). */
+.share-play-body {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  margin: 16px 0 24px;
+  max-width: 1100px;
+}
+.share-play-body .qr-card {
+  flex: none;
+}
+.share-play-url {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  word-break: break-all;
+  opacity: 0.85;
+}
