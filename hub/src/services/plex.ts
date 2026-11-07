@@ -26,6 +26,7 @@ import {
   type MediaProvider,
   type MediaSegment,
   type MediaServer,
+  type MediaServerKind,
 } from "./media.js";
 
 const TICKS_PER_MS = 10_000;
@@ -323,6 +324,14 @@ export class PlexClient implements MediaServer {
   /** The Plex ratingKey inside one of the Hub's ids, or undefined for another server's. */
   parseKey(id: string): string | undefined {
     return id.startsWith(`${this.kind}:`) ? id.slice(this.kind.length + 1) : undefined;
+  }
+
+  kindOf(_itemId: string): MediaServerKind {
+    return this.kind;
+  }
+
+  rawId(itemId: string): string {
+    return itemId;
   }
 
   // Server identity ------------------------------------------------------

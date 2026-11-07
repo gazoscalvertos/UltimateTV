@@ -13,13 +13,126 @@
 
 #include "address.hpp"
 #include "display.hpp"
+#include "log.hpp"
 #include "platform.hpp"
+#include "renderer.hpp"
+#include "startup.hpp"
 #include "text.hpp"
 #include "ui.hpp"
 
 namespace utv {
 
 namespace {
+
+/**
+ * Starts one SDL subsystem and keeps the driver's own reason if it won't.
+ *
+ * The previous message is cleared first, because a driver that fails without explaining itself
+ * would otherwise leave the last unrelated error in place — which is exactly how the audio
+ * driver's failure came to be reported as "Unknown pixel format" from the cursor code.
+ */
+Subsystem startSubsystem(Uint32 flags, const char* what) {
+  SDL_ClearError();
+  if (SDL_InitSubSystem(flags) == 0) return Subsystem{true, ""};
+  const char* why = SDL_GetError();
+  std::string reason = (why && *why) ? why : "the console did not say why";
+  return Subsystem{false, std::string(what) + ": " + reason};
+}
+
+/** The renderer to try first, from `--renderer=NAME` or /data/ultimatetv/renderer.txt. */
+std::string preferredRenderer;
+
+/** "software, target textures" from a renderer's flags, so the log says what each one can do. */
+std::string rendererFlags(Uint32 flags) {
+  std::string out;
+  auto add = [&out](const char* word) {
+    if (!out.empty()) out += ", ";
+    out += word;
+  };
+  if (flags & SDL_RENDERER_SOFTWARE) add("software");
+  if (flags & SDL_RENDERER_ACCELERATED) add("accelerated");
+  if (flags & SDL_RENDERER_PRESENTVSYNC) add("vsync");
+  if (flags & SDL_RENDERER_TARGETTEXTURE) add("target textures");
+  return out.empty() ? std::string("no flags") : out;
+}
+
+/** "'software' (software, target textures)" for the renderer actually made. */
+std::string describeRenderer(SDL_Renderer* renderer) {
+  SDL_RendererInfo info;
+  if (!renderer || SDL_GetRendererInfo(renderer, &info) != 0) return "an unnamed renderer";
+  return std::string("'") + (info.name ? info.name : "?") + "' (" + rendererFlags(info.flags) + ")";
+}
+
+const char* orNone(const char* text) { return (text && *text) ? text : "(not set)"; }
+
+/**
+ * Writes down everything the console's SDL says about itself: its version, the video driver it
+ * chose, every display mode, and every render driver it was built with. On a console this is the
+ * only way to learn what the SDL bundle actually contains, so it is written before the window is
+ * asked for and survives whatever happens next.
+ */
+void logSdlEnvironment() {
+  SDL_version built;
+  SDL_version linked;
+  SDL_VERSION(&built);
+  SDL_GetVersion(&linked);
+  logLine("SDL %d.%d.%d (built against %d.%d.%d), revision %s, platform %s", linked.major,
+          linked.minor, linked.patch, built.major, built.minor, built.patch,
+          orNone(SDL_GetRevision()), orNone(SDL_GetPlatform()));
+
+  std::string videoDrivers;
+  for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
+    if (!videoDrivers.empty()) videoDrivers += ", ";
+    videoDrivers += orNone(SDL_GetVideoDriver(i));
+  }
+  logLine("video drivers built in: %s; in use: %s",
+          videoDrivers.empty() ? "none" : videoDrivers.c_str(),
+          orNone(SDL_GetCurrentVideoDriver()));
+
+  const int displays = SDL_GetNumVideoDisplays();
+  logLine("displays: %d", displays);
+  for (int d = 0; d < displays; ++d) {
+    SDL_DisplayMode desktop;
+    if (SDL_GetDesktopDisplayMode(d, &desktop) == 0) {
+      logLine("  display %d '%s': desktop %dx%d@%dHz %s", d, orNone(SDL_GetDisplayName(d)),
+              desktop.w, desktop.h, desktop.refresh_rate, SDL_GetPixelFormatName(desktop.format));
+    } else {
+      logLine("  display %d: no desktop mode: %s", d, reasonOrUnknown(SDL_GetError()).c_str());
+    }
+    const int modes = SDL_GetNumDisplayModes(d);
+    for (int m = 0; m < modes; ++m) {
+      SDL_DisplayMode mode;
+      if (SDL_GetDisplayMode(d, m, &mode) == 0) {
+        logLine("    mode %d: %dx%d@%dHz %s", m, mode.w, mode.h, mode.refresh_rate,
+                SDL_GetPixelFormatName(mode.format));
+      }
+    }
+    if (modes <= 0) logLine("    no modes listed (%s)", reasonOrUnknown(SDL_GetError()).c_str());
+  }
+
+  const int renderDrivers = SDL_GetNumRenderDrivers();
+  logLine("render drivers built in: %d", renderDrivers);
+  for (int i = 0; i < renderDrivers; ++i) {
+    SDL_RendererInfo info;
+    if (SDL_GetRenderDriverInfo(i, &info) != 0) {
+      logLine("  #%d: no info: %s", i, reasonOrUnknown(SDL_GetError()).c_str());
+      continue;
+    }
+    std::string formats;
+    for (Uint32 f = 0; f < info.num_texture_formats && f < 16; ++f) {
+      if (!formats.empty()) formats += " ";
+      formats += SDL_GetPixelFormatName(info.texture_formats[f]);
+    }
+    logLine("  #%d '%s': %s; max texture %dx%d; formats: %s", i, orNone(info.name),
+            rendererFlags(info.flags).c_str(), info.max_texture_width, info.max_texture_height,
+            formats.empty() ? "none listed" : formats.c_str());
+  }
+
+  logLine("hints: SDL_RENDER_DRIVER=%s SDL_FRAMEBUFFER_ACCELERATION=%s SDL_VIDEODRIVER=%s",
+          orNone(SDL_GetHint(SDL_HINT_RENDER_DRIVER)),
+          orNone(SDL_GetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION)),
+          orNone(SDL_GetHint(SDL_HINT_VIDEODRIVER)));
+}
 
 /** How long a direction must be held before it repeats, and how often after that. */
 const Uint32 REPEAT_DELAY_MS = 380;
@@ -93,14 +206,30 @@ class SdlWindow : public Window {
     // The window may already be open when the player arrives, so it is told the size here too.
     if (video_ && width_ > 0 && height_ > 0) video_->setDisplaySize(width_, height_);
   }
+  bool hasSound() const override { return hasSound_; }
 
  private:
   void handleEvent(const SDL_Event& event, std::vector<int>& keys, bool& closed);
+  /** Makes the window at `size` if there isn't one. False, with the reason, when it can't. */
+  bool makeWindow(const PixelSize& size, std::string& reason);
+  /** Tries one way of drawing into the window, logging what the console answered. */
+  bool tryRenderer(const RenderAttempt& attempt, std::string& reason);
+  /** Throws away the renderer and the window, so the next attempt starts clean. */
+  void destroyWindow();
 
   SDL_Window* window_ = nullptr;
   SDL_Renderer* renderer_ = nullptr;
   SDL_GameController* pad_ = nullptr;
   Video* video_ = nullptr;
+  /**
+   * True when the renderer draws into the window's surface directly (the last fallback), which
+   * SDL doesn't show by itself: every frame has to be handed over with SDL_UpdateWindowSurface.
+   */
+  bool surfaceRenderer_ = false;
+  /** How many frames have been shown, so the first few say in the log whether they arrived. */
+  int framesShown_ = 0;
+  /** Whether the console's sound came up, so the app knows not to promise any. */
+  bool hasSound_ = false;
   int width_ = 1920;
   int height_ = 1080;
   /** The direction being held, and when it started. */
@@ -111,10 +240,38 @@ class SdlWindow : public Window {
 };
 
 bool SdlWindow::open(std::string& problem) {
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0) {
-    problem = std::string("The console wouldn't start a window: ") + SDL_GetError();
+  // The three things are asked for one at a time, because asking for them together made a
+  // single failure take all three down. On a current console the audio driver refuses to
+  // initialise and leaves a stale "Unknown pixel format" behind from the cursor code, so the
+  // one combined call answered "no" with an error about the window — and the app died before it
+  // drew a frame. Separately is the only way to know which part failed and to keep the picture.
+  const Subsystem video = startSubsystem(SDL_INIT_VIDEO, "the console wouldn't start a window");
+  if (!video.ok) {
+    problem = video.why;
     return false;
   }
+  // The pad is asked for next: without it the app can still draw, and a window that is already
+  // up starts listening for a controller plugged in later, so this is a note and not a failure.
+  const Subsystem pad = startSubsystem(SDL_INIT_GAMECONTROLLER, "the console wouldn't give us a pad");
+  // Sound last and least: a film with no sound is worse than one with, but a black screen is
+  // worse than both, so an audio driver that refuses is noted and the app carries on.
+  const Subsystem audio = startSubsystem(SDL_INIT_AUDIO, "the console wouldn't give us sound");
+  const Startup startup = decideStartup(video, pad, audio);
+  for (const std::string& note : startup.notes) logLine("carrying on without it: %s", note.c_str());
+  hasSound_ = startup.hasSound;
+  if (!startup.canDraw) {
+    problem = startup.fatal;
+    return false;
+  }
+  // A window surface must never be backed by a hidden GPU renderer: SDL tries that by default,
+  // and on the console it means loading Mesa (which takes the display away from the software
+  // path even when it then fails). The software drawing below wants the plain framebuffer.
+  SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION, "0");
+
+  // Everything the console's SDL says about itself goes in the log before anything is asked of
+  // it, so a run that fails still says which drivers exist and which display modes are offered.
+  logSdlEnvironment();
+
   // What the console can show, asked before the window is made: the driver offers 1080p and
   // 4K, and asking for the biggest one is the only way a 4K film reaches a 4K television
   // without being shrunk to 1080p and stretched back up.
@@ -128,21 +285,44 @@ bool SdlWindow::open(std::string& problem) {
     }
   }
   const PixelSize wanted = pickOutputSize(offered, want4k);
-  width_ = wanted.width;
-  height_ = wanted.height;
-  window_ = SDL_CreateWindow("UltimateTV", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width_,
-                             height_, SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
-  if (!window_) {
-    problem = std::string("The console wouldn't give us a window: ") + SDL_GetError();
-    return false;
+  logLine("picked %dx%d from %d offered mode(s)%s", wanted.width, wanted.height,
+          static_cast<int>(offered.size()), want4k ? "" : " (--1080p)");
+
+  // The drivers SDL was built with, by index, so each can be asked for by itself.
+  std::vector<RenderDriver> drivers;
+  for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
+    SDL_RendererInfo info;
+    if (SDL_GetRenderDriverInfo(i, &info) == 0 && info.name) {
+      drivers.push_back(RenderDriver{info.name, i});
+    }
   }
-  renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-  if (!renderer_) {
-    // Software drawing is slow but always works; the app is mostly text.
-    renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_SOFTWARE);
+  const std::vector<RenderAttempt> attempts = renderAttempts(drivers, preferredRenderer);
+  if (!cleanRendererName(preferredRenderer).empty()) {
+    logLine("asked to try the '%s' renderer first", cleanRendererName(preferredRenderer).c_str());
+  }
+
+  // Every size, every driver, until one draws. Each failure is logged with the driver's own
+  // reason: SDL's summary ("Couldn't find matching render driver") hides all of them.
+  std::string lastReason = "no window size could be tried";
+  for (const PixelSize& size : windowSizesToTry(wanted)) {
+    for (const RenderAttempt& attempt : attempts) {
+      if (!makeWindow(size, lastReason)) break;  // no window at this size: try the next size
+      if (tryRenderer(attempt, lastReason)) {
+        logLine("drawing with %s at %dx%d", describeRenderer(renderer_).c_str(), size.width,
+                size.height);
+        break;
+      }
+      // A failed driver can leave the window half-changed (OpenGL recreates it), so the next
+      // attempt starts from a fresh one.
+      destroyWindow();
+    }
+    if (renderer_) break;
+    logLine("nothing could draw at %dx%d; trying a smaller window", size.width, size.height);
   }
   if (!renderer_) {
-    problem = std::string("The console wouldn't give us a picture: ") + SDL_GetError();
+    problem = std::string("The console wouldn't give us a picture with any renderer. Last "
+                          "reason: ") +
+              lastReason + ". The lines above say what each one answered.";
     return false;
   }
   // The canvas follows the surface, so the layout is drawn at real 4K instead of at 1080p and
@@ -154,6 +334,7 @@ bool SdlWindow::open(std::string& problem) {
     height_ = 1080;
   }
   SDL_RenderSetLogicalSize(renderer_, width_, height_);
+  logLine("the renderer draws %dx%d", width_, height_);
   if (video_) video_->setDisplaySize(width_, height_);
 
   // The first pad that answers. On the console that is the DualSense (or the remote).
@@ -173,12 +354,92 @@ bool SdlWindow::open(std::string& problem) {
   io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
   ImGui::GetStyle().ScrollbarSize = 0;
   if (!ImGui_ImplSDL2_InitForSDLRenderer(window_, renderer_)) {
-    problem = "The screen-drawing library wouldn't start.";
+    problem = "The screen-drawing library wouldn't start (ImGui's SDL2 backend): " +
+              reasonOrUnknown(SDL_GetError());
     return false;
   }
   if (!ImGui_ImplSDLRenderer2_Init(renderer_)) {
-    problem = "The screen-drawing library wouldn't start.";
+    problem = "The screen-drawing library wouldn't start (ImGui's SDL_Renderer backend): " +
+              reasonOrUnknown(SDL_GetError());
     return false;
+  }
+  return true;
+}
+
+bool SdlWindow::makeWindow(const PixelSize& size, std::string& reason) {
+  if (window_) return true;
+  SDL_ClearError();
+  window_ = SDL_CreateWindow("UltimateTV", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                             size.width, size.height, SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
+  if (!window_) {
+    reason = "no window at " + std::to_string(size.width) + "x" + std::to_string(size.height) +
+             ": " + reasonOrUnknown(SDL_GetError());
+    logLine("the console wouldn't give us a %dx%d window: %s", size.width, size.height,
+            reasonOrUnknown(SDL_GetError()).c_str());
+    return false;
+  }
+  width_ = size.width;
+  height_ = size.height;
+  int w = 0;
+  int h = 0;
+  SDL_GetWindowSize(window_, &w, &h);
+  logLine("window made: asked %dx%d, got %dx%d, pixel format %s, flags 0x%x", size.width,
+          size.height, w, h, SDL_GetPixelFormatName(SDL_GetWindowPixelFormat(window_)),
+          static_cast<unsigned>(SDL_GetWindowFlags(window_)));
+  return true;
+}
+
+void SdlWindow::destroyWindow() {
+  if (renderer_) SDL_DestroyRenderer(renderer_);
+  renderer_ = nullptr;
+  surfaceRenderer_ = false;
+  if (window_) SDL_DestroyWindow(window_);
+  window_ = nullptr;
+}
+
+bool SdlWindow::tryRenderer(const RenderAttempt& attempt, std::string& reason) {
+  SDL_ClearError();
+  if (attempt.kind == RenderAttempt::Kind::WindowSurface) {
+    // No render driver at all: the window's own framebuffer, drawn into by SDL's software
+    // rasteriser. This is the path that only needs the console's video output to open.
+    SDL_Surface* surface = SDL_GetWindowSurface(window_);
+    if (!surface) {
+      reason = "the window's surface: " + reasonOrUnknown(SDL_GetError());
+      logLine("tried drawing into the window's surface: no surface: %s",
+              reasonOrUnknown(SDL_GetError()).c_str());
+      return false;
+    }
+    logLine("the window's surface is %dx%d, %s, pitch %d", surface->w, surface->h,
+            surface->format ? SDL_GetPixelFormatName(surface->format->format) : "no format",
+            surface->pitch);
+    SDL_ClearError();
+    renderer_ = SDL_CreateSoftwareRenderer(surface);
+    if (!renderer_) {
+      reason = "a software renderer on the window's surface: " + reasonOrUnknown(SDL_GetError());
+      logLine("tried a software renderer on the window's surface: no: %s",
+              reasonOrUnknown(SDL_GetError()).c_str());
+      return false;
+    }
+    surfaceRenderer_ = true;
+    logLine("tried a software renderer on the window's surface: it worked");
+    return true;
+  }
+
+  // One driver, by index, with no flags: flags only filter, and a driver that is skipped for a
+  // flag it lacks never gets to say anything.
+  renderer_ = SDL_CreateRenderer(window_, attempt.index, 0);
+  if (!renderer_) {
+    reason = "'" + attempt.name + "': " + reasonOrUnknown(SDL_GetError());
+    logLine("tried renderer #%d '%s': no: %s", attempt.index, attempt.name.c_str(),
+            reasonOrUnknown(SDL_GetError()).c_str());
+    return false;
+  }
+  logLine("tried renderer #%d '%s': it worked", attempt.index, attempt.name.c_str());
+  // Asked for after the fact, because asking for it up front would have filtered drivers out.
+  SDL_ClearError();
+  if (SDL_RenderSetVSync(renderer_, 1) != 0) {
+    logLine("  no vsync with it (%s); frames are paced by the loop instead",
+            reasonOrUnknown(SDL_GetError()).c_str());
   }
   return true;
 }
@@ -486,12 +747,29 @@ void SdlWindow::draw(App& app) {
     SDL_RenderClear(renderer_);
   }
   ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer_);
+  SDL_ClearError();
   SDL_RenderPresent(renderer_);
+  int shown = 0;
+  if (surfaceRenderer_) shown = SDL_UpdateWindowSurface(window_);
+  // The first frames say whether they reached the console, so a log that ends with "the app is
+  // running" and a black screen can tell a drawing problem from a showing one.
+  if (framesShown_ < 3) {
+    const char* why = SDL_GetError();
+    if (shown != 0 || (why && *why)) {
+      logLine("frame %d was handed over, and SDL said: %s", framesShown_ + 1,
+              reasonOrUnknown(why).c_str());
+    } else {
+      logLine("frame %d was handed to the console", framesShown_ + 1);
+    }
+  }
+  ++framesShown_;
 }
 
 }  // namespace
 
 void setWant4k(bool on) { want4k = on; }
+
+void setPreferredRenderer(const std::string& name) { preferredRenderer = name; }
 
 std::unique_ptr<Window> openWindow(std::string& problem) {
   auto window = std::unique_ptr<SdlWindow>(new SdlWindow());

@@ -2,7 +2,8 @@
 // the nearest one in that direction within the top layer (a dialog, or else the screen).
 // A `data-focus-group` (a rail, a menu) remembers its last focused item, so coming back to a
 // rail lands where you left it, as on Sky and Netflix. A group with `data-focus-only="up"` (the
-// top menu) is only entered by pressing that direction.
+// top menu) is only entered by pressing that direction, and left and right keep within it, so
+// pressing right on its last item stays put instead of dropping into the screen below.
 
 import { reducedMotion } from "./store";
 
@@ -49,6 +50,9 @@ export function move(dir: Direction): boolean {
   if (!from) return focusFirst();
   const a = from.getBoundingClientRect();
   const fromGroup = from.closest("[data-focus-group]");
+  // Sideways inside a one-way group (the top menu) never leaves it: at either end it stops.
+  const fromOnly = from.closest("[data-focus-only]");
+  const sideways = dir === "left" || dir === "right";
   let best: HTMLElement | null = null;
   let bestScore = Infinity;
 
@@ -57,6 +61,7 @@ export function move(dir: Direction): boolean {
     // Some groups (the top menu) are only entered in one direction.
     const only: HTMLElement | null = el.closest<HTMLElement>("[data-focus-only]");
     if (only && !only.contains(from) && only.dataset.focusOnly !== dir) continue;
+    if (fromOnly && sideways && !fromOnly.contains(el)) continue;
     const b = el.getBoundingClientRect();
     // Distance along the direction of travel, edge to edge; candidates behind us are skipped.
     let main: number;
@@ -82,9 +87,10 @@ export function move(dir: Direction): boolean {
   }
   if (!best) return false;
 
-  // Entering another group: go back to where we were in it.
+  // Entering another group: go back to where we were in it. Stepping out of a group nested inside
+  // it (the music chip in the top menu) isn't entering, so that moves on as normal.
   const toGroup = best.closest("[data-focus-group]");
-  if (toGroup && toGroup !== fromGroup) {
+  if (toGroup && toGroup !== fromGroup && !toGroup.contains(from)) {
     const remembered = lastInGroup.get(toGroup);
     if (remembered && remembered.isConnected && visible(remembered)) best = remembered;
   }
