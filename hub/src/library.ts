@@ -25,6 +25,7 @@ import type { VodEntry } from "./ingest/index.js";
 import { type ContentFilter, NO_FILTER } from "./profiles.js";
 import { XtreamClient } from "./ingest/xtream.js";
 import { groupSeasons, type JfItem, type JfMediaSource } from "./services/jellyfin.js";
+import { addonKey, iptvKey, orderedKeys, orderStreams, pausedKeys } from "./sourceoptions.js";
 import { streamToCandidate } from "./services/stremio.js";
 import { GENRES } from "./services/tmdb.js";
 
@@ -339,7 +340,8 @@ export class Library {
       .json<VodEntry>("SELECT data FROM vod WHERE kind = ? AND name_norm = ?", kind, normaliseTitle(name))
       .filter((r) => (!tmdbId || !r.tmdbId || r.tmdbId === tmdbId) && (!year || !r.year || Math.abs(r.year - year) <= 1));
     const seen = new Set(byTmdb.map((r) => r.id));
-    return [...byTmdb, ...byName.filter((r) => !seen.has(r.id))];
+    const paused = new Set(this.ctx.settings.get().iptv.filter((s) => s.paused).map((s) => s.id));
+    return [...byTmdb, ...byName.filter((r) => !seen.has(r.id))].filter((r) => !paused.has(r.sourceId));
   }
 
   /** Details, refused when the profile isn't allowed to see the title. */
@@ -397,10 +399,11 @@ export class Library {
       return { id, kind: p.isFilm ? "movie" : "series", name: p.title, genres: p.categories, cast: [], availability: [], inLibrary: false, ...(p.description ? { overview: p.description } : {}), ...(p.image ? { poster: p.image } : {}) };
     }
 
-    if (source === "jellyfin" || source === "plex") {
+    if (source === "jellyfin" || source === "plex" || source === "emby") {
       if (!jf) throw new Error("The media server isn't connected");
-      if (source !== jf.kind) throw new Error(`That's a ${source} title, and ${jf.name} is the library connected here`);
-      const item = await jf.item(rest[0]!);
+      const own = jf.parseKey(id);
+      if (!own) throw new Error(`That's a ${source} title, and ${jf.name} is the library connected here`);
+      const item = await jf.item(own);
       const episodes = item.Type === "Series" ? await jf.episodes(item.Id) : [];
       const d = jf.toDetails(item, episodes);
       this.jellyfinFallbackResume(d, item);
@@ -462,7 +465,15 @@ export class Library {
 
   private async addAvailability(d: TitleDetails): Promise<void> {
     const kinds = new Set(d.availability);
-    if (d.inLibrary) kinds.add(this.ctx.media()?.kind ?? "jellyfin");
+    if (d.inLibrary) {
+      // Which of the connected servers has it: the one the id names, else every one that knows the TMDB id.
+      const servers = this.ctx.mediaServers();
+      const type = d.kind === "movie" ? "Movie" : "Series";
+      for (const s of servers) {
+        if (s.parseKey(d.id) !== undefined || (d.tmdbId && (await s.hasProviderId("tmdb", String(d.tmdbId), type).catch(() => false)))) kinds.add(s.kind);
+      }
+      if (!servers.some((s) => kinds.has(s.kind))) kinds.add(servers[0]?.kind ?? "jellyfin");
+    }
     if (this.vodMatches(d.kind, d.name, d.year, d.tmdbId).length) kinds.add("xtream");
     if (d.imdbId && this.ctx.addons().length) kinds.add("addon");
     d.availability = [...kinds];
@@ -509,10 +520,10 @@ export class Library {
   async streams(id: string, ep?: EpisodeRef, f: ContentFilter = NO_FILTER): Promise<StreamCandidate[]> {
     const d = await this.details(id, f);
     const candidates: StreamCandidate[] = [];
-    const jf = this.ctx.media();
 
-    // The media server: the file on the NAS.
-    if (jf && d.inLibrary) {
+    // The media servers: the file on the NAS, from each server that has the title.
+    for (const jf of this.ctx.mediaServers()) {
+      if (!d.inLibrary) break;
       try {
         let item: JfItem | undefined;
         const ownItem = jf.parseKey(id);
@@ -525,11 +536,11 @@ export class Library {
         }
         if (item && item.Type !== "Series") {
           for (const src of item.MediaSources ?? []) {
-            candidates.push({ id: `${jf.key(item.Id)}:${src.Id}`, kind: jf.kind, label: jf.name, detail: src.Path?.split("/").pop() ?? src.Container ?? "", quality: jellyfinQuality(src), ready: true, url: jf.streamUrl(item.Id, src.Id), downloadable: false });
+            candidates.push({ id: `${jf.key(item.Id)}:${src.Id}`, kind: jf.kind, provider: jf.kind, label: jf.name, detail: src.Path?.split("/").pop() ?? src.Container ?? "", quality: jellyfinQuality(src), ready: true, url: jf.streamUrl(item.Id, src.Id), downloadable: false });
           }
         }
       } catch (err) {
-        this.ctx.log.warn({ id, err: String(err) }, "Library streams failed");
+        this.ctx.log.warn({ id, server: jf.name, err: String(err) }, "Library streams failed");
       }
     }
 
@@ -539,7 +550,7 @@ export class Library {
       if (d.kind === "movie") {
         const url = e.url ?? client?.movieUrl(e.upstreamId, e.ext);
         const demo = e.sourceId === "demo";
-        if (url) candidates.push({ id: `xtream:${e.id}`, kind: demo ? "nas" : "xtream", label: demo ? "Your library" : "IPTV", detail: e.name, quality: vodQuality(e), ready: true, url, downloadable: !demo, ...(e.lang ? { lang: e.lang } : {}) });
+        if (url) candidates.push({ id: `xtream:${e.id}`, kind: demo ? "nas" : "xtream", ...(demo ? {} : { provider: iptvKey(e.sourceId) }), label: demo ? "Your library" : "IPTV", detail: e.name, quality: vodQuality(e), ready: true, url, downloadable: !demo, ...(e.lang ? { lang: e.lang } : {}) });
       } else if (ep && e.sourceId === "demo" && e.url) {
         candidates.push({ id: `xtream:${e.id}:s${ep.season}e${ep.episode}`, kind: "nas", label: "Your library", detail: `${e.name} ${episodeLabel(ep.season, ep.episode)}`, quality: vodQuality(e), ready: true, url: e.url, downloadable: false });
       } else if (ep && client) {
@@ -549,7 +560,7 @@ export class Library {
           const parts = found.id.split(":");
           const epId = parts[5];
           const ext = parts[6];
-          candidates.push({ id: `xtream:${found.id}`, kind: "xtream", label: "IPTV", detail: found.name, quality: { height: 1080, hdr: "sdr", codec: "unknown", audio: "unknown" }, ready: true, url: client.episodeUrl(epId!, ext), downloadable: true, ...(e.lang ? { lang: e.lang } : {}) });
+          candidates.push({ id: `xtream:${found.id}`, kind: "xtream", provider: iptvKey(e.sourceId), label: "IPTV", detail: found.name, quality: { height: 1080, hdr: "sdr", codec: "unknown", audio: "unknown" }, ready: true, url: client.episodeUrl(epId!, ext), downloadable: true, ...(e.lang ? { lang: e.lang } : {}) });
         }
       }
     }
@@ -562,7 +573,7 @@ export class Library {
           this.ctx.addons().map(async (a) => {
             try {
               const [manifest, streams] = await Promise.all([a.manifest().catch(() => ({ name: "Addon" })), a.streams(d.kind, addonId)]);
-              return streams.map((s, i) => streamToCandidate(s, manifest.name, i)).filter((c): c is StreamCandidate => c !== null);
+              return streams.map((s, i) => streamToCandidate(s, manifest.name, i)).filter((c): c is StreamCandidate => c !== null).map((c) => ({ ...c, provider: addonKey(a.url) }));
             } catch (err) {
               this.ctx.log.warn({ err: String(err) }, "Addon streams failed");
               return [];
@@ -573,7 +584,9 @@ export class Library {
         for (const list of results) for (const c of list) candidates.push({ ...c, id: `addon:${n++}` });
       }
     }
-    return rankStreams(candidates, this.prefs());
+    // Quality rules first, then the household's source order (Settings › Sources › Options).
+    const settings = this.ctx.settings.get();
+    return orderStreams(rankStreams(candidates, this.prefs()), orderedKeys(settings), pausedKeys(settings));
   }
 
   // -------------------------------------------------------------------------

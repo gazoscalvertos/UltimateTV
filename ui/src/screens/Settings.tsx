@@ -19,6 +19,7 @@ import { AdvertRows, AlertsSection, FeaturesSection, CastSection, HomeRowsSectio
 import { MeasureSection } from "./Measure";
 import { SelfTestSection } from "./SelfTest";
 import { BluetoothSection } from "./Bluetooth";
+import { SourcesSection } from "./Sources";
 
 /** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
 const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
@@ -37,6 +38,7 @@ const whenAgo = (at: number) => {
   return days === 0 ? `Today ${time}` : days === 1 ? `Yesterday ${time}` : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
 };
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const TV_OFF_LABELS = { pause: "Pause", stop: "Stop", keep: "Keep playing" } as const;
 const SUB_LABELS: Record<SubtitleStyle["size"], string> = { small: "Small", medium: "Medium", large: "Large", huge: "Huge" };
 const MODE_LABELS: Record<SubtitleMode, string> = { off: "Off", on: "On", foreign: "Only for other languages" };
 const LANG_NAMES: Record<string, string> = { eng: "English", spa: "Spanish", fra: "French", deu: "German", ita: "Italian", pol: "Polish", por: "Portuguese", nld: "Dutch" };
@@ -711,6 +713,12 @@ export function Settings(props: { section?: string }) {
               />
               <Row label="Play the next episode automatically" value={playback().autoplayNext ? "On" : "Off"} onSelect={() => void save({ playback: { ...playback(), autoplayNext: !playback().autoplayNext } })} />
               <Row label="When the TV turns on" value={playback().startOn === "live" ? "Live TV" : "Home"} onSelect={() => void save({ playback: { ...playback(), startOn: playback().startOn === "live" ? "home" : "live" } })} />
+              <Row
+                label="When the TV turns off"
+                hint="Or switches to another input. Live TV always stops, as it holds the IPTV connection"
+                value={TV_OFF_LABELS[playback().whenTvOff ?? "stop"]}
+                onSelect={() => void save({ playback: { ...playback(), whenTvOff: cycle(["pause", "stop", "keep"] as const, playback().whenTvOff ?? "stop") } })}
+              />
               <Row label="Playback stats" hint="Show the stream, picture and sound details over the video. The blue button turns them on and off while watching" value={showStats() ? "On" : "Off"} onSelect={() => setShowStats(!showStats())} />
               <Row label="Largest file to stream" hint="Bigger versions are moved down the list" value={`${playback().maxSizeGb} GB`} onSelect={() => void save({ playback: { ...playback(), maxSizeGb: cycle([20, 40, 60, 100], playback().maxSizeGb) } })} />
             </Show>
@@ -959,36 +967,7 @@ export function Settings(props: { section?: string }) {
             </Show>
 
             <Show when={section() === "sources"}>
-              <h2>Sources</h2>
-              <div class="sources">
-                <div class="sources-list">
-                  <Row label="IPTV" value={<Status ok={settings()!.iptv.length > 0 || Boolean(status()?.demo)} text={settings()!.iptv.map((s) => `${s.name} (${s.connections} connection${s.connections === 1 ? "" : "s"})`).join(", ") || (status()?.demo ? "Demo channels" : "Not set up")} />} />
-                  <Row label="TV guide" value={<Status ok={(status()?.programmes ?? 0) > 0} text={`${status()?.channels ?? 0} channels, ${status()?.programmes ?? 0} programmes`} />} />
-                  <Row label="Jellyfin" value={<Status ok={Boolean(settings()!.jellyfin)} text={settings()!.jellyfin?.serverName ?? (settings()!.jellyfin ? "Connected" : "Not connected")} />} />
-                  <Row label="Plex" value={<Status ok={Boolean(settings()!.plex)} text={settings()!.plex?.serverName ?? (settings()!.plex ? "Connected" : "Not connected")} />} />
-                  <Row label="Film and TV info (TMDB)" value={<Status ok={settings()!.tmdb} text={settings()!.tmdb ? "Connected" : "Not set up"} />} />
-                  <Row label="AIOStreams and add-ons" value={<Status ok={settings()!.addons.length > 0} text={settings()!.addons.map((a) => a.name).join(", ") || "None"} />} />
-                  <Row label="TorBox" value={<Status ok={settings()!.torbox} text={settings()!.torbox ? "Connected" : "Not set up"} />} />
-                  <Row
-                    label="Refresh channels and guide now"
-                    icon="restart"
-                    onSelect={() =>
-                      void hub
-                        .refresh()
-                        .then(() => toast("Refreshing. This takes a minute or two."))
-                        .catch(errorToast)
-                    }
-                  />
-                </div>
-                <div class="qr-card">
-                  <img src={`/api/setup/qr.svg?v=${pairStamp()}`} alt="" />
-                  <p>
-                    Scan with your phone to set up sources
-                    <br />
-                    <span class="muted">{settings()!.setupUrl}</span>
-                  </p>
-                </div>
-              </div>
+              <SourcesSection settings={settings()!} onSettings={(s) => mutate(s)} demo={Boolean(status()?.demo)} channels={status()?.channels ?? 0} programmes={status()?.programmes ?? 0} setupUrl={settings()!.setupUrl} />
             </Show>
 
             <Show when={section() === "remote"}>

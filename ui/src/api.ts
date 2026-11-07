@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras, SelfTestReport, PerfReport } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -178,10 +178,31 @@ export const hub = {
   removeMixVideo: (id: string, videoId: string) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}/videos/${enc(videoId)}`, { method: "DELETE" }),
 
   settings: () => api<PublicSettings>("/api/settings"),
+  /** Source options (#219). A source is its key from PublicSettings.providerOrder ("iptv:<id>", "jellyfin", …). */
+  testSource: (key: string) => api<SourceTestResult>(`/api/sources/${enc(key)}/test`, { method: "POST" }),
+  pauseSource: (key: string, paused: boolean) => api<PublicSettings>(`/api/sources/${enc(key)}/pause`, { method: "POST", body: { paused } }),
+  orderSources: (order: string[]) => api<PublicSettings>("/api/sources/order", { method: "PUT", body: { order } }),
+  removeSource: (key: string) => api<PublicSettings>(`/api/sources/${enc(key)}`, { method: "DELETE" }),
   screensaver: () => api<ScreensaverInfo>("/api/screensaver"),
   screensaverPhotos: () => api<{ photos: ScreensaverPhoto[] }>("/api/screensaver/photos"),
   browsePhotos: (dir?: string) => api<NasListing>(`/api/screensaver/nas${q({ dir })}`),
   saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback" | "appName" | "theme" | "seasonal" | "radio">> & { screensaver?: Partial<ScreensaverSettings> }) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
+
+  // Sources (Settings › Sources): everything that changes the household's setup needs an adult
+  // profile (and its PIN once one is set), so a call can fail with code "pin".
+  saveSources: (patch: { addonUrls?: string[]; torboxApiKey?: string }) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
+  addIptv: (source: { kind: "m3u"; url: string; name?: string } | { kind: "xtream"; url: string; username: string; password: string; name?: string }) => api<PublicSettings>("/api/settings/iptv", { method: "POST", body: source }),
+  removeIptv: (id: string) => api<PublicSettings>(`/api/settings/iptv/${enc(id)}`, { method: "DELETE" }),
+  /** Jellyfin and Plex servers answering on the home network (an empty list when none do). */
+  discoverServers: () => api<{ servers: { kind: "jellyfin" | "plex"; id: string; name: string; url: string }[] }>("/api/discover"),
+  jellyfinQuickConnect: (url: string) => api<{ code: string; secret: string }>("/api/jellyfin/quickconnect", { method: "POST", body: { url } }),
+  jellyfinQuickConnectCheck: (secret: string, url: string) => api<{ authenticated: boolean }>(`/api/jellyfin/quickconnect/${enc(secret)}${q({ url })}`),
+  jellyfinLogin: (url: string, username: string, password: string) => api<{ ok: true }>("/api/jellyfin/login", { method: "POST", body: { url, username, password } }),
+  removeJellyfin: () => api<{ ok: true }>("/api/jellyfin", { method: "DELETE" }),
+  plexPin: () => api<{ id: number; code: string; authUrl: string }>("/api/plex/pin", { method: "POST" }),
+  /** `url` is the chosen server; without it the Hub uses the first one plex.tv lists. */
+  plexPinCheck: (id: number, url?: string) => api<{ authenticated: boolean; plex?: { url: string; serverName?: string } }>(`/api/plex/pin/${id}${q({ url })}`),
+  removePlex: () => api<{ ok: true }>("/api/plex", { method: "DELETE" }),
 
   /** Jump scares: the settings and clips the Hub keeps, and setting one off now. */
   scares: () => api<ScareState>("/api/scares"),

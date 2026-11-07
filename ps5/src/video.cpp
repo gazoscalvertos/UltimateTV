@@ -132,8 +132,10 @@ bool KitVideo::open(const PlaybackInfo& info, long startMs, std::string& problem
   textureHeight_ = playerInfo.video_format.height > 0 ? playerInfo.video_format.height
                                                       : displayHeight_;
 
-  // Sound: the format comes from the player, and SDL's queue takes it from there.
-  if (audioStream >= 0) {
+  // Sound: the format comes from the player, and SDL's queue takes it from there. A console
+  // whose audio driver refused to start has no sound subsystem at all, and asking it to open a
+  // device anyway would only set an error nobody reads — the film plays silently instead.
+  if (audioStream >= 0 && SDL_WasInit(SDL_INIT_AUDIO) != 0) {
     SDL_AudioSpec want;
     std::memset(&want, 0, sizeof(want));
     want.freq = playerInfo.audio_format.sample_rate > 0 ? playerInfo.audio_format.sample_rate
