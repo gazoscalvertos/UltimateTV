@@ -5,8 +5,9 @@ Continue watching, Next up and Recently added rails, search, Details pages, play
 the file with mpv, progress back to the server, Mark as watched, and a rescan after a save or a
 recording.
 
-**One media server at a time.** There is a single slot: connecting Plex disconnects Jellyfin, and
-vice versa. Both are chosen in Settings › Plex (or the setup page's **Plex instead** box).
+**Plex can run beside Jellyfin and Emby** (#217). Connecting one no longer disconnects another: the
+Hub merges their libraries, see [Several servers at once](emby.md#several-servers-at-once). Plex is
+chosen in Settings › Plex (or the setup page's **Plex** box).
 
 ## Connecting
 

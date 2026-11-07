@@ -50,6 +50,7 @@ import { guestBlocks } from "./guest.js";
 import { ContentFilter, certificationRank } from "./profiles.js";
 import { ReportStore } from "./reports.js";
 import { JellyfinClient } from "./services/jellyfin.js";
+import { EmbyClient } from "./services/emby.js";
 import { PlexClient, plexPinCheck, plexPinStart, plexResources } from "./services/plex.js";
 import { publicSettings, sourceKey } from "./settings.js";
 import { desktopCheck, RemoteApp, RemoteAsset } from "./remoteapp.js";
@@ -325,6 +326,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/perf",
     "DELETE /api/jellyfin",
     "DELETE /api/plex",
+    "POST /api/emby/login",
+    "DELETE /api/emby",
     "PATCH /api/channels/:id",
     "DELETE /api/recordings/:id",
     "PATCH /api/series-links/:id",
@@ -557,7 +560,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       programmes: ctx.guide.count(),
       connections: ctx.guard.status(),
       recordingNow: ctx.recordings.withStatus("recording"),
-      configured: { iptv: s.iptv.length > 0 || config.demo, jellyfin: Boolean(s.jellyfin), plex: Boolean(s.plex), tmdb: Boolean(s.tmdbApiKey), addons: s.addonUrls.length > 0, torbox: Boolean(s.torboxApiKey) },
+      configured: { iptv: s.iptv.length > 0 || config.demo, jellyfin: Boolean(s.jellyfin), plex: Boolean(s.plex), emby: Boolean(s.emby), tmdb: Boolean(s.tmdbApiKey), addons: s.addonUrls.length > 0, torbox: Boolean(s.torboxApiKey) },
     };
     const epg = ctx.db.getKv<number>("epgUpdatedAt");
     if (epg) status.epgUpdatedAt = epg;
@@ -1223,9 +1226,26 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ok: true };
   });
 
+  // Emby: a user name and password, checked against the server before anything is saved. Emby can
+  // be connected alongside Jellyfin and Plex.
+  app.post("/api/emby/login", async (req: Req<Record<string, string>, Record<string, string>, { url: string; username: string; password: string }>) => {
+    const url = (req.body.url ?? "").trim();
+    if (!url || !req.body.username) throw new Error("Both the server's address and a user name are needed");
+    const client = new EmbyClient({ url }, ctx.fetchImpl);
+    const auth = await client.authenticateByName(req.body.username, req.body.password ?? "");
+    ctx.saveEmby(auth);
+    ctx.events.emit({ type: "settings.changed" });
+    return { ok: true, emby: { url: auth.url, ...(auth.serverName ? { serverName: auth.serverName } : {}) } };
+  });
+
+  app.delete("/api/emby", async () => {
+    const { emby: _e, ...rest } = ctx.settings.get();
+    ctx.settings.update({ ...rest, emby: undefined } as Partial<Settings>);
+    return { ok: true };
+  });
+
   // Plex: a PIN approved on plex.tv (the household never types a password into the Hub), or a
-  // server URL and token typed in by hand. Only one media server is ever connected, so connecting
-  // Plex replaces Jellyfin; the caller is told which happened.
+  // server URL and token typed in by hand. Plex can be connected alongside Jellyfin and Emby.
   app.post("/api/plex/pin", async () => {
     const pin = await plexPinStart(ctx.fetchImpl);
     return { id: pin.id, code: pin.code, authUrl: pin.authUrl };
