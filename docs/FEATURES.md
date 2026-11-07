@@ -5,6 +5,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 ## Live TV and the guide
 
 - IPTV from M3U playlists or Xtream Codes logins, with XMLTV guides; several sources and several feeds per channel, merged into one channel list with names cleaned up and quality badges (4K / FHD / HD).
+- **Set up sources from the TV remote** ([sources.md](sources.md)): Settings › Sources lists IPTV, Xtream Codes, Jellyfin, Plex, add-ons and TorBox, each saying what to do next ("Not set up – press OK to add a playlist"). OK opens setup with an on-screen keyboard; Jellyfin and Plex servers on the network are found automatically, Plex shows its plex.tv/link code and Jellyfin offers Quick Connect. Adult profiles only.
 - Sky-style TV guide: live TV keeps playing in the corner, the highlighted programme's details beside it, a channel/time grid, digits jump to a channel. Channel names show next to their logos.
 - Channel lists above the grid: all channels, favourites, categories, and **custom guides** built by hand with your own choice and order (TV Guide › New guide). Any list can be a profile's default, and channel up/down stays within it. ([profiles.md](profiles.md#custom-guides))
 - The phone's settings page arranges the guide's lists, builds and reorders custom guides, and renumbers, recategorises, stars or hides any channel.
@@ -13,6 +14,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 - Catch-up and "watch from the start" on channels that offer it.
 - Reminders on programmes: Remind me on a programme in the guide, on the TV or from the phone's guide. The Hub fires it, the TV shows a card when it starts, and **Recordings › Reminders lists everything set** (the phone remote has the same list), so a reminder can be taken back without finding the programme again.
 - Live TV switches the screen's refresh rate once mpv reads the stream's frame rate.
+- **Source options** (Settings › Sources, and the setup page): test a source (reachable, signed in, time taken, IPTV expiry and connections), pause and resume it without losing its login, move it up or down the order Play and Versions prefer, or remove it with a confirm. ([sources.md](sources.md#source-options))
 - Search finds channels with or without spaces ("bbcone"), what's on this week, recordings, films and series, with an on-screen keyboard or typing from the phone.
 - Recent searches per profile (kept on the Hub, up to 20): shown before anything is typed and as suggestions while typing; OK runs one. Clear removes one, Clear all the lot. The phone remote's Search shows the TV profile's list.
 

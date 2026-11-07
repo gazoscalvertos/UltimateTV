@@ -44,6 +44,7 @@ import { OmdbClient } from "./services/omdb.js";
 import { OpenSubtitlesClient } from "./services/opensubtitles.js";
 import { TorboxClient } from "./services/torbox.js";
 import { defaultSettings, SettingsStore, settingsFromEnv } from "./settings.js";
+import { addonKey, pausedKeys } from "./sourceoptions.js";
 import { StreamProxy } from "./streaming.js";
 import { spawnRun, YtDlp, type Run } from "./ytdlp.js";
 
@@ -219,13 +220,16 @@ export class HubContext {
   private rebuildClients(s: Settings): void {
     // One media server at a time. Jellyfin wins if both are somehow left set (a household that
     // switched to Plex has the Jellyfin key cleared when it connects, but settings can be edited).
-    this.jf = s.jellyfin ? new JellyfinClient(s.jellyfin, this.fetchImpl) : null;
-    this.ms = this.jf ?? (s.plex ? new PlexClient(s.plex, this.fetchImpl) : null);
+    // A paused provider (Source options, #219) keeps its settings but has no client, so the
+    // library, Versions and Play never reach it.
+    const paused = new Set(pausedKeys(s));
+    this.jf = s.jellyfin && !paused.has("jellyfin") ? new JellyfinClient(s.jellyfin, this.fetchImpl) : null;
+    this.ms = this.jf ?? (s.plex && !paused.has("plex") ? new PlexClient(s.plex, this.fetchImpl) : null);
     this.tm = s.tmdbApiKey ? new TmdbClient(s.tmdbApiKey, this.db, this.fetchImpl) : null;
     this.om = s.omdbApiKey ? new OmdbClient(s.omdbApiKey, this.db, this.fetchImpl) : null;
     this.os = s.openSubtitles?.apiKey ? new OpenSubtitlesClient(s.openSubtitles, this.db, this.fetchImpl, this.log) : null;
-    this.tb = s.torboxApiKey ? new TorboxClient(s.torboxApiKey, this.fetchImpl) : null;
-    this.addonClients = s.addonUrls.map((u) => new AddonClient(u, this.fetchImpl));
+    this.tb = s.torboxApiKey && !paused.has("torbox") ? new TorboxClient(s.torboxApiKey, this.fetchImpl) : null;
+    this.addonClients = s.addonUrls.filter((u) => !paused.has(addonKey(u))).map((u) => new AddonClient(u, this.fetchImpl));
     // Jellyfin is reachable again (it was just set up, or the Hub is home from a trip): send what was
     // watched while it wasn't (#80). Nothing to send is the usual case, so this costs nothing.
     if (this.jf && this.jellyfinProgress.size()) void this.flushJellyfinProgress().catch((err) => this.log.warn({ err: String(err) }, "Couldn't send Jellyfin its places"));
