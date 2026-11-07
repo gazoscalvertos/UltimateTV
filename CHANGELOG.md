@@ -42,6 +42,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-04
 
+- **Share Play** ([docs/share-play.md](docs/share-play.md)): a one-off link to the film or episode on the TV. Whoever opens it watches along in any web browser, with nothing to install, pausing and skipping together with the TV through Sync play. Make one from the phone remote (Browse › Elsewhere › Share, which sends it through the phone's share sheet) or on the TV (Options › Share Play, a QR code). The first browser to open a link keeps it; it ends when the TV moves on, when it's cancelled, or after 6 hours, and the browser never sees Jellyfin. Links work on the home Wi-Fi, and for someone in another house once `tools/share/setup-tunnel.sh` has published `/share/` (and nothing else of the Hub) through a Cloudflare Tunnel. (#214)
+  Household: send someone a link and watch the same film together, in step, even if they don't have the app.
+
 - **Watch on other screens, and Sync play** ([docs/watching-elsewhere.md](docs/watching-elsewhere.md)): every TV, phone and tablet now says what it's playing, and any other screen can carry it on from the same place (Resume here), take it over and stop it there (Move here), or play it in step (Sync play), where pausing or skipping on one does it on all of them. On the TV it's the On other screens row on Home; in the Android app (0.7.0) Home › Elsewhere and a TV button in the player; on the phone remote Watch › Elsewhere. (#211)
   Household: swap from the TV to a phone or tablet and back without losing your place, or watch the same thing in two rooms with Sync play.
 - **Versions: English only**: Settings › Picture and sound › Versions (and the setup page) now chooses between your audio language first (as before), only your audio language, or all languages. Torrent and addon copies marked FRENCH, GERMAN and so on, or with a foreign flag, now count as other languages too. (#213)

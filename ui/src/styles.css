@@ -5361,3 +5361,21 @@ html.mouse .skip-button {
 .topbar-right:has(.elsewhere-chip) .music-chip-name {
   max-width: 14rem;
 }
+
+/* Share Play: the link's QR code beside what it does (issue #210). */
+.share-play-body {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  margin: 16px 0 24px;
+  max-width: 1100px;
+}
+.share-play-body .qr-card {
+  flex: none;
+}
+.share-play-url {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  word-break: break-all;
+  opacity: 0.85;
+}

@@ -44,12 +44,13 @@ import { Library, NotAllowedError } from "./library.js";
 import { Pairing, PairingError } from "./pairing.js";
 import { PhoneNow, registerPhoneNow } from "./phonenow.js";
 import { registerWatching, Watching } from "./watching.js";
+import { onlyShareThroughTunnel, registerSharePlay, ShareLinks } from "./shareplay.js";
 import { BoxRegistry } from "./boxes.js";
 import { ClientFeatures } from "./features.js";
 import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
 import { guestBlocks } from "./guest.js";
-import { ContentFilter, certificationRank } from "./profiles.js";
+import { ContentFilter, certificationRank, NO_FILTER } from "./profiles.js";
 import { ReportStore } from "./reports.js";
 import { orderPatch, pausePatch, removePatch, testSource, UnknownSourceError } from "./sourceoptions.js";
 import { JellyfinClient } from "./services/jellyfin.js";
@@ -211,6 +212,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/sync/:id", "paired"],
     ["POST /api/sync/:id/action", "paired"],
     ["POST /api/sync/:id/leave", "paired"],
+    // Share Play: only the household hands out links (the link itself is the key for the person watching).
+    ["POST /api/share", "paired"],
+    ["GET /api/share", "paired"],
+    ["DELETE /api/share/:id", "paired"],
     ["PATCH /api/home/rows", "paired"],
     ["POST /api/queue", "paired"],
     ["POST /api/queue/:id/move", "paired"],
@@ -403,6 +408,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/play/prefetch", "warms a stream for playback, filtered by the asking profile like /api/play"],
     ["POST /api/progress", "the player reports where it got to; the box sends it without a token and it changes no settings"],
     ["POST /api/watching", "a player says what it is playing, like /api/progress; it changes no settings and only paired screens can read it back"],
+    ["POST /share/:token/join", "Share Play: the link's token is the key, and only the first browser to open it is let in (shareplay.ts)"],
+    ["POST /share/:token/action", "Share Play: pause, play or seek in step with the TV; needs the secret the link's first browser was given"],
+    ["POST /share/:token/leave", "Share Play: the link's browser stops watching along; needs that browser's secret and grants nothing"],
     ["POST /api/offline", "the Android app asks what it may download; the handler applies the profile filter and Kids time"],
     ["POST /api/offline/allowed", "tells a profile which of the box's downloads it may see, filtered by that profile"],
     ["POST /api/diagnostics/box", "the box sends a crash report before pairing is settled; body limit and cleaning apply"],
@@ -416,6 +424,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["PUT /api/hub/move-file", "moving files: checks the X-Move-Key and keeps every path inside the NAS root"],
     ["DELETE /api/hub/move", "cancels a move: checks the X-Move-Key like the rest of that plugin"],
   ];
+  // Share Play's tunnel (docs/share-play.md) reaches /share/ and nothing else of the Hub.
+  onlyShareThroughTunnel(app, config.shareUrl);
   app.addHook("preHandler", async (req) => {
     const route = `${req.method} ${req.routeOptions.url}`;
     const need = NEEDS.get(route) ?? (ADMIN_ROUTES.has(route) ? "paired" : undefined);
@@ -1639,6 +1649,35 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     filter: filterOf,
     channel: (id) => ctx.channels.get(id),
   });
+
+  // Share Play (issue #210): a one-off link so someone with no app can watch along in a browser.
+  if (config.shareDir) {
+    const shareDir = config.shareDir;
+    registerSharePlay(app, {
+      links: new ShareLinks(),
+      watching,
+      asker: (req) => {
+        const d = deviceAsking(req);
+        if (d) return { device: d.id, deviceName: d.name, ...(d.kind === "tv" ? { box: d.id } : {}), profile: null };
+        const phone = deviceOf(req);
+        return phone ? { device: phone, deviceName: "A phone", profile: null } : null;
+      },
+      mayShare: (req) => {
+        const who = viewer(req);
+        return who.profile?.kind !== "guest" && !who.filter.limited;
+      },
+      defaultHost: () => boxes.main()?.id,
+      hlsFor: async (request) => {
+        if (request.kind !== "title") return null;
+        const info = await playback.resolve(request, config.publicUrl ?? `http://127.0.0.1:${config.port}`, NO_FILTER, { smaller: true, holder: "share" });
+        return info.hls && info.url ? info.url : null;
+      },
+      linkBase: (req) => config.shareUrl ?? phoneBase(req),
+      appName: () => ctx.settings.get().appName || "UltimateTV",
+      pageFile: path.join(shareDir, "index.html"),
+      fetchImpl: ctx.fetchImpl,
+    });
+  }
 
   app.post("/api/progress", async (req: Req<Record<string, string>, Record<string, string>, { key: string; positionMs: number; durationMs?: number; event?: "start" | "progress" | "stop"; paused?: boolean; title?: TitleRef; at?: number }>) => {
     const b = req.body;
