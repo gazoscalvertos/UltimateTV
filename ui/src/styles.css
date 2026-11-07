@@ -5337,3 +5337,27 @@ html.mouse .skip-button {
   outline: 0.2rem solid #fff;
   outline-offset: 0.15rem;
 }
+
+/* Watching elsewhere: a chip in the top bar while another screen plays, and its list. */
+.elsewhere-chip {
+  gap: 0.4rem;
+  color: var(--fg);
+  white-space: nowrap;
+}
+.elsewhere-chip .icon {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.sync-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.sync-banner .icon {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+/* With the chip in, the song's name gives way so the clock and the profile still fit. */
+.topbar-right:has(.elsewhere-chip) .music-chip-name {
+  max-width: 14rem;
+}

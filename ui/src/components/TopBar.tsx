@@ -11,6 +11,7 @@ import { playerState } from "../player";
 import { sleep } from "../sleep";
 import { appName, isKids, nav, now, profile, type Route } from "../store";
 import { weather } from "../weather";
+import { syncGroup } from "../watching";
 import { Icon } from "./Icon";
 import { WeatherIcon } from "./WeatherIcon";
 
@@ -91,6 +92,13 @@ export function TopBar() {
       <div class="topbar-right">
         <Show when={nav.current().name !== "music"}>
           <MusicChip />
+        </Show>
+        {/* In Sync play: a small chip that opens Watching elsewhere (Home has a row of the rest). */}
+        <Show when={nav.current().name !== "elsewhere" && syncGroup()}>
+          <button class="tab elsewhere-chip" data-focus aria-label="In Sync play: watching elsewhere" onClick={() => nav.push({ name: "elsewhere" })}>
+            <Icon name="screens" />
+            Sync
+          </button>
         </Show>
         <Show when={featureOn("weather") && weather()?.settings.inTopBar ? weather()!.report : undefined}>
           {(r) => (

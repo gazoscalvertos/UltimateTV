@@ -42,6 +42,8 @@ pop up what's new after an update. So:
 
 ## 2026-11-04
 
+- **Watch on other screens, and Sync play** ([docs/watching-elsewhere.md](docs/watching-elsewhere.md)): every TV, phone and tablet now says what it's playing, and any other screen can carry it on from the same place (Resume here), take it over and stop it there (Move here), or play it in step (Sync play), where pausing or skipping on one does it on all of them. On the TV it's the On other screens row on Home; in the Android app (0.7.0) Home › Elsewhere and a TV button in the player; on the phone remote Watch › Elsewhere. (#211)
+  Household: swap from the TV to a phone or tablet and back without losing your place, or watch the same thing in two rooms with Sync play.
 - **Versions: English only**: Settings › Picture and sound › Versions (and the setup page) now chooses between your audio language first (as before), only your audio language, or all languages. Torrent and addon copies marked FRENCH, GERMAN and so on, or with a foreign flag, now count as other languages too. (#213)
   Household: films and shows can be set to offer English versions only.
 - **Projected clips show on the TV box again**: the box no longer takes its desktop's "no animations" as Reduce motion, and a clip sent from the phone that the TV can't show or play now says why on the TV. (#212)

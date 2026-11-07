@@ -21,7 +21,8 @@ export type Route =
   | { name: "mix-channel"; id: string }
   | { name: "downloads" }
   | { name: "cast" }
-  | { name: "weather" };
+  | { name: "weather" }
+  | { name: "elsewhere" };
 
 export type PlannerTab = "recorded" | "scheduled" | "reminders" | "series" | "downloads";
 

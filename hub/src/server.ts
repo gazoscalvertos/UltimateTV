@@ -43,6 +43,7 @@ import { buildLimitedSnapshot, jellyfinOfflineItems } from "./boxoffline.js";
 import { Library, NotAllowedError } from "./library.js";
 import { Pairing, PairingError } from "./pairing.js";
 import { PhoneNow, registerPhoneNow } from "./phonenow.js";
+import { registerWatching, Watching } from "./watching.js";
 import { BoxRegistry } from "./boxes.js";
 import { ClientFeatures } from "./features.js";
 import type { Logger } from "./log.js";
@@ -203,6 +204,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/scares/shares", "paired"],
     ["POST /api/scares/library/install", "paired"],
     ["POST /api/tv/call/:method", "paired"],
+    // Watching elsewhere and Sync play: what each room is watching is the household's business.
+    ["GET /api/watching", "paired"],
+    ["POST /api/watching/:device/command", "paired"],
+    ["POST /api/sync", "paired"],
+    ["GET /api/sync/:id", "paired"],
+    ["POST /api/sync/:id/action", "paired"],
+    ["POST /api/sync/:id/leave", "paired"],
     ["PATCH /api/home/rows", "paired"],
     ["POST /api/queue", "paired"],
     ["POST /api/queue/:id/move", "paired"],
@@ -394,6 +402,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/play", "the TV box and apps start playback; the handler applies the profile filter and Kids time"],
     ["POST /api/play/prefetch", "warms a stream for playback, filtered by the asking profile like /api/play"],
     ["POST /api/progress", "the player reports where it got to; the box sends it without a token and it changes no settings"],
+    ["POST /api/watching", "a player says what it is playing, like /api/progress; it changes no settings and only paired screens can read it back"],
     ["POST /api/offline", "the Android app asks what it may download; the handler applies the profile filter and Kids time"],
     ["POST /api/offline/allowed", "tells a profile which of the box's downloads it may see, filtered by that profile"],
     ["POST /api/diagnostics/box", "the box sends a crash report before pairing is settled; body limit and cleaning apply"],
@@ -1119,7 +1128,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "radio", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay", "favourite", "bluetooth"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "radio", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay", "favourite", "bluetooth", "watchHere"]);
   /**
    * Asks one TV app something and waits for its answer (12 s at most). With more than one box
    * (issue #103) the question goes to the box asked for, or to the first one that's on.
@@ -1611,6 +1620,24 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       return i.title ? f.ref(i.title) : false;
     });
     return { allowed: allowed.map((i) => i.id) };
+  });
+
+  // Watching elsewhere and Sync play: every player says what it's playing, so another screen can
+  // carry on from there or join in (see watching.ts).
+  const watching = new Watching();
+  registerWatching(app, {
+    watching,
+    asker: (req, deviceName) => {
+      const p = viewer(req).profile;
+      const profile = p ? { id: p.id, name: p.name } : null;
+      const d = deviceAsking(req);
+      if (d) return { device: d.id, deviceName: d.name, ...(d.kind === "tv" ? { box: d.id } : {}), profile };
+      const phone = deviceOf(req);
+      if (phone) return { device: phone, deviceName: deviceName ?? "A phone", profile };
+      return { device: `ip:${req.ip}`, deviceName: deviceName ?? "A browser", profile };
+    },
+    filter: filterOf,
+    channel: (id) => ctx.channels.get(id),
   });
 
   app.post("/api/progress", async (req: Req<Record<string, string>, Record<string, string>, { key: string; positionMs: number; durationMs?: number; event?: "start" | "progress" | "stop"; paused?: boolean; title?: TitleRef; at?: number }>) => {

@@ -32,6 +32,14 @@ Both lists are the household's, kept on the Hub, so the TV shows the same things
 - **Saved** and **Queue** are two buttons at the top of Home: Saved lists what's kept for later with play, add to queue and remove on each row, and Queue lists what's lined up in order with play here, play on the TV, move up, take off and **Clear the queue**.
 - Kids profiles see only what a Kids profile may watch: the Hub leaves the rest out of both lists, and the Hub itself refuses Save to NAS for Kids.
 
+### Watching elsewhere and Sync play
+
+Home › **Elsewhere** lists what the TVs and the other phones and tablets are playing: **Resume
+here** and **Move here** (which stops it there) carry on from the same place, **Sync play** plays
+it here in step with them, and **On the TV** puts another phone's film on the TV. In the player, the
+TV-and-phone button at the top right moves what's playing to the TV, or Sync plays it with the TV.
+Needs the phone paired with the TV. See [watching-elsewhere.md](watching-elsewhere.md).
+
 ### One IPTV connection
 
 The IPTV plan allows one stream at a time, shared by the TV, the phone and recordings. Watching the same channel as the TV shares its stream. Anything else would take the connection from the TV, so the app asks first ("Your IPTV connection is in use on the TV"). Jellyfin, TorBox and recordings don't use the IPTV connection.

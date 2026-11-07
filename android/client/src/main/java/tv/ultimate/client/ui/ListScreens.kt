@@ -5,6 +5,8 @@ package tv.ultimate.client.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -63,8 +65,9 @@ fun ListsBar(nav: NavHostController) {
         SavedForLater.load()
         PlayQueue.load()
     }
+    // Three buttons don't fit across a small phone: the row scrolls sideways.
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -78,6 +81,8 @@ fun ListsBar(nav: NavHostController) {
             Spacer(Modifier.width(6.dp))
             Text(if (queued.isEmpty()) "Queue" else "Queue · ${queued.size}")
         }
+        // What the TV and the other phones and tablets are playing: carry on here, or Sync play.
+        ElsewhereButton(nav)
     }
 }
 
