@@ -14,6 +14,7 @@ import { ApiError, hub, session } from "../api";
 import { acceptRemoteText, askPin, choose, confirm, DialogFrame } from "../components/Dialog";
 import { Row, Status } from "../components/SettingRow";
 import { useKeys } from "../keys";
+import { openSourceOptions, sourceName } from "../sourceOptions";
 import { pairStamp } from "../pairing";
 import { errorToast, openDialog, profile, toast } from "../store";
 import { canSetUpSources, cleanAddonUrl, cleanServerUrl, providerList, withAddon, type ProviderInfo } from "../sources";
@@ -180,8 +181,15 @@ export async function withPin<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Per-row Options (test, pause, remove, reorder: issue #219). Nothing yet: a provider listed here gets the menu. */
-const rowOptions: Record<string, ((p: ProviderInfo) => Promise<void>) | undefined> = {};
+/** The Options keys (see sourceOptions.ts) a provider row covers; an IPTV row can cover several sources. */
+function optionKeys(settings: PublicSettings, id: string): string[] {
+  if (id === "iptv" || id === "xtream") return settings.iptv.filter((x) => (id === "xtream" ? x.kind === "xtream" : x.kind === "m3u")).map((x) => `iptv:${x.id}`);
+  if (id === "jellyfin") return settings.jellyfin ? ["jellyfin"] : [];
+  if (id === "plex") return settings.plex ? ["plex"] : [];
+  if (id === "torbox") return settings.torbox ? ["torbox"] : [];
+  if (id === "addons") return settings.addons.map((a) => a.id);
+  return [];
+}
 
 export function SourcesSection(props: { settings: PublicSettings; onSettings: (s: PublicSettings) => void; demo?: boolean; channels?: number; programmes?: number; setupUrl: string }) {
   const [busy, setBusy] = createSignal(false);
@@ -367,15 +375,23 @@ export function SourcesSection(props: { settings: PublicSettings; onSettings: (s
     void (setups[p.id] ?? phoneOnly)(p);
   };
 
-  // Info key: a row's Options, once it has them (issue #219).
+  // Info key: a row's Options (test, pause, order, remove: issue #219).
   useKeys((a) => {
     if (a !== "info") return false;
     const el = document.activeElement as HTMLElement | null;
     const id = el?.closest<HTMLElement>("[data-provider]")?.dataset.provider;
-    const handler = id ? rowOptions[id] : undefined;
-    const p = providers().find((x) => x.id === id);
-    if (!handler || !p || !allowed()) return false;
-    void handler(p);
+    if (!id || !allowed()) return false;
+    const keys = optionKeys(props.settings, id);
+    if (keys.length === 0) return false;
+    void (async () => {
+      let key = keys[0]!;
+      if (keys.length > 1) {
+        const pick = await choose<string>({ title: "Which one?", options: [...keys.map((k) => ({ label: sourceName(props.settings, k), value: k })), { label: "Cancel", value: "" }] });
+        if (!pick) return;
+        key = pick;
+      }
+      await openSourceOptions(key, props.onSettings);
+    })();
     return true;
   });
 
@@ -385,7 +401,7 @@ export function SourcesSection(props: { settings: PublicSettings; onSettings: (s
       <div class="sources">
         <div class="sources-list">
           <Show when={allowed()} fallback={<p class="hint">Sources are set up from a grown-up's profile.</p>}>
-            <p class="hint">Press OK on a source to set it up or change it. Typing is quicker on your phone: scan the code.</p>
+            <p class="hint">Press OK on a source to set it up or change it, and the Info key for Options (test, pause, order, remove). Typing is quicker on your phone: scan the code.</p>
           </Show>
           <For each={providers()}>
             {(p) => (

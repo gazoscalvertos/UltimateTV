@@ -32,6 +32,8 @@ pop up what's new after an update. So:
 
 - **Set up sources from the TV remote** ([docs/sources.md](docs/sources.md)): Settings › Sources is now a Providers list. Each of IPTV, Xtream Codes, Jellyfin, Plex, add-ons and TorBox says what to do next while it isn't set up ("Not set up – press OK to add a playlist"), and OK opens its setup with an on-screen keyboard for the playlist link, Xtream login, server address, add-on link or TorBox key. The Hub finds Jellyfin (UDP broadcast) and Plex (GDM) servers on the home network (`GET /api/discover`) so the address rarely needs typing; Plex shows its plex.tv/link code on the TV and Jellyfin offers Quick Connect. The phone's QR code stays. Only adult profiles see it, and the Hub still asks for the profile PIN. (#218)
   Household: you can add or change IPTV, Jellyfin, Plex, add-ons and TorBox from the TV's own remote, without a phone.
+- **Source options: test, pause, put in order, remove** ([docs/sources.md](docs/sources.md#source-options)): every source (each IPTV provider, Jellyfin, Plex, TorBox and each add-on) has an Options menu in Settings › Sources and a Source options section on the setup page. Test connection says whether it is reachable, signed in and how long it took, and for an Xtream IPTV account the expiry date and connections in use. Pause hides a source from the guide, library and Versions without losing its login; Resume brings it back. Move up and Move down set the order Play and Versions prefer sources in, after the quality rules (a clearly better picture or the right language still wins). Remove asks first. (#219)
+  Household: a provider that is down or being rebuilt can be paused and resumed instead of removed and set up again, and you can say which source to prefer.
 
 ## 2026-11-04
 

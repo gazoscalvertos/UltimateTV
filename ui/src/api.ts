@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras, SelfTestReport, PerfReport } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -178,6 +178,11 @@ export const hub = {
   removeMixVideo: (id: string, videoId: string) => api<{ ok: true }>(`/api/mix-channels/${enc(id)}/videos/${enc(videoId)}`, { method: "DELETE" }),
 
   settings: () => api<PublicSettings>("/api/settings"),
+  /** Source options (#219). A source is its key from PublicSettings.providerOrder ("iptv:<id>", "jellyfin", …). */
+  testSource: (key: string) => api<SourceTestResult>(`/api/sources/${enc(key)}/test`, { method: "POST" }),
+  pauseSource: (key: string, paused: boolean) => api<PublicSettings>(`/api/sources/${enc(key)}/pause`, { method: "POST", body: { paused } }),
+  orderSources: (order: string[]) => api<PublicSettings>("/api/sources/order", { method: "PUT", body: { order } }),
+  removeSource: (key: string) => api<PublicSettings>(`/api/sources/${enc(key)}`, { method: "DELETE" }),
   screensaver: () => api<ScreensaverInfo>("/api/screensaver"),
   screensaverPhotos: () => api<{ photos: ScreensaverPhoto[] }>("/api/screensaver/photos"),
   browsePhotos: (dir?: string) => api<NasListing>(`/api/screensaver/nas${q({ dir })}`),
