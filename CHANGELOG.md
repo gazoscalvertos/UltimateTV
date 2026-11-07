@@ -28,6 +28,11 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-07
+
+- **Set up sources from the TV remote** ([docs/sources.md](docs/sources.md)): Settings › Sources is now a Providers list. Each of IPTV, Xtream Codes, Jellyfin, Plex, add-ons and TorBox says what to do next while it isn't set up ("Not set up – press OK to add a playlist"), and OK opens its setup with an on-screen keyboard for the playlist link, Xtream login, server address, add-on link or TorBox key. The Hub finds Jellyfin (UDP broadcast) and Plex (GDM) servers on the home network (`GET /api/discover`) so the address rarely needs typing; Plex shows its plex.tv/link code on the TV and Jellyfin offers Quick Connect. The phone's QR code stays. Only adult profiles see it, and the Hub still asks for the profile PIN. (#218)
+  Household: you can add or change IPTV, Jellyfin, Plex, add-ons and TorBox from the TV's own remote, without a phone.
+
 ## 2026-11-04
 
 - **CI builds the PlayStation 5 app** ([docs/ps5.md](docs/ps5.md)): a new `ps5-console` job fetches the PS5 payload SDK and the homebrew libraries, builds the app and the tile on every pull request, and on a merge to `main` replaces `UltimateTV-PS5.elf` and `UltimateTV-PS5-tile.zip` on the PS5 release. Before this the release was built by hand and could lag behind `main`. (#182)

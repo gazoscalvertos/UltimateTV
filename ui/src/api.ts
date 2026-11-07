@@ -183,6 +183,22 @@ export const hub = {
   browsePhotos: (dir?: string) => api<NasListing>(`/api/screensaver/nas${q({ dir })}`),
   saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback" | "appName" | "theme" | "seasonal" | "radio">> & { screensaver?: Partial<ScreensaverSettings> }) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
 
+  // Sources (Settings › Sources): everything that changes the household's setup needs an adult
+  // profile (and its PIN once one is set), so a call can fail with code "pin".
+  saveSources: (patch: { addonUrls?: string[]; torboxApiKey?: string }) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
+  addIptv: (source: { kind: "m3u"; url: string; name?: string } | { kind: "xtream"; url: string; username: string; password: string; name?: string }) => api<PublicSettings>("/api/settings/iptv", { method: "POST", body: source }),
+  removeIptv: (id: string) => api<PublicSettings>(`/api/settings/iptv/${enc(id)}`, { method: "DELETE" }),
+  /** Jellyfin and Plex servers answering on the home network (an empty list when none do). */
+  discoverServers: () => api<{ servers: { kind: "jellyfin" | "plex"; id: string; name: string; url: string }[] }>("/api/discover"),
+  jellyfinQuickConnect: (url: string) => api<{ code: string; secret: string }>("/api/jellyfin/quickconnect", { method: "POST", body: { url } }),
+  jellyfinQuickConnectCheck: (secret: string, url: string) => api<{ authenticated: boolean }>(`/api/jellyfin/quickconnect/${enc(secret)}${q({ url })}`),
+  jellyfinLogin: (url: string, username: string, password: string) => api<{ ok: true }>("/api/jellyfin/login", { method: "POST", body: { url, username, password } }),
+  removeJellyfin: () => api<{ ok: true }>("/api/jellyfin", { method: "DELETE" }),
+  plexPin: () => api<{ id: number; code: string; authUrl: string }>("/api/plex/pin", { method: "POST" }),
+  /** `url` is the chosen server; without it the Hub uses the first one plex.tv lists. */
+  plexPinCheck: (id: number, url?: string) => api<{ authenticated: boolean; plex?: { url: string; serverName?: string } }>(`/api/plex/pin/${id}${q({ url })}`),
+  removePlex: () => api<{ ok: true }>("/api/plex", { method: "DELETE" }),
+
   /** Jump scares: the settings and clips the Hub keeps, and setting one off now. */
   scares: () => api<ScareState>("/api/scares"),
   saveScares: (patch: Partial<ScareSettings>) => api<ScareState>("/api/scares", { method: "PUT", body: patch }),

@@ -5,6 +5,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 ## Live TV and the guide
 
 - IPTV from M3U playlists or Xtream Codes logins, with XMLTV guides; several sources and several feeds per channel, merged into one channel list with names cleaned up and quality badges (4K / FHD / HD).
+- **Set up sources from the TV remote** ([sources.md](sources.md)): Settings › Sources lists IPTV, Xtream Codes, Jellyfin, Plex, add-ons and TorBox, each saying what to do next ("Not set up – press OK to add a playlist"). OK opens setup with an on-screen keyboard; Jellyfin and Plex servers on the network are found automatically, Plex shows its plex.tv/link code and Jellyfin offers Quick Connect. Adult profiles only.
 - Sky-style TV guide: live TV keeps playing in the corner, the highlighted programme's details beside it, a channel/time grid, digits jump to a channel. Channel names show next to their logos.
 - Channel lists above the grid: all channels, favourites, categories, and **custom guides** built by hand with your own choice and order (TV Guide › New guide). Any list can be a profile's default, and channel up/down stays within it. ([profiles.md](profiles.md#custom-guides))
 - The phone's settings page arranges the guide's lists, builds and reorders custom guides, and renumbers, recategorises, stars or hides any channel.
