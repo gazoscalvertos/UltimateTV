@@ -77,6 +77,17 @@ answer wins over the rating **both ways**.
 - **Kept on the Hub**, one list per Kids profile, and forgotten when the profile is deleted. Adults
   have no such lists.
 
+## Ask a parent
+
+When a Kids or Guest profile opens something it isn't allowed (from a link, a cast, a page it had open), the page says "This isn't on your profile yet" and offers **Ask a parent**.
+
+- **Where it lands:** a pop-up on the TV when an adult profile is on, a sheet on every paired phone remote (with **Allow once**, **Always allow** and **No**), and a message to Home Assistant or ntfy when Settings › Alerts points at one. A phone that was a moment too slow is told someone has already answered.
+- **The answer:** the first adult to answer wins. **Allow once** lets the title through that Kids or Guest profile for six hours. **Always allow** adds it to the Kids profile's allow list (see [What a parent allows](#what-a-parent-allows)); a Guest has no list, so it only gets Allow once. **No** shows the child "Not now".
+- **No spam:** one profile can make three requests in ten minutes, asking again for the same title returns the first request, and a No isn't asked again for ten minutes. A request nobody answers lapses after half an hour.
+- **Safe:** a request holds only the title, the profile and the time. A Kids or Guest profile can never answer a request, even with a PIN, and a phone with no profile needs an adult PIN once one is set. **Set an adult PIN**, or anyone with a paired phone can answer.
+- **The record:** the week's requests, with when and what was said, are listed under each Kids profile on `/setup/`.
+- **Not covered yet:** the Android app doesn't show the request (use the phone remote or the TV), and the button is only on a title's page, not on the guide's channels.
+
 ## The week a Kids profile watched
 
 The same `/setup/` page shows, under each Kids profile, **the last seven days**: how long it was

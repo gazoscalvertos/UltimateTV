@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsAsk, KidsAskAnswer, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -39,6 +39,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code?: string,
     readonly recordings: string[] = [],
+    /** Whatever else the Hub put in the answer, such as the title a blocked page was for. */
+    readonly body: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -51,7 +53,7 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
   if (session.token) headers["X-Profile-Token"] = session.token;
   const res = await fetch(path, { method: opts.method ?? "GET", headers, ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}) });
   const data = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string; recordings?: string[] };
-  if (!res.ok) throw new ApiError(data.error ?? res.statusText, res.status, data.code, data.recordings ?? []);
+  if (!res.ok) throw new ApiError(data.error ?? res.statusText, res.status, data.code, data.recordings ?? [], data as Record<string, unknown>);
   return data;
 }
 
@@ -96,6 +98,10 @@ export const hub = {
   kidsAllow: () => api<KidsAllowReply>("/api/kids-allow"),
   setKidsAllow: (id: string, body: { side: "allow" | "block"; id: string; kind: KidsAllowKind; name: string }) => api<{ list: KidsAllowList }>(`/api/kids-allow/${enc(id)}`, { method: "PATCH", body }),
   clearKidsAllow: (id: string, kind: KidsAllowKind, titleId: string) => api<{ list: KidsAllowList }>(`/api/kids-allow/${enc(id)}/${kind}/${enc(titleId)}`, { method: "DELETE" }),
+  // Ask a parent (#224): a Kids or Guest profile asks; an adult answers on the TV or a phone.
+  askParent: (title: { id: string; kind: KidsAllowKind; name: string }) => api<{ ask: KidsAsk }>("/api/kids-asks", { method: "POST", body: title }),
+  kidsAsks: () => api<{ asks: KidsAsk[] }>("/api/kids-asks"),
+  answerKidsAsk: (id: string, answer: KidsAskAnswer) => api<{ ask: KidsAsk }>(`/api/kids-asks/${enc(id)}/answer`, { method: "POST", body: { answer } }),
   kidsSummary: (id?: string) => api<{ summaries: KidsSummary[] }>(`/api/kids-summary${id ? `?profile=${enc(id)}` : ""}`),
   updateProfile: (id: string, patch: Partial<Omit<Profile, "accessibility" | "limits">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null; limits?: Profile["limits"] | null }) => api<Profile>(`/api/profiles/${enc(id)}`, { method: "PATCH", body: patch }),
   deleteProfile: (id: string) => api<{ ok: true }>(`/api/profiles/${enc(id)}`, { method: "DELETE" }),
