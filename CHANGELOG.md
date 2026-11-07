@@ -30,7 +30,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-07
 
-- **More Kids films and shows rows**: the Kids profile's Films and TV Shows pages now have far more to pick from: top rated, new additions you haven't seen, for little ones (U) and bigger kids (PG), animation, adventure, comedy, family, fantasy, superheroes, animals, musicals, mystery, Watch again, and Best of 2026, 2025, 2024 and back. All rows follow the profile's rating limit and allow list.
+- **More Kids films and shows rows**: the Kids profile's Films and TV Shows pages now have far more to pick from: top rated, new additions you haven't seen, for little ones (U) and bigger kids (PG), animation, adventure, comedy, family, fantasy, superheroes, animals, musicals, mystery, Watch again, and Best of 2026, 2025, 2024 and back. All rows follow the profile's rating limit and allow list. (#246)
   Household: the Kids profile has many more categories on Films and TV Shows, including Best of each year.
 
 - **Set up sources from the TV remote** ([docs/sources.md](docs/sources.md)): Settings › Sources is now a Providers list. Each of IPTV, Xtream Codes, Jellyfin, Plex, add-ons and TorBox says what to do next while it isn't set up ("Not set up – press OK to add a playlist"), and OK opens its setup with an on-screen keyboard for the playlist link, Xtream login, server address, add-on link or TorBox key. The Hub finds Jellyfin (UDP broadcast) and Plex (GDM) servers on the home network (`GET /api/discover`) so the address rarely needs typing; Plex shows its plex.tv/link code on the TV and Jellyfin offers Quick Connect. The phone's QR code stays. Only adult profiles see it, and the Hub still asks for the profile PIN. (#218)
