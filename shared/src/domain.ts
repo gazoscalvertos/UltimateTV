@@ -515,6 +515,13 @@ export interface Profile {
   accessibility?: AccessibilitySettings;
   /** Kids: a daily allowance and a bedtime (see hub/src/kidstime.ts). Missing = no limits. */
   limits?: KidsLimits;
+  /**
+   * Easy mode (#229): Home is four big tiles and Continue watching, the top menu is the short
+   * list, and Settings is out of reach. Missing = off.
+   */
+  easy?: boolean;
+  /** The first-time tour has been shown (or skipped) for this profile; missing = not yet. */
+  toured?: boolean;
 }
 
 /** A bedtime as "HH:MM" (24-hour), or null for none. */

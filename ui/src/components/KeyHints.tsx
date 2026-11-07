@@ -5,6 +5,8 @@ import { For, Show } from "solid-js";
 import { currentHints, everywhere, type Hint, type HintKey } from "../hints";
 import { appName, nav, openDialog } from "../store";
 import { DialogFrame } from "./Dialog";
+import { RemoteDrawing } from "./RemoteDrawing";
+import { runTour } from "./Tour";
 
 /** The key a hint stands for when clicked (mouse.ts); arrows and digits aren't one key. */
 export function hintAction(k: HintKey): string | undefined {
@@ -68,39 +70,7 @@ export function openHelp(): Promise<unknown> {
     <DialogFrame close={() => close()} class="help-dialog" wide onKey={(a) => (a === "info" ? (close(), true) : false)}>
       <h2>What the buttons do</h2>
       <div class="help-layout">
-        <div class="help-remote" aria-hidden="true">
-          <div class="remote-body">
-            <div class="remote-row">
-              <span class="remote-btn small">Power</span>
-            </div>
-            <div class="remote-pad">
-              <span class="remote-btn up">▲</span>
-              <span class="remote-btn left">◀</span>
-              <span class="remote-btn ok">OK</span>
-              <span class="remote-btn right">▶</span>
-              <span class="remote-btn down">▼</span>
-            </div>
-            <div class="remote-row">
-              <span class="remote-btn">Back</span>
-              <span class="remote-btn">Home</span>
-              <span class="remote-btn">Info</span>
-            </div>
-            <div class="remote-row colours">
-              <span class="remote-colour key-red" />
-              <span class="remote-colour key-green" />
-              <span class="remote-colour key-yellow" />
-              <span class="remote-colour key-blue" />
-            </div>
-            <div class="remote-row">
-              <span class="remote-btn">◀◀</span>
-              <span class="remote-btn">▶❙❙</span>
-              <span class="remote-btn">▶▶</span>
-            </div>
-            <div class="remote-digits">
-              <For each={["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", ""]}>{(d) => <span class="remote-btn digit">{d}</span>}</For>
-            </div>
-          </div>
-        </div>
+        <RemoteDrawing />
         <div class="help-text">
           <Show when={here.length}>
             <h4>On this screen</h4>
@@ -114,6 +84,16 @@ export function openHelp(): Promise<unknown> {
       <div class="dialog-options">
         <button class="btn btn-primary" data-focus data-autofocus onClick={() => close()}>
           Got it
+        </button>
+        <button
+          class="btn"
+          data-focus
+          onClick={() => {
+            close();
+            void runTour();
+          }}
+        >
+          Show me around
         </button>
       </div>
     </DialogFrame>

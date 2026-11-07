@@ -766,9 +766,21 @@ async function loadProfiles() {
       const mine = allows.find((a) => a.profileId === p.id);
       row.append(kidsAllowBox(p, mine ? mine.list : { allow: [], block: [] }, summaries.find((s) => s.profileId === p.id)));
     }
+    row.append(easyFor(p));
     row.append(accessibilityFor(p));
     list.append(row);
   }
+}
+// Easy mode (#229): four big tiles on Home, a short menu and no Settings on the TV. It can only
+// be switched off from here or from another profile's Settings, so a guest can't wander off.
+function easyFor(p) {
+  const box = document.createElement("label");
+  box.className = "opt";
+  box.innerHTML = `<span>Easy mode<small>Four big tiles on Home (Watch TV, Films and TV, Recordings, Search), a short menu, and no Settings</small></span><input type="checkbox">`;
+  const input = box.querySelector("input");
+  input.checked = Boolean(p.easy);
+  input.onchange = () => patchProfile(p, { easy: input.checked }, `Easy mode ${input.checked ? "on" : "off"} for ${p.name}`);
+  return box;
 }
 // Each profile's accessibility, the same as the TV's Settings › Accessibility. Stays open while
 // the list redraws after each change.

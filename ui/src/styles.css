@@ -5337,3 +5337,84 @@ html.mouse .skip-button {
   outline: 0.2rem solid #fff;
   outline-offset: 0.15rem;
 }
+
+/* Easy mode (#229): four big tiles on Home. */
+.easy-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.6rem;
+  padding: 1rem 0 2rem;
+}
+.easy-tile {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  min-height: 11rem;
+  padding: 1.6rem 2.4rem;
+  border-radius: 1.6rem;
+  background: var(--panel);
+  color: var(--fg);
+  font-size: calc(2.4rem * var(--ts));
+  font-weight: 700;
+  text-align: left;
+}
+.easy-tile .icon,
+.easy-tile svg {
+  width: 4rem;
+  height: 4rem;
+  flex: none;
+  color: var(--accent);
+}
+.easy-tile small {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: calc(1.1rem * var(--ts));
+  font-weight: 500;
+  color: var(--muted);
+}
+.easy-tile:focus,
+.easy-tile.focused {
+  background: var(--accent);
+  color: var(--on-accent);
+  transform: scale(1.04);
+}
+.easy-tile:focus svg,
+.easy-tile.focused svg,
+.easy-tile:focus small,
+.easy-tile.focused small {
+  color: inherit;
+}
+
+/* The first-time tour (#229) lights the button it is talking about. */
+.tour-count {
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-size: calc(0.9rem * var(--ts));
+}
+.tour-body {
+  font-size: calc(1.3rem * var(--ts));
+  line-height: 1.5;
+}
+.tour-dots {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.4rem;
+}
+.tour-dots i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.4;
+}
+.tour-dots i.on {
+  background: var(--accent);
+  opacity: 1;
+}
+.remote-btn.lit,
+.remote-pad.lit,
+.remote-row.lit {
+  outline: 0.25rem solid #ffd23f;
+  outline-offset: 0.2rem;
+  box-shadow: 0 0 1.6rem rgba(255, 210, 63, 0.7);
+}
