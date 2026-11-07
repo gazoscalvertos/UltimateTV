@@ -24,6 +24,7 @@ import { advertMarks } from "../seekMarks";
 import { isFavouriteChannel, isFavouriteTitle, toggleFavouriteChannel, toggleFavouriteTitle } from "../favourites";
 import { errorToast, nav, now, openDialog, setShowStats, showStats, toast } from "../store";
 import { openSleepMenu, sleep } from "../sleep";
+import { openXray } from "../xray";
 import { canFindSubtitles, findSubtitles } from "../subtitles";
 
 interface UpNext {
@@ -624,8 +625,11 @@ export function Player() {
         void agent.seek(30_000, "relative");
         poke();
         return true;
-      case "up":
       case "info":
+        poke();
+        openXray();
+        return true;
+      case "up":
         poke();
         return true;
       case "down":

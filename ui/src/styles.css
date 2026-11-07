@@ -5337,3 +5337,69 @@ html.mouse .skip-button {
   outline: 0.2rem solid #fff;
   outline-offset: 0.15rem;
 }
+
+/* X-Ray cast panel (player Info key) */
+.xray-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 1rem;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding: 0.4rem;
+}
+.xray-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem;
+  background: var(--surface, rgba(255, 255, 255, 0.06));
+  border: 0.2rem solid transparent;
+  border-radius: 0.8rem;
+  color: inherit;
+  text-align: center;
+  font-size: calc(1.2rem * var(--ts));
+}
+.xray-card:focus,
+.xray-card.focused {
+  border-color: var(--accent, #6ea8fe);
+}
+.xray-photo {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 0.6rem;
+}
+.xray-nophoto {
+  display: grid;
+  place-items: center;
+  font-size: 3rem;
+  background: rgba(255, 255, 255, 0.1);
+}
+.xray-name {
+  font-weight: 600;
+}
+.xray-character,
+.xray-guest,
+.xray-meta,
+.xray-note {
+  opacity: 0.75;
+}
+.xray-note {
+  margin: 0.8rem 0 0;
+  font-size: calc(1.05rem * var(--ts));
+}
+.xray-person-body {
+  display: flex;
+  gap: 1.6rem;
+  margin-bottom: 1rem;
+}
+.xray-photo-big {
+  width: 16rem;
+  height: 24rem;
+  object-fit: cover;
+  border-radius: 0.8rem;
+}
+.xray-bio {
+  line-height: 1.5;
+}

@@ -325,6 +325,37 @@ export interface TitleExtras {
   similar: TitleRef[];
 }
 
+/** One person in a film or episode, for the X-Ray panel in the player. */
+export interface CastMember {
+  /** TMDB person id; absent when the list came from the media server alone. */
+  id?: number;
+  name: string;
+  /** The character they play ("Hannibal Smith"). */
+  character?: string;
+  photo?: string;
+  /** Guest star in this episode, rather than in the main cast. */
+  guest?: boolean;
+}
+
+/** Everyone in a title (and the guest stars in one episode). There is no per-scene timing: no free source has it. */
+export interface TitleCast {
+  cast: CastMember[];
+  /** Where the list came from, so the TV can say so. */
+  source: "tmdb" | "server";
+}
+
+/** A person's page: their bio and what else they are known for. */
+export interface PersonDetails {
+  id: number;
+  name: string;
+  bio?: string;
+  born?: string;
+  birthplace?: string;
+  died?: string;
+  photo?: string;
+  knownFor: string[];
+}
+
 /** A subtitle file OpenSubtitles has for a film or episode. */
 export interface SubtitleResult {
   fileId: number;
