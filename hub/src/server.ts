@@ -49,7 +49,7 @@ import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
 import { guestBlocks } from "./guest.js";
 import { ContentFilter, certificationRank } from "./profiles.js";
 import { ReportStore } from "./reports.js";
-import { orderPatch, pausePatch, testSource, UnknownSourceError } from "./sourceoptions.js";
+import { orderPatch, pausePatch, removePatch, testSource, UnknownSourceError } from "./sourceoptions.js";
 import { JellyfinClient } from "./services/jellyfin.js";
 import { PlexClient, plexPinCheck, plexPinStart, plexResources } from "./services/plex.js";
 import { publicSettings, sourceKey } from "./settings.js";
@@ -320,6 +320,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "POST /api/sources/:id/test",
     "POST /api/sources/:id/pause",
     "PUT /api/sources/order",
+    "DELETE /api/sources/:id",
     "POST /api/refresh",
     "POST /api/jellyfin/quickconnect",
     "POST /api/jellyfin/login",
@@ -708,6 +709,19 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
           ctx.events.emit({ type: "guide.updated" });
         });
       }
+      return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
+    } catch (err) {
+      return sourceError(err, reply);
+    }
+  });
+  app.delete("/api/sources/:id", async (req: Req<{ id: string }>, reply) => {
+    try {
+      ctx.settings.update(removePatch(ctx.settings.get(), req.params.id));
+      ctx.events.emit({ type: "settings.changed" });
+      void ctx.ingest.refreshAll().then(() => {
+        ctx.scheduler.replan();
+        ctx.events.emit({ type: "guide.updated" });
+      });
       return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
     } catch (err) {
       return sourceError(err, reply);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Settings, StreamCandidate } from "@ultimatetv/shared";
 import { defaultSettings, publicSettings, SettingsStore } from "../src/settings.js";
-import { activeIptv, addonKey, isPaused, listProviders, orderPatch, orderedKeys, orderStreams, pausePatch, pausedKeys, testSource, UnknownSourceError } from "../src/sourceoptions.js";
+import { activeIptv, addonKey, isPaused, listProviders, orderPatch, orderedKeys, orderStreams, pausePatch, pausedKeys, removePatch, testSource, UnknownSourceError } from "../src/sourceoptions.js";
 
 function settings(): Settings {
   return {
@@ -65,6 +65,17 @@ describe("pause", () => {
     expect(s.jellyfin?.token).toBe("tok");
     s = { ...s, ...pausePatch(s, "torbox", false) } as Settings;
     expect(pausedKeys(s)).not.toContain("torbox");
+  });
+
+  it("removes a source along with its place in the order", () => {
+    const s = { ...settings(), providerOrder: ["torbox", "iptv:a"], pausedProviders: ["torbox"] };
+    const t = { ...s, ...removePatch(s, "torbox") } as Settings;
+    expect(t.torboxApiKey).toBe("");
+    expect(t.providerOrder).toEqual(["iptv:a"]);
+    expect(t.pausedProviders).toEqual([]);
+    expect(removePatch(s, "iptv:b").iptv?.map((x) => x.id)).toEqual(["a"]);
+    expect(removePatch(s, addonKey(s.addonUrls[0]!)).addonUrls).toEqual([]);
+    expect(() => removePatch(s, "plex")).toThrow(UnknownSourceError);
   });
 
   it("refuses a source that isn't set up", () => {

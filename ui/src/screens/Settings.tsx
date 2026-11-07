@@ -11,6 +11,7 @@ import { Icon } from "../components/Icon";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
 import { previewScreensaver } from "../idle";
+import { isSourcePaused, openSourceOptions, sourceName } from "../sourceOptions";
 import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, previewTheme, profile, setProfile, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
@@ -960,6 +961,10 @@ export function Settings(props: { section?: string }) {
                   <Row label="Film and TV info (TMDB)" value={<Status ok={settings()!.tmdb} text={settings()!.tmdb ? "Connected" : "Not set up"} />} />
                   <Row label="AIOStreams and add-ons" value={<Status ok={settings()!.addons.length > 0} text={settings()!.addons.map((a) => a.name).join(", ") || "None"} />} />
                   <Row label="TorBox" value={<Status ok={settings()!.torbox} text={settings()!.torbox ? "Connected" : "Not set up"} />} />
+                  {/* Source options (#219): one row per source, in the order Play and Versions try them. OK opens Test, Pause, Move and Remove. */}
+                  <For each={settings()!.providerOrder}>
+                    {(key) => <Row label={`${sourceName(settings()!, key)} options`} hint={isSourcePaused(settings()!, key) ? "Paused" : "Test, pause, reorder or remove"} icon="list" onSelect={() => void openSourceOptions(key, mutate)} />}
+                  </For>
                   <Row
                     label="Refresh channels and guide now"
                     icon="restart"

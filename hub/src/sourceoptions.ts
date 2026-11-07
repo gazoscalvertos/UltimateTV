@@ -78,6 +78,20 @@ export function pausePatch(s: Settings, key: string, paused: boolean): Partial<S
   return { pausedProviders: paused ? [...rest, key] : rest };
 }
 
+/** The settings patch that removes a provider (its login goes; for IPTV, the existing DELETE route does the same). */
+export function removePatch(s: Settings, key: string): Partial<Settings> {
+  const info = listProviders(s).find((p) => p.key === key);
+  if (!info) throw new UnknownSourceError(key);
+  const keep = <T>(list: T[] | undefined, drop: (k: string) => boolean): string[] => (list as unknown as string[] | undefined)?.filter((k) => !drop(k)) ?? [];
+  const patch: Partial<Settings> = { providerOrder: keep(s.providerOrder, (k) => k === key), pausedProviders: keep(s.pausedProviders, (k) => k === key) };
+  if (info.type === "iptv") patch.iptv = s.iptv.filter((x) => iptvKey(x.id) !== key);
+  else if (info.type === "jellyfin") patch.jellyfin = undefined;
+  else if (info.type === "plex") patch.plex = undefined;
+  else if (info.type === "torbox") patch.torboxApiKey = "";
+  else patch.addonUrls = s.addonUrls.filter((u) => addonKey(u) !== key);
+  return patch;
+}
+
 /** The settings patch that saves an order. Unknown keys are refused; sources left out go last. */
 export function orderPatch(s: Settings, order: unknown): Partial<Settings> {
   if (!Array.isArray(order) || order.some((k) => typeof k !== "string")) throw new Error("order must be a list of source ids");
