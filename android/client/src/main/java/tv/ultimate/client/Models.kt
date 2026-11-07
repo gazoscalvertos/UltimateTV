@@ -386,6 +386,7 @@ fun clockLabel(ms: Long): String {
     val m = (total % 3600) / 60
     val s = total % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
 
 /** What a profile chose for a series: a language and kind, never a track number (issue #228). */
 data class TrackPrefAudio(val lang: String, val description: Boolean?)
