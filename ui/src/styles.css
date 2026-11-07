@@ -5402,4 +5402,44 @@ html.mouse .skip-button {
 }
 .xray-bio {
   line-height: 1.5;
+/* Watching elsewhere: a chip in the top bar while another screen plays, and its list. */
+.elsewhere-chip {
+  gap: 0.4rem;
+  color: var(--fg);
+  white-space: nowrap;
+}
+.elsewhere-chip .icon {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.sync-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.sync-banner .icon {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+/* With the chip in, the song's name gives way so the clock and the profile still fit. */
+.topbar-right:has(.elsewhere-chip) .music-chip-name {
+  max-width: 14rem;
+}
+
+/* Share Play: the link's QR code beside what it does (issue #210). */
+.share-play-body {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  margin: 16px 0 24px;
+  max-width: 1100px;
+}
+.share-play-body .qr-card {
+  flex: none;
+}
+.share-play-url {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  word-break: break-all;
+  opacity: 0.85;
 }

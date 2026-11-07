@@ -736,8 +736,15 @@ export interface Settings {
     subtitlesByDefault: boolean;
     maxSizeGb: number;
     avoidDvProfile5: boolean;
+    /** Versions in another language than preferredAudioLang: ranked last, hidden, or treated like any other. */
+    otherLanguages: "last" | "hide" | "any";
     autoplayNext: boolean;
     startOn: "home" | "live";
+    /**
+     * When the TV goes to standby (or switches to another input), the box pauses what's playing
+     * (live TV stops, as it holds the IPTV connection), stops it, or carries on. Older Hubs: "stop".
+     */
+    whenTvOff?: "pause" | "stop" | "keep";
     /** How subtitles look on the TV, for everyone. Whether they come on is per profile. */
     subtitleStyle: SubtitleStyle;
   };
@@ -962,7 +969,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "radio" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite" | "bluetooth";
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "radio" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite" | "bluetooth" | "watchHere";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {

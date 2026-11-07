@@ -1,9 +1,11 @@
 // HDMI-CEC through cec-ctl (v4l-utils) on the Pulse-Eight adapter's /dev/cec device. The remote's
 // buttons don't come through here: the kernel turns them into key presses (see
 // tools/box/cec-keymap.toml). This side registers the box as a playback device, wakes the TV,
-// watches for the TV going to standby or switching to another input.
+// watches for the TV going to standby or switching to another input (and asks the TV now and then,
+// as not every TV says when it goes to standby).
 
 import { execFile, spawn, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
@@ -57,12 +59,43 @@ export function powerFrom(msg: CecMessage, ours: string | null): boolean | null 
       if (!ours || !msg.physAddr) return null;
       return msg.physAddr === ours;
     case "REPORT_POWER_STATUS":
-      if (msg.from.startsWith("TV") && msg.status) return /^on/i.test(msg.status) ? null : /standby/i.test(msg.status) ? false : null;
+      // Only "off" counts: the TV being on doesn't mean it's showing the box.
+      if (msg.from.startsWith("TV") && msg.status) return tvPowerOn(msg.status) === false ? false : null;
       return null;
     default:
       return null;
   }
 }
+
+/**
+ * The TV's power from a pwr-state value ("on (0x00)", "standby (0x01)", "in transition standby to
+ * on (0x02)", "in transition on to standby (0x03)"): true on or coming on, false off or going off,
+ * null when it can't tell.
+ */
+export function tvPowerOn(state: string): boolean | null {
+  const code = /\(0x0?([0-3])\)/.exec(state)?.[1];
+  if (code) return code === "0" || code === "2";
+  const s = state.toLowerCase();
+  if (/standby to on/.test(s)) return true;
+  if (/on to standby/.test(s) || /^standby/.test(s)) return false;
+  if (/^on\b/.test(s)) return true;
+  return null;
+}
+
+/** The TV's answer in the output of `cec-ctl --give-device-power-status`, or null when it didn't answer. */
+export function powerFromReply(stdout: string): boolean | null {
+  const state = /pwr-state:\s*(.+)/i.exec(stdout)?.[1];
+  return state ? tvPowerOn(state.trim()) : null;
+}
+
+/**
+ * The cec-ctl that can watch the bus. Watching (--monitor) needs CAP_NET_ADMIN, which the TV user
+ * hasn't got, so the installer keeps a copy of cec-ctl with just that capability, for the TV user only.
+ */
+export const MONITOR_CTL = "/usr/local/lib/ultimatetv/cec-monitor";
+
+/** How often the box asks the TV whether it's on, for TVs that go to standby without saying so. */
+export const POLL_MS = 20_000;
 
 /**
  * The HDMI physical address ("2.0.0.0") the TV gave this HDMI input, from the TV's EDID: the HDMI
@@ -119,8 +152,11 @@ export class Cec {
   ) {}
 
   private retry: NodeJS.Timeout | null = null;
+  private poller: NodeJS.Timeout | null = null;
   private stopped = false;
   private lastError = "";
+  /** Watching the bus isn't allowed (no CAP_NET_ADMIN): asking the TV every POLL_MS has to do. */
+  private monitorRefused = false;
 
   /**
    * Sets the adapter up, and keeps trying every 10 s until it's plugged in (or after it's pulled
@@ -157,6 +193,41 @@ export class Cec {
       return;
     }
     this.watch();
+    this.startPolling();
+  }
+
+  /**
+   * Asks the TV for its power state now and then. Many TVs (Hisense among them, unless "Device auto
+   * power off" is on) go to standby without telling the other devices, and watching the bus needs a
+   * capability the box may not have, so this is what notices the TV going off.
+   */
+  private startPolling(): void {
+    if (this.poller || this.stopped) return;
+    this.poller = setInterval(() => void this.poll(), POLL_MS);
+  }
+
+  /** Asks the TV once; tells the listeners when it has gone off. */
+  async poll(): Promise<boolean | null> {
+    if (!this.connected) return null;
+    if (!existsSync(this.device)) {
+      // Pulled out: set it up again once it's back.
+      this.connected = false;
+      this.later(10_000);
+      return null;
+    }
+    const { stdout } = await run("cec-ctl", ["-d", this.device, "--to", "0", "--give-device-power-status"], { timeout: 5000 }).catch(() => ({ stdout: "" }));
+    const on = powerFromReply(stdout);
+    if (on === null) return null;
+    const was = this.tvOn;
+    this.tvOn = on;
+    // Only the change to off: the TV coming on doesn't say it's showing the box (the TV says that itself).
+    if (!on && was !== false) this.tell(false, "TV power status: standby");
+    return on;
+  }
+
+  private tell(active: boolean, why: string): void {
+    this.log(`CEC ${why} → ${active ? "showing the box" : "not showing the box"}`);
+    for (const l of this.listeners) l(active);
   }
 
   private later(ms: number): void {
@@ -168,18 +239,28 @@ export class Cec {
   }
 
   private watch(): void {
-    if (this.monitor) return;
-    const proc = spawn("cec-ctl", ["-d", this.device, "--monitor"], { stdio: ["ignore", "pipe", "ignore"] });
+    if (this.monitor || this.monitorRefused) return;
+    const ctl = existsSync(MONITOR_CTL) ? MONITOR_CTL : "cec-ctl";
+    const proc = spawn(ctl, ["-d", this.device, "--monitor"], { stdio: ["ignore", "pipe", "pipe"] });
     this.monitor = proc;
+    let stderr = "";
+    proc.stderr!.on("data", (d: Buffer) => (stderr = (stderr + d.toString()).slice(-500)));
+    proc.on("error", (e) => (stderr = e.message));
     const parser = new CecParser();
     const handle = (msg: CecMessage | null) => {
       if (!msg) return;
       const active = powerFrom(msg, this.physAddr);
       if (msg.opcode === "STANDBY") this.tvOn = false;
       if (msg.opcode === "SET_STREAM_PATH" || msg.opcode === "ACTIVE_SOURCE") this.tvOn = true;
+      const was = this.tvOn;
+      if (msg.opcode === "REPORT_POWER_STATUS" && msg.from.startsWith("TV") && msg.status) {
+        const on = tvPowerOn(msg.status);
+        if (on !== null) this.tvOn = on;
+        // The answer to our own poll shows up here too: only a change is news.
+        if (was === false) return;
+      }
       if (active === null) return;
-      this.log(`CEC ${msg.opcode} → ${active ? "showing the box" : "not showing the box"}`);
-      for (const l of this.listeners) l(active);
+      this.tell(active, msg.opcode);
       // The TV asked for us: say we're the active source so it switches input and stays there.
       if (active && msg.opcode === "SET_STREAM_PATH") void this.activeSource();
     };
@@ -187,6 +268,13 @@ export class Cec {
     proc.on("exit", () => {
       handle(parser.flush());
       this.monitor = null;
+      // No CAP_NET_ADMIN: say so once and get by on asking the TV (startPolling), rather than
+      // starting the adapter over every few seconds.
+      if (/root|permission|not permitted|EPERM/i.test(stderr)) {
+        this.monitorRefused = true;
+        this.log(`Can't watch the CEC bus (${stderr.trim().split("\n")[0]}); asking the TV for its power every ${POLL_MS / 1000} s instead. Run the box update to fix.`);
+        return;
+      }
       // The adapter may have been unplugged: set it up again once it's back.
       this.connected = false;
       this.later(5000);
@@ -219,6 +307,7 @@ export class Cec {
   stop(): void {
     this.stopped = true;
     if (this.retry) clearTimeout(this.retry);
+    if (this.poller) clearInterval(this.poller);
     this.monitor?.removeAllListeners("exit");
     this.monitor?.kill();
   }

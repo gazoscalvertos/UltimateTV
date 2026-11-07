@@ -264,9 +264,15 @@ export const journeys = [
           if (/^settings$/i.test(where.trim())) throw new Error(`The Kids top bar reached Settings: ${JSON.stringify(seen)}`);
           await tv.press("right");
         }
+        // Pressing right past the last item stops on it (the profile), not in the screen below.
+        const end = await tv.page.evaluate(() => ({
+          inBar: !!document.activeElement?.closest(".topbar"),
+          avatar: !!document.activeElement?.classList.contains("avatar"),
+        }));
+        if (!end.inBar || !end.avatar) throw new Error(`Right past the end of the top bar left it: ${JSON.stringify(seen)}`);
         // A Kids profile is a different app: the tab is gone, not merely behind a PIN.
         tv.clean();
-        return `the Kids profile has ${tabs.length} tabs (${tabs.filter(Boolean).join(", ")}) and none is Settings`;
+        return `the Kids profile has ${tabs.length} tabs (${tabs.filter(Boolean).join(", ")}) and none is Settings; right stops on the profile`;
       } catch (err) {
         // A screenshot of the screen that failed, and the page's own view of it, for CI to upload.
         await tv.failed("Kids can't reach Settings", err).catch(() => {});
