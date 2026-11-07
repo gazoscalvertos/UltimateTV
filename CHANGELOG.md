@@ -30,6 +30,8 @@ pop up what's new after an update. So:
 
 ## 2026-11-07
 
+- **Easy mode and a first-time tour** ([docs/easy-mode.md](docs/easy-mode.md)): a profile can be set to Easy mode, where Home is four big tiles (Watch TV, Films and TV, Recordings, Search) plus Continue watching, the menu is short and Settings is out of reach. Each profile also gets a one-minute tour of the remote the first time it is used (Info › Show me around replays it). (#229)
+  Household: Easy mode gives someone who just wants to watch a Home with four big buttons, and new profiles get a short tour of the remote.
 - **X-Ray: who is in this** ([docs/watching-extras.md](docs/watching-extras.md#x-ray-whos-in-it)): press Info while a film or episode plays to see its cast with photos and character names; OK on someone shows their bio and what else they are known for. (#241)
   Household: Press Info while watching to see who the actors are and who they play.
 - **Set up sources from the TV remote** ([docs/sources.md](docs/sources.md)): Settings › Sources is now a Providers list. Each of IPTV, Xtream Codes, Jellyfin, Plex, add-ons and TorBox says what to do next while it isn't set up ("Not set up – press OK to add a playlist"), and OK opens its setup with an on-screen keyboard for the playlist link, Xtream login, server address, add-on link or TorBox key. The Hub finds Jellyfin (UDP broadcast) and Plex (GDM) servers on the home network (`GET /api/discover`) so the address rarely needs typing; Plex shows its plex.tv/link code on the TV and Jellyfin offers Quick Connect. The phone's QR code stays. Only adult profiles see it, and the Hub still asks for the profile PIN. (#218)

@@ -9,7 +9,7 @@ import { visibleDownloads } from "../downloads";
 import { activeMusic, musicLine, musicPlayPause, spotify, webApp } from "../music";
 import { playerState } from "../player";
 import { sleep } from "../sleep";
-import { appName, isKids, nav, now, profile, type Route } from "../store";
+import { appName, isEasy, isKids, nav, now, profile, type Route } from "../store";
 import { weather } from "../weather";
 import { syncGroup } from "../watching";
 import { Icon } from "./Icon";
@@ -31,6 +31,9 @@ const TABS: Tab[] = [
   // Kids only see it when a grown-up has allowed the games.
   { label: "Cast & games", route: { name: "cast" }, match: "cast", when: () => !isKids() || castSettings().gamesForKids, feature: "cast" },
 ];
+
+/** Easy mode (#229) keeps the menu to the short list: where the four tiles go, and Home. */
+const EASY_TABS = new Set(["Home", "TV Guide", "Films", "TV Shows", "Recordings"]);
 
 function isActive(t: Tab): boolean {
   const cur = nav.current();
@@ -71,7 +74,7 @@ export function TopBar() {
         <span class="brand-name">{appName()}</span>
       </div>
       <nav class="tabs">
-        <For each={TABS.filter((t) => (!t.when || t.when()) && (!t.feature || featureOn(t.feature)))}>
+        <For each={TABS.filter((t) => (!t.when || t.when()) && (!t.feature || featureOn(t.feature)) && (!isEasy() || EASY_TABS.has(t.label)))}>
           {(t) => (
             <button class="tab" classList={{ active: isActive(t) }} data-focus data-tab onClick={() => !isActive(t) && nav.replace(t.route)}>
               {t.label}
@@ -83,7 +86,7 @@ export function TopBar() {
           <Icon name="search" />
         </button>
         </Show>
-        <Show when={!isKids()}>
+        <Show when={!isKids() && !isEasy()}>
           <button class="tab" classList={{ active: nav.current().name === "settings" }} data-focus onClick={() => nav.current().name !== "settings" && nav.replace({ name: "settings" })}>
             Settings
           </button>
@@ -100,7 +103,7 @@ export function TopBar() {
             Sync
           </button>
         </Show>
-        <Show when={featureOn("weather") && weather()?.settings.inTopBar ? weather()!.report : undefined}>
+        <Show when={!isEasy() && featureOn("weather") && weather()?.settings.inTopBar ? weather()!.report : undefined}>
           {(r) => (
             <button class="tab weather-chip" classList={{ active: nav.current().name === "weather" }} data-focus aria-label="The weather" onClick={() => nav.current().name !== "weather" && nav.push({ name: "weather" })}>
               <WeatherIcon code={r().now.code} isDay={r().now.isDay} />

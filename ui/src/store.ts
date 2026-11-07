@@ -37,6 +37,11 @@ function offHere(route: Route): FeatureId | undefined {
 }
 
 function refused(route: Route): boolean {
+  // Easy mode keeps Settings out of reach (#229); an adult profile without it still gets there.
+  if (route.name === "settings" && profile()?.easy) {
+    toast("Settings are switched off in Easy mode", "bad");
+    return true;
+  }
   const off = offHere(route);
   if (off) {
     toast(`${featureLabel(off)} is switched off on this screen`, "bad");
@@ -158,6 +163,8 @@ export function previewTheme(name: ThemeName | null): void {
 
 const [profile, setProfileSignal] = createSignal<Profile | null>(null);
 export { profile };
+/** Easy mode (#229): four big tiles on Home, a short top menu, and no Settings. */
+export const isEasy = () => Boolean(profile()?.easy);
 export const isKids = () => profile()?.kind === "kids";
 /** A Guest: here for a visit, rated up to its own limit and kept out of settings and recordings. */
 export const isGuest = () => isGuestProfile(profile());

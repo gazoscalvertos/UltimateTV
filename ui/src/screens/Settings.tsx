@@ -550,6 +550,7 @@ export function Settings(props: { section?: string }) {
         ...(p.kind === "guest" ? [{ label: "What a Guest can use", value: "sections", icon: "list", detail: GUEST_SECTIONS_HINT(p) }] : []),
         { label: `Subtitles: ${p.subtitles ? MODE_LABELS[p.subtitles] : `as the household (${settings()?.playback.subtitlesByDefault ? "on" : "off"})`}`, value: "subtitles", icon: "subtitles" },
         { label: "Accessibility", value: "a11y", icon: "eye", detail: "Audio description, bigger text, bold focus, less movement" },
+        { label: `Easy mode: ${p.easy ? "on" : "off"}`, value: "easy", icon: "sparkle", detail: "Four big tiles on Home, a short menu, and no Settings. Switch back here from another profile" },
         { label: p.hasPin ? "Change PIN" : "Set a PIN", value: "pin", icon: "lock" },
         ...(p.hasPin ? [{ label: "Remove PIN", value: "nopin" }] : []),
         { label: "Delete profile", value: "delete", icon: "trash", tone: "danger" as const },
@@ -580,6 +581,14 @@ export function Settings(props: { section?: string }) {
       if (pick === "a11y") {
         setA11yFor(p.id);
         setSection("accessibility");
+      }
+      if (pick === "easy") {
+        const updated = await hub.updateProfile(p.id, { easy: !p.easy });
+        // The profile watching sees the change straight away (and Settings closes behind it).
+        if (updated.id === profile()?.id) {
+          setProfile(updated);
+          if (updated.easy) nav.reset({ name: "home" });
+        }
       }
       if (pick === "limits") await limitsMenu(p);
       if (pick === "sections") await guestSectionsMenu(p);

@@ -262,6 +262,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     // adding a station to the household's list is a settings change (ADMIN_ROUTES, below).
     ["POST /api/podcasts/:id/position", "paired"],
     ["POST /api/subtitles/download", "paired"],
+    ["POST /api/profiles/me/toured", "paired"],
     ["DELETE /api/watchlist/:id", "paired"],
     ["POST /api/favourites", "paired"],
     ["GET /api/search/history", "paired"],
@@ -1875,13 +1876,24 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.patch(
     "/api/profiles/:id",
-    async (req: Req<{ id: string }, Record<string, string>, { name?: string; colour?: string; maxCertification?: Certification; channelCategories?: ChannelCategory[]; allowedChannels?: string[]; guestFeatures?: FeatureId[]; subtitles?: SubtitleMode; accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }>, reply) => {
+    async (req: Req<{ id: string }, Record<string, string>, { name?: string; colour?: string; maxCertification?: Certification; channelCategories?: ChannelCategory[]; allowedChannels?: string[]; guestFeatures?: FeatureId[]; subtitles?: SubtitleMode; accessibility?: Partial<AccessibilitySettings> | null; easy?: boolean; toured?: boolean; pin?: string | null }>, reply) => {
       const p = ctx.profiles.update(req.params.id, req.body ?? {});
       if (!p) return reply.code(404).send({ error: "No such profile" });
       ctx.events.emit({ type: "profiles.changed" });
       return p;
     },
   );
+
+  /**
+   * The first-time tour (#229) has been shown or skipped. Any profile may say so for itself, so
+   * it isn't an adult-only change like the rest of PATCH /api/profiles/:id: it only ever sets the
+   * "toured" flag, and only on the profile that is asking.
+   */
+  app.post("/api/profiles/me/toured", async (req) => {
+    const id = viewer(req).profile?.id;
+    if (id) ctx.profiles.update(id, { toured: true });
+    return { ok: true };
+  });
 
   app.delete("/api/profiles/:id", async (req: Req<{ id: string }>) => {
     ctx.profiles.remove(req.params.id);

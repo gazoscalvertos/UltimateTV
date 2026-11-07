@@ -218,7 +218,7 @@ export class ProfileStore {
     return this.pub(p);
   }
 
-  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles" | "limits" | "guestFeatures">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }): Profile | undefined {
+  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles" | "limits" | "guestFeatures" | "easy" | "toured">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }): Profile | undefined {
     const list = this.all();
     const p = list.find((x) => x.id === id);
     if (!p) return undefined;
@@ -240,6 +240,12 @@ export class ProfileStore {
       const a = patch.accessibility === null ? DEFAULT_ACCESSIBILITY : cleanAccessibility(patch.accessibility, p.accessibility ?? DEFAULT_ACCESSIBILITY);
       if (isDefaultAccessibility(a)) delete p.accessibility;
       else p.accessibility = a;
+    }
+    // Easy mode and the tour flag are plain on/off switches; off is stored as missing.
+    for (const key of ["easy", "toured"] as const) {
+      if (patch[key] === undefined) continue;
+      if (patch[key]) p[key] = true;
+      else delete p[key];
     }
     if (patch.guestFeatures !== undefined && p.kind === "guest") {
       // A Guest's own pick of sections; an empty pick falls back to the usual ones (guest.ts).

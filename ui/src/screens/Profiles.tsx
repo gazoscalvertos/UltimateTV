@@ -5,6 +5,7 @@ import type { Profile } from "@ultimatetv/shared";
 import { ApiError, hub, session } from "../api";
 import { askPin } from "../components/Dialog";
 import { Icon } from "../components/Icon";
+import { maybeTour } from "../components/Tour";
 import { useKeys } from "../keys";
 import { askForMoreTime, kidsProfileEntered } from "../kidstime";
 import { loadChannels } from "../player";
@@ -35,6 +36,7 @@ export async function enterProfile(p: Profile): Promise<boolean> {
     await loadChannels().catch(() => undefined);
     nav.reset({ name: "home" });
     if (p.kind === "kids") kidsProfileEntered();
+    void maybeTour(p);
     return true;
   } catch (err) {
     errorToast(err);

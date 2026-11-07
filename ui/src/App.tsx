@@ -29,6 +29,7 @@ import { Details } from "./screens/Details";
 import { Guide } from "./screens/Guide";
 import { GuideEditor } from "./screens/GuideEditor";
 import { Home } from "./screens/Home";
+import { EasyHome } from "./screens/EasyHome";
 import { MixChannelScreen } from "./screens/MixChannel";
 import { Music } from "./screens/Music";
 import { PodcastShowScreen } from "./screens/Radio";
@@ -42,7 +43,7 @@ import { Weather } from "./screens/Weather";
 import { startWeather } from "./weather";
 import { startHomeAssistant } from "./homeassistant";
 import { startWhatsNew } from "./whatsnew";
-import { closeTopDialog, dropToast, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
+import { closeTopDialog, dropToast, isEasy, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
 import { startDownloads } from "./downloads";
@@ -307,7 +308,9 @@ export function App() {
             <Profiles />
           </Match>
           <Match when={nav.current().name === "home"}>
-            <Home />
+            <Show when={isEasy()} fallback={<Home />}>
+              <EasyHome />
+            </Show>
           </Match>
           <Match when={nav.current().name === "guide"}>
             <Guide />

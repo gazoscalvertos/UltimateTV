@@ -97,6 +97,8 @@ export const hub = {
   setKidsAllow: (id: string, body: { side: "allow" | "block"; id: string; kind: KidsAllowKind; name: string }) => api<{ list: KidsAllowList }>(`/api/kids-allow/${enc(id)}`, { method: "PATCH", body }),
   clearKidsAllow: (id: string, kind: KidsAllowKind, titleId: string) => api<{ list: KidsAllowList }>(`/api/kids-allow/${enc(id)}/${kind}/${enc(titleId)}`, { method: "DELETE" }),
   kidsSummary: (id?: string) => api<{ summaries: KidsSummary[] }>(`/api/kids-summary${id ? `?profile=${enc(id)}` : ""}`),
+  /** The first-time tour was shown or skipped for the profile watching. */
+  tourDone: () => api<{ ok: boolean }>("/api/profiles/me/toured", { method: "POST" }),
   updateProfile: (id: string, patch: Partial<Omit<Profile, "accessibility" | "limits">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null; limits?: Profile["limits"] | null }) => api<Profile>(`/api/profiles/${enc(id)}`, { method: "PATCH", body: patch }),
   deleteProfile: (id: string) => api<{ ok: true }>(`/api/profiles/${enc(id)}`, { method: "DELETE" }),
 

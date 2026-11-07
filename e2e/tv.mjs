@@ -190,12 +190,20 @@ export async function startTv(hub, { name = "e2e-tv", viewport = { width: 1920, 
       }
       throw new Error(`No profile called "${name}"`);
     },
-    /** The dialog the app pops about what's new, if it did. */
+    /**
+     * The dialogs the app pops on a first visit: what's new, and the first-time tour (#229, which
+     * opens a moment after Home). Back closes either; keep going until none shows up for a while.
+     */
     async dismissWhatsNew() {
-      const open = await page.evaluate(() => document.querySelector(".whatsnew-dialog") !== null);
-      if (open) {
-        await tv.press("back");
-        await until(() => page.evaluate(() => document.querySelector(".whatsnew-dialog") === null), "what's new to close");
+      const sel = ".whatsnew-dialog, .tour-dialog";
+      const open = () => page.evaluate((s) => document.querySelector(s) !== null, sel);
+      let quietSince = Date.now();
+      for (let i = 0; i < 12 && Date.now() - quietSince < 1500; i++) {
+        if (await open()) {
+          await tv.press("back");
+          await until(() => page.evaluate((s) => document.querySelector(s) === null, sel), "a first-visit dialog to close");
+          quietSince = Date.now();
+        } else await new Promise((r) => setTimeout(r, 200));
       }
       return tv;
     },
