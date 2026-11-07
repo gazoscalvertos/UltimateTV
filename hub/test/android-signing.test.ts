@@ -74,13 +74,13 @@ describe("the Android apps' signing key", () => {
   it("tells an app too old to install over to uninstall first", () => {
     // Android won't install over a different key, so the version the Hub offers has to say which
     // builds are on the old key. Without it the household only sees "App not installed".
-    for (const [file, code] of [
-      ["hub/public/remote/app-version.json", 8],
-      ["hub/public/setup/client-app.json", 12],
+    for (const [file, code, below] of [
+      ["hub/public/remote/app-version.json", 8, 8],
+      ["hub/public/setup/client-app.json", 13, 12],
     ] as const) {
       const version = JSON.parse(readFileSync(path.join(root, file), "utf8")) as { versionCode: number; uninstallBelow?: number };
       expect(version.versionCode, `${file} isn't the version this test expects — update it`).toBe(code);
-      expect(version.uninstallBelow, `${file} has no uninstallBelow`).toBe(code);
+      expect(version.uninstallBelow, `${file} has no uninstallBelow`).toBe(below);
     }
     const banner = readFileSync(path.join(root, "hub/public/remote/index.html"), "utf8");
     expect(banner, "the remote's update banner doesn't warn about the uninstall").toContain("uninstallBelow");
