@@ -20,7 +20,8 @@ import { startFavourites } from "./favourites";
 import { activeLayer, current, focus, focusFirst } from "./focus";
 import { onAnyKey, onBack, useKeys } from "./keys";
 import { onMouse } from "./mouse";
-import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, starting, cancelStarting, stopPlayback } from "./player";
+import { channels, isLive, liveChannelId, loadChannels, nowPlaying, play, playerState, starting, cancelStarting, stopPlayback } from "./player";
+import { tvOffAction, tvOnAction } from "./tvpower";
 import { activeMusic, musicPlayPause, pauseAllMusic, startMusic } from "./music";
 import { radioPauseToggle, radioPlaying, startPodcastPlaces, startRadioSettings } from "./radio";
 import { Browse } from "./screens/Browse";
@@ -263,16 +264,36 @@ export function App() {
         }
       }),
     );
-    // TV off: stop playing. TV back on: Home, or the profile picker if a PIN is set.
+    // TV off (standby, or another input): pause or stop what's playing, as Settings says. TV back
+    // on: the paused video, or Home (the profile picker if a PIN is set).
+    let pausedForTv = false;
     onCleanup(
       agent.onPower(async (active) => {
         if (!active) {
-          await stopPlayback();
+          const np = nowPlaying();
+          const settings = await hub.settings().catch(() => null);
+          const action = tvOffAction(settings?.playback.whenTvOff, np ? { live: np.info.live, status: playerState().status } : null);
+          if (action === "pause") {
+            await agent.pause(true).catch(() => undefined);
+            pausedForTv = true;
+          } else if (action === "stop") {
+            pausedForTv = false;
+            await stopPlayback();
+          }
           await pauseAllMusic();
           return;
         }
         wake();
         const { locked } = await hub.profiles().catch(() => ({ locked: false }));
+        const stillPaused = pausedForTv && playerState().status === "paused";
+        pausedForTv = false;
+        if (tvOnAction(Boolean(nowPlaying()), locked) === "back-to-video") {
+          if (nav.current().name !== "player") nav.push({ name: "player" });
+          if (stillPaused) toast("Paused while the TV was off. Press OK to carry on");
+          return;
+        }
+        // Behind a PIN: nothing carries on until someone picks their profile.
+        if (nowPlaying()) await stopPlayback();
         nav.reset({ name: locked ? "profiles" : "home" });
       }),
     );

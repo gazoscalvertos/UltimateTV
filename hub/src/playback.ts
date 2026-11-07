@@ -298,11 +298,13 @@ export class Playback {
       info.url = `${hubBase}/api/stream/${token}`;
     }
 
-    // The media server, Jellyfin or Plex: the same item shape either way, so one block.
-    if (chosen.kind === "jellyfin" || chosen.kind === "plex") {
+    // The media server, Jellyfin, Plex or Emby: the same item shape any of them, so one block.
+    if (chosen.kind === "jellyfin" || chosen.kind === "plex" || chosen.kind === "emby") {
       const media = this.ctx.media();
-      const [, itemId, mediaSourceId] = chosen.id.split(":");
-      if (media && itemId && media.kind === chosen.kind) {
+      const [, rawItemId, mediaSourceId] = chosen.id.split(":");
+      // With several servers connected the item id says whose it is; with one it is the server's own.
+      const itemId = media && rawItemId ? media.parseKey(`${chosen.kind}:${rawItemId}`) : undefined;
+      if (media && itemId) {
         const item = await media.item(itemId);
         const resume = item.UserData?.PlaybackPositionTicks;
         if (resume) info.startMs = ticksToMs(resume);
@@ -322,7 +324,7 @@ export class Playback {
         const segments = await media.segments(itemId);
         info.skip = skipMarkersFrom(segments);
         info.progressKey = media.key(itemId);
-        if (pc.smaller && media.kind !== "plex") {
+        if (pc.smaller && media.kindOf(itemId) !== "plex") {
           info.url = media.hlsUrl(itemId, src?.Id, randomBytes(8).toString("hex"));
           info.hls = true;
           // Roughly 3.2 Mbit/s for the picture and sound together.
@@ -369,13 +371,14 @@ export class Playback {
       // Away from home the Hub runs on the box and Jellyfin is out of reach. Its places are kept
       // and sent when it answers again (#80). Plex's are not queued: the Hub's own progress below
       // still holds them, so a Plex film resumes from this Hub either way.
-      const jf = media.kind === "jellyfin" ? this.ctx.jellyfin() : null;
-      if (media.kind === "jellyfin" && !jf) {
-        this.ctx.jellyfinProgress.queue(queued(serverItem));
+      const isJellyfin = media.kindOf(serverItem) === "jellyfin";
+      const jf = isJellyfin ? this.ctx.jellyfin() : null;
+      if (isJellyfin && !jf) {
+        this.ctx.jellyfinProgress.queue(queued(media.rawId(serverItem)));
       } else {
         await media.reportProgress(serverItem, positionMs, event, paused).catch((err) => {
           this.ctx.log.warn({ err: String(err), server: media.name }, "Progress to the media server failed: kept to send later");
-          if (media.kind === "jellyfin") this.ctx.jellyfinProgress.queue(queued(serverItem));
+          if (isJellyfin) this.ctx.jellyfinProgress.queue(queued(media.rawId(serverItem)));
         });
       }
     } else {

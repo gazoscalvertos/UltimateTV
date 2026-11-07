@@ -15,7 +15,7 @@ export { GUEST_NEVER, GUEST_SECTIONS, guestAllows, guestSections, isGuestProfile
 const ALWAYS = ["/api/profiles", "/api/home", "/api/progress", "/api/offline/allowed", "/api/play", "/api/play/prefetch", "/api/stream", "/api/art", "/api/status", "/api/hello", "/api/health", "/api/system"];
 
 /** The API paths a Guest is kept away from whatever sections it was given. */
-const NEVER = ["/api/settings", "/api/recordings", "/api/downloads", "/api/series-links", "/api/reminders", "/api/continue", "/api/watchlist", "/api/favourites", "/api/search/history", "/api/queue", "/api/offline", "/api/backup", "/api/software", "/api/refresh", "/api/jellyfin", "/api/plex", "/api/ha", "/api/alerts", "/api/adskip", "/api/subtitles/download", "/api/features", "/api/devices", "/api/pair"];
+const NEVER = ["/api/settings", "/api/recordings", "/api/downloads", "/api/series-links", "/api/reminders", "/api/continue", "/api/watchlist", "/api/favourites", "/api/search/history", "/api/queue", "/api/offline", "/api/backup", "/api/software", "/api/refresh", "/api/jellyfin", "/api/plex", "/api/emby", "/api/discover", "/api/ha", "/api/alerts", "/api/adskip", "/api/subtitles/download", "/api/features", "/api/devices", "/api/pair"];
 
 /** The sections a Guest may be given, and the API paths each one covers. */
 const SECTIONS: [string, FeatureId][] = [

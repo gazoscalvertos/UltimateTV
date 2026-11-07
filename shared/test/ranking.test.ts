@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StreamCandidate } from "../src/domain.js";
 import { actionForKey } from "../src/keys.js";
-import { languageTag, parseQuality, qualityBadges, rankStreams } from "../src/ranking.js";
+import { languageTag, parseQuality, qualityBadges, rankStreams, releaseLanguage, sameLanguage } from "../src/ranking.js";
 import { normaliseChannelName, normaliseTitle } from "../src/text.js";
 
 const c = (detail: string, extra: Partial<StreamCandidate> = {}): StreamCandidate => ({
@@ -83,5 +83,37 @@ describe("IPTV language tags", () => {
     const fr = { ...base, id: "fr", detail: "4K-FR-HDR - Une bataille", quality: { height: 2160, hdr: "hdr10" as const, codec: "hevc" as const, audio: "unknown" as const } };
     const en = { ...base, id: "en", detail: "One Battle After Another", quality: { height: 1080, hdr: "sdr" as const, codec: "unknown" as const, audio: "unknown" as const } };
     expect(rankStreams([fr, en], { maxSizeGb: 0, avoidDvProfile5: true, preferredLang: "eng" })[0]!.id).toBe("en");
+  });
+
+  it("hides other-language copies when asked, but keeps untagged ones", () => {
+    const base = { kind: "xtream" as const, label: "IPTV", ready: true, url: "u", downloadable: true, quality: { height: 1080, hdr: "sdr" as const, codec: "unknown" as const, audio: "unknown" as const } };
+    const fr = { ...base, id: "fr", detail: "FR - Une bataille" };
+    const en = { ...base, id: "en", detail: "EN - One Battle" };
+    const plain = { ...base, id: "plain", detail: "One Battle After Another" };
+    const ids = (o: "last" | "hide" | "any") => rankStreams([fr, en, plain], { maxSizeGb: 0, avoidDvProfile5: true, preferredLang: "eng", otherLanguages: o }).map((c) => c.id);
+    expect(ids("hide")).not.toContain("fr");
+    expect(ids("hide")).toHaveLength(2);
+    expect(ids("last").at(-1)).toBe("fr");
+    expect(ids("any")).toHaveLength(3);
+    // Nothing in English at all: the dubbed copy still plays.
+    expect(rankStreams([fr], { maxSizeGb: 0, avoidDvProfile5: true, preferredLang: "eng", otherLanguages: "hide" })).toHaveLength(1);
+  });
+
+  it("treats fra and fre as the same language", () => {
+    const base = { kind: "xtream" as const, label: "IPTV", ready: true, url: "u", downloadable: true, quality: { height: 1080, hdr: "sdr" as const, codec: "unknown" as const, audio: "unknown" as const } };
+    const fr = { ...base, id: "fr", detail: "FR - Une bataille" };
+    expect(rankStreams([fr], { maxSizeGb: 0, avoidDvProfile5: true, preferredLang: "fra", otherLanguages: "hide" })).toHaveLength(1);
+    expect(sameLanguage("deu", "ger")).toBe(true);
+  });
+
+  it("reads the language of a release name", () => {
+    expect(releaseLanguage("Movie.2025.FRENCH.1080p.WEB-DL")).toBe("fre");
+    expect(releaseLanguage("Movie 2025 iTA ENG 1080p")).toBeUndefined();
+    expect(releaseLanguage("Movie.2025.MULTi.TRUEFRENCH.2160p")).toBeUndefined();
+    expect(releaseLanguage("Movie 2025 MULTI FRENCH 2160p")).toBeUndefined();
+    expect(releaseLanguage("Movie 2160p 🇩🇪")).toBe("ger");
+    expect(releaseLanguage("Movie 2160p 🇬🇧 🇩🇪")).toBeUndefined();
+    expect(releaseLanguage("The Good German 2006 1080p")).toBeUndefined();
+    expect(releaseLanguage("Movie 2160p ESPN")).toBeUndefined();
   });
 });

@@ -102,7 +102,9 @@ Update the box first (Settings › About › Update the box): the update builds 
 
 1. Plug it in between the box and the TV, turn on CEC on the TV.
 2. Every button: arrows, OK, Back, Home, the colour keys, numbers, channel up and down, play/pause, rewind and fast forward, Guide and Info. Note any that do nothing.
-3. Turn the TV off: playback stops. Turn it on: the TV switches to the box.
+3. Play a film, then turn the TV off with its remote: within about 20 s the film is paused (Settings › Picture and sound › When the TV turns off: Pause). Turn it on: the TV switches to the box, the paused film is on screen and OK carries on. Live TV stops instead.
+4. Set it to Stop and try again: the film stops. Keep playing: it carries on.
+5. `journalctl --user -u ultimatetv -b | grep CEC` (or the box's diagnostics) shows `CEC … → not showing the box` when the TV went off. A line saying it "can't watch the CEC bus" means the update's `cec-monitor` copy is missing; asking the TV every 20 s still works.
 
 ## 8. Music video channels
 

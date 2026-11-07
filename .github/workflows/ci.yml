@@ -66,6 +66,46 @@ jobs:
       - name: The tile's picture can be rebuilt from source
         run: node tools/ps5/make-icon.mjs --check
 
+  # The console build: the app and the tile, built with the PS5 payload SDK and the prebuilt
+  # homebrew libraries. Every PR proves it still compiles for the console; a push to main also
+  # replaces the .elf and the tile zip on the ps5-app release, so the release always matches
+  # main (the .pkg there is left alone: it needs a .NET tool and doesn't launch on 12.00+).
+  ps5-console:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tools the SDK's scripts use
+        run: sudo apt-get update -q && sudo apt-get install -y -q libarchive-tools clang lld
+      - name: Fetch the PS5 SDK and libraries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash tools/ps5/fetch-sdk.sh "$RUNNER_TEMP/ps5" >> "$GITHUB_ENV"
+      - name: Build the app and the tile
+        run: |
+          make -C ps5 console homebrew
+          cd ps5/build/homebrew
+          printf '%s\n' "UltimateTV for PS5, built from ${GITHUB_SHA::7}." \
+            "Copy the PPSA26001 folder into /data/homebrew/ on the console; a folder mounter" \
+            "(ShadowMountPlus) adds the tile. The app writes /data/ultimatetv/last-run.log." > README.txt
+          zip -q -r ../UltimateTV-PS5-tile.zip PPSA26001 README.txt
+          cp ../ultimatetv.elf ../UltimateTV-PS5.elf
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ultimatetv-ps5
+          path: |
+            ps5/build/UltimateTV-PS5.elf
+            ps5/build/UltimateTV-PS5-tile.zip
+      - name: Publish to the ps5-app release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view ps5-app > /dev/null 2>&1 || gh release create ps5-app --title "PS5 app (latest)" --notes "The PlayStation 5 app, built from main by CI. See docs/ps5.md." --latest=false
+          gh release upload ps5-app ps5/build/UltimateTV-PS5.elf ps5/build/UltimateTV-PS5-tile.zip --clobber
+
   box-scripts:
     runs-on: ubuntu-latest
     steps:

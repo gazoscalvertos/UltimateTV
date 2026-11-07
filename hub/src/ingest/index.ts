@@ -8,6 +8,7 @@ import { EpgMatcher, GuideStore, toProgramme } from "../epg.js";
 import { fetchOk, fetchStream, redactUrl, withUserAgent, type Fetch } from "../http.js";
 import type { Logger } from "../log.js";
 import { dedupeSources, type SettingsStore } from "../settings.js";
+import { activeIptv } from "../sourceoptions.js";
 import { parseM3u } from "./m3u.js";
 import { parseXmltv } from "./xmltv.js";
 import { XtreamClient } from "./xtream.js";
@@ -141,7 +142,7 @@ export class Ingestor {
     const raw: RawFeed[] = [];
     const vod: VodEntry[] = [];
     const loaded = new Map<string, number>();
-    for (const source of dedupeSources(s.iptv)) {
+    for (const source of dedupeSources(activeIptv(s))) {
       try {
         const result = source.kind === "xtream" ? await this.loadXtream(source) : await this.loadM3u(source);
         // Not push(...list): a big VOD catalogue has more entries than a call can take as arguments.
@@ -155,7 +156,7 @@ export class Ingestor {
         this.setStatus(source.id, { at: Date.now(), ok: false, error: describeError(err) });
       }
     }
-    if (raw.length === 0 && s.iptv.length > 0) {
+    if (raw.length === 0 && activeIptv(s).length > 0) {
       this.log.warn("No channels loaded; keeping the previous channel list");
       return { channels: this.channels.count(), vod: 0 };
     }
@@ -295,7 +296,7 @@ export class Ingestor {
   guideUrls(): string[] {
     const s = this.settings.get();
     const urls = [...s.xmltvUrls];
-    for (const source of s.iptv) urls.push(...(this.sourceMeta(source.id)?.epgUrls ?? []));
+    for (const source of activeIptv(s)) urls.push(...(this.sourceMeta(source.id)?.epgUrls ?? []));
     return [...new Set(urls)];
   }
 

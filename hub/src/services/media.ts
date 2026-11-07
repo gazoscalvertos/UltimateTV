@@ -1,4 +1,5 @@
-// The media server the Hub keeps its films and TV in: Jellyfin or Plex, one at a time.
+// The media servers the Hub keeps its films and TV in: Jellyfin, Plex and Emby, any of them, at the
+// same time (CombinedMedia puts several behind this one interface).
 //
 // Everything above this layer (library.ts, playback.ts, the routes) talks to a MediaServer and never
 // to a particular product, and everything it gets back is in the same shape: the Jellyfin item
@@ -14,7 +15,7 @@
 import type { Episode, Season, TitleDetails, TitleRef } from "@ultimatetv/shared";
 
 /** The media server on the other end of the Hub's library. */
-export type MediaServerKind = "jellyfin" | "plex";
+export type MediaServerKind = "jellyfin" | "plex" | "emby";
 
 /** A library item, in Jellyfin's shape whichever server it came from. */
 export interface JfItem {
@@ -106,6 +107,13 @@ export interface MediaServer {
   key(itemId: string): string;
   /** The item id inside one of this server's ids, or undefined for another server's id. */
   parseKey(id: string): string | undefined;
+  /**
+   * Which server an item id belongs to. A single server answers its own kind; when several servers
+   * are connected at once their item ids carry the server (see CombinedMedia), and this reads it.
+   */
+  kindOf(itemId: string): MediaServerKind;
+  /** The server's own id for an item: itemId itself for a single server. */
+  rawId(itemId: string): string;
 
   toTitleRef(item: JfItem): TitleRef;
   toDetails(item: JfItem, episodes?: JfItem[]): TitleDetails;
