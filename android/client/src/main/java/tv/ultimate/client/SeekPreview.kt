@@ -125,30 +125,31 @@ class SeekPreview(private val root: FrameLayout, private val scope: CoroutineSco
         image.visibility = View.GONE
     }
 
-    /** One frame as a bitmap, fetching the sheet if it isn't here yet. Runs off the main thread. */
-    private fun cut(t: Trickplay, frame: TrickplayFrame): Bitmap? {
-        val decoder = synchronized(sheets) {
-            if (frame.url in failed) return null
-            sheets[frame.url]
-        } ?: run {
-            val fetched = try {
-                val bytes = URL(frame.url).openConnection().apply { connectTimeout = 5_000; readTimeout = 10_000 }.getInputStream().use { it.readBytes() }
-                @Suppress("DEPRECATION")
-                BitmapRegionDecoder.newInstance(bytes, 0, bytes.size, false)
-            } catch (_: Exception) {
-                null
-            }
-            synchronized(sheets) {
-                if (fetched == null) {
-                    failed.add(frame.url)
-                    return null
-                }
+    /** Download one sheet and keep it; null (and not tried again) when it can't be had. */
+    private fun fetch(url: String): BitmapRegionDecoder? {
+        val made: BitmapRegionDecoder? = try {
+            val bytes = URL(url).openConnection().apply { connectTimeout = 5_000; readTimeout = 10_000 }.getInputStream().use { it.readBytes() }
+            @Suppress("DEPRECATION")
+            BitmapRegionDecoder.newInstance(bytes, 0, bytes.size, false)
+        } catch (_: Exception) {
+            null
+        }
+        synchronized(sheets) {
+            if (made == null) {
+                failed.add(url)
+            } else {
                 // Four sheets at most (each is a few hundred KB of JPEG): the ones scrubbed over lately.
                 while (sheets.size >= 4) sheets.keys.first().let { sheets.remove(it)?.recycle() }
-                sheets[frame.url] = fetched
+                sheets[url] = made
             }
-            fetched
         }
+        return made
+    }
+
+    /** One frame as a bitmap, fetching the sheet if it isn't here yet. Runs off the main thread. */
+    private fun cut(t: Trickplay, frame: TrickplayFrame): Bitmap? {
+        val cached = synchronized(sheets) { if (frame.url in failed) return null else sheets[frame.url] }
+        val decoder: BitmapRegionDecoder = cached ?: fetch(frame.url) ?: return null
         return try {
             val rect = Rect(frame.x, frame.y, (frame.x + t.width).coerceAtMost(decoder.width), (frame.y + t.height).coerceAtMost(decoder.height))
             if (rect.isEmpty) null else decoder.decodeRegion(rect, BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.RGB_565 })
