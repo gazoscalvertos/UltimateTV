@@ -119,3 +119,13 @@ The Fire TV remote's keys do what they do everywhere else:
   remux is doing well to manage it at all.
 - **Anything else:** the Hub's `/api/diagnostics?format=text` says what the Hub saw of the stick,
   and [android-client.md](android-client.md) covers the parts the two builds share.
+
+## Picture and speed on a 1080p stick
+
+Not every Fire stick is 4K. The app asks the stick what its screen is running and what its hardware decoders handle (`Display.Mode` and `MediaCodecList`), and sends that to the Hub with every request as `X-Max-Height`, `X-Max-Bitrate` and `X-Codecs`. A 1080p stick says 1080p, about 20 Mbit/s and the codecs it decodes in hardware.
+
+- **The Hub chooses for the device.** Of the versions a title has, it starts the first in your usual order that fits (`hub/src/streamcaps.ts`). A 4K remux, an HEVC file where only H.264 decodes, or a file bigger than the Wi-Fi can feed is skipped.
+- **A version picked by hand that doesn't fit** is played through Jellyfin as a 1080p H.264 stream instead of failing. Plex has no such copy, so it plays as it is.
+- **The player starts sooner**: 1 second of video before the first frame instead of 2.5 seconds, and it never picks a video track taller than the screen.
+- **Settings › Picture** shows what was found and has Picture limit and Bitrate limit, which move through Auto, then fixed values, with the arrows and Select. Use them if a stick finds the wrong numbers.
+- **With a remote**: the selected item has a white outline, text and controls are a quarter bigger on a TV, and there is a safe margin around the edge so nothing is cut off by overscan.

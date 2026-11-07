@@ -30,6 +30,10 @@ pop up what's new after an update. So:
 
 ## 2026-11-07
 
+- **Fire TV: picks versions your stick can play**: the Android app now works out what the screen and decoder can show (a 1080p-only Fire stick is capped at 1080p, about 20 Mbit/s) and tells the Hub, which chooses the best version that fits instead of the biggest, and has Jellyfin shrink a 4K remux that was picked by hand. Playback also starts after 1 second of video instead of 2.5. Settings › Picture shows the limits and lets you change them. ([docs/firetv.md](docs/firetv.md)) (#245)
+  Household: Videos start much faster on a 1080p Fire stick, and it is no longer sent 4K files it cannot play.
+- **Fire TV: easier to use with the remote**: the item you have selected now has a white outline and lifts slightly, everything is a quarter bigger for a TV, and nothing sits in the edge of the picture a TV crops. (#245)
+  Household: You can see where you are on the Fire TV when you press the arrow buttons, and the text is bigger.
 - **Ask a parent** ([docs/profiles.md](docs/profiles.md#ask-a-parent)): when a Kids or Guest profile opens something it isn't allowed, the page offers Ask a parent. The request pops up on the TV when an adult profile is on, comes up as a sheet on paired phone remotes, and goes to Home Assistant or ntfy if Settings › Alerts has one. An adult says Allow once (an evening), Always allow (adds to the Kids profile's allow list) or No; the first answer wins and the child sees a yes or "Not now". A child can ask three times in ten minutes, can't answer for itself, and the week's requests are listed on the setup page with the time and the answer. Built without trying it on the TV or a phone yet. (#224)
   Household: a child who hits a film they aren't allowed can ask a grown-up, who answers from the sofa or a phone.
 

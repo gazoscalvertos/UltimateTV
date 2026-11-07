@@ -11,6 +11,7 @@ import { type Library, NotAllowedError } from "./library.js";
 import { guestAllows, guestPlaybackSection } from "./guest.js";
 import { type ContentFilter, NO_FILTER } from "./profiles.js";
 import { LiveRelay } from "./relay.js";
+import { type DeviceCaps, chooseForDevice, misfit } from "./streamcaps.js";
 import { ticksToMs } from "./services/jellyfin.js";
 
 export class PlaybackError extends Error {
@@ -42,6 +43,8 @@ export interface PlayContext {
   /** Resolving for an offline download: IPTV waits for a free connection, Jellyfin can send a smaller copy. */
   download?: boolean;
   smaller?: boolean;
+  /** What the device can show and decode (X-Max-Height and friends): version choice and transcoding follow it. */
+  caps?: DeviceCaps;
 }
 
 export class Playback {
@@ -237,7 +240,11 @@ export class Playback {
     if (f.limited) await this.library.details(req.id, f);
     const ep = req.episodeId ? episodeNumbers(req.episodeId) : undefined;
     const streams = await this.titleStreams(req.id, req.episodeId);
-    const chosen = req.streamId ? streams.find((s) => s.id === req.streamId) : (streams.find((s) => s.ready) ?? streams[0]);
+    const runtimeMin = (await this.library.details(req.id)).runtimeMin;
+    // Without a named version, take the best one this device can play (a 1080p Fire stick is not
+    // handed a 4K remux). Where none fits, the first is kept and the media server shrinks it below.
+    const pick = req.streamId ? { chosen: streams.find((s) => s.id === req.streamId), fits: true } : chooseForDevice(streams, pc.caps, runtimeMin);
+    const chosen = pick.chosen;
     if (!chosen) throw new PlaybackError("Nothing to play this from yet. Try again later, or check your sources in Settings.", "unavailable");
 
     const details = await this.library.details(req.id);
@@ -324,11 +331,17 @@ export class Playback {
         const segments = await media.segments(itemId);
         info.skip = skipMarkersFrom(segments);
         info.progressKey = media.key(itemId);
-        if (pc.smaller && media.kindOf(itemId) !== "plex") {
-          info.url = media.hlsUrl(itemId, src?.Id, randomBytes(8).toString("hex"));
+        // A copy the device cannot play as it is (a 4K remux on a 1080p stick, HEVC where only H.264
+        // decodes) is shrunk to what it can: Jellyfin makes it as HLS at the device's own limits.
+        const toolarge = !pc.download && pc.caps && misfit(chosen, pc.caps, runtimeMin);
+        if ((pc.smaller || toolarge) && media.kindOf(itemId) !== "plex") {
+          const height = pc.smaller ? 720 : Math.min(pc.caps?.maxHeight ?? 1080, info.quality?.height ?? 1080);
+          const bitrate = pc.smaller ? 3_000_000 : Math.min((pc.caps?.maxBitrateKbps ?? 12_000) * 1000, 20_000_000);
+          info.url = media.hlsUrl(itemId, src?.Id, randomBytes(8).toString("hex"), height, pc.smaller ? bitrate : Math.round(bitrate * 0.6));
           info.hls = true;
           // Roughly 3.2 Mbit/s for the picture and sound together.
-          if (info.durationMs && info.quality) info.quality = { ...info.quality, sizeBytes: Math.round((info.durationMs / 1000) * 400_000), height: Math.min(info.quality.height, 720), codec: "h264", audio: "aac", hdr: "sdr", channels: 2 };
+          if (info.durationMs && info.quality && pc.smaller) info.quality = { ...info.quality, sizeBytes: Math.round((info.durationMs / 1000) * 400_000), height: Math.min(info.quality.height, 720), codec: "h264", audio: "aac", hdr: "sdr", channels: 2 };
+          else if (info.quality) info.quality = { ...info.quality, height: Math.min(info.quality.height, height), codec: "h264", hdr: "sdr" };
         }
         // Plex has no smaller copy here, so the direct file the candidate already carries is what
         // plays: the phone gets the original rather than nothing.

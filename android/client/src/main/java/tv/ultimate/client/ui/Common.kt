@@ -4,7 +4,6 @@
 package tv.ultimate.client.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -143,7 +142,7 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun Poster(t: TitleRef, onClick: () -> Unit) {
     val w = posterWidth()
-    Column(Modifier.width(w).clickable(onClick = onClick)) {
+    Column(Modifier.width(w).tvClickable(onClick = onClick)) {
         Box {
             Picture(t.poster ?: t.backdrop, Modifier.width(w).aspectRatio(2f / 3f).clip(RoundedCornerShape(8.dp)))
             t.progress?.let { p ->
@@ -167,7 +166,7 @@ fun PosterRail(title: String, items: List<TitleRef>, open: (TitleRef) -> Unit) {
 
 @Composable
 fun ChannelCard(n: NowNext, onClick: () -> Unit) {
-    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.width(220.dp).clickable(onClick = onClick)) {
+    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.width(220.dp).tvClickable(onClick = onClick)) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Picture(n.channel.logo, Modifier.size(40.dp, 28.dp), ContentScale.Fit)
@@ -183,7 +182,7 @@ fun ChannelCard(n: NowNext, onClick: () -> Unit) {
 
 @Composable
 fun RecordingCard(r: Recording, onClick: () -> Unit) {
-    Column(Modifier.width(200.dp).clickable(onClick = onClick)) {
+    Column(Modifier.width(200.dp).tvClickable(onClick = onClick)) {
         Picture(r.programme.image, Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp)))
         Text(r.programme.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
         Text("${r.channelName} · ${day(r.programme.start)}", maxLines = 1, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
