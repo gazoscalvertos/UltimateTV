@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-07
 
+- **Preview pictures on the seek bar**: ([docs/seek-preview.md](docs/seek-preview.md)) drag along the seek bar and a small frame from the film shows above it, from the pictures Jellyfin already makes (Trickplay). The TV app (with a mouse) and the Android and Fire TV app both do it; nothing shows when the film has none. (#227)
+  Household: when you drag along the progress bar you can now see a little picture of that moment in the film.
+
 - **More Kids films and shows rows**: the Kids profile's Films and TV Shows pages now have far more to pick from: top rated, new additions you haven't seen, for little ones (U) and bigger kids (PG), animation, adventure, comedy, family, fantasy, superheroes, animals, musicals, mystery, Watch again, and Best of 2026, 2025, 2024 and back. All rows follow the profile's rating limit and allow list. (#246)
   Household: the Kids profile has many more categories on Films and TV Shows, including Best of each year.
 

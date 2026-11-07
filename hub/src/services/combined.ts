@@ -10,7 +10,7 @@
 //
 // One server being down never takes the others with it: lists are merged from whichever answered.
 
-import type { Episode, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import type { Episode, TitleDetails, TitleRef, Trickplay } from "@ultimatetv/shared";
 import type { ItemsQuery, JfItem, MediaImageKind, MediaProvider, MediaSegment, MediaServer, MediaServerKind } from "./media.js";
 
 const SEP = "~";
@@ -203,6 +203,11 @@ export class CombinedMedia implements MediaServer {
   segments(itemId: string): Promise<MediaSegment[]> {
     const { server, raw } = this.route(itemId);
     return server.segments(raw);
+  }
+
+  trickplay(itemId: string, item: JfItem, mediaSourceId: string | undefined): Trickplay | undefined {
+    const { server, raw } = this.route(itemId);
+    return server.trickplay(raw, item, mediaSourceId);
   }
 
   // Playback ---------------------------------------------------------------
