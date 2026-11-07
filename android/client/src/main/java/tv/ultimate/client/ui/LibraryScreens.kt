@@ -4,7 +4,6 @@
 package tv.ultimate.client.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -240,7 +239,7 @@ fun DetailsScreen(nav: NavHostController, id: String) {
                             }
                         }
                         if (d.kind == "movie") {
-                            Text("Other versions", Modifier.clickable { choose = Choose(false, null) }.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.primary)
+                            Text("Other versions", Modifier.tvClickable { choose = Choose(false, null) }.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.primary)
                         }
                         d.overview?.let { Text(it, Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodyMedium) }
                         if (!d.cast.isNullOrEmpty()) Text("With ${d.cast.take(5).joinToString(", ")}", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -260,7 +259,7 @@ fun DetailsScreen(nav: NavHostController, id: String) {
                             if (episodes.isNotEmpty()) item {
                                 Text(
                                     "Download all ${episodes.size} episodes",
-                                    Modifier.clickable {
+                                    Modifier.tvClickable {
                                         ui.downloadAll(episodes.map { e -> PlaybackRequest("title", d.id, "s${e.season}e${e.episode}") to episodeMeta(d, e) }, App.instance.prefs.smaller)
                                     }.padding(16.dp),
                                     color = MaterialTheme.colorScheme.primary,
@@ -348,7 +347,7 @@ private fun DownloadButton(entry: OfflineEntry?, onClick: () -> Unit) {
 
 @Composable
 private fun EpisodeRow(e: Episode, entry: OfflineEntry?, play: () -> Unit, download: () -> Unit, versions: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = play).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().tvClickable(onClick = play).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Box {
             Picture(e.still, Modifier.width(if (isWide()) 200.dp else 136.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)))
             val p = e.progress ?: 0.0
@@ -360,7 +359,7 @@ private fun EpisodeRow(e: Episode, entry: OfflineEntry?, play: () -> Unit, downl
             Text("${e.episode}. ${e.name}", maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
             e.runtimeMin?.let { Text(minutes(it * 60_000L), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             e.overview?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Text("Versions", Modifier.clickable(onClick = versions).padding(top = 4.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text("Versions", Modifier.tvClickable(onClick = versions).padding(top = 4.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         }
         when {
             entry == null -> IconButton(onClick = download) { Icon(Icons.Default.Download, "Download") }

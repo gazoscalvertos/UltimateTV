@@ -43,7 +43,9 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
@@ -167,7 +169,25 @@ class PlayerActivity : ComponentActivity() {
         val renderers = DefaultRenderersFactory(this)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setEnableDecoderFallback(true)
+        // Never pick a track the screen or decoder can't use, and start playing sooner: ExoPlayer's
+        // default waits for 2.5 s of video before the first frame, which on a stick means a long
+        // spinner for a high-bitrate file. 1 s to start (and 2 s after a stall) is plenty.
+        val caps = DeviceProfile.current(this, App.instance.prefs)
+        val selector = DefaultTrackSelector(this).apply {
+            parameters = buildUponParameters()
+                .setMaxVideoSize(caps.maxHeight * 16 / 9 + 16, caps.maxHeight)
+                .setMaxVideoBitrate(caps.maxBitrateKbps * 1000)
+                .setExceedVideoConstraintsIfNecessary(true)
+                .setExceedRendererCapabilitiesIfNecessary(false)
+                .build()
+        }
+        val load = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(15_000, 50_000, 1_000, 2_000)
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
         val p = ExoPlayer.Builder(this, renderers)
+            .setTrackSelector(selector)
+            .setLoadControl(load)
             .setMediaSourceFactory(DefaultMediaSourceFactory(source, extractors))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
             .setHandleAudioBecomingNoisy(true)
@@ -200,7 +220,7 @@ class PlayerActivity : ComponentActivity() {
             cause is HttpDataSource.InvalidResponseCodeException && cause.responseCode == 404 -> "This stream has expired. Start it again."
             cause is HttpDataSource.HttpDataSourceException -> if (offline != null) "This download isn't complete yet." else "Lost the connection to the Hub. Are you on the home Wi-Fi?"
             error.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED || error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ->
-                "This phone can't decode this version. Try another version, or a smaller copy."
+                "This ${if (DeviceProfile.isFireTv(this)) "Fire TV" else "device"} can't decode this version. Pick a 1080p version under Versions."
             else -> error.message ?: "Playback stopped."
         }
         AlertDialog.Builder(this)

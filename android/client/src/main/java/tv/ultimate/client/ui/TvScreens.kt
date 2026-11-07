@@ -3,7 +3,6 @@
 package tv.ultimate.client.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -108,7 +107,7 @@ fun HomeScreen(nav: NavHostController) {
                 // What's switched off on this phone leaves Home too.
                 h.hero?.takeIf { ui.titleShown(it.kind) && (it.action != "live" || ui.on("live")) }?.let { hero ->
                     item {
-                        Box(Modifier.fillMaxWidth().aspectRatio(if (isWide()) 2.4f else 16f / 9f).clickable { details(nav, hero.id) }) {
+                        Box(Modifier.fillMaxWidth().aspectRatio(if (isWide()) 2.4f else 16f / 9f).tvClickable { details(nav, hero.id) }) {
                             Picture(hero.backdrop ?: hero.poster, Modifier.fillMaxSize())
                             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE070B14)))))
                             Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
@@ -200,7 +199,7 @@ fun GuideScreen(nav: NavHostController) {
 
 @Composable
 private fun ChannelRow(n: NowNext, liked: Boolean, play: () -> Unit, schedule: () -> Unit, favourite: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = play).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().tvClickable(onClick = play).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.width(64.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Picture(n.channel.logo, Modifier.size(56.dp, 36.dp).clip(RoundedCornerShape(4.dp)), ContentScale.Fit)
             Text("${n.channel.number}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -261,7 +260,7 @@ fun ChannelScreen(nav: NavHostController, id: String, name: String) {
                     }
                     item {
                         val onNow = p.start <= now && p.end > now
-                        Row(Modifier.fillMaxWidth().clickable { open = p }.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Row(Modifier.fillMaxWidth().tvClickable { open = p }.padding(horizontal = 16.dp, vertical = 10.dp)) {
                             Text(clock(p.start), Modifier.width(56.dp), color = if (onNow) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                             Column(Modifier.weight(1f)) {
                                 Text(p.title, fontWeight = if (onNow) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)

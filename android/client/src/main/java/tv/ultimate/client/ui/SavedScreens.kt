@@ -2,7 +2,6 @@
 
 package tv.ultimate.client.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -94,7 +93,7 @@ private fun RecordingRow(r: Recording, entry: OfflineEntry?, reload: () -> Unit)
     val p = r.programme
     val playable = r.status == "completed" || r.status == "recording"
     Row(
-        Modifier.fillMaxWidth().clickable(enabled = playable) { ui.play(PlaybackRequest("recording", r.id), name = p.title) }.padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().tvClickable(enabled = playable) { ui.play(PlaybackRequest("recording", r.id), name = p.title) }.padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {
@@ -167,7 +166,7 @@ private fun DownloadRow(e: OfflineEntry, paused: Boolean) {
     val item = e.item
     val watched = Offline.position(item.progressKey)?.let { p -> p.durationMs?.let { d -> if (d > 0) p.positionMs.toFloat() / d else null } }
     Row(
-        Modifier.fillMaxWidth().clickable(enabled = e.done) { PlayerActivity.playOffline(context, e) }.padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().tvClickable(enabled = e.done) { PlayerActivity.playOffline(context, e) }.padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {

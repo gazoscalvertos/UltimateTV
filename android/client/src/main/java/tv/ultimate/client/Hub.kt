@@ -60,6 +60,14 @@ class Prefs(context: Context) {
     var smaller: Boolean
         get() = sp.getBoolean("smaller", false)
         set(v) = sp.edit().putBoolean("smaller", v).apply()
+    /** Settings › Picture limit: "auto" (what this device can show and decode) or a height in pixels. */
+    var pictureLimit: String
+        get() = sp.getString("pictureLimit", null) ?: "auto"
+        set(v) = sp.edit().putString("pictureLimit", v).apply()
+    /** Settings › Bitrate limit: "auto" or Mbit/s. */
+    var bitrateLimit: String
+        get() = sp.getString("bitrateLimit", null) ?: "auto"
+        set(v) = sp.edit().putString("bitrateLimit", v).apply()
     val device: String
         get() = sp.getString("device", null) ?: "phone:${UUID.randomUUID().toString().replace("-", "").take(12)}".also { sp.edit().putString("device", it).apply() }
 
@@ -87,6 +95,13 @@ class Hub(private val prefs: Prefs) {
         c.readTimeout = timeoutMs
         c.setRequestProperty("Accept", "application/json")
         c.setRequestProperty("X-Device", prefs.device)
+        // What this screen and decoder can handle, so the Hub picks a version that plays (and
+        // starts fast) rather than the biggest file it has.
+        runCatching { DeviceProfile.current(App.instance, prefs) }.getOrNull()?.let { caps ->
+            c.setRequestProperty("X-Max-Height", caps.maxHeight.toString())
+            c.setRequestProperty("X-Max-Bitrate", caps.maxBitrateKbps.toString())
+            c.setRequestProperty("X-Codecs", caps.codecs.joinToString(","))
+        }
         prefs.profileId?.let { c.setRequestProperty("X-Profile", it) }
         prefs.profileToken?.let { c.setRequestProperty("X-Profile-Token", it) }
         prefs.deviceToken?.let { c.setRequestProperty("X-Device-Token", it) }

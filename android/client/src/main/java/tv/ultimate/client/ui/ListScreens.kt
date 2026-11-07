@@ -4,7 +4,6 @@
 package tv.ultimate.client.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -124,7 +123,7 @@ private fun SavedRow(nav: NavHostController, item: WatchItem, reload: () -> Unit
     val t = item.title
     Row(
         Modifier.fillMaxWidth()
-            .clickable(enabled = t != null) { if (t != null) details(nav, t.id) }
+            .tvClickable(enabled = t != null) { if (t != null) details(nav, t.id) }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

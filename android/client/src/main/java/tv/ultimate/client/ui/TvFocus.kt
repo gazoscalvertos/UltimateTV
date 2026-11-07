@@ -7,7 +7,19 @@ package tv.ultimate.client.ui
 
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -45,4 +57,29 @@ fun Modifier.tvLanding(key: Any? = Unit): Modifier {
     // A focus group hands the request on to its first focusable child, which is what a remote
     // needs: one clear starting place, then the arrow keys walk from there.
     return this.focusRequester(requester).focusGroup()
+}
+
+/** Cached per composition: true on a Fire TV or any other television. */
+@Composable
+fun rememberIsTv(): Boolean {
+    val context = LocalContext.current
+    return remember(context) { isTvUi(context) }
+}
+
+/**
+ * A clickable that a remote can see. Compose's plain `clickable` is focusable but draws almost
+ * nothing when it has focus, so with a D-pad you cannot tell where you are. On a TV this adds a
+ * white ring, a slight lift and a tint to the focused item; on a phone it is just `clickable`.
+ */
+@Composable
+fun Modifier.tvClickable(enabled: Boolean = true, onClick: () -> Unit): Modifier {
+    if (!rememberIsTv()) return this.clickable(enabled = enabled, onClick = onClick)
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.05f else 1f, label = "tvFocusScale")
+    val shape = RoundedCornerShape(10.dp)
+    return this
+        .onFocusChanged { focused = it.isFocused }
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .then(if (focused) Modifier.background(Color(0x22FFFFFF), shape).border(3.dp, Color.White, shape) else Modifier)
+        .clickable(enabled = enabled, onClick = onClick)
 }

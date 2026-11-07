@@ -47,6 +47,7 @@ import { BoxRegistry } from "./boxes.js";
 import { ClientFeatures } from "./features.js";
 import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
+import { capsFromHeaders } from "./streamcaps.js";
 import { guestBlocks } from "./guest.js";
 import { ContentFilter, certificationRank } from "./profiles.js";
 import { ReportStore } from "./reports.js";
@@ -1581,7 +1582,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const who = viewer(req);
     // Time's up on a Kids profile: nothing new starts (what's on may finish).
     kidsTime.check(who.profile);
-    return playback.resolve(req.body, hubBase(req), who.filter, holder ? { holder } : {});
+    const caps = capsFromHeaders(req.headers);
+    return playback.resolve(req.body, hubBase(req), who.filter, { ...(holder ? { holder } : {}), ...(caps ? { caps } : {}) });
   });
   /** What the Android client downloads for offline viewing: like /api/play, but never live TV. */
   app.post("/api/offline", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest & { smaller?: boolean }>, reply) => {
@@ -1590,7 +1592,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const holder = deviceOf(req);
     const who = viewer(req);
     kidsTime.check(who.profile);
-    const info = await playback.resolve(request, hubBase(req), who.filter, { download: true, smaller: Boolean(smaller), ...(holder ? { holder } : {}) });
+    const caps = capsFromHeaders(req.headers);
+    const info = await playback.resolve(request, hubBase(req), who.filter, { download: true, smaller: Boolean(smaller), ...(holder ? { holder } : {}), ...(caps ? { caps } : {}) });
     if (info.live) return reply.code(422).send({ error: "This is still recording. Download it once it has finished." });
     return info;
   });
