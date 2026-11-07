@@ -43,17 +43,28 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 class PlayerActivity : ComponentActivity() {
     private val scope = MainScope()
+    /** For the last word to the Hub (stopped, left Sync play) after the screen has gone. */
+    private val after = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val main = Handler(Looper.getMainLooper())
     private val hub get() = App.instance.hub
 
@@ -75,6 +86,11 @@ class PlayerActivity : ComponentActivity() {
     private val ticker = object : Runnable {
         override fun run() {
             report("progress")
+            if (System.currentTimeMillis() - lastWatchReport >= WATCH_REPORT_MS) reportWatching("progress")
+            if (group != null && System.currentTimeMillis() - lastLine >= 2000) {
+                lastLine = System.currentTimeMillis()
+                line()
+            }
             reportKidsTime()
             updateAction()
             main.postDelayed(this, 1000)
@@ -98,6 +114,8 @@ class PlayerActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         report("stop")
+        reportWatching("stop")
+        leaveSync()
         start(intent)
     }
 
@@ -105,6 +123,8 @@ class PlayerActivity : ComponentActivity() {
         val gson = hub.gson
         req = intent.getStringExtra(EXTRA_REQ)?.let { gson.fromJson(it, PlaybackRequest::class.java) }
         ref = intent.getStringExtra(EXTRA_TITLE)?.let { gson.fromJson(it, TitleRef::class.java) }
+        startOverride = intent.getLongExtra(EXTRA_START, -1L)
+        intent.getStringExtra(EXTRA_SYNC)?.let { id -> scope.launch { joinGroup(id, quiet = true) } }
         val offlineId = intent.getStringExtra(EXTRA_OFFLINE)
         if (offlineId != null) {
             val entry = Offline.entry(offlineId) ?: return finishWith("That download has gone.")
@@ -144,6 +164,8 @@ class PlayerActivity : ComponentActivity() {
         val local = Offline.position(i.progressKey)
         val start = when {
             i.live -> 0L
+            // Carrying on from another screen, or joining Sync play: from where that has got to.
+            startOverride >= 0 -> startOverride.also { startOverride = -1L }
             local != null && (i.startMs ?: 0) == 0L && local.positionMs > 0 -> local.positionMs
             else -> i.startMs ?: 0L
         }
@@ -167,7 +189,25 @@ class PlayerActivity : ComponentActivity() {
         val renderers = DefaultRenderersFactory(this)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setEnableDecoderFallback(true)
+        // Never pick a track the screen or decoder can't use, and start playing sooner: ExoPlayer's
+        // default waits for 2.5 s of video before the first frame, which on a stick means a long
+        // spinner for a high-bitrate file. 1 s to start (and 2 s after a stall) is plenty.
+        val caps = DeviceProfile.current(this, App.instance.prefs)
+        val selector = DefaultTrackSelector(this).apply {
+            parameters = buildUponParameters()
+                .setMaxVideoSize(caps.maxHeight * 16 / 9 + 16, caps.maxHeight)
+                .setMaxVideoBitrate(caps.maxBitrateKbps * 1000)
+                .setExceedVideoConstraintsIfNecessary(true)
+                .setExceedRendererCapabilitiesIfNecessary(false)
+                .build()
+        }
+        val load = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(15_000, 50_000, 1_000, 2_000)
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
         val p = ExoPlayer.Builder(this, renderers)
+            .setTrackSelector(selector)
+            .setLoadControl(load)
             .setMediaSourceFactory(DefaultMediaSourceFactory(source, extractors))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
             .setHandleAudioBecomingNoisy(true)
@@ -182,8 +222,19 @@ class PlayerActivity : ComponentActivity() {
                 if (state == Player.STATE_READY && !reported) {
                     reported = true
                     report("start")
+                    reportWatching("start")
+                    line()
                 }
                 if (state == Player.STATE_ENDED) ended()
+            }
+
+            // Pause, play and seek pressed here go to everyone in Sync play.
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) tellGroup(if (playWhenReady) "play" else "pause", p.currentPosition)
+            }
+
+            override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+                if (reason == Player.DISCONTINUITY_REASON_SEEK) tellGroup("seek", newPosition.positionMs)
             }
         })
         p.setMediaItems(items, 0, startMs)
@@ -200,7 +251,7 @@ class PlayerActivity : ComponentActivity() {
             cause is HttpDataSource.InvalidResponseCodeException && cause.responseCode == 404 -> "This stream has expired. Start it again."
             cause is HttpDataSource.HttpDataSourceException -> if (offline != null) "This download isn't complete yet." else "Lost the connection to the Hub. Are you on the home Wi-Fi?"
             error.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED || error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ->
-                "This phone can't decode this version. Try another version, or a smaller copy."
+                "This ${if (DeviceProfile.isFireTv(this)) "Fire TV" else "device"} can't decode this version. Pick a 1080p version under Versions."
             else -> error.message ?: "Playback stopped."
         }
         AlertDialog.Builder(this)
@@ -227,6 +278,7 @@ class PlayerActivity : ComponentActivity() {
 
     private fun ended() {
         report("stop")
+        reportWatching("stop")
         val next = info?.next
         if (next != null) playNext(next)
         else if (live) retry()
@@ -314,6 +366,231 @@ class PlayerActivity : ComponentActivity() {
                     Toast.makeText(this@PlayerActivity, "$left more minute${if (left == 1) "" else "s"}", Toast.LENGTH_LONG).show()
                 }
             }
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Watching elsewhere and Sync play (hub/src/watching.ts). Every few seconds the phone tells the
+    // Hub what it's playing, so the TV (or a tablet) can carry on from here. The answer says if
+    // another screen asked something of us: pause, stop (they've moved it to the TV) or join Sync
+    // play. In Sync play the Hub keeps one clock for the group, and every member follows it.
+
+    private var startOverride = -1L
+    private var lastWatchReport = 0L
+    private var lastLine = 0L
+    private var watchStarted = false
+    private var clockOffset = 0L
+    private var myDevice: String? = null
+    private var group: SyncGroup? = null
+    private var groupPoll: Job? = null
+    /** While we line up with the group, our own pause and seek aren't news to send back. */
+    private var applyingUntil = 0L
+
+    private fun hubNow() = System.currentTimeMillis() + clockOffset
+    private fun learnClock(now: Long?) {
+        if (now != null && now > 0) clockOffset = now - System.currentTimeMillis()
+    }
+
+    private fun sameReq(a: PlaybackRequest, b: PlaybackRequest) = a.kind == b.kind && a.id == b.id && (a.episodeId ?: "") == (b.episodeId ?: "")
+
+    private fun watchBody(event: String): MutableMap<String, Any>? {
+        val p = player ?: return null
+        val r = req ?: return null
+        // A download plays away from home: nothing to share.
+        if (offline != null) return null
+        val i = info
+        val name = ref?.name ?: i?.title ?: return null
+        val m = mutableMapOf<String, Any>(
+            "req" to r,
+            "name" to name,
+            "live" to live,
+            "positionMs" to maxOf(0L, p.currentPosition),
+            "paused" to !p.playWhenReady,
+            "event" to event,
+            "client" to "android",
+            "deviceName" to android.os.Build.MODEL,
+        )
+        val sub = i?.subtitle ?: i?.title?.takeIf { ref != null && it != ref?.name }
+        sub?.let { m["subtitle"] = it }
+        (ref?.backdrop ?: ref?.poster ?: i?.artwork ?: i?.logo)?.let { hub.abs(it) }?.let { m["artwork"] = it }
+        ref?.let { m["title"] = it }
+        (p.duration.takeIf { it > 0 } ?: i?.durationMs)?.let { m["durationMs"] = it }
+        group?.takeIf { !it.ended }?.let { m["sync"] = it.id }
+        return m
+    }
+
+    private fun reportWatching(event: String) {
+        lastWatchReport = System.currentTimeMillis()
+        if (event == "stop") {
+            if (!watchStarted) return
+            watchStarted = false
+        }
+        val body = watchBody(event) ?: return
+        if (event != "stop") watchStarted = true
+        after.launch {
+            val reply = runCatching { hub.reportWatching(body) }.getOrNull() ?: return@launch
+            learnClock(reply.now)
+            reply.me?.let { myDevice = it }
+            if (event == "stop" || isFinishing || isDestroyed) return@launch
+            reply.commands.orEmpty().forEach { obey(it) }
+            reply.sync?.let { follow(it) }
+        }
+    }
+
+    private fun obey(c: WatchCommand) {
+        when (c.type) {
+            "pause" -> {
+                applyingUntil = System.currentTimeMillis() + 1500
+                player?.pause()
+                Toast.makeText(this, "Paused from another screen", Toast.LENGTH_SHORT).show()
+            }
+            "stop" -> finishWith("Carried on on another screen")
+            "sync" -> c.group?.let { id -> scope.launch { joinGroup(id, quiet = false) } }
+        }
+    }
+
+    private suspend fun joinGroup(id: String, quiet: Boolean) {
+        val reply = runCatching { hub.syncState(id, 0, 0) }.getOrNull() ?: return
+        learnClock(reply.now)
+        val g = reply.group ?: return
+        follow(g)
+        if (!quiet) {
+            val others = g.members.orEmpty().filter { it.device != myDevice }.mapNotNull { it.deviceName }
+            Toast.makeText(this, "Sync play with ${others.joinToString(" and ").ifEmpty { "another screen" }}: pausing or skipping on one does both", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** Takes the group's latest clock, lines up with it, and keeps listening for changes. */
+    private fun follow(g: SyncGroup) {
+        val before = group
+        val me = myDevice
+        val gone = g.ended || (me != null && g.members.orEmpty().none { it.device == me })
+        if (gone) {
+            if (before?.id == g.id) {
+                group = null
+                groupPoll?.cancel()
+                Toast.makeText(this, "Sync play has ended", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+        group = g
+        if (before == null || before.seq != g.seq) {
+            val last = g.last
+            if (before?.id == g.id && last != null && last.device != me && last.action in setOf("play", "pause", "seek")) {
+                val verb = when (last.action) { "pause" -> "paused"; "play" -> "pressed play"; else -> "skipped" }
+                Toast.makeText(this, "${last.deviceName ?: "Another screen"} $verb", Toast.LENGTH_SHORT).show()
+            }
+            line()
+        }
+        if (groupPoll?.isActive != true) groupPoll = scope.launch { poll(g.id) }
+    }
+
+    /** Long-polls the group, so a pause on the TV pauses the phone within a moment. */
+    private suspend fun poll(id: String) {
+        while (group?.id == id) {
+            val since = group?.seq ?: return
+            val reply = try {
+                hub.syncState(id, since, 20_000)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ApiError) {
+                if (e.status == 404) {
+                    if (group?.id == id) {
+                        group = null
+                        Toast.makeText(this, "Sync play has ended", Toast.LENGTH_SHORT).show()
+                    }
+                    return
+                }
+                null
+            } catch (e: Throwable) {
+                null
+            }
+            if (reply == null) {
+                delay(3000)
+                continue
+            }
+            learnClock(reply.now)
+            reply.group?.let { follow(it) }
+        }
+    }
+
+    /** Moves the player to where the group's clock says, unless it's close enough already. */
+    private fun line() {
+        val g = group ?: return
+        val p = player ?: return
+        val r = req ?: return
+        if (!sameReq(r, g.req) || p.playbackState != Player.STATE_READY) return
+        if (!p.playWhenReady != g.paused) {
+            applyingUntil = System.currentTimeMillis() + 2000
+            p.playWhenReady = !g.paused
+        }
+        if (g.live) return
+        val want = placeAt(g.positionMs, g.paused, g.at, g.durationMs, hubNow())
+        val tolerance = if (g.paused) 1000L else 2500L
+        if (abs(p.currentPosition - want) > tolerance) {
+            applyingUntil = System.currentTimeMillis() + 2000
+            p.seekTo(want)
+        }
+    }
+
+    private fun tellGroup(action: String, positionMs: Long) {
+        val g = group ?: return
+        // Opening the file presses "play" too: only what happens once it's playing is news.
+        if (!reported || System.currentTimeMillis() < applyingUntil) return
+        val r = req ?: return
+        if (!sameReq(r, g.req)) return
+        scope.launch {
+            val reply = runCatching { hub.syncAction(g.id, action, maxOf(0L, positionMs)) }.getOrNull() ?: return@launch
+            learnClock(reply.now)
+            reply.group?.let { if (!it.ended) group = it }
+        }
+    }
+
+    private fun leaveSync() {
+        val g = group ?: return
+        group = null
+        groupPoll?.cancel()
+        after.launch { runCatching { hub.syncLeave(g.id) } }
+    }
+
+    /** The top bar's TV button: put what's playing here on the TV, or watch it on both together. */
+    private fun toTv() {
+        if (offline != null || req == null) {
+            Toast.makeText(this, "A download plays on this phone only", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val inSync = group != null
+        val choices = mutableListOf("Move to the TV (stop here)", "Sync play with the TV")
+        if (inSync) choices += "Leave Sync play"
+        AlertDialog.Builder(this)
+            .setTitle("Watch on the TV")
+            .setItems(choices.toTypedArray()) { _, which ->
+                when (which) {
+                    0 -> sendToTv("move")
+                    1 -> sendToTv("sync")
+                    2 -> {
+                        leaveSync()
+                        Toast.makeText(this, "Left Sync play: carrying on here on its own", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun sendToTv(mode: String) {
+        // The Hub needs to know where we've got to before the TV asks it.
+        reportWatching("progress")
+        scope.launch {
+            delay(600)
+            val me = myDevice
+            if (me == null) {
+                Toast.makeText(this@PlayerActivity, "Pair this phone with the TV first: Settings › Pair with the TV", Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            Toast.makeText(this@PlayerActivity, if (mode == "move") "Moving it to the TV…" else "Starting it on the TV…", Toast.LENGTH_SHORT).show()
+            runCatching { hub.tvWatchHere(me, mode) }
+                .onSuccess { if (mode == "sync") Toast.makeText(this@PlayerActivity, "Sync play with the TV: pausing or skipping on one does both", Toast.LENGTH_LONG).show() }
+                .onFailure { Toast.makeText(this@PlayerActivity, tv.ultimate.client.ui.explain(it), Toast.LENGTH_LONG).show() }
         }
     }
 
@@ -418,6 +695,8 @@ class PlayerActivity : ComponentActivity() {
     override fun onDestroy() {
         main.removeCallbacks(ticker)
         report("stop")
+        reportWatching("stop")
+        leaveSync()
         player?.release()
         player = null
         scope.cancel()
@@ -470,8 +749,16 @@ class PlayerActivity : ComponentActivity() {
         subtitleView = TextView(this).apply { setTextColor(0xFFC8D0E0.toInt()); textSize = 14f; maxLines = 1 }
         texts.addView(titleView)
         texts.addView(subtitleView)
+        // Watch on the TV: move it there, or Sync play on both.
+        val tvButton = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_screens)
+            setBackgroundColor(Color.TRANSPARENT)
+            contentDescription = "Watch on the TV"
+            setOnClickListener { toTv() }
+        }
         topBar.addView(back, LinearLayout.LayoutParams(dp(44), dp(44)))
         topBar.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        topBar.addView(tvButton, LinearLayout.LayoutParams(dp(44), dp(44)))
         root.addView(topBar, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
 
         action = Button(this).apply {
@@ -491,17 +778,24 @@ class PlayerActivity : ComponentActivity() {
         const val EXTRA_REQ = "req"
         const val EXTRA_TITLE = "title"
         const val EXTRA_OFFLINE = "offline"
+        /** Start here (ms) instead of the resume point: carrying on from another screen. */
+        const val EXTRA_START = "startMs"
+        /** Join this Sync play group once playing. */
+        const val EXTRA_SYNC = "sync"
+        private const val WATCH_REPORT_MS = 5_000L
 
         /** A tap of rewind, and of fast forward, on a TV remote. */
         private const val SEEK_BACK_MS = 10_000L
         private const val SEEK_FORWARD_MS = 30_000L
 
-        fun play(context: Context, info: PlaybackInfo, req: PlaybackRequest, title: TitleRef?) {
+        fun play(context: Context, info: PlaybackInfo, req: PlaybackRequest, title: TitleRef?, startMs: Long? = null, sync: String? = null) {
             val gson = App.instance.hub.gson
             context.startActivity(Intent(context, PlayerActivity::class.java).apply {
                 putExtra(EXTRA_INFO, gson.toJson(info))
                 putExtra(EXTRA_REQ, gson.toJson(req))
                 title?.let { putExtra(EXTRA_TITLE, gson.toJson(it)) }
+                startMs?.let { putExtra(EXTRA_START, it) }
+                sync?.let { putExtra(EXTRA_SYNC, it) }
             })
         }
 

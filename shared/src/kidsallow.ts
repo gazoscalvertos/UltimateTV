@@ -175,6 +175,8 @@ export interface KidsSummary {
   titles: KidsViewingTitle[];
   totalMinutes: number;
   lockouts: KidsLockout[];
+  /** What the profile asked a parent for in the window, newest first (issue #224). */
+  asks?: KidsAsk[];
 }
 
 /** How many days of viewing the summary covers. */
@@ -195,3 +197,35 @@ export interface KidsAllowProfile {
 export interface KidsAllowReply {
   profiles: KidsAllowProfile[];
 }
+
+// ---------------------------------------------------------------------------
+// Ask a parent (issue #224): a Kids or Guest profile asks for something it isn't allowed, and an
+// adult answers from the TV or a phone.
+
+/** What an adult can say: yes just for now, yes for good (Kids only), or no. */
+export type KidsAskAnswer = "once" | "always" | "no";
+
+/** One request. `status` is `pending` until the first adult answers; after that it is the answer. */
+export interface KidsAsk {
+  id: Id;
+  /** The profile that asked. */
+  profileId: Id;
+  profileName: string;
+  /** `kids` or `guest`, so a phone knows whether "Always allow" is on offer. */
+  profileKind: "kids" | "guest";
+  /** The title or channel asked for. */
+  titleId: Id;
+  kind: KidsAllowKind;
+  name: string;
+  at: number;
+  status: "pending" | KidsAskAnswer;
+  answeredAt?: number;
+}
+
+/** The most requests one profile may make in KIDS_ASK_WINDOW_MS. */
+export const KIDS_ASK_LIMIT = 3;
+export const KIDS_ASK_WINDOW_MS = 10 * 60_000;
+/** How long "Allow once" lasts: an evening's viewing, not for good. */
+export const KIDS_ASK_ONCE_MS = 6 * 3_600_000;
+/** How long an unanswered request waits before it lapses. */
+export const KIDS_ASK_PENDING_MS = 30 * 60_000;

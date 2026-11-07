@@ -24,6 +24,7 @@ import { Podcasts } from "./podcasts.js";
 import { ProfileStore } from "./profiles.js";
 import { ContinueHidden } from "./continuehide.js";
 import { HomeRows } from "./homerows.js";
+import { KidsAsks } from "./kidsasks.js";
 import { KidsAllow } from "./kidsallow.js";
 import { KidsViewing } from "./kidsviewing.js";
 import { KidsLockoutLog } from "./kidslockouts.js";
@@ -91,6 +92,8 @@ export class HubContext {
   readonly kidsAllow: KidsAllow;
   /** What each Kids profile played, day by day, for the weekly summary (issue #110). */
   readonly kidsViewing: KidsViewing;
+  /** Requests from Kids and Guest profiles for something a parent hasn't allowed (issue #224). */
+  readonly kidsAsks: KidsAsks;
   /** PIN lockouts, kept for the weekly summary (issue #110). */
   readonly kidsLockouts: KidsLockoutLog;
   /** Jellyfin places saved while Jellyfin could not be reached (#80). */
@@ -144,6 +147,7 @@ export class HubContext {
     this.homeRows = new HomeRows(this.db, this.events);
     this.kidsAllow = new KidsAllow(this.db, this.events);
     this.kidsViewing = new KidsViewing(this.db);
+    this.kidsAsks = new KidsAsks(this.db, this.events, this.kidsAllow);
     this.kidsLockouts = new KidsLockoutLog(this.db);
     this.jellyfinProgress = new JellyfinProgressQueue(this.db);
     this.nextAirings = new NextAirings(this.guide, this.channels);

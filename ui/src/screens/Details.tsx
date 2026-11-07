@@ -7,6 +7,7 @@ import { createEffect, createResource, createSignal, For, Show } from "solid-js"
 import type { Episode, TitleDetails, TitleRef, TitleScore } from "@ultimatetv/shared";
 import { durationLabel, episodeLabel, formatBytes } from "@ultimatetv/shared";
 import { hub, type StreamRow } from "../api";
+import { AskParent, askableOf } from "../askparent";
 import { choose, DialogFrame } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { Progress, RailRow } from "../components/Rail";
@@ -102,8 +103,21 @@ export function chooseVersion(title: TitleDetails, episodeId?: string): Promise<
 /** A score's colour: green when it's good, amber in the middle, red when it isn't. */
 const scoreTone = (s: TitleScore) => (s.pct >= 70 ? "good" : s.pct >= 50 ? "mid" : "low");
 
+/** What a limited profile sees for a title it isn't allowed: a plain page and the way to ask. */
+function NotAllowed(props: { title: { id: string; kind: "movie" | "series" | "channel"; name: string }; onYes: () => void }) {
+  return (
+    <div class="ask-parent-page">
+      <h1>{props.title.name}</h1>
+      <p>This isn't on your profile yet. A grown-up can say yes.</p>
+      <AskParent title={props.title} onYes={props.onYes} />
+    </div>
+  );
+}
+
 export function Details(props: { id: string }) {
-  const [d] = createResource(() => props.id, (id) => hub.title(id));
+  const [d, { refetch: refetchTitle }] = createResource(() => props.id, (id) => hub.title(id));
+  // A Kids or Guest profile that opened something it isn't allowed gets Ask a parent (#224).
+  const askable = () => (d.error ? askableOf(d.error) : null);
   // A film or series whose tab is switched off on this screen (features.ts) doesn't open from a link either.
   createEffect(() => {
     const t = d();
@@ -343,7 +357,7 @@ export function Details(props: { id: string }) {
 
   return (
     <div class="screen details" data-layer>
-      <Show when={d()} fallback={<div class="spinner" />}>
+      <Show when={d()} fallback={<Show when={askable()} fallback={<div class="spinner" />}>{(a) => <NotAllowed title={a()} onYes={() => void refetchTitle()} />}</Show>}>
         {(t) => (
           <>
             <div class="details-bg">

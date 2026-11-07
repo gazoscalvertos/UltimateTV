@@ -5,6 +5,7 @@ import { createEffect, createResource, For, onCleanup, Show } from "solid-js";
 import { hub } from "../api";
 import { Icon } from "../components/Icon";
 import { QueueRow } from "../components/QueueRow";
+import { ElsewhereRow } from "./Elsewhere";
 import { RailRow } from "../components/Rail";
 import { TopBar } from "../components/TopBar";
 import { onHubEvent } from "../events";
@@ -163,6 +164,7 @@ export function Home() {
               </section>
             )}
           </Show>
+          <ElsewhereRow />
           <QueueRow />
           <For each={shownRails(home()!.rails)}>
             {(rail) =>

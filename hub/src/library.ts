@@ -12,6 +12,7 @@ import type {
   StreamCandidate,
   StreamQuality,
   TitleDetails,
+  TitleCast,
   TitleExtras,
   TitleKind,
   TitleRef,
@@ -262,6 +263,17 @@ export class Library {
     if (d.rating) scores.push({ source: "tmdb", label: this.ctx.media()?.parseKey(d.id) ? "Rating" : "TMDB", value: d.rating.toFixed(1), pct: Math.round(d.rating * 10) });
     scores.push(...omdbScores);
     return { ...(trailer ? { trailer } : {}), scores, similar };
+  }
+
+  /** X-Ray: who is in a film or episode, with photos and characters. TMDB when it knows the title, else the media server's own list. */
+  async cast(id: string, episode?: { season: number; episode: number }, f: ContentFilter = NO_FILTER): Promise<TitleCast> {
+    const d = await this.details(id, f);
+    const tmdb = this.ctx.tmdb();
+    if (tmdb && d.tmdbId) {
+      const cast = await tmdb.castOf(d.kind, d.tmdbId, episode).catch(() => []);
+      if (cast.length) return { cast, source: "tmdb" };
+    }
+    return { cast: d.cast.map((name) => ({ name })), source: "server" };
   }
 
   /** The demo Hub's titles: their own clip as the trailer, made-up scores from their rating, and others of the same kind, closest genres first. */

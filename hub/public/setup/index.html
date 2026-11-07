@@ -713,6 +713,13 @@ function kidsAllowBox(p, list, summary) {
       line.textContent = `${d.day}: ${hoursLabel(d.minutes)}${names ? ` — ${names}` : ""}`;
       box.append(line);
     }
+    for (const a of summary.asks || []) {
+      const line = document.createElement("p");
+      line.className = "hint";
+      const said = a.status === "pending" ? "not answered" : a.status === "no" ? "No" : a.status === "once" ? "Allowed once" : "Always allowed";
+      line.textContent = `Asked ${new Date(a.at).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}: ${a.name} — ${said}`;
+      box.append(line);
+    }
     if (summary.lockouts.length) {
       const pins = document.createElement("p");
       pins.className = "hint";
@@ -768,9 +775,21 @@ async function loadProfiles() {
       const mine = allows.find((a) => a.profileId === p.id);
       row.append(kidsAllowBox(p, mine ? mine.list : { allow: [], block: [] }, summaries.find((s) => s.profileId === p.id)));
     }
+    row.append(easyFor(p));
     row.append(accessibilityFor(p));
     list.append(row);
   }
+}
+// Easy mode (#229): four big tiles on Home, a short menu and no Settings on the TV. It can only
+// be switched off from here or from another profile's Settings, so a guest can't wander off.
+function easyFor(p) {
+  const box = document.createElement("label");
+  box.className = "opt";
+  box.innerHTML = `<span>Easy mode<small>Four big tiles on Home (Watch TV, Films and TV, Recordings, Search), a short menu, and no Settings</small></span><input type="checkbox">`;
+  const input = box.querySelector("input");
+  input.checked = Boolean(p.easy);
+  input.onchange = () => patchProfile(p, { easy: input.checked }, `Easy mode ${input.checked ? "on" : "off"} for ${p.name}`);
+  return box;
 }
 // Each profile's accessibility, the same as the TV's Settings › Accessibility. Stays open while
 // the list redraws after each change.

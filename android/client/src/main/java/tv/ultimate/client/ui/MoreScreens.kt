@@ -5,7 +5,6 @@ package tv.ultimate.client.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,6 +64,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tv.ultimate.client.App
 import tv.ultimate.client.BuildConfig
+import tv.ultimate.client.DeviceProfile
 import tv.ultimate.client.Offline
 import tv.ultimate.client.PlaybackRequest
 import tv.ultimate.client.Profile
@@ -106,7 +106,7 @@ fun SearchScreen(nav: NavHostController) {
                 }
             }) { r ->
                 Row(
-                    Modifier.fillMaxWidth().clickable {
+                    Modifier.fillMaxWidth().tvClickable {
                         when (r.kind) {
                             "channel", "on-now" -> ui.play(PlaybackRequest("channel", r.channel?.id ?: r.programme?.channelId ?: r.id), name = r.channel?.name ?: r.name)
                             "upcoming" -> open = r.programme?.id ?: r.id
@@ -147,6 +147,8 @@ fun SettingsScreen(nav: NavHostController) {
     var hubUrl by remember { mutableStateOf(prefs.hub) }
     var wifiOnly by remember { mutableStateOf(prefs.wifiOnly) }
     var smaller by remember { mutableStateOf(prefs.smaller) }
+    var pictureLimit by remember { mutableStateOf(prefs.pictureLimit) }
+    var bitrateLimit by remember { mutableStateOf(prefs.bitrateLimit) }
     var paired by remember { mutableStateOf<Boolean?>(null) }
     var pairCode by remember { mutableStateOf("") }
     LaunchedEffect(ui.online) {
@@ -248,6 +250,13 @@ fun SettingsScreen(nav: NavHostController) {
             }
             HorizontalDivider()
 
+            Text("Picture", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            val caps = DeviceProfile.current(app, prefs)
+            Text("This device: ${caps.summary}. The Hub picks versions up to ${caps.maxHeight}p and ${caps.maxBitrateKbps / 1000} Mbit/s, so a 1080p stick is never sent a 4K remux.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Cycler("Picture limit", pictureLimit, DeviceProfile.HEIGHT_CHOICES) { v -> pictureLimit = v; prefs.pictureLimit = v }
+            Cycler("Bitrate limit", bitrateLimit, DeviceProfile.BITRATE_CHOICES) { v -> bitrateLimit = v; prefs.bitrateLimit = v }
+            HorizontalDivider()
+
             Text("Downloads", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
             Toggle("Only on Wi-Fi", "Films are several gigabytes, so mobile data is off unless you turn this off.", wifiOnly) {
                 wifiOnly = it
@@ -303,9 +312,20 @@ fun SettingsScreen(nav: NavHostController) {
     }
 }
 
+/** A setting with a few fixed choices: Select (or a tap) moves to the next one, which suits a remote. */
+@Composable
+private fun Cycler(title: String, value: String, choices: List<String>, change: (String) -> Unit) {
+    val unit = if (title.startsWith("Picture")) "p" else " Mbit/s"
+    fun label(v: String) = if (v == "auto") "Auto" else v + unit
+    Row(Modifier.fillMaxWidth().tvClickable { change(choices[(choices.indexOf(value) + 1).mod(choices.size)]) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f))
+        Text(label(value), color = MaterialTheme.colorScheme.primary)
+    }
+}
+
 @Composable
 private fun Toggle(title: String, detail: String, value: Boolean, change: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable { change(!value) }, verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().tvClickable { change(!value) }, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title)
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -345,7 +365,7 @@ fun ProfilesScreen(nav: NavHostController) {
             LazyVerticalGrid(GridCells.Adaptive(120.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                 items(ps.profiles.orEmpty()) { p ->
                     val needsPin = p.hasPin == true || (locked && p.kind == "adult")
-                    Column(Modifier.clickable { if (needsPin) pinFor = p else choose(p, null) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.tvClickable { if (needsPin) pinFor = p else choose(p, null) }, horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.size(88.dp).clip(CircleShape).background(colourOf(p.colour)), contentAlignment = Alignment.Center) {
                             Text(p.name.take(1).uppercase(), fontSize = 36.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }

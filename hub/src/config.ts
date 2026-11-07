@@ -30,6 +30,13 @@ export interface HubConfig {
   changelogPath?: string;
   /** HTTPS port (inside the container) for screen sharing, which browsers only allow on a secure page; 0 turns it off. */
   httpsPort?: number;
+  /**
+   * Where Share Play links point (issue #210), when that isn't the Hub's own address on the home
+   * network: a tunnel that publishes only /share/ to the internet, for a friend in another house.
+   */
+  shareUrl?: string;
+  /** The Share Play watch page. */
+  shareDir?: string;
   /** The HTTPS port as phones and laptops reach it (Docker maps it to 8096 by default). */
   httpsPublicPort?: number;
 }
@@ -50,10 +57,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     demo: env.DEMO === "1" || env.DEMO === "true",
     pairing: env.PAIRING !== "off",
     castDir: env.CAST_DIR ?? path.resolve(here, "../public/cast"),
+    shareDir: env.SHARE_DIR ?? path.resolve(here, "../public/share"),
     changelogPath: env.CHANGELOG_PATH ?? path.resolve(here, "../../CHANGELOG.md"),
     httpsPort: Number(env.HTTPS_PORT ?? 8443),
   };
   if (env.HTTPS_PUBLIC_PORT) config.httpsPublicPort = Number(env.HTTPS_PUBLIC_PORT);
+  if (env.SHARE_URL) config.shareUrl = env.SHARE_URL.replace(/\/+$/, "");
   if (env.PUBLIC_URL) config.publicUrl = env.PUBLIC_URL.replace(/\/+$/, "");
   return config;
 }

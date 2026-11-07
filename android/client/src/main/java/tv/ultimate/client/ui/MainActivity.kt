@@ -61,6 +61,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -128,7 +130,12 @@ class MainActivity : ComponentActivity() {
                 val scope = rememberCoroutineScope()
                 val context = LocalContext.current
                 val ui = remember { Ui(context, scope, snackbar, ::askNotifications) }
-                CompositionLocalProvider(LocalUi provides ui) {
+                // Ten feet from a TV: text and controls drawn for a phone are too small, so a TV
+                // gets everything about a quarter bigger.
+                val tv = rememberIsTv()
+                val density = LocalDensity.current
+                val sized = if (tv) Density(density.density * 1.25f, density.fontScale) else density
+                CompositionLocalProvider(LocalUi provides ui, LocalDensity provides sized) {
                     Root(ui, snackbar, startTab)
                 }
             }
@@ -189,7 +196,10 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
             }
         },
     ) { pad ->
-        Row(Modifier.fillMaxSize().padding(pad)) {
+        // TVs crop the edge of the picture (overscan): keep everything inside the safe area, 5%
+        // across and 5% down, or the first poster and the rail's labels get cut off.
+        val safe = if (rememberIsTv()) Modifier.padding(horizontal = 48.dp, vertical = 27.dp) else Modifier
+        Row(Modifier.fillMaxSize().padding(pad).then(safe)) {
             if (wide && showBars) {
                 NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer, windowInsets = WindowInsets(0, 0, 0, 0)) {
                     Spacer(Modifier.size(8.dp))
@@ -212,6 +222,7 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
                         composable("search") { SearchScreen(nav) }
                         composable("saved") { SavedScreen(nav) }
                         composable("queue") { QueueScreen(nav) }
+                        composable("elsewhere") { ElsewhereScreen(nav) }
                         composable("settings") { SettingsScreen(nav) }
                         composable("profiles") { ProfilesScreen(nav) }
                         composable("whatsnew") { WhatsNewScreen(nav) }

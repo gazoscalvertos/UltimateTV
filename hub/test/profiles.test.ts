@@ -21,6 +21,18 @@ describe("ProfileStore", () => {
     expect(store.resolve(undefined, undefined).admin).toBe(true);
   });
 
+  it("keeps Easy mode and the tour flag per profile, off meaning missing", () => {
+    const store = new ProfileStore(new Db(":memory:"));
+    expect(store.get("family")?.easy).toBeUndefined();
+    expect(store.update("family", { easy: true })?.easy).toBe(true);
+    expect(store.update("family", { toured: true })?.toured).toBe(true);
+    expect(store.get("family")).toMatchObject({ easy: true, toured: true });
+    expect(store.get("kids")?.easy).toBeUndefined();
+    expect(store.get("kids")?.toured).toBeUndefined();
+    expect(store.update("family", { easy: false })?.easy).toBeUndefined();
+    expect(store.get("family")?.toured).toBe(true);
+  });
+
   it("keeps each profile's accessibility, one change at a time", () => {
     const store = new ProfileStore(new Db(":memory:"));
     expect(store.update("family", { accessibility: { textScale: 150 } })?.accessibility).toEqual({ audioDescription: false, highContrast: false, textScale: 150, reducedMotion: false });
@@ -339,6 +351,15 @@ describe("profiles over the API", () => {
   it("stops Kids changing settings or deleting recordings", async () => {
     expect((await app.inject({ method: "PUT", url: "/api/settings", payload: { tmdbApiKey: "" }, headers: kids })).statusCode).toBe(403);
     expect((await app.inject({ method: "DELETE", url: "/api/recordings/whatever", headers: kids })).statusCode).toBe(403);
+  });
+
+  it("lets a profile mark its own tour as seen, and no one else's", async () => {
+    expect((await app.inject({ method: "POST", url: "/api/profiles/me/toured", headers: kids })).statusCode).toBe(200);
+    const list = (await app.inject({ url: "/api/profiles", headers: kids })).json<{ profiles: Profile[] }>();
+    expect(list.profiles.find((p) => p.id === "kids")?.toured).toBe(true);
+    expect(list.profiles.find((p) => p.id === "family")?.toured).toBeUndefined();
+    // Changing Easy mode is still an adult's job.
+    expect((await app.inject({ method: "PATCH", url: "/api/profiles/kids", payload: { easy: false }, headers: kids })).statusCode).toBe(403);
   });
 
   it("asks the setup page for a PIN once the lock is on", async () => {

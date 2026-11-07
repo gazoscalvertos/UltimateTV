@@ -12,6 +12,7 @@ import { Halloween } from "./components/Halloween";
 import { ThemeDecor } from "./components/ThemeDecor";
 import { JumpScare } from "./components/JumpScare";
 import { NewsFlash } from "./components/NewsFlash";
+import { startAskParentPopups } from "./askparent";
 import { ScreensaverLayer } from "./components/Screensaver";
 import { Notices } from "./components/Notices";
 import { StartingCard } from "./components/Starting";
@@ -29,6 +30,7 @@ import { Details } from "./screens/Details";
 import { Guide } from "./screens/Guide";
 import { GuideEditor } from "./screens/GuideEditor";
 import { Home } from "./screens/Home";
+import { EasyHome } from "./screens/EasyHome";
 import { MixChannelScreen } from "./screens/MixChannel";
 import { Music } from "./screens/Music";
 import { PodcastShowScreen } from "./screens/Radio";
@@ -42,12 +44,14 @@ import { Weather } from "./screens/Weather";
 import { startWeather } from "./weather";
 import { startHomeAssistant } from "./homeassistant";
 import { startWhatsNew } from "./whatsnew";
-import { closeTopDialog, dropToast, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
+import { closeTopDialog, dropToast, isEasy, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
 import { startPhoneBridge } from "./phone";
 import { startQueue } from "./queue";
 import { startDownloads } from "./downloads";
 import { startSaveNotices } from "./save";
 import { DownloadsScreen } from "./screens/Downloads";
+import { ElsewhereScreen } from "./screens/Elsewhere";
+import { startWatching } from "./watching";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
 import { startIdle, wake } from "./idle";
@@ -210,6 +214,7 @@ export function App() {
     startIdle();
     startQueue();
     startDownloads();
+    startWatching();
     startCast();
     startSleep();
     startKidsTime();
@@ -232,6 +237,7 @@ export function App() {
     // theme a day behind on a TV that is never reloaded.
     const lookTimer = window.setInterval(loadLook, 60 * 60_000);
     onCleanup(() => window.clearInterval(lookTimer));
+    onCleanup(startAskParentPopups());
     onCleanup(
       onHubEvent(async (e) => {
         if (e.type === "settings.changed") void loadLook();
@@ -304,7 +310,9 @@ export function App() {
             <Profiles />
           </Match>
           <Match when={nav.current().name === "home"}>
-            <Home />
+            <Show when={isEasy()} fallback={<Home />}>
+              <EasyHome />
+            </Show>
           </Match>
           <Match when={nav.current().name === "guide"}>
             <Guide />
@@ -342,6 +350,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "cast"}>
             <CastScreen />
+          </Match>
+          <Match when={nav.current().name === "elsewhere"}>
+            <ElsewhereScreen />
           </Match>
           <Match when={nav.current().name === "weather"}>
             <Weather />
