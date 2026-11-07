@@ -28,6 +28,13 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-07
+
+- **Emby, and Jellyfin, Plex and Emby together** ([docs/emby.md](docs/emby.md)): Emby Server can be connected (setup page › Emby, name and password), and any of Jellyfin, Plex and Emby can now be connected at the same time instead of one replacing the other. Their films and series are merged on Home, Films, TV and Search, a title on two servers is a single card with a copy from each under Versions, Continue watching and Mark as watched go to whichever server the title is on, and one server being off never hides the others. Emby's intro and credits markers come from its chapter markers. Built from the servers' API documentation and not yet tried against real Emby or two live servers. (#216, #217)
+  Household: you can connect Emby, and keep Jellyfin and Plex connected together, all in one library.
+
+- **Nuvio works as an add-on link** ([docs/nuvio.md](docs/nuvio.md)): checked what "Nuvio" is in a source list. The Nuvio Streams server is a Stremio add-on, which the Hub already supports in Settings › AIOStreams / add-ons, so no new client is needed; the doc says how to add it. (#220)
+
 ## 2026-11-04
 
 - **CI builds the PlayStation 5 app** ([docs/ps5.md](docs/ps5.md)): a new `ps5-console` job fetches the PS5 payload SDK and the homebrew libraries, builds the app and the tile on every pull request, and on a merge to `main` replaces `UltimateTV-PS5.elf` and `UltimateTV-PS5-tile.zip` on the PS5 release. Before this the release was built by hand and could lag behind `main`. (#182)

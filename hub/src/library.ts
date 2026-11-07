@@ -397,10 +397,11 @@ export class Library {
       return { id, kind: p.isFilm ? "movie" : "series", name: p.title, genres: p.categories, cast: [], availability: [], inLibrary: false, ...(p.description ? { overview: p.description } : {}), ...(p.image ? { poster: p.image } : {}) };
     }
 
-    if (source === "jellyfin" || source === "plex") {
+    if (source === "jellyfin" || source === "plex" || source === "emby") {
       if (!jf) throw new Error("The media server isn't connected");
-      if (source !== jf.kind) throw new Error(`That's a ${source} title, and ${jf.name} is the library connected here`);
-      const item = await jf.item(rest[0]!);
+      const own = jf.parseKey(id);
+      if (!own) throw new Error(`That's a ${source} title, and ${jf.name} is the library connected here`);
+      const item = await jf.item(own);
       const episodes = item.Type === "Series" ? await jf.episodes(item.Id) : [];
       const d = jf.toDetails(item, episodes);
       this.jellyfinFallbackResume(d, item);
@@ -462,7 +463,15 @@ export class Library {
 
   private async addAvailability(d: TitleDetails): Promise<void> {
     const kinds = new Set(d.availability);
-    if (d.inLibrary) kinds.add(this.ctx.media()?.kind ?? "jellyfin");
+    if (d.inLibrary) {
+      // Which of the connected servers has it: the one the id names, else every one that knows the TMDB id.
+      const servers = this.ctx.mediaServers();
+      const type = d.kind === "movie" ? "Movie" : "Series";
+      for (const s of servers) {
+        if (s.parseKey(d.id) !== undefined || (d.tmdbId && (await s.hasProviderId("tmdb", String(d.tmdbId), type).catch(() => false)))) kinds.add(s.kind);
+      }
+      if (!servers.some((s) => kinds.has(s.kind))) kinds.add(servers[0]?.kind ?? "jellyfin");
+    }
     if (this.vodMatches(d.kind, d.name, d.year, d.tmdbId).length) kinds.add("xtream");
     if (d.imdbId && this.ctx.addons().length) kinds.add("addon");
     d.availability = [...kinds];
@@ -509,10 +518,10 @@ export class Library {
   async streams(id: string, ep?: EpisodeRef, f: ContentFilter = NO_FILTER): Promise<StreamCandidate[]> {
     const d = await this.details(id, f);
     const candidates: StreamCandidate[] = [];
-    const jf = this.ctx.media();
 
-    // The media server: the file on the NAS.
-    if (jf && d.inLibrary) {
+    // The media servers: the file on the NAS, from each server that has the title.
+    for (const jf of this.ctx.mediaServers()) {
+      if (!d.inLibrary) break;
       try {
         let item: JfItem | undefined;
         const ownItem = jf.parseKey(id);
@@ -529,7 +538,7 @@ export class Library {
           }
         }
       } catch (err) {
-        this.ctx.log.warn({ id, err: String(err) }, "Library streams failed");
+        this.ctx.log.warn({ id, server: jf.name, err: String(err) }, "Library streams failed");
       }
     }
 
