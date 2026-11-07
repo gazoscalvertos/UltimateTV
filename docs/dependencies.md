@@ -51,6 +51,7 @@ The Hub is a Node program; the TV app is a web page it serves. Their dependencie
 | Package | What it does | Licence |
 | --- | --- | --- |
 | `fastify`, `@fastify/static`, `@fastify/websocket` | The HTTP and websocket server | MIT |
+| `hls.js` | Served as a file to a [Share Play](share-play.md) browser so it can play the Hub's HLS copy; the Hub never runs it, and it phones nothing home | Apache-2.0 |
 | `qrcode` | Draws the pairing square (on the Hub, not over the network) | MIT |
 | `sax` | Reads podcast RSS/Atom feeds | ISC |
 | `mpegts.js` | Plays MPEG-TS in the TV's browser | Apache-2.0 |

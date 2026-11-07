@@ -102,7 +102,9 @@ Update the box first (Settings › About › Update the box): the update builds 
 
 1. Plug it in between the box and the TV, turn on CEC on the TV.
 2. Every button: arrows, OK, Back, Home, the colour keys, numbers, channel up and down, play/pause, rewind and fast forward, Guide and Info. Note any that do nothing.
-3. Turn the TV off: playback stops. Turn it on: the TV switches to the box.
+3. Play a film, then turn the TV off with its remote: within about 20 s the film is paused (Settings › Picture and sound › When the TV turns off: Pause). Turn it on: the TV switches to the box, the paused film is on screen and OK carries on. Live TV stops instead.
+4. Set it to Stop and try again: the film stops. Keep playing: it carries on.
+5. `journalctl --user -u ultimatetv -b | grep CEC` (or the box's diagnostics) shows `CEC … → not showing the box` when the TV went off. A line saying it "can't watch the CEC bus" means the update's `cec-monitor` copy is missing; asking the TV every 20 s still works.
 
 ## 8. Music video channels
 
@@ -158,6 +160,8 @@ These have no checks elsewhere in this run.
 - [ ] Play queue: add a film and a recording from the TV and one from the phone; they play in order, and the queue survives a box restart.
 - [ ] Android app 0.5.0: **Add to queue** on a film, and on a show (it says the episode that plays next); Home › **Queue** lists them in order, plays one here or on the TV, moves it up, takes it off, and **Clear the queue** empties it. The TV's queue matches.
 - [ ] Android app 0.5.0: **Save for later** on a film fills the button and the title appears on the TV's Home row and the phone remote's Saved tab; Home › **Saved** lists it and taking it off removes it everywhere. On Kids, neither list shows anything that profile may not watch, and there's no Save to NAS.
+- [ ] Watching elsewhere ([watching-elsewhere.md](watching-elsewhere.md)): play a film on the TV, then on the Android app (0.7.0) open Home › Elsewhere: it shows the TV's film and place. **Move here** carries on on the phone and the TV stops within five seconds. On the phone's player, the TV button › **Move to the TV** puts it back. **Sync play** from the phone: pause on the TV and the phone pauses; skip on the phone and the TV follows. The TV's Home › On other screens shows the phone's film. The phone remote's Watch › Elsewhere does the same for the TV. With two boxes, Sync play the same film in two rooms and check how far apart they drift.
+- [ ] Share Play ([share-play.md](share-play.md)): play a Jellyfin film on the TV, then on the phone remote Browse › Elsewhere › **Share** › Send link. Open it on a laptop on the Wi-Fi: it starts at the TV's place; pause on the laptop and the TV pauses; skip on the TV and the laptop follows; the TV says who is watching along. Open the same link on a second phone: it says the link is already open elsewhere. Cancel it from the remote and the laptop stops. Also try Options › Share Play on the TV and scan the QR code.
 - [ ] Screensaver › Try it now, then leave the TV idle: it dims at 10 minutes and the screensaver starts at 20. A NAS photo folder shows your photos.
 - [ ] Projected clips: put on a starter pack (Christmas) over a 4K film; the animation stays smooth and its sound plays over the film. Send a `.utvpack` from the phone and add it from the QR code. Loop mode runs for an evening ([projected-clips.md](projected-clips.md#not-tested-on-the-box-yet)).
 - [ ] A trip: `travel.sh away` on the box, then `travel.sh home` sends the changes back ([travel.md](travel.md)).
