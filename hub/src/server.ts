@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { statfs } from "node:fs/promises";
 import os from "node:os";
+import { discoverServers, type DiscoveredServer } from "./discovery.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fastifyStatic from "@fastify/static";
@@ -93,6 +94,8 @@ export interface ServerDeps {
   env?: NodeJS.ProcessEnv;
   /** Restarts the Hub after a move (Docker starts it again). Tests pass a fake. */
   restart?: () => void;
+  /** Finds Jellyfin and Plex servers on the network; tests pass a fake (hub/src/discovery.ts). */
+  discover?: () => Promise<DiscoveredServer[]>;
 }
 
 export const HUB_VERSION = "0.2.0";
@@ -317,6 +320,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "POST /api/settings/iptv",
     "DELETE /api/settings/iptv/:id",
     "POST /api/refresh",
+    "GET /api/discover",
     "POST /api/jellyfin/quickconnect",
     "POST /api/jellyfin/login",
     "POST /api/plex/pin",
@@ -1195,6 +1199,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       }),
     );
   });
+
+  // Jellyfin and Plex servers answering on the home network, for the TV's Sources screen to list.
+  const discover = deps.discover ?? (() => discoverServers());
+  app.get("/api/discover", async () => ({ servers: await discover().catch(() => [] as DiscoveredServer[]) }));
 
   // Jellyfin sign-in: Quick Connect (a code on the TV, approved on the phone) or name and password.
   app.post("/api/jellyfin/quickconnect", async (req: Req<Record<string, string>, Record<string, string>, { url: string }>) => {
