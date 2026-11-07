@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-07
 
+- **Ask a parent** ([docs/profiles.md](docs/profiles.md#ask-a-parent)): when a Kids or Guest profile opens something it isn't allowed, the page offers Ask a parent. The request pops up on the TV when an adult profile is on, comes up as a sheet on paired phone remotes, and goes to Home Assistant or ntfy if Settings › Alerts has one. An adult says Allow once (an evening), Always allow (adds to the Kids profile's allow list) or No; the first answer wins and the child sees a yes or "Not now". A child can ask three times in ten minutes, can't answer for itself, and the week's requests are listed on the setup page with the time and the answer. Built without trying it on the TV or a phone yet. (#224)
+  Household: a child who hits a film they aren't allowed can ask a grown-up, who answers from the sofa or a phone.
+
 - **Easy mode and a first-time tour** ([docs/easy-mode.md](docs/easy-mode.md)): a profile can be set to Easy mode, where Home is four big tiles (Watch TV, Films and TV, Recordings, Search) plus Continue watching, the menu is short and Settings is out of reach. Each profile also gets a one-minute tour of the remote the first time it is used (Info › Show me around replays it). (#229)
   Household: Easy mode gives someone who just wants to watch a Home with four big buttons, and new profiles get a short tour of the remote.
 - **X-Ray: who is in this** ([docs/watching-extras.md](docs/watching-extras.md#x-ray-whos-in-it)): press Info while a film or episode plays to see its cast with photos and character names; OK on someone shows their bio and what else they are known for. (#241)

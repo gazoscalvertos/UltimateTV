@@ -713,6 +713,13 @@ function kidsAllowBox(p, list, summary) {
       line.textContent = `${d.day}: ${hoursLabel(d.minutes)}${names ? ` — ${names}` : ""}`;
       box.append(line);
     }
+    for (const a of summary.asks || []) {
+      const line = document.createElement("p");
+      line.className = "hint";
+      const said = a.status === "pending" ? "not answered" : a.status === "no" ? "No" : a.status === "once" ? "Allowed once" : "Always allowed";
+      line.textContent = `Asked ${new Date(a.at).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}: ${a.name} — ${said}`;
+      box.append(line);
+    }
     if (summary.lockouts.length) {
       const pins = document.createElement("p");
       pins.className = "hint";

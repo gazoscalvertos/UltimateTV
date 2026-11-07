@@ -12,6 +12,7 @@ import { Halloween } from "./components/Halloween";
 import { ThemeDecor } from "./components/ThemeDecor";
 import { JumpScare } from "./components/JumpScare";
 import { NewsFlash } from "./components/NewsFlash";
+import { startAskParentPopups } from "./askparent";
 import { ScreensaverLayer } from "./components/Screensaver";
 import { Notices } from "./components/Notices";
 import { StartingCard } from "./components/Starting";
@@ -236,6 +237,7 @@ export function App() {
     // theme a day behind on a TV that is never reloaded.
     const lookTimer = window.setInterval(loadLook, 60 * 60_000);
     onCleanup(() => window.clearInterval(lookTimer));
+    onCleanup(startAskParentPopups());
     onCleanup(
       onHubEvent(async (e) => {
         if (e.type === "settings.changed") void loadLook();

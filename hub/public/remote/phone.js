@@ -180,6 +180,57 @@
       tv = null;
     }
     renderNow();
+    if (polls % 2 === 0) void checkAsks();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ask a parent (#224): a Kids profile asked for something it isn't allowed. The request comes up
+  // here as a sheet; the first adult to answer (here, on the TV or on another phone) decides.
+
+  const seenAsks = new Set();
+  async function checkAsks() {
+    let asks;
+    try {
+      // No profile on purpose: this is the household's phone, not the child's.
+      ({ asks } = await get("/api/kids-asks", null));
+    } catch {
+      return;
+    }
+    const shown = $("sheet-body").dataset.ask;
+    if (shown && !asks.some((a) => a.id === shown)) {
+      delete $("sheet-body").dataset.ask;
+      closeSheet();
+      toast("Someone has already answered");
+    }
+    const next = asks.find((a) => !seenAsks.has(a.id));
+    if (!next || !$("sheet").hidden) return;
+    seenAsks.add(next.id);
+    askSheet(next);
+  }
+  function askSheet(a) {
+    openSheet(`<h2>${esc(a.profileName)} is asking</h2>
+      <p class="meta">${esc(a.profileName)} would like to watch <b>${esc(a.name)}</b>. The first grown-up to answer decides.</p>
+      <div id="ask-pin" hidden><input class="field" id="ask-pin-in" type="password" inputmode="numeric" autocomplete="off" placeholder="A grown-up's PIN"></div>
+      <div class="actions"><button class="primary" data-ans="once">Allow once</button>${a.profileKind === "kids" ? '<button data-ans="always">Always allow</button>' : ""}<button data-ans="no">No</button></div>
+      <button class="link" data-close>Later</button>`);
+    $("sheet-body").dataset.ask = a.id;
+    for (const b of $("sheet-body").querySelectorAll("[data-ans]")) {
+      b.onclick = async () => {
+        const pin = $("ask-pin-in").value;
+        try {
+          await post(`/api/kids-asks/${encodeURIComponent(a.id)}/answer`, { answer: b.dataset.ans, ...(pin ? { pin } : {}) });
+          delete $("sheet-body").dataset.ask;
+          closeSheet();
+          toast(b.dataset.ans === "no" ? `Told ${a.profileName} not now` : `${a.name} is allowed for ${a.profileName}${b.dataset.ans === "once" ? " this evening" : ""}`);
+        } catch (e) {
+          if (/PIN/.test(e.message)) {
+            $("ask-pin").hidden = false;
+            $("ask-pin-in").focus();
+          }
+          toast(e.message, true);
+        }
+      };
+    }
   }
 
   function position() {

@@ -11,6 +11,7 @@ import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
 import { seasonOn } from "./seasons.js";
 import type { ThemeChoice, ThemeName } from "./themes.js";
 import type { AccessibilitySettings } from "./accessibility.js";
+import type { KidsAsk } from "./kidsallow.js";
 import type { FeatureId } from "./features.js";
 import type { BoxTarget } from "./boxes.js";
 
@@ -823,6 +824,8 @@ export type HubEvent =
   | { type: "guide.updated" }
   /** A parent changed what a Kids profile may see by hand (issue #110): fetch the lists again. */
   | { type: "kids.allow.changed"; profileId: string }
+  /** A Kids or Guest profile asked a parent for something (issue #224), or the first adult answered. */
+  | { type: "kids.ask"; ask: KidsAsk }
   /** A music video channel changed: videos downloaded or removed, or the channel edited. */
   | { type: "mix.changed"; channelId?: Id }
   | { type: "reminder"; reminder: Reminder }

@@ -67,6 +67,7 @@ import { HostMonitor } from "@ultimatetv/shared/host";
 import { parseVoice } from "./voice.js";
 import { KidsTime, LimitError, registerKidsTime } from "./kidstime.js";
 import { registerKidsAllow } from "./kidsallowroutes.js";
+import { registerKidsAsks } from "./kidsasks.js";
 import { registerBluetooth } from "./bluetoothroutes.js";
 import { registerRadio } from "./radioroutes.js";
 import { kidsAllowLookup, NO_KIDS_ALLOW_LOOKUP } from "@ultimatetv/shared";
@@ -258,6 +259,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     // it is a saved setting, so anything unpaired stays out.
     ["PUT /api/guides/default", "paired"],
     ["POST /api/kids-time/report", "paired"],
+    // Ask a parent (#224): the TV asks for the Kids profile and a phone or the TV answers. The
+    // handlers check who is asking (a child never answers) and the adult PIN themselves.
+    ["POST /api/kids-asks", "paired"],
+    ["GET /api/kids-asks", "paired"],
+    ["POST /api/kids-asks/:id/answer", "paired"],
     // Radio and podcasts: subscribing and following a show is something anyone paired can do, but
     // adding a station to the household's list is a settings change (ADMIN_ROUTES, below).
     ["POST /api/podcasts/:id/position", "paired"],
@@ -314,7 +320,16 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       return typeof v === "string" && v ? v : undefined;
     };
     const who = ctx.profiles.resolve(header("x-profile"), header("x-profile-token"));
-    const allow = who.profile?.kind === "kids" ? kidsAllowLookup(ctx.kidsAllow.list(who.profile.id)) : NO_KIDS_ALLOW_LOOKUP;
+    let allow = NO_KIDS_ALLOW_LOOKUP;
+    if (who.profile?.kind === "kids" || who.profile?.kind === "guest") {
+      const stored = who.profile.kind === "kids" ? ctx.kidsAllow.list(who.profile.id) : { allow: [], block: [] };
+      // "Allow once" from Ask a parent (#224) lets a title through for an evening, over a block too.
+      const once = ctx.kidsAsks.grants(who.profile.id);
+      if (once.length) {
+        const onceKeys = new Set(once.map((e) => `${e.kind}:${e.id}`));
+        allow = kidsAllowLookup({ allow: [...once, ...stored.allow], block: stored.block.filter((e) => !onceKeys.has(`${e.kind}:${e.id}`)) });
+      } else if (who.profile.kind === "kids") allow = kidsAllowLookup(stored);
+    }
     return { ...who, filter: new ContentFilter(who.profile, favourites.channelSet(who.profile?.id ?? null), allow) };
   };
   const filterOf = (req: FastifyRequest) => viewer(req).filter;
@@ -840,7 +855,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // The limiter only keeps live counts; the summary wants the week's lockouts (#110).
   ctx.profiles.pinLimiter.onLockout = (id, minutes, at) => ctx.kidsLockouts.add(id, minutes, at);
   // A parent's allow/block list and the weekly viewing summary (see kidsallow.ts, kidsviewing.ts).
-  registerKidsAllow(app, { allow: ctx.kidsAllow, viewing: ctx.kidsViewing, time: kidsTime, lockouts: ctx.kidsLockouts, profiles: ctx.profiles, viewer });
+  registerKidsAsks(app, { asks: ctx.kidsAsks, profiles: ctx.profiles, viewer, alertSettings: () => alerts.settings(), appName: () => ctx.settings.get().appName || "UltimateTV", fetchImpl: ctx.fetchImpl, warn: (msg, err) => ctx.log.warn({ err: String(err) }, msg) });
+  registerKidsAllow(app, { allow: ctx.kidsAllow, asks: ctx.kidsAsks, viewing: ctx.kidsViewing, time: kidsTime, lockouts: ctx.kidsLockouts, profiles: ctx.profiles, viewer });
   registerRadio(app, { radio: ctx.radio, podcasts: ctx.podcasts, viewer });
   // The forecast for Home, the top bar and the screensaver (see weather.ts).
   const weather = new Weather(ctx, config.demo);
@@ -1902,6 +1918,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ctx.homeRows.forget(req.params.id);
     // A deleted Kids profile takes its parent's lists and its viewing history with it (#110).
     ctx.kidsAllow.forget(req.params.id);
+    ctx.kidsAsks.forget(req.params.id);
     ctx.kidsViewing.forget(req.params.id);
     ctx.kidsLockouts.forget(req.params.id);
     ctx.events.emit({ type: "profiles.changed" });
@@ -1974,7 +1991,18 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return home;
   });
   app.get("/api/browse/:kind", async (req: Req<{ kind: "movie" | "series" }>) => ({ rails: await library.browse(req.params.kind === "series" ? "series" : "movie", filterOf(req)) }));
-  app.get("/api/titles/:id", async (req: Req<{ id: string }>) => library.details(req.params.id, filterOf(req)));
+  app.get("/api/titles/:id", async (req: Req<{ id: string }>, reply) => {
+    const filter = filterOf(req);
+    try {
+      return await library.details(req.params.id, filter);
+    } catch (err) {
+      if (!(err instanceof NotAllowedError) || !filter.limited) throw err;
+      // A Kids or Guest profile reached something it isn't allowed (a link, a cast, a remembered
+      // page). Say what it was so the page can offer Ask a parent (#224): its name and kind, no artwork.
+      const real = await library.details(req.params.id).catch(() => null);
+      return reply.code(403).send({ error: err.message, code: "profile", ...(real ? { askable: { id: real.id, kind: real.kind, name: real.name } } : {}) });
+    }
+  });
   app.get("/api/titles/:id/extras", async (req: Req<{ id: string }>) => library.extras(req.params.id, filterOf(req)));
   app.get("/api/titles/:id/cast", async (req: Req<{ id: string }, { episode?: string }>) => library.cast(req.params.id, req.query.episode ? episodeNumbers(req.query.episode) : undefined, filterOf(req)));
   app.get("/api/people/:id", async (req: Req<{ id: string }>, reply) => {

@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { KidsAllowKind, KidsSummary, KidsViewingTitle, Profile } from "@ultimatetv/shared";
 import { isKidsAllowKind, KIDS_SUMMARY_DAYS, MAX_KIDS_LOCKOUTS } from "@ultimatetv/shared";
 import type { KidsAllow } from "./kidsallow.js";
+import type { KidsAsks } from "./kidsasks.js";
 import type { KidsViewing } from "./kidsviewing.js";
 import type { KidsTime } from "./kidstime.js";
 import type { ProfileStore } from "./profiles.js";
@@ -24,9 +25,16 @@ function kindOf(raw: unknown): KidsAllowKind | null {
   return isKidsAllowKind(raw) ? raw : null;
 }
 
-export function registerKidsAllow(app: FastifyInstance, deps: { allow: KidsAllow; viewing: KidsViewing; time: KidsTime; lockouts: KidsLockoutLog; profiles: ProfileStore; viewer: (req: FastifyRequest) => Viewer }): void {
+export function registerKidsAllow(app: FastifyInstance, deps: { allow: KidsAllow; asks?: KidsAsks; viewing: KidsViewing; time: KidsTime; lockouts: KidsLockoutLog; profiles: ProfileStore; viewer: (req: FastifyRequest) => Viewer }): void {
   type Req<P, Q, B> = FastifyRequest<{ Params: P; Querystring: Q; Body: B }>;
-  const { allow, viewing, time, lockouts, profiles, viewer } = deps;
+  const { allow, asks, viewing, time, lockouts, profiles, viewer } = deps;
+
+  /** The week's "Ask a parent" requests, with when each was asked and what the answer was (#224). */
+  const withAsks = (s: KidsSummary): KidsSummary => {
+    if (!asks) return s;
+    const from = new Date(`${s.from}T00:00:00`).getTime();
+    return { ...s, asks: asks.since(s.profileId, from) };
+  };
 
   /** Every Kids profile's lists for an adult; a Kids profile only ever sees its own. */
   app.get("/api/kids-allow", async (req) => {
@@ -76,7 +84,7 @@ export function registerKidsAllow(app: FastifyInstance, deps: { allow: KidsAllow
     if (!mine && !who.admin) throw Object.assign(new Error("Ask a grown-up: this needs the PIN"), { statusCode: 403, code: "pin" });
     const target = mine ?? (asked?.kind === "kids" ? asked : undefined) ?? profiles.list().find((p) => p.kind === "kids");
     if (!target) return { summaries: [] };
-    const summary = (p: Profile): KidsSummary => viewing.summary(p.id, p.name, time.usedByDay(p.id), lockouts.list(), Date.now(), KIDS_SUMMARY_DAYS);
+    const summary = (p: Profile): KidsSummary => withAsks(viewing.summary(p.id, p.name, time.usedByDay(p.id), lockouts.list(), Date.now(), KIDS_SUMMARY_DAYS));
     const wanted = mine || asked ? [target] : profiles.list().filter((p) => p.kind === "kids");
     return { summaries: wanted.map(summary) };
   });
@@ -88,7 +96,7 @@ export function registerKidsAllow(app: FastifyInstance, deps: { allow: KidsAllow
     if (!kids || kids.kind !== "kids") throw Object.assign(new Error("No such Kids profile"), { statusCode: 404 });
     if (who.profile?.kind === "kids" && who.profile.id !== kids.id) throw Object.assign(new Error("Ask a grown-up: this needs the PIN"), { statusCode: 403, code: "pin" });
     if (!who.admin && who.profile?.kind !== "kids") throw Object.assign(new Error("Ask a grown-up: this needs the PIN"), { statusCode: 403, code: "pin" });
-    return viewing.summary(kids.id, kids.name, time.usedByDay(kids.id), lockouts.list(), Date.now(), KIDS_SUMMARY_DAYS);
+    return withAsks(viewing.summary(kids.id, kids.name, time.usedByDay(kids.id), lockouts.list(), Date.now(), KIDS_SUMMARY_DAYS));
   });
 }
 

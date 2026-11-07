@@ -5338,6 +5338,24 @@ html.mouse .skip-button {
   outline-offset: 0.15rem;
 }
 
+/* Ask a parent (#224): what a Kids or Guest profile sees for something it isn't allowed. */
+.ask-parent-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  height: 100%;
+  padding: 0 10%;
+  text-align: center;
+}
+.ask-parent-page h1 {
+  margin: 0;
+}
+.ask-parent-page p,
+.ask-parent-status {
+  margin: 0;
+  font-size: 1.4rem;
 /* Easy mode (#229): four big tiles on Home. */
 .easy-tiles {
   display: grid;
