@@ -127,6 +127,20 @@ describe("Hub API in demo mode", () => {
     expect(s.json()).toMatchObject({ tmdb: true, addons: [{ name: "AIOStreams" }] });
   });
 
+  it("pauses and orders sources (Source options)", async () => {
+    const before = (await app.inject("/api/settings")).json<{ providerOrder: string[] }>();
+    const addon = before.providerOrder.find((k) => k.startsWith("addon:"))!;
+    expect(addon).toBeTruthy();
+    const paused = await app.inject({ method: "POST", url: `/api/sources/${encodeURIComponent(addon)}/pause`, payload: { paused: true } });
+    expect(paused.json()).toMatchObject({ pausedProviders: [addon] });
+    const resumed = await app.inject({ method: "POST", url: `/api/sources/${encodeURIComponent(addon)}/pause`, payload: { paused: false } });
+    expect(resumed.json()).toMatchObject({ pausedProviders: [] });
+    const ordered = await app.inject({ method: "PUT", url: "/api/sources/order", payload: { order: [addon] } });
+    expect(ordered.json<{ providerOrder: string[] }>().providerOrder[0]).toBe(addon);
+    expect((await app.inject({ method: "PUT", url: "/api/sources/order", payload: { order: ["nope"] } })).statusCode).toBe(404);
+    expect((await app.inject({ method: "POST", url: "/api/sources/nope/pause", payload: { paused: true } })).statusCode).toBe(404);
+  });
+
   it("renames the app", async () => {
     expect((await app.inject("/api/settings")).json()).toMatchObject({ appName: "UltimateTV" });
     const saved = await app.inject({ method: "PUT", url: "/api/settings", payload: { appName: "  GazosTV  " } });

@@ -19,6 +19,7 @@ import { AdvertRows, AlertsSection, FeaturesSection, CastSection, HomeRowsSectio
 import { MeasureSection } from "./Measure";
 import { SelfTestSection } from "./SelfTest";
 import { BluetoothSection } from "./Bluetooth";
+import { SourcesSection } from "./Sources";
 
 /** "ABCDEFGH" as "ABCD-EFGH", easier to read off the screen. */
 const spaced = (code: string) => code.replace(/^(.{4})(.+)$/, "$1-$2");
@@ -950,36 +951,7 @@ export function Settings(props: { section?: string }) {
             </Show>
 
             <Show when={section() === "sources"}>
-              <h2>Sources</h2>
-              <div class="sources">
-                <div class="sources-list">
-                  <Row label="IPTV" value={<Status ok={settings()!.iptv.length > 0 || Boolean(status()?.demo)} text={settings()!.iptv.map((s) => `${s.name} (${s.connections} connection${s.connections === 1 ? "" : "s"})`).join(", ") || (status()?.demo ? "Demo channels" : "Not set up")} />} />
-                  <Row label="TV guide" value={<Status ok={(status()?.programmes ?? 0) > 0} text={`${status()?.channels ?? 0} channels, ${status()?.programmes ?? 0} programmes`} />} />
-                  <Row label="Jellyfin" value={<Status ok={Boolean(settings()!.jellyfin)} text={settings()!.jellyfin?.serverName ?? (settings()!.jellyfin ? "Connected" : "Not connected")} />} />
-                  <Row label="Plex" value={<Status ok={Boolean(settings()!.plex)} text={settings()!.plex?.serverName ?? (settings()!.plex ? "Connected" : "Not connected")} />} />
-                  <Row label="Film and TV info (TMDB)" value={<Status ok={settings()!.tmdb} text={settings()!.tmdb ? "Connected" : "Not set up"} />} />
-                  <Row label="AIOStreams and add-ons" value={<Status ok={settings()!.addons.length > 0} text={settings()!.addons.map((a) => a.name).join(", ") || "None"} />} />
-                  <Row label="TorBox" value={<Status ok={settings()!.torbox} text={settings()!.torbox ? "Connected" : "Not set up"} />} />
-                  <Row
-                    label="Refresh channels and guide now"
-                    icon="restart"
-                    onSelect={() =>
-                      void hub
-                        .refresh()
-                        .then(() => toast("Refreshing. This takes a minute or two."))
-                        .catch(errorToast)
-                    }
-                  />
-                </div>
-                <div class="qr-card">
-                  <img src={`/api/setup/qr.svg?v=${pairStamp()}`} alt="" />
-                  <p>
-                    Scan with your phone to set up sources
-                    <br />
-                    <span class="muted">{settings()!.setupUrl}</span>
-                  </p>
-                </div>
-              </div>
+              <SourcesSection settings={settings()!} onSettings={(s) => mutate(s)} demo={Boolean(status()?.demo)} channels={status()?.channels ?? 0} programmes={status()?.programmes ?? 0} setupUrl={settings()!.setupUrl} />
             </Show>
 
             <Show when={section() === "remote"}>
