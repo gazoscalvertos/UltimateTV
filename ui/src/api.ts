@@ -1,6 +1,6 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
-import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, SubtitleResult, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
+import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsSummary, KidsTimeStatus, PersonDetails, SubtitleResult, TitleCast, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
 import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -104,6 +104,8 @@ export const hub = {
   browse: (kind: "movie" | "series") => api<{ rails: Rail[] }>(`/api/browse/${kind}`),
   title: (id: string) => api<TitleDetails>(`/api/titles/${enc(id)}`),
   extras: (id: string) => api<TitleExtras>(`/api/titles/${enc(id)}/extras`),
+  cast: (id: string, episode?: string) => api<TitleCast>(`/api/titles/${enc(id)}/cast${q({ episode })}`),
+  person: (id: number) => api<PersonDetails>(`/api/people/${id}`),
   subtitleSearch: (titleId: string, episodeId?: string, lang?: string) => api<{ configured: boolean; results: SubtitleResult[]; note?: string }>(`/api/subtitles${q({ titleId, episodeId, lang })}`),
   subtitleDownload: (r: { fileId: number; lang: string; label: string }) => api<{ url: string; lang: string; label: string }>("/api/subtitles/download", { method: "POST", body: r }),
   season: (id: string, n: number) => api<Season>(`/api/titles/${enc(id)}/season/${n}`),

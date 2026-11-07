@@ -1964,6 +1964,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.get("/api/browse/:kind", async (req: Req<{ kind: "movie" | "series" }>) => ({ rails: await library.browse(req.params.kind === "series" ? "series" : "movie", filterOf(req)) }));
   app.get("/api/titles/:id", async (req: Req<{ id: string }>) => library.details(req.params.id, filterOf(req)));
   app.get("/api/titles/:id/extras", async (req: Req<{ id: string }>) => library.extras(req.params.id, filterOf(req)));
+  app.get("/api/titles/:id/cast", async (req: Req<{ id: string }, { episode?: string }>) => library.cast(req.params.id, req.query.episode ? episodeNumbers(req.query.episode) : undefined, filterOf(req)));
+  app.get("/api/people/:id", async (req: Req<{ id: string }>, reply) => {
+    const tmdb = ctx.tmdb();
+    const id = Number(req.params.id);
+    if (!tmdb || !Number.isInteger(id) || id <= 0) return reply.code(404).send({ error: "No such person" });
+    return tmdb.person(id);
+  });
   app.get("/api/titles/:id/season/:n", async (req: Req<{ id: string; n: string }>, reply) => {
     const season = await library.season(req.params.id, Number(req.params.n), filterOf(req));
     if (!season) return reply.code(404).send({ error: "No such season" });
