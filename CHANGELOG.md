@@ -42,6 +42,8 @@ pop up what's new after an update. So:
 
 ## 2026-11-04
 
+- **Projected clips show on the TV box again**: the box no longer takes its desktop's "no animations" as Reduce motion, and a clip sent from the phone that the TV can't show or play now says why on the TV. (#212)
+  Household: clips sent from the phone play on the TV again, and if one can't, the TV says why.
 - **The box pauses when the TV turns off**: it used to rely on hearing the TV announce standby over CEC, and it never heard anything: watching the CEC bus needs a permission the app's user hasn't got, so the watcher failed quietly, and many TVs (Hisense among them) go to standby without announcing it anyway. The box now also asks the TV whether it's on every 20 seconds, the box update installs a copy of `cec-ctl` allowed to watch the bus, and a new setting (Settings › Picture and sound › When the TV turns off, and the setup page) picks Pause (the default), Stop or Keep playing. Pause pauses films and episodes and stops live TV, which would otherwise hold the IPTV connection; when the TV comes back on, the paused film is on screen and OK carries on. (#208)
   Household: turning the TV off now pauses the film on the box, ready to carry on when the TV comes back on.
 - **The top menu stops at its last item**: pressing right on the profile at the end of the top menu used to drop down into the screen below; now it stays put, and left on Home does the same. Right from the music chip also moves on to the weather and the profile instead of jumping back to Search. (#209)

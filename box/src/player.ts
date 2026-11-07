@@ -530,6 +530,8 @@ export class Player {
     if (this.desktop) await this.mpv.command("cycle", "fullscreen").catch((e: Error) => this.log(e.message));
   }
 
+  private lastLayoutLine = "";
+
   async setLayout(layout: VideoLayout): Promise<void> {
     if (this.desktop) {
       // mpv's window can't be placed inside the guide's preview (Wayland has no window positions),
@@ -538,7 +540,13 @@ export class Player {
       await this.mpv.set("vid", layout.mode === "fullscreen" ? "auto" : "no").catch((e: Error) => this.log(e.message));
       return;
     }
-    const [l, r, t, b] = marginsFor(layout, this.screenSize());
+    const screen = this.screenSize();
+    const [l, r, t, b] = marginsFor(layout, screen);
+    // One line per change, so a guide preview that shows nothing can be told apart from one in the
+    // wrong place (or a screen size the box got wrong) from the box's log alone.
+    const line = `Video layout ${layout.mode}${layout.mode === "window" ? ` ${layout.width}×${layout.height} at ${layout.x},${layout.y}` : ""} on a ${screen.width}×${screen.height} window: margins ${[l, r, t, b].map((m) => m.toFixed(3)).join(" ")}`;
+    if (line !== this.lastLayoutLine) this.log(line);
+    this.lastLayoutLine = line;
     await Promise.all([this.mpv.set("video-margin-ratio-left", l), this.mpv.set("video-margin-ratio-right", r), this.mpv.set("video-margin-ratio-top", t), this.mpv.set("video-margin-ratio-bottom", b)]).catch((e: Error) => this.log(e.message));
   }
 }
