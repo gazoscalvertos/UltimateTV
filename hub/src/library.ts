@@ -25,6 +25,7 @@ import type { VodEntry } from "./ingest/index.js";
 import { type ContentFilter, NO_FILTER } from "./profiles.js";
 import { XtreamClient } from "./ingest/xtream.js";
 import { groupSeasons, type JfItem, type JfMediaSource } from "./services/jellyfin.js";
+import { addonKey, iptvKey, orderedKeys, orderStreams, pausedKeys } from "./sourceoptions.js";
 import { streamToCandidate } from "./services/stremio.js";
 import { GENRES } from "./services/tmdb.js";
 
@@ -339,7 +340,8 @@ export class Library {
       .json<VodEntry>("SELECT data FROM vod WHERE kind = ? AND name_norm = ?", kind, normaliseTitle(name))
       .filter((r) => (!tmdbId || !r.tmdbId || r.tmdbId === tmdbId) && (!year || !r.year || Math.abs(r.year - year) <= 1));
     const seen = new Set(byTmdb.map((r) => r.id));
-    return [...byTmdb, ...byName.filter((r) => !seen.has(r.id))];
+    const paused = new Set(this.ctx.settings.get().iptv.filter((s) => s.paused).map((s) => s.id));
+    return [...byTmdb, ...byName.filter((r) => !seen.has(r.id))].filter((r) => !paused.has(r.sourceId));
   }
 
   /** Details, refused when the profile isn't allowed to see the title. */
@@ -534,7 +536,7 @@ export class Library {
         }
         if (item && item.Type !== "Series") {
           for (const src of item.MediaSources ?? []) {
-            candidates.push({ id: `${jf.key(item.Id)}:${src.Id}`, kind: jf.kind, label: jf.name, detail: src.Path?.split("/").pop() ?? src.Container ?? "", quality: jellyfinQuality(src), ready: true, url: jf.streamUrl(item.Id, src.Id), downloadable: false });
+            candidates.push({ id: `${jf.key(item.Id)}:${src.Id}`, kind: jf.kind, provider: jf.kind, label: jf.name, detail: src.Path?.split("/").pop() ?? src.Container ?? "", quality: jellyfinQuality(src), ready: true, url: jf.streamUrl(item.Id, src.Id), downloadable: false });
           }
         }
       } catch (err) {
@@ -548,7 +550,7 @@ export class Library {
       if (d.kind === "movie") {
         const url = e.url ?? client?.movieUrl(e.upstreamId, e.ext);
         const demo = e.sourceId === "demo";
-        if (url) candidates.push({ id: `xtream:${e.id}`, kind: demo ? "nas" : "xtream", label: demo ? "Your library" : "IPTV", detail: e.name, quality: vodQuality(e), ready: true, url, downloadable: !demo, ...(e.lang ? { lang: e.lang } : {}) });
+        if (url) candidates.push({ id: `xtream:${e.id}`, kind: demo ? "nas" : "xtream", ...(demo ? {} : { provider: iptvKey(e.sourceId) }), label: demo ? "Your library" : "IPTV", detail: e.name, quality: vodQuality(e), ready: true, url, downloadable: !demo, ...(e.lang ? { lang: e.lang } : {}) });
       } else if (ep && e.sourceId === "demo" && e.url) {
         candidates.push({ id: `xtream:${e.id}:s${ep.season}e${ep.episode}`, kind: "nas", label: "Your library", detail: `${e.name} ${episodeLabel(ep.season, ep.episode)}`, quality: vodQuality(e), ready: true, url: e.url, downloadable: false });
       } else if (ep && client) {
@@ -558,7 +560,7 @@ export class Library {
           const parts = found.id.split(":");
           const epId = parts[5];
           const ext = parts[6];
-          candidates.push({ id: `xtream:${found.id}`, kind: "xtream", label: "IPTV", detail: found.name, quality: { height: 1080, hdr: "sdr", codec: "unknown", audio: "unknown" }, ready: true, url: client.episodeUrl(epId!, ext), downloadable: true, ...(e.lang ? { lang: e.lang } : {}) });
+          candidates.push({ id: `xtream:${found.id}`, kind: "xtream", provider: iptvKey(e.sourceId), label: "IPTV", detail: found.name, quality: { height: 1080, hdr: "sdr", codec: "unknown", audio: "unknown" }, ready: true, url: client.episodeUrl(epId!, ext), downloadable: true, ...(e.lang ? { lang: e.lang } : {}) });
         }
       }
     }
@@ -571,7 +573,7 @@ export class Library {
           this.ctx.addons().map(async (a) => {
             try {
               const [manifest, streams] = await Promise.all([a.manifest().catch(() => ({ name: "Addon" })), a.streams(d.kind, addonId)]);
-              return streams.map((s, i) => streamToCandidate(s, manifest.name, i)).filter((c): c is StreamCandidate => c !== null);
+              return streams.map((s, i) => streamToCandidate(s, manifest.name, i)).filter((c): c is StreamCandidate => c !== null).map((c) => ({ ...c, provider: addonKey(a.url) }));
             } catch (err) {
               this.ctx.log.warn({ err: String(err) }, "Addon streams failed");
               return [];
@@ -582,7 +584,9 @@ export class Library {
         for (const list of results) for (const c of list) candidates.push({ ...c, id: `addon:${n++}` });
       }
     }
-    return rankStreams(candidates, this.prefs());
+    // Quality rules first, then the household's source order (Settings › Sources › Options).
+    const settings = this.ctx.settings.get();
+    return orderStreams(rankStreams(candidates, this.prefs()), orderedKeys(settings), pausedKeys(settings));
   }
 
   // -------------------------------------------------------------------------

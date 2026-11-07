@@ -46,6 +46,7 @@ import { OmdbClient } from "./services/omdb.js";
 import { OpenSubtitlesClient } from "./services/opensubtitles.js";
 import { TorboxClient } from "./services/torbox.js";
 import { defaultSettings, SettingsStore, settingsFromEnv } from "./settings.js";
+import { addonKey, pausedKeys } from "./sourceoptions.js";
 import { StreamProxy } from "./streaming.js";
 import { spawnRun, YtDlp, type Run } from "./ytdlp.js";
 
@@ -222,15 +223,18 @@ export class HubContext {
   private rebuildClients(s: Settings): void {
     // Any of Jellyfin, Plex and Emby, all at once (#217): one server is used as it is, more than one
     // are merged behind CombinedMedia. The order here is the order a title's copies are tried in.
-    this.jf = s.jellyfin ? new JellyfinClient(s.jellyfin, this.fetchImpl) : null;
-    const list: (MediaServer | null)[] = [this.jf, s.plex ? new PlexClient(s.plex, this.fetchImpl) : null, s.emby ? new EmbyClient(s.emby, this.fetchImpl) : null];
+    // A paused provider (Source options, #219) keeps its settings but has no client, so the
+    // library, Versions and Play never reach it.
+    const paused = new Set(pausedKeys(s));
+    this.jf = s.jellyfin && !paused.has("jellyfin") ? new JellyfinClient(s.jellyfin, this.fetchImpl) : null;
+    const list: (MediaServer | null)[] = [this.jf, s.plex && !paused.has("plex") ? new PlexClient(s.plex, this.fetchImpl) : null, s.emby && !paused.has("emby") ? new EmbyClient(s.emby, this.fetchImpl) : null];
     this.servers = list.filter((x): x is MediaServer => x !== null);
     this.ms = this.servers.length > 1 ? new CombinedMedia(this.servers) : (this.servers[0] ?? null);
     this.tm = s.tmdbApiKey ? new TmdbClient(s.tmdbApiKey, this.db, this.fetchImpl) : null;
     this.om = s.omdbApiKey ? new OmdbClient(s.omdbApiKey, this.db, this.fetchImpl) : null;
     this.os = s.openSubtitles?.apiKey ? new OpenSubtitlesClient(s.openSubtitles, this.db, this.fetchImpl, this.log) : null;
-    this.tb = s.torboxApiKey ? new TorboxClient(s.torboxApiKey, this.fetchImpl) : null;
-    this.addonClients = s.addonUrls.map((u) => new AddonClient(u, this.fetchImpl));
+    this.tb = s.torboxApiKey && !paused.has("torbox") ? new TorboxClient(s.torboxApiKey, this.fetchImpl) : null;
+    this.addonClients = s.addonUrls.filter((u) => !paused.has(addonKey(u))).map((u) => new AddonClient(u, this.fetchImpl));
     // Jellyfin is reachable again (it was just set up, or the Hub is home from a trip): send what was
     // watched while it wasn't (#80). Nothing to send is the usual case, so this costs nothing.
     if (this.jf && this.jellyfinProgress.size()) void this.flushJellyfinProgress().catch((err) => this.log.warn({ err: String(err) }, "Couldn't send Jellyfin its places"));
