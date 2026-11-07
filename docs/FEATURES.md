@@ -5,6 +5,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 ## Live TV and the guide
 
 - IPTV from M3U playlists or Xtream Codes logins, with XMLTV guides; several sources and several feeds per channel, merged into one channel list with names cleaned up and quality badges (4K / FHD / HD).
+- **Set up sources from the TV remote** ([sources.md](sources.md)): Settings › Sources lists IPTV, Xtream Codes, Jellyfin, Plex, add-ons and TorBox, each saying what to do next ("Not set up – press OK to add a playlist"). OK opens setup with an on-screen keyboard; Jellyfin and Plex servers on the network are found automatically, Plex shows its plex.tv/link code and Jellyfin offers Quick Connect. Adult profiles only.
 - Sky-style TV guide: live TV keeps playing in the corner, the highlighted programme's details beside it, a channel/time grid, digits jump to a channel. Channel names show next to their logos.
 - Channel lists above the grid: all channels, favourites, categories, and **custom guides** built by hand with your own choice and order (TV Guide › New guide). Any list can be a profile's default, and channel up/down stays within it. ([profiles.md](profiles.md#custom-guides))
 - The phone's settings page arranges the guide's lists, builds and reorders custom guides, and renumbers, recategorises, stars or hides any channel.
@@ -13,6 +14,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 - Catch-up and "watch from the start" on channels that offer it.
 - Reminders on programmes: Remind me on a programme in the guide, on the TV or from the phone's guide. The Hub fires it, the TV shows a card when it starts, and **Recordings › Reminders lists everything set** (the phone remote has the same list), so a reminder can be taken back without finding the programme again.
 - Live TV switches the screen's refresh rate once mpv reads the stream's frame rate.
+- **Source options** (Settings › Sources, and the setup page): test a source (reachable, signed in, time taken, IPTV expiry and connections), pause and resume it without losing its login, move it up or down the order Play and Versions prefer, or remove it with a confirm. ([sources.md](sources.md#source-options))
 - Search finds channels with or without spaces ("bbcone"), what's on this week, recordings, films and series, with an on-screen keyboard or typing from the phone.
 - Recent searches per profile (kept on the Hub, up to 20): shown before anything is typed and as suggestions while typing; OK runs one. Clear removes one, Clear all the lot. The phone remote's Search shows the TV profile's list.
 
@@ -25,8 +27,8 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 
 ## Films and TV
 
-- One library from Jellyfin or Plex (Quick Connect or login for Jellyfin, a URL and token or a PIN for Plex; one media server at a time, and Jellyfin playback on the box is **tested**), IPTV VOD and series, and AIOStreams/Stremio addons with TorBox. Plex plays its original files (no smaller copy) and its Next up is derived from On Deck ([plex.md](plex.md)). TMDB supplies artwork, discovery rails and metadata. Addon links ending in `/configure` and `stremio://` links work.
-- Each title appears once; **Versions** lists every copy (library first) for films and episodes, with source badges (From Jellyfin or Plex / IPTV / TorBox).
+- Libraries from Jellyfin, Plex and Emby, **any or all at once** (Quick Connect or login for Jellyfin, a URL and token or a PIN for Plex, name and password for Emby; their films and series are merged, a title on two servers is one card with a copy from each under Versions, and Jellyfin playback on the box is **tested**; Emby and the merge are built and untested, [emby.md](emby.md)), IPTV VOD and series, and AIOStreams/Stremio addons with TorBox. Plex plays its original files (no smaller copy) and its Next up is derived from On Deck ([plex.md](plex.md)). TMDB supplies artwork, discovery rails and metadata. Addon links ending in `/configure` and `stremio://` links work.
+- Each title appears once; **Versions** lists every copy (library first) for films and episodes, with source badges (From Jellyfin, Plex or Emby / IPTV / TorBox).
 - Discovery titles only show when an addon can play them.
 - Home: a hero, your play queue, live now, continue watching, recently recorded, films on TV tonight, trending and recently added.
 - **Rows on Home, per profile** ([profiles.md](profiles.md#rows-on-home)): each profile chooses which Home rows it sees and their order, on the TV or a phone at `/setup/`, with **Simple Home** and **Everything** presets. A row that's switched off is never fetched, so Home loads faster.
@@ -122,7 +124,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 
 ## Running and looking after it
 
-- **Setup page** at `/setup/` for IPTV, Jellyfin, Plex, AIOStreams, TorBox, OMDb, OpenSubtitles and every TV setting.
+- **Setup page** at `/setup/` for IPTV, Jellyfin, Plex, Emby, AIOStreams, TorBox, OMDb, OpenSubtitles and every TV setting.
 - **Updates** **(tested)**: the Hub lists what's new on GitHub since the code it runs, and updates with `tools/hub/update.sh` or from the phone (with the helper installed). The box updates weekly at 4 am after a btrfs snapshot, or from Settings › About or the phone. Both show the commit they run.
 - **Automatic roll back of a bad box update** **(untested)**: after each update the box checks the app starts, reaches the Hub, plays a test clip and still sees the CEC adapter; if not, it goes back to the snapshot, reboots, skips that commit from then on, and says so on the TV, in HA/ntfy and in Settings › About. Roll back last update by hand in Settings › About or on the phone ([box-install.md](box-install.md#updates-and-rolling-back)).
 - **What's new** ([CHANGELOG.md](../CHANGELOG.md)): the change log, served by the Hub at `/api/changelog`, in the TV's Settings › What's new, on the setup page and in the Android app. After an update the TV's Home, the phone remote and the Android app show what changed since they last looked, once for **each profile** (never on Kids profiles and never over playback), in the words the change log keeps for the household; Settings › About puts the last few on one line, and Settings › What's new lists every change (the internal ones too).

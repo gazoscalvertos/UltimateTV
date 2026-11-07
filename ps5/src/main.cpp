@@ -3,14 +3,13 @@
 // Everything that decides what happens lives in ui.cpp; this file only wires it together and
 // keeps the picture moving. That split is why `make -C ps5 test` can test the whole app on a
 // build machine without a PlayStation.
-#include <cstdarg>
 #include <cstdio>
-#include <ctime>
 #include <memory>
 #include <string>
 
 #include "hub.hpp"
 #include "http.hpp"
+#include "log.hpp"
 #include "platform.hpp"
 #include "ui.hpp"
 
@@ -37,35 +36,37 @@ const char* const SESSION_PATH = "/data/ultimatetv/session.txt";
  */
 const char* const LOG_PATH = "/data/ultimatetv/last-run.log";
 
-std::FILE* gLog = nullptr;
+/**
+ * A file holding one renderer name to try first. The tile can't be given a command line, so
+ * this is how a console is told to try, say, "opengles2" without a new build: put the word in
+ * this file over FTP and start the app again. The log lists the names that exist.
+ */
+const char* const RENDERER_PATH = "/data/ultimatetv/renderer.txt";
 
-/** Writes one line to the log and to stderr. Safe to call before the log is open. */
-void say(const char* format, ...) {
-  char line[512];
-  va_list args;
-  va_start(args, format);
-  std::vsnprintf(line, sizeof(line), format, args);
-  va_end(args);
-  std::fprintf(stderr, "UltimateTV: %s\n", line);
-  if (!gLog) return;
-  const std::time_t now = std::time(nullptr);
-  std::tm local{};
-#if defined(_WIN32)
-  localtime_s(&local, &now);
-#else
-  localtime_r(&now, &local);
-#endif
-  std::fprintf(gLog, "%02d:%02d:%02d  %s\n", local.tm_hour, local.tm_min, local.tm_sec, line);
-  std::fflush(gLog);
+/** The first line of `path`, or empty when there is no such file. */
+std::string firstLine(const char* path) {
+  std::FILE* file = std::fopen(path, "rb");
+  if (!file) return std::string();
+  char buffer[128] = {0};
+  const char* got = std::fgets(buffer, sizeof(buffer), file);
+  std::fclose(file);
+  std::string line = got ? std::string(buffer) : std::string();
+  while (!line.empty() && (line.back() == '\n' || line.back() == '\r' || line.back() == ' ')) {
+    line.pop_back();
+  }
+  return line;
 }
+
+/** The app's own log line, which is the one in log.cpp. */
+using utv::logLine;
 
 }  // namespace
 
 int main(int argc, char** argv) {
   using namespace utv;
 
-  gLog = std::fopen(LOG_PATH, "wb");
-  say("UltimateTV starting");
+  logTo(LOG_PATH);
+  logLine("UltimateTV starting");
 
   std::string problem;
 
@@ -75,38 +76,52 @@ int main(int argc, char** argv) {
   //   `--1080p` asks for a 1080p picture instead of the console's biggest, which is the way to
   //   find out whether 4K is the thing the console can't keep up with.
   std::string hubAddress;
+  std::string renderer = firstLine(RENDERER_PATH);
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i] ? argv[i] : "";
     if (arg == "--1080p" || arg == "--1080") {
       setWant4k(false);
+    } else if (arg.rfind("--renderer=", 0) == 0) {
+      renderer = arg.substr(11);
     } else if (!arg.empty() && arg[0] != '-') {
       hubAddress = arg;
     }
   }
 
+  if (!renderer.empty()) {
+    logLine("renderer to try first: %s (from %s)", renderer.c_str(),
+            renderer == firstLine(RENDERER_PATH) ? RENDERER_PATH : "the command line");
+  }
+  setPreferredRenderer(renderer);
+
   // The video player first: it owns the console's decoder, so a failure here is worth saying
   // before a window is on screen.
   std::unique_ptr<Video> video = makeVideo(problem);
   if (!video) {
-    say("the video player wouldn't start: %s", problem.c_str());
-    say("nothing was drawn; this log is the whole story");
+    logLine("the video player wouldn't start: %s", problem.c_str());
+    logLine("nothing was drawn; this log is the whole story");
+    logClose();
     return 1;
   }
-  say("the video player is up");
+  logLine("the video player is up");
 
   // Before the window: if this fails there is nothing to look at, and a console shows a black
   // screen rather than an error. That is exactly why the log exists.
   std::unique_ptr<Window> window = openWindow(problem);
   if (!window) {
-    say("the window wouldn't open: %s", problem.c_str());
-    say("nothing was drawn; this log is the whole story");
+    logLine("the window wouldn't open: %s", problem.c_str());
+    logLine("nothing was drawn; this log is the whole story");
+    logClose();
     return 1;
   }
   int width = 0;
   int height = 0;
   window->size(width, height);
   // The height is what tells the two PS5 builds apart in a log after the fact.
-  say("the window is up at %dx%d%s", width, height, height >= 2000 ? " (4K)" : "");
+  logLine("the window is up at %dx%d%s", width, height, height >= 2000 ? " (4K)" : "");
+  // A console whose audio driver refused still gets a picture, so the one thing a person can
+  // see is said out loud here as well as in the log: a film with no sound shouldn't look broken.
+  if (!window->hasSound()) logLine("the console gave no sound; films will play silently");
 
   SocketTransport transport;
   Hub hub(transport);
@@ -116,13 +131,13 @@ int main(int argc, char** argv) {
   app.setSessionPath(SESSION_PATH);
   if (!hubAddress.empty()) {
     hub.setBaseUrl(hubAddress);
-    say("the Hub was given on the command line: %s", hub.baseUrl().c_str());
+    logLine("the Hub was given on the command line: %s", hub.baseUrl().c_str());
   } else {
-    say("looking for the Hub at %s", hub.baseUrl().c_str());
+    logLine("looking for the Hub at %s", hub.baseUrl().c_str());
   }
 
   app.start();
-  say("the app is running");
+  logLine("the app is running");
 
   bool closed = false;
   while (!closed) {
@@ -134,9 +149,9 @@ int main(int argc, char** argv) {
     window->draw(app);
   }
 
-  say("the console asked the app to close");
+  logLine("the console asked the app to close");
   window.reset();
   video.reset();
-  if (gLog) std::fclose(gLog);
+  logClose();
   return 0;
 }

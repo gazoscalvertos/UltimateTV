@@ -154,6 +154,14 @@ export function takeRemoteText(text: string): boolean {
   return true;
 }
 
+/** Lets another text dialog (the Sources keyboard) take text typed on the phone remote. Returns how to let go. */
+export function acceptRemoteText(take: (text: string) => void): () => void {
+  remoteText = take;
+  return () => {
+    if (remoteText === take) remoteText = null;
+  };
+}
+
 /** Asks for a short piece of text (a profile name) with an on-screen keyboard, or typed on the phone remote. */
 export function askText(title: string, initial = "", hint?: string): Promise<string | undefined> {
   return openDialog<string>((close) => {

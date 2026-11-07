@@ -1,13 +1,38 @@
 {
+    "ageLevel": {
+        "default": 0
+    },
     "applicationCategoryType": 33554432,
     "applicationDrmType": "free",
+    "attribute": 0,
+    "attribute2": 0,
+    "attribute3": 0,
+    "conceptId": "26001",
+    "contentBadgeType": 1,
     "contentId": "UP9000-PPSA26001_00-ULTIMATETV000000",
     "contentVersion": "01.000.000",
+    "downloadDataSize": 256,
+    "gameIntent": {
+        "permittedIntents": [
+            {
+                "intentType": "launchActivity"
+            }
+        ]
+    },
     "localizedParameters": {
         "defaultLanguage": "en-GB",
         "en-GB": {
             "titleName": "UltimateTV"
         }
     },
-    "titleId": "PPSA26001"
+    "masterVersion": "01.01",
+    "pubtools": {
+        "creationDate": "2026-11-04 00:00:00",
+        "loudnessSnd0": "-28.00",
+        "toolVersion": "2.00"
+    },
+    "requiredSystemSoftwareVersion": "0x0000000000000000",
+    "sdkVersion": "0x0000000000000000",
+    "titleId": "PPSA26001",
+    "versionFileUri": ""
 }

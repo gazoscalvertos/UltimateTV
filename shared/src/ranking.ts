@@ -108,6 +108,7 @@ const KIND_SCORE: Record<SourceKind, number> = {
   recording: 40,
   jellyfin: 40,
   plex: 40,
+  emby: 40,
   torbox: 20,
   addon: 15,
   xtream: 5,

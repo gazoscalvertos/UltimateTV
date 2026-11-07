@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { statfs } from "node:fs/promises";
 import os from "node:os";
+import { discoverServers, type DiscoveredServer } from "./discovery.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fastifyStatic from "@fastify/static";
@@ -49,7 +50,9 @@ import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
 import { guestBlocks } from "./guest.js";
 import { ContentFilter, certificationRank } from "./profiles.js";
 import { ReportStore } from "./reports.js";
+import { orderPatch, pausePatch, removePatch, testSource, UnknownSourceError } from "./sourceoptions.js";
 import { JellyfinClient } from "./services/jellyfin.js";
+import { EmbyClient } from "./services/emby.js";
 import { PlexClient, plexPinCheck, plexPinStart, plexResources } from "./services/plex.js";
 import { publicSettings, sourceKey } from "./settings.js";
 import { desktopCheck, RemoteApp, RemoteAsset } from "./remoteapp.js";
@@ -93,6 +96,8 @@ export interface ServerDeps {
   env?: NodeJS.ProcessEnv;
   /** Restarts the Hub after a move (Docker starts it again). Tests pass a fake. */
   restart?: () => void;
+  /** Finds Jellyfin and Plex servers on the network; tests pass a fake (hub/src/discovery.ts). */
+  discover?: () => Promise<DiscoveredServer[]>;
 }
 
 export const HUB_VERSION = "0.2.0";
@@ -316,7 +321,12 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/kids-allow/:id/:kind/:titleId",
     "POST /api/settings/iptv",
     "DELETE /api/settings/iptv/:id",
+    "POST /api/sources/:id/test",
+    "POST /api/sources/:id/pause",
+    "PUT /api/sources/order",
+    "DELETE /api/sources/:id",
     "POST /api/refresh",
+    "GET /api/discover",
     "POST /api/jellyfin/quickconnect",
     "POST /api/jellyfin/login",
     "POST /api/plex/pin",
@@ -325,6 +335,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "DELETE /api/perf",
     "DELETE /api/jellyfin",
     "DELETE /api/plex",
+    "POST /api/emby/login",
+    "DELETE /api/emby",
     "PATCH /api/channels/:id",
     "DELETE /api/recordings/:id",
     "PATCH /api/series-links/:id",
@@ -557,7 +569,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       programmes: ctx.guide.count(),
       connections: ctx.guard.status(),
       recordingNow: ctx.recordings.withStatus("recording"),
-      configured: { iptv: s.iptv.length > 0 || config.demo, jellyfin: Boolean(s.jellyfin), plex: Boolean(s.plex), tmdb: Boolean(s.tmdbApiKey), addons: s.addonUrls.length > 0, torbox: Boolean(s.torboxApiKey) },
+      configured: { iptv: s.iptv.length > 0 || config.demo, jellyfin: Boolean(s.jellyfin), plex: Boolean(s.plex), emby: Boolean(s.emby), tmdb: Boolean(s.tmdbApiKey), addons: s.addonUrls.length > 0, torbox: Boolean(s.torboxApiKey) },
     };
     const epg = ctx.db.getKv<number>("epgUpdatedAt");
     if (epg) status.epgUpdatedAt = epg;
@@ -676,6 +688,60 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       ctx.events.emit({ type: "guide.updated" });
     });
     return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
+  });
+
+  // Source options (#219). A source is addressed by its key: "iptv:<id>", "jellyfin", "plex", "torbox"
+  // or "addon:<hash>" (the ids /api/settings lists in providerOrder). Removing one uses the existing
+  // DELETE routes.
+  const sourceError = (err: unknown, reply: FastifyReply) => {
+    if (err instanceof UnknownSourceError) return reply.code(404).send({ error: err.message });
+    return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
+  };
+  app.post("/api/sources/:id/test", async (req: Req<{ id: string }>, reply) => {
+    try {
+      return await testSource(ctx.settings.get(), req.params.id, ctx.fetchImpl);
+    } catch (err) {
+      return sourceError(err, reply);
+    }
+  });
+  app.post("/api/sources/:id/pause", async (req: Req<{ id: string }, Record<string, string>, { paused?: boolean }>, reply) => {
+    try {
+      const paused = req.body?.paused !== false;
+      const wasIptv = req.params.id.startsWith("iptv:");
+      ctx.settings.update(pausePatch(ctx.settings.get(), req.params.id, paused));
+      ctx.events.emit({ type: "settings.changed" });
+      if (wasIptv) {
+        void ctx.ingest.refreshAll().then(() => {
+          ctx.scheduler.replan();
+          ctx.events.emit({ type: "guide.updated" });
+        });
+      }
+      return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
+    } catch (err) {
+      return sourceError(err, reply);
+    }
+  });
+  app.delete("/api/sources/:id", async (req: Req<{ id: string }>, reply) => {
+    try {
+      ctx.settings.update(removePatch(ctx.settings.get(), req.params.id));
+      ctx.events.emit({ type: "settings.changed" });
+      void ctx.ingest.refreshAll().then(() => {
+        ctx.scheduler.replan();
+        ctx.events.emit({ type: "guide.updated" });
+      });
+      return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
+    } catch (err) {
+      return sourceError(err, reply);
+    }
+  });
+  app.put("/api/sources/order", async (req: Req<Record<string, string>, Record<string, string>, { order?: string[] }>, reply) => {
+    try {
+      ctx.settings.update(orderPatch(ctx.settings.get(), req.body?.order));
+      ctx.events.emit({ type: "settings.changed" });
+      return publicSettings(ctx.settings.get(), setupUrl(req), (id) => ctx.ingest.sourceStatus(id));
+    } catch (err) {
+      return sourceError(err, reply);
+    }
   });
 
   app.post("/api/refresh", async () => {
@@ -1196,6 +1262,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     );
   });
 
+  // Jellyfin and Plex servers answering on the home network, for the TV's Sources screen to list.
+  const discover = deps.discover ?? (() => discoverServers());
+  app.get("/api/discover", async () => ({ servers: await discover().catch(() => [] as DiscoveredServer[]) }));
+
   // Jellyfin sign-in: Quick Connect (a code on the TV, approved on the phone) or name and password.
   app.post("/api/jellyfin/quickconnect", async (req: Req<Record<string, string>, Record<string, string>, { url: string }>) => {
     const client = new JellyfinClient({ url: req.body.url.trim() }, ctx.fetchImpl);
@@ -1223,9 +1293,26 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ok: true };
   });
 
+  // Emby: a user name and password, checked against the server before anything is saved. Emby can
+  // be connected alongside Jellyfin and Plex.
+  app.post("/api/emby/login", async (req: Req<Record<string, string>, Record<string, string>, { url: string; username: string; password: string }>) => {
+    const url = (req.body.url ?? "").trim();
+    if (!url || !req.body.username) throw new Error("Both the server's address and a user name are needed");
+    const client = new EmbyClient({ url }, ctx.fetchImpl);
+    const auth = await client.authenticateByName(req.body.username, req.body.password ?? "");
+    ctx.saveEmby(auth);
+    ctx.events.emit({ type: "settings.changed" });
+    return { ok: true, emby: { url: auth.url, ...(auth.serverName ? { serverName: auth.serverName } : {}) } };
+  });
+
+  app.delete("/api/emby", async () => {
+    const { emby: _e, ...rest } = ctx.settings.get();
+    ctx.settings.update({ ...rest, emby: undefined } as Partial<Settings>);
+    return { ok: true };
+  });
+
   // Plex: a PIN approved on plex.tv (the household never types a password into the Hub), or a
-  // server URL and token typed in by hand. Only one media server is ever connected, so connecting
-  // Plex replaces Jellyfin; the caller is told which happened.
+  // server URL and token typed in by hand. Plex can be connected alongside Jellyfin and Emby.
   app.post("/api/plex/pin", async () => {
     const pin = await plexPinStart(ctx.fetchImpl);
     return { id: pin.id, code: pin.code, authUrl: pin.authUrl };

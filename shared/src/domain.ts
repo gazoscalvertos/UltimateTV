@@ -205,7 +205,7 @@ export type TitleKind = "movie" | "series";
 export type HdrFormat = "dv" | "hdr10plus" | "hdr10" | "hlg" | "sdr";
 export type AudioFormat = "atmos" | "truehd" | "dtsx" | "dtshd" | "dts" | "eac3" | "ac3" | "aac" | "flac" | "opus" | "mp3" | "unknown";
 export type VideoCodec = "hevc" | "h264" | "av1" | "vp9" | "mpeg2" | "unknown";
-export type SourceKind = "nas" | "jellyfin" | "plex" | "recording" | "torbox" | "addon" | "xtream";
+export type SourceKind = "nas" | "jellyfin" | "plex" | "emby" | "recording" | "torbox" | "addon" | "xtream";
 
 export interface StreamQuality {
   height: number;
@@ -230,6 +230,8 @@ export interface StreamCandidate {
   quality: StreamQuality;
   /** Ready to play now (debrid cached, local file). */
   ready: boolean;
+  /** The provider this copy comes from, as a Source options key ("jellyfin", "iptv:src1", "addon:ab12cd34"). */
+  provider?: string;
   /** URL the player can open, or a Hub path to resolve first. */
   url: string;
   headers?: Record<string, string>;
@@ -597,6 +599,8 @@ export interface XtreamSource {
   username: string;
   password: string;
   connections: number;
+  /** Paused from Source options: skipped everywhere, settings kept. */
+  paused?: boolean;
 }
 
 export interface M3uSource {
@@ -605,6 +609,8 @@ export interface M3uSource {
   name: string;
   url: string;
   connections: number;
+  /** Paused from Source options: skipped everywhere, settings kept. */
+  paused?: boolean;
 }
 
 export type IptvSource = XtreamSource | M3uSource;
@@ -617,6 +623,26 @@ export interface IptvSourceStatus {
   streams?: number;
   /** Of those, the channels the filter lets through. */
   visible?: number;
+  error?: string;
+}
+
+/** What Test connection found out about one source (#219). */
+export interface SourceTestResult {
+  /** The provider key ("iptv:src1", "jellyfin", …). */
+  id: string;
+  name: string;
+  reachable: boolean;
+  /** The login works; left out when the source has no login to check (an M3U playlist). */
+  signedIn?: boolean;
+  /** How long the check took, in milliseconds. */
+  ms: number;
+  /** One line to show: "Active", "12,408 channels", the server's name. */
+  detail?: string;
+  /** IPTV account expiry (epoch ms), when the provider says. */
+  expiresAt?: number;
+  /** IPTV connections in use right now, and the most the account allows. */
+  activeConnections?: number;
+  maxConnections?: number;
   error?: string;
 }
 
@@ -639,8 +665,10 @@ export interface Settings {
   iptv: IptvSource[];
   xmltvUrls: string[];
   jellyfin?: { url: string; userId: string; token: string; serverName?: string };
-  /** Plex Media Server, when it is the one on-disk library the Hub is connected to instead of Jellyfin. */
+  /** Plex Media Server. Jellyfin, Plex and Emby can all be connected at once; their libraries are merged. */
   plex?: { url: string; token: string; clientId?: string; serverName?: string };
+  /** Emby Server (#216). */
+  emby?: { url: string; userId: string; token: string; serverName?: string };
   tmdbApiKey?: string;
   /** OMDb (omdbapi.com, free) for IMDb, Rotten Tomatoes and Metacritic scores. */
   omdbApiKey?: string;
@@ -648,6 +676,15 @@ export interface Settings {
   openSubtitles?: { apiKey: string; username?: string; password?: string };
   addonUrls: string[];
   torboxApiKey?: string;
+  /**
+   * Source options (#219). Providers are keyed by stable string ids: "iptv:<id>", "jellyfin",
+   * "plex", "torbox", "addon:<hash of the url>" (new providers just add their own ids). The order
+   * is the order Play and Versions prefer them in (after the quality rules); ids missing from it
+   * come last in their usual order.
+   */
+  providerOrder?: string[];
+  /** Paused Jellyfin, Plex, TorBox and add-on providers (a paused IPTV source has `paused` on itself). */
+  pausedProviders?: string[];
   library: {
     moviesPath: string;
     tvPath: string;
@@ -694,16 +731,21 @@ export interface PublicSettings {
   seasonal: boolean;
   /** The theme being worn today, once the seasons have had their say. */
   themeNow: ThemeName;
-  iptv: { id: Id; kind: "xtream" | "m3u"; name: string; connections: number; host: string; status?: IptvSourceStatus }[];
+  iptv: { id: Id; kind: "xtream" | "m3u"; name: string; connections: number; host: string; paused?: boolean; status?: IptvSourceStatus }[];
   xmltvCount: number;
   jellyfin?: { url: string; serverName?: string };
   plex?: { url: string; serverName?: string };
+  emby?: { url: string; serverName?: string };
   tmdb: boolean;
   omdb: boolean;
   /** OpenSubtitles is set up (and signed in, which allows more downloads a day). */
   openSubtitles: { configured: boolean; signedIn: boolean };
-  addons: { url: string; name: string }[];
+  addons: { id: string; url: string; name: string }[];
   torbox: boolean;
+  /** Provider keys in the order Play and Versions prefer them (see Settings.providerOrder), every provider set up included. */
+  providerOrder: string[];
+  /** Provider keys that are paused, IPTV sources included. */
+  pausedProviders: string[];
   recording: Settings["recording"];
   playback: Settings["playback"];
   numbering: Settings["numbering"];
@@ -728,7 +770,7 @@ export interface HubStatus {
   recordingNow: Recording[];
   diskFreeBytes?: number;
   diskTotalBytes?: number;
-  configured: { iptv: boolean; jellyfin: boolean; plex: boolean; tmdb: boolean; addons: boolean; torbox: boolean };
+  configured: { iptv: boolean; jellyfin: boolean; plex: boolean; emby: boolean; tmdb: boolean; addons: boolean; torbox: boolean };
 }
 
 export type HubEvent =

@@ -102,6 +102,7 @@ matches the title id, and a package without one builds but is called incoherent.
 | `src/text.cpp` | Times, dates and lengths in words ("Today 21:00", "1 h 2 min") | no |
 | `src/address.cpp` | The Hub's address as four numbers and a port, because the console has no keyboard | no |
 | `src/display.cpp` | What size to draw at, and how much bigger the text has to be for it | no |
+| `src/renderer.cpp` | Which SDL render drivers to try, in what order, and at what window sizes | no |
 | `src/ui.cpp` | Every screen and every key: the picker, the PIN pad, Home, the guide, the player | no |
 | `src/platform_sdl.cpp` | The window, the controller and the drawing: the only SDL and ImGui in the tree | yes |
 | `src/video.cpp` | A film on screen with its sound: the only SDL_kitchensink in the tree | yes |
