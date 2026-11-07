@@ -1,5 +1,6 @@
 import { cleanLook, cleanRadioSettings, DEFAULT_APP_NAME, DEFAULT_RADIO_SETTINGS, DEFAULT_SCREENSAVER, DEFAULT_SUBTITLE_STYLE, resolveTheme, type IptvSource, type IptvSourceStatus, type PublicSettings, type Settings } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
+import { activeIptv, addonKey, orderedKeys, pausedKeys } from "./sourceoptions.js";
 
 export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
   return {
@@ -28,8 +29,10 @@ export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
       subtitlesByDefault: false,
       maxSizeGb: 60,
       avoidDvProfile5: true,
+      otherLanguages: "last",
       autoplayNext: true,
       startOn: "home",
+      whenTvOff: "pause",
       subtitleStyle: { ...DEFAULT_SUBTITLE_STYLE },
     },
     numbering: "uk",
@@ -108,7 +111,7 @@ export class SettingsStore {
   }
 
   connectionLimit(): number {
-    const sources = this.cache.iptv;
+    const sources = activeIptv(this.cache);
     if (sources.length === 0) return 1;
     // The guard is per provider; with several providers the smallest limit is the safe one to share.
     return Math.max(1, Math.min(...sources.map((s) => s.connections || 1)));
@@ -163,6 +166,7 @@ export function publicSettings(s: Settings, setupUrl: string, statusOf?: (source
     themeNow: resolveTheme(look),
     iptv: s.iptv.map((src: IptvSource) => {
       const entry: PublicSettings["iptv"][number] = { id: src.id, kind: src.kind, name: src.name, connections: src.connections, host: hostOf(src.url) };
+      if (src.paused) entry.paused = true;
       const status = statusOf?.(src.id);
       if (status) entry.status = status;
       return entry;
@@ -171,8 +175,10 @@ export function publicSettings(s: Settings, setupUrl: string, statusOf?: (source
     tmdb: Boolean(s.tmdbApiKey),
     omdb: Boolean(s.omdbApiKey),
     openSubtitles: { configured: Boolean(s.openSubtitles?.apiKey), signedIn: Boolean(s.openSubtitles?.username && s.openSubtitles.password) },
-    addons: s.addonUrls.map((url) => ({ url: redactAddonUrl(url), name: addonName(url) })),
+    addons: s.addonUrls.map((url) => ({ id: addonKey(url), url: redactAddonUrl(url), name: addonName(url) })),
     torbox: Boolean(s.torboxApiKey),
+    providerOrder: orderedKeys(s),
+    pausedProviders: pausedKeys(s),
     recording: s.recording,
     playback: s.playback,
     numbering: s.numbering,
@@ -189,6 +195,10 @@ export function publicSettings(s: Settings, setupUrl: string, statusOf?: (source
   if (s.plex) {
     result.plex = { url: s.plex.url };
     if (s.plex.serverName) result.plex.serverName = s.plex.serverName;
+  }
+  if (s.emby) {
+    result.emby = { url: s.emby.url };
+    if (s.emby.serverName) result.emby.serverName = s.emby.serverName;
   }
   return result;
 }

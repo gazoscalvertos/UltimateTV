@@ -60,6 +60,30 @@ describe("the PlayStation 5 home screen tile", () => {
     }
   });
 
+  it("carries the full metadata block a shipping title wears, not a minimal one", () => {
+    // The console's install record, patch cache and update checker read these. A title with no
+    // masterVersion logs an empty contentVer and app_version, and PlayGo complains that the
+    // content id is too small — so the fields a known-good homebrew title carries are here too.
+    for (const file of [param, system]) {
+      expect(file.masterVersion).toMatch(/^\d{2}\.\d{2}$/);
+      expect(file.sdkVersion).toMatch(/^0x[0-9a-fA-F]{16}$/);
+      expect(file.requiredSystemSoftwareVersion).toMatch(/^0x[0-9a-fA-F]{16}$/);
+      expect(file.conceptId).toBe("26001");
+      expect(file.contentBadgeType).toBe(1);
+      expect(file.downloadDataSize).toBe(256);
+      expect(file.versionFileUri).toBe("");
+      expect(file.ageLevel).toEqual({ default: 0 });
+      expect(file.gameIntent.permittedIntents).toEqual([{ intentType: "launchActivity" }]);
+      expect(file.pubtools.creationDate).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      expect(file.pubtools.toolVersion).toBe("2.00");
+      // The ids the console cross-checks against contentId.
+      expect(file.conceptId).toBe(file.titleId.slice(-5));
+      expect(file.contentId).toContain(`-${file.titleId}_00-`);
+    }
+    // A PS5 title must NOT carry PS4 metadata where the launch service can see it.
+    expect(param).not.toHaveProperty("paramSfo");
+  });
+
   it("can be wrapped in a .pkg, which needs a layout the folder route does not use", () => {
     const makefile = read("ps5/Makefile");
     // The package tool wants eboot.bin at the top of the title folder and the metadata under
@@ -241,8 +265,33 @@ describe("the PlayStation 5 app's sources", () => {
     const main = read("ps5/src/main.cpp");
     expect(main).toContain("/data/ultimatetv/last-run.log");
     expect(main).toContain("LOG_PATH");
+    // It writes through the one log module the whole app shares, so every failure says why.
+    expect(main).toContain("logTo(LOG_PATH)");
+    expect(main).toContain("logLine(");
+    expect(main).not.toContain("std::FILE* gLog");
     // The first thing it writes is which Hub it is going to look for.
-    expect(main).toMatch(/say\([^)]*(address|Hub)/);
+    expect(main).toMatch(/logLine\("looking for the Hub at/);
+  });
+
+  it("starts the picture, the pad and the sound one at a time, and needs only the picture", () => {
+    // This is the bug that stopped the app running at all: the three were asked for in one call,
+    // the console's audio driver refused on a current firmware, and the whole call answered
+    // "no" — so the app never drew a frame. A missing pad or a silent console must not be fatal
+    // now, and the decision lives in a file the host tests can reach.
+    const sdl = read("ps5/src/platform_sdl.cpp");
+    expect(sdl).toContain("SDL_InitSubSystem(flags)");
+    expect(sdl).toContain("startSubsystem(SDL_INIT_VIDEO");
+    expect(sdl).toContain("startSubsystem(SDL_INIT_GAMECONTROLLER");
+    expect(sdl).toContain("startSubsystem(SDL_INIT_AUDIO");
+    // The old all-in-one call is exactly what took the window down with the sound.
+    expect(sdl).not.toMatch(
+      /SDL_Init\(SDL_INIT_VIDEO \| SDL_INIT_GAMECONTROLLER \| SDL_INIT_AUDIO\)/,
+    );
+    expect(sdl).toContain("decideStartup(");
+    // And the player doesn't try to open a device on a console with no sound subsystem.
+    expect(read("ps5/src/video.cpp")).toContain("SDL_WasInit(SDL_INIT_AUDIO)");
+    // The decision itself is tested where a build machine can run it.
+    expect(read("ps5/test/startup_test.cpp")).toContain("stillRunsWithNoSound");
   });
 
   it("builds the folder a mounter needs, not only a package that won't launch", () => {
@@ -259,6 +308,21 @@ describe("the PlayStation 5 app's sources", () => {
     expect(makefile).toContain("cp sce_sys/param.json sce_sys/icon0.png $(HOMEBREW_DIR)/sce_sys/");
     // The folder gets the title's param.json, not the .system one.
     expect(makefile).not.toContain("param.json.system $(HOMEBREW_DIR)");
+  });
+
+  it("can also build the UFS2 image the reference project actually ships", () => {
+    // BlackBox — the project that works on a current console — ships a `.ffpkg`, a UFS2 image
+    // ShadowMountPlus mounts. That is the image route, not a package route, which is why the
+    // kstuff gate on fake packages never applies to it. `make ffpkg` wraps the same folder.
+    const makefile = read("ps5/Makefile");
+    expect(makefile).toContain(".PHONY: ffpkg");
+    expect(makefile).toContain("UFS2_TOOL");
+    // It must never invent a builder; the image has to come from a tool the user points at.
+    expect(makefile).toContain("make ffpkg needs a UFS2 image builder");
+    // And it must say the layout constraint, or the image mounts and shows nothing.
+    expect(makefile).toContain("at its ROOT");
+    // The image is built from the same folder the mounter route produces.
+    expect(makefile).toContain("$(UFS2_TOOL) $(HOMEBREW_DIR) $(FFPKG)");
   });
 
   it("never writes the device token or a PIN to the log", () => {

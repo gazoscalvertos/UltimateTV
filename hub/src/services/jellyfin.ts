@@ -13,6 +13,7 @@ import {
   type MediaProvider,
   type MediaSegment,
   type MediaServer,
+  type MediaServerKind,
 } from "./media.js";
 
 // The internal item shape is shared with Plex, so it lives in media.ts; it is re-exported here
@@ -30,21 +31,22 @@ export interface JellyfinAuth {
 const TICKS_PER_MS = 10_000;
 
 export class JellyfinClient implements MediaServer {
-  readonly kind = "jellyfin" as const;
-  readonly name = "Jellyfin";
+  /** Emby subclasses this: its API is Jellyfin's ancestor, so only the differences are overridden. */
+  readonly kind: MediaServerKind = "jellyfin";
+  readonly name: string = "Jellyfin";
 
-  private deviceId = "ultimatetv-hub";
+  protected deviceId = "ultimatetv-hub";
 
   constructor(
     readonly auth: JellyfinAuth | { url: string; userId?: undefined; token?: undefined },
-    private fetchImpl: Fetch = fetch,
+    protected fetchImpl: Fetch = fetch,
   ) {}
 
-  private get base(): string {
+  protected get base(): string {
     return this.auth.url.replace(/\/+$/, "");
   }
 
-  private headers(): Record<string, string> {
+  protected headers(): Record<string, string> {
     const token = this.auth.token ? `, Token="${this.auth.token}"` : "";
     return {
       Authorization: `MediaBrowser Client="UltimateTV", Device="UltimateTV Hub", DeviceId="${this.deviceId}", Version="1.0.0"${token}`,
@@ -52,22 +54,30 @@ export class JellyfinClient implements MediaServer {
     };
   }
 
-  private get<T>(path: string): Promise<T> {
+  protected get<T>(path: string): Promise<T> {
     return fetchJson<T>(`${this.base}${path}`, this.fetchImpl, { headers: this.headers() }, 20_000);
   }
 
-  private async post(path: string, body?: unknown): Promise<Response> {
+  protected async post(path: string, body?: unknown): Promise<Response> {
     return fetchOk(`${this.base}${path}`, this.fetchImpl, { method: "POST", headers: this.headers(), body: body === undefined ? null : JSON.stringify(body) }, 20_000);
   }
 
-  private get userId(): string {
-    if (!this.auth.userId) throw new Error("Jellyfin isn't signed in");
+  protected get userId(): string {
+    if (!this.auth.userId) throw new Error(`${this.name} isn't signed in`);
     return this.auth.userId;
   }
 
   /** The Hub's id for one of Jellyfin's items: "jellyfin:abc123". */
   key(itemId: string): string {
     return `${this.kind}:${itemId}`;
+  }
+
+  kindOf(_itemId: string): MediaServerKind {
+    return this.kind;
+  }
+
+  rawId(itemId: string): string {
+    return itemId;
   }
 
   /** The Jellyfin item id inside one of the Hub's ids, or undefined for another server's. */
@@ -102,7 +112,7 @@ export class JellyfinClient implements MediaServer {
     return this.toAuth((await res.json()) as { AccessToken: string; User: { Id: string } });
   }
 
-  private async toAuth(body: { AccessToken: string; User: { Id: string } }): Promise<JellyfinAuth> {
+  protected async toAuth(body: { AccessToken: string; User: { Id: string } }): Promise<JellyfinAuth> {
     const auth: JellyfinAuth = { url: this.base, userId: body.User.Id, token: body.AccessToken };
     try {
       auth.serverName = (await this.publicInfo()).ServerName;
@@ -114,7 +124,7 @@ export class JellyfinClient implements MediaServer {
 
   // Browsing -------------------------------------------------------------
 
-  private static FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio,CommunityRating,OfficialRating,People,MediaSources,Path";
+  protected static FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio,CommunityRating,OfficialRating,People,MediaSources,Path";
 
   async resume(limit = 20): Promise<JfItem[]> {
     const r = await this.get<{ Items: JfItem[] }>(`/Users/${this.userId}/Items/Resume?Limit=${limit}&MediaTypes=Video&Fields=${JellyfinClient.FIELDS}`);
@@ -263,7 +273,7 @@ export class JellyfinClient implements MediaServer {
       const locations = folders.flatMap((f) => f.Locations ?? []).map((l) => l.replace(/\/+$/, ""));
       const outside = paths.filter((p) => !locations.some((l) => p.startsWith(`${l}/`)));
       if (outside.length === paths.length && locations.length) {
-        return { added: false, note: `Jellyfin doesn't look in that folder. Its libraries are in ${locations.join(", ")}: set MOVIES_PATH and TV_PATH in the Hub's .env to folders inside them.` };
+        return { added: false, note: `${this.name} doesn't look in that folder. Its libraries are in ${locations.join(", ")}: set MOVIES_PATH and TV_PATH in the Hub's .env to folders inside them.` };
       }
     }
     try {
@@ -271,7 +281,7 @@ export class JellyfinClient implements MediaServer {
     } catch {
       await this.post("/Library/Refresh");
     }
-    return { added: true, note: "Added to Jellyfin" };
+    return { added: true, note: `Added to ${this.name}` };
   }
 
   /** Asks Jellyfin to rescan its libraries, so deleted files disappear from it too. */
@@ -298,7 +308,7 @@ export class JellyfinClient implements MediaServer {
     const tmdb = item.ProviderIds?.Tmdb;
     const kind = item.Type === "Movie" ? "movie" : "series";
     const ref: TitleRef = {
-      id: isEpisode ? `jellyfin:${item.SeriesId}` : tmdb ? `tmdb:${kind}:${tmdb}` : `jellyfin:${item.Id}`,
+      id: isEpisode ? this.key(item.SeriesId ?? item.Id) : tmdb ? `tmdb:${kind}:${tmdb}` : this.key(item.Id),
       kind,
       name: isEpisode ? (item.SeriesName ?? item.Name) : item.Name,
     };
@@ -321,10 +331,10 @@ export class JellyfinClient implements MediaServer {
     const ref = this.toTitleRef(item);
     const details: TitleDetails = {
       ...ref,
-      id: `jellyfin:${item.Id}`,
+      id: this.key(item.Id),
       genres: item.Genres ?? [],
       cast: (item.People ?? []).filter((p) => p.Type === "Actor").slice(0, 8).map((p) => p.Name),
-      availability: ["jellyfin"],
+      availability: [this.kind],
       inLibrary: true,
     };
     if (item.Overview) details.overview = item.Overview;
@@ -348,7 +358,7 @@ export class JellyfinClient implements MediaServer {
   }
 
   toEpisode(e: JfItem): Episode {
-    const ep: Episode = { id: `jellyfin:${e.Id}`, season: e.ParentIndexNumber ?? 0, episode: e.IndexNumber ?? 0, name: e.Name };
+    const ep: Episode = { id: this.key(e.Id), season: e.ParentIndexNumber ?? 0, episode: e.IndexNumber ?? 0, name: e.Name };
     if (e.Overview) ep.overview = e.Overview;
     const still = this.image(e, "Primary", 640);
     if (still) ep.still = still;

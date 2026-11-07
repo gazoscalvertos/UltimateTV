@@ -31,6 +31,13 @@ class Window {
   virtual void size(int& width, int& height) = 0;
   /** The player to draw under the on-screen controls while a film is on. */
   virtual void setVideo(Video* video) = 0;
+  /**
+   * Whether the console's sound came up.
+   *
+   * False on a console whose audio driver refuses to initialise, where the app runs silently
+   * rather than not at all. The player asks before it tries to open a device.
+   */
+  virtual bool hasSound() const = 0;
 };
 
 /**
@@ -40,6 +47,13 @@ class Window {
  * tell whether a 4K picture is the thing the console can't keep up with.
  */
 void setWant4k(bool on);
+
+/**
+ * The SDL render driver to try first ("software", "opengles2", ...), from `--renderer=NAME` or
+ * /data/ultimatetv/renderer.txt. Empty lets the app choose; every driver is tried either way, and
+ * the log lists the names this console's SDL has.
+ */
+void setPreferredRenderer(const std::string& name);
 
 /** Opens the window. Answers nullptr with a reason in `problem` when it can't. */
 std::unique_ptr<Window> openWindow(std::string& problem);

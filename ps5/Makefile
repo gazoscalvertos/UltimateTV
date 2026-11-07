@@ -28,7 +28,7 @@ AUTHINFO := 00 00 00 00 00 00 00 00 00 00 00 00 00 1C 00 40 00 FF 00 00 00 00 00
             00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 # The portable half: no SDL, no console, no drawing. Everything the tests use.
-PORTABLE := json model http hub text ui display address
+PORTABLE := json model http hub text ui display address startup renderer
 # The parts that only exist on a console or with SDL.
 CONSOLE_ONLY := platform_sdl video main
 
@@ -41,7 +41,7 @@ PORTABLE_SRC := $(addprefix src/,$(addsuffix .cpp,$(PORTABLE)))
 
 HOST_CXX ?= $(shell command -v clang++ || command -v g++)
 HOST_CXXFLAGS ?= -std=c++20 -O1 -Wall -Wextra -Werror
-TEST_NAMES := json text model http hub ui display address
+TEST_NAMES := json text model http hub ui display address startup renderer
 HOSTTEST_DIR := .hosttest
 HOSTTEST_BINS := $(addprefix $(HOSTTEST_DIR)/,$(addsuffix _test,$(TEST_NAMES)))
 
@@ -202,10 +202,11 @@ deploy: build/ultimatetv.elf
 
 # The folder a mounter registers, which is how a title starts on firmware 12.00 and above.
 #
-# A fake .pkg installs on those firmwares and then refuses to launch: the console's own
-# package filesystem mount fails because the patches that allow a fake package were never
-# ported past 12.00. A plain folder has no such problem, because nothing about it is fake:
-# ShadowMountPlus scans /data/homebrew and registers whatever looks like a title.
+# A fake .pkg installs on those firmwares and then refuses to launch: kstuff-lite's
+# get_ppr_profile() returns NULL above firmware 11.60, so the console's own package filesystem
+# mount is refused and ShellCore reports 0x80020016. A plain folder has no such problem, because
+# nothing about it is fake: ShadowMountPlus scans /data/homebrew and registers what looks like a
+# title. The same is true of a UFS2 image, which is what `ffpkg` builds below.
 HOMEBREW_DIR := build/homebrew/$(TITLE_ID)
 
 .PHONY: homebrew
@@ -216,6 +217,30 @@ homebrew: tile
 	cp sce_sys/param.json sce_sys/icon0.png $(HOMEBREW_DIR)/sce_sys/
 	@# The tile's own param.json, not the .system one: a mounter reads it as a title.
 	@echo "built $(HOMEBREW_DIR)/: copy this folder into /data/homebrew/ on the console"
+
+# The image route: the folder above, wrapped in the UFS2 filesystem image that ShadowMountPlus
+# mounts for a title that ships as one file instead of a folder. BlackBox distributes its app
+# exactly this way, which is why it works on a console where a fake .pkg does not.
+#
+# The tool is not part of this repository, so the target says what to point at rather than
+# guessing. Any UFS2 builder that keeps the game files at the image root will do.
+UFS2_TOOL ?=
+FFPKG := build/$(TITLE_ID).ffpkg
+
+.PHONY: ffpkg
+ffpkg: homebrew
+ifeq ($(strip $(UFS2_TOOL)),)
+	@echo "make ffpkg needs a UFS2 image builder: point UFS2_TOOL at one, e.g."
+	@echo "  make -C ps5 ffpkg UFS2_TOOL=/path/to/mkufs2.sh"
+	@echo ""
+	@echo "The image must hold $(HOMEBREW_DIR)'s files at its ROOT — /eboot.bin and"
+	@echo "/sce_sys/param.json, with no extra top-level folder. That is the layout"
+	@echo "ShadowMountPlus mounts; anything else is silently ignored."
+	@exit 1
+else
+	$(UFS2_TOOL) $(HOMEBREW_DIR) $(FFPKG)
+	@echo "built $(FFPKG): copy it into /data/homebrew/ on the console"
+endif
 
 .PHONY: homebrew-upload
 homebrew-upload: homebrew

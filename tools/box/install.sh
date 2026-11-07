@@ -244,6 +244,16 @@ udevadm trigger --subsystem-match=tty --subsystem-match=rc --subsystem-match=cec
 # An adapter that's already plugged in gets the (possibly new) key map now; the app's session
 # restarts after an install, so KWin then sees the new keys.
 if grep -qs cec /sys/class/rc/rc*/protocols; then /usr/local/bin/ultimatetv-cec-keymap >/dev/null 2>&1 || true; fi
+# Watching the CEC bus (cec-ctl --monitor) needs CAP_NET_ADMIN. The app runs as the tv user, so
+# keep a copy of cec-ctl with only that capability, runnable by the tv user alone. It's how the box
+# hears the TV go to standby or switch input straight away (it also asks the TV every 20 s).
+if command -v cec-ctl >/dev/null 2>&1 && command -v setcap >/dev/null 2>&1; then
+  install -d -m755 /usr/local/lib/ultimatetv
+  install -m750 -o root -g "$(id -gn "$TV_USER")" "$(command -v cec-ctl)" /usr/local/lib/ultimatetv/cec-monitor
+  setcap cap_net_admin+ep /usr/local/lib/ultimatetv/cec-monitor || warn "couldn't let the app watch the CEC bus; it will ask the TV for its power instead"
+else
+  warn "cec-ctl or setcap missing, so the app will ask the TV for its power instead of watching the CEC bus"
+fi
 
 # --------------------------------------------------------------------------------------------
 # Spotify: go-librespot makes the box a Spotify Connect speaker (the app's name in the Spotify app)

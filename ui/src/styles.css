@@ -2406,6 +2406,33 @@ html.high-contrast .guide-grid:focus .gg-cell.selected {
   flex: 1;
   min-width: 0;
 }
+/* Settings › Sources: the address keyboard and the code the household types elsewhere. */
+.line-dialog .text-value {
+  overflow: hidden;
+  white-space: nowrap;
+  justify-content: flex-end;
+}
+.line-dialog .keyboard {
+  grid-template-columns: repeat(10, 1fr);
+}
+.line-dialog .key {
+  height: 3rem;
+}
+.line-shortcuts {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+}
+.line-shortcuts .key {
+  height: 3rem;
+  padding: 0 1.2rem;
+}
+.code-big {
+  margin: 1rem 0;
+  text-align: center;
+  font: 800 4rem/1.1 ui-monospace, "DejaVu Sans Mono", monospace;
+  letter-spacing: 0.4rem;
+}
 .qr-card {
   width: 20rem;
   flex: none;

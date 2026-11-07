@@ -75,8 +75,21 @@ export function parseQuality(text: string): StreamQuality {
 export interface RankingPrefs {
   maxSizeGb: number;
   avoidDvProfile5: boolean;
-  /** ISO 639-2 audio language the household prefers ("eng"); IPTV copies tagged for another language rank last. */
+  /** ISO 639-2 audio language the household prefers ("eng"); copies tagged for another language rank last. */
   preferredLang?: string;
+  /** What to do with copies in another language: rank them last (the default), hide them, or treat them like any other. */
+  otherLanguages?: OtherLanguageVersions;
+}
+
+/** Versions in a language other than the household's: "last" ranks them at the bottom, "hide" leaves them out, "any" doesn't mind. */
+export type OtherLanguageVersions = "last" | "hide" | "any";
+
+/** ISO 639-2 has two codes for some languages ("fra" and "fre"); the tags here use the second. */
+const LANG_ALIASES: Record<string, string> = { fra: "fre", deu: "ger", nld: "dut", ces: "cze", ron: "rum", ell: "gre", zho: "chi", sqi: "alb", en: "eng" };
+
+export function sameLanguage(a: string, b: string): boolean {
+  const norm = (x: string) => LANG_ALIASES[x.toLowerCase()] ?? x.toLowerCase();
+  return norm(a) === norm(b);
 }
 
 /** IPTV language tags and the ISO 639-2 language they mean. */
@@ -103,11 +116,51 @@ export function languageTag(name: string): string | undefined {
   return undefined;
 }
 
+/** Words release names use for the language of the sound, written in capitals as releases write them. */
+const RELEASE_WORDS: Record<string, string> = {
+  ENGLISH: "eng", ENG: "eng", FRENCH: "fre", TRUEFRENCH: "fre", VFF: "fre", VFQ: "fre", VF2: "fre", VOSTFR: "fre",
+  GERMAN: "ger", ITALIAN: "ita", ITA: "ita", SPANISH: "spa", CASTELLANO: "spa", LATINO: "spa", ESP: "spa",
+  PORTUGUESE: "por", HINDI: "hin", TAMIL: "tam", TELUGU: "tel", RUSSIAN: "rus", RUS: "rus", POLISH: "pol",
+  DUTCH: "dut", TURKISH: "tur", KOREAN: "kor", JAPANESE: "jpn", CHINESE: "chi", ARABIC: "ara",
+};
+
+/** Flags (as AIOStreams shows languages) and the language they stand for. */
+const FLAG_LANGS: Record<string, string> = {
+  GB: "eng", US: "eng", AU: "eng", CA: "eng", IE: "eng", NZ: "eng",
+  FR: "fre", DE: "ger", AT: "ger", ES: "spa", MX: "spa", AR: "spa", IT: "ita", PT: "por", BR: "por",
+  RU: "rus", UA: "ukr", IN: "hin", PL: "pol", NL: "dut", TR: "tur", JP: "jpn", KR: "kor", CN: "chi", SA: "ara",
+};
+
+/**
+ * The language of a torrent or addon release, from words such as FRENCH or GERMAN and from flags.
+ * Undefined when it names English among them, says MULTI or DUAL (which usually includes English), or says nothing.
+ */
+export function releaseLanguage(text: string): string | undefined {
+  if (/\b(multi|dual)\b/i.test(text)) return undefined;
+  const found: string[] = [];
+  for (const m of text.matchAll(/(?<![A-Za-z])(ENGLISH|ENG|FRENCH|TRUEFRENCH|VFF|VFQ|VF2|VOSTFR|GERMAN|ITALIAN|iTA|ITA|SPANISH|CASTELLANO|LATINO|ESP|PORTUGUESE|HINDI|TAMIL|TELUGU|RUSSIAN|RUS|POLISH|DUTCH|TURKISH|KOREAN|JAPANESE|CHINESE|ARABIC)(?![A-Za-z])/g)) {
+    found.push(RELEASE_WORDS[m[1]!.toUpperCase()]!);
+  }
+  for (const m of text.matchAll(/([\u{1F1E6}-\u{1F1FF}])([\u{1F1E6}-\u{1F1FF}])/gu)) {
+    const code = String.fromCharCode(m[1]!.codePointAt(0)! - 0x1f1e6 + 65, m[2]!.codePointAt(0)! - 0x1f1e6 + 65);
+    const lang = FLAG_LANGS[code];
+    if (lang) found.push(lang);
+  }
+  if (found.length === 0 || found.includes("eng")) return undefined;
+  return found[0];
+}
+
+/** The language a copy is tagged with, from what the source said or its name. */
+export function candidateLanguage(c: StreamCandidate): string | undefined {
+  return c.lang ?? languageTag(c.detail ?? "");
+}
+
 const KIND_SCORE: Record<SourceKind, number> = {
   nas: 40,
   recording: 40,
   jellyfin: 40,
   plex: 40,
+  emby: 40,
   torbox: 20,
   addon: 15,
   xtream: 5,
@@ -156,14 +209,24 @@ export function scoreStream(c: StreamCandidate, prefs: RankingPrefs): number {
   if (q.remux) score += 5;
   if (q.cam) score -= 500;
   // A dubbed copy in another language is never what was wanted, however good the picture.
-  const lang = prefs.preferredLang ? (c.lang ?? languageTag(c.detail ?? "")) : undefined;
-  if (lang && lang !== prefs.preferredLang) score -= 200;
+  const lang = prefs.preferredLang && prefs.otherLanguages !== "any" ? candidateLanguage(c) : undefined;
+  if (lang && !sameLanguage(lang, prefs.preferredLang!)) score -= 200;
   if (q.sizeBytes && prefs.maxSizeGb > 0 && q.sizeBytes > prefs.maxSizeGb * 1024 ** 3) score -= 80;
   return score;
 }
 
 export function rankStreams(candidates: StreamCandidate[], prefs: RankingPrefs): StreamCandidate[] {
-  return candidates
+  let list = candidates;
+  if (prefs.otherLanguages === "hide" && prefs.preferredLang) {
+    const want = prefs.preferredLang;
+    const kept = candidates.filter((c) => {
+      const lang = candidateLanguage(c);
+      return !lang || sameLanguage(lang, want);
+    });
+    // Nothing at all in the household's language: better a dubbed copy, ranked last, than no film.
+    if (kept.length > 0) list = kept;
+  }
+  return list
     .map((c) => ({ ...c, score: scoreStream(c, prefs) }))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
