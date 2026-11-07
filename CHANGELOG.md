@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-07
 
+- **More Kids films and shows rows**: the Kids profile's Films and TV Shows pages now have far more to pick from: top rated, new additions you haven't seen, for little ones (U) and bigger kids (PG), animation, adventure, comedy, family, fantasy, superheroes, animals, musicals, mystery, Watch again, and Best of 2026, 2025, 2024 and back. All rows follow the profile's rating limit and allow list. (#246)
+  Household: the Kids profile has many more categories on Films and TV Shows, including Best of each year.
+
 - **Fire TV: picks versions your stick can play**: the Android app now works out what the screen and decoder can show (a 1080p-only Fire stick is capped at 1080p, about 20 Mbit/s) and tells the Hub, which chooses the best version that fits instead of the biggest, and has Jellyfin shrink a 4K remux that was picked by hand. Playback also starts after 1 second of video instead of 2.5. Settings › Picture shows the limits and lets you change them. ([docs/firetv.md](docs/firetv.md)) (#245)
   Household: Videos start much faster on a 1080p Fire stick, and it is no longer sent 4K files it cannot play.
 - **Fire TV: easier to use with the remote**: the item you have selected now has a white outline and lifts slightly, everything is a quarter bigger for a TV, and nothing sits in the edge of the picture a TV crops. (#245)

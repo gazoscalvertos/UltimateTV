@@ -86,7 +86,14 @@ export const GENRES: Record<string, { movie: number; tv: number }> = {
   Thriller: { movie: 53, tv: 9648 },
   Animation: { movie: 16, tv: 16 },
   Kids: { movie: 10751, tv: 10762 },
+  Adventure: { movie: 12, tv: 10759 },
+  Fantasy: { movie: 14, tv: 10765 },
+  /** TMDB has no music genre for TV, so this row is films only (0 = none). */
+  Musicals: { movie: 10402, tv: 0 },
 };
+
+/** Genres only the Kids pages ask for, so the grown-up Films page keeps the rows it has always had. */
+export const KIDS_PAGE_GENRES = ["Kids", "Animation", "Family", "Comedy", "Adventure", "Fantasy", "Musicals"];
 
 const GENRE_NAMES: Record<number, string> = {
   28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime", 99: "Documentary", 18: "Drama", 10751: "Family",
@@ -144,15 +151,17 @@ export class TmdbClient {
   }
 
   /** Popular titles in a genre; `maxCertification` limits films to a UK certificate (Kids profiles). */
-  async discover(kind: TitleKind, genre: string, limit = 20, maxCertification?: string): Promise<TitleRef[]> {
+  async discover(kind: TitleKind, genre: string, limit = 20, maxCertification?: string, opts: { year?: number; bestRated?: boolean } = {}): Promise<TitleRef[]> {
     const g = GENRES[genre];
-    if (!g) return [];
+    const genreId = g ? (kind === "movie" ? g.movie : g.tv) : 0;
+    if (!genreId) return [];
     const params: Record<string, string | number> = {
-      with_genres: kind === "movie" ? g.movie : g.tv,
-      sort_by: "popularity.desc",
-      "vote_count.gte": 200,
+      with_genres: genreId,
+      sort_by: opts.bestRated ? "vote_average.desc" : "popularity.desc",
+      "vote_count.gte": opts.bestRated ? 150 : 200,
       watch_region: "GB",
     };
+    if (opts.year) params[kind === "movie" ? "primary_release_year" : "first_air_date_year"] = opts.year;
     if (maxCertification && kind === "movie") {
       params.certification_country = "GB";
       params["certification.lte"] = maxCertification;

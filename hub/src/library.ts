@@ -28,7 +28,8 @@ import { XtreamClient } from "./ingest/xtream.js";
 import { groupSeasons, type JfItem, type JfMediaSource } from "./services/jellyfin.js";
 import { addonKey, iptvKey, orderedKeys, orderStreams, pausedKeys } from "./sourceoptions.js";
 import { streamToCandidate } from "./services/stremio.js";
-import { GENRES } from "./services/tmdb.js";
+import { GENRES, KIDS_PAGE_GENRES } from "./services/tmdb.js";
+import { buildKidsRails, type KidsCandidate } from "./kidsrows.js";
 
 export interface EpisodeRef {
   season: number;
@@ -304,16 +305,51 @@ export class Library {
       const lib = await jf.items({ type: kind === "movie" ? "Movie" : "Series", sortBy: "DateCreated", limit: 30, ...(max ? { maxRating: max } : {}) }).catch(() => ({ items: [] as JfItem[], total: 0 }));
       const items = lib.items.map((i) => jf.toTitleRef(i)).filter((t) => f.ref(t));
       if (items.length) rails.push({ id: "library", title: "In your library", kind: "titles", items });
+      if (f.kids) {
+        // A Kids profile gets many more rows, all built from the same rating-limited, allow-listed
+        // titles: top rated, age bands, genres, Watch again and Best of each year.
+        const wide = await jf.items({ type: kind === "movie" ? "Movie" : "Series", sortBy: "DateCreated", limit: 400, ...(max ? { maxRating: max } : {}) }).catch(() => ({ items: [] as JfItem[], total: 0 }));
+        const candidates: KidsCandidate[] = [];
+        for (const i of wide.items) {
+          const ref = jf.toTitleRef(i);
+          if (!f.ref(ref)) continue;
+          candidates.push({
+            ref,
+            ...(i.ProductionYear ? { year: i.ProductionYear } : {}),
+            ...(i.CommunityRating ? { rating: i.CommunityRating } : {}),
+            genres: i.Genres ?? [],
+            watched: Boolean(i.UserData?.Played),
+            ...(i.UserData?.LastPlayedDate ? { lastPlayed: i.UserData.LastPlayedDate } : {}),
+          });
+        }
+        rails.push(...buildKidsRails(kind, candidates, { thisYear: new Date().getFullYear() }));
+      }
     }
     if (tmdb) {
       const popular = f.kids ? [] : await tmdb.popular(kind).catch(() => []);
       if (popular.length) rails.push({ id: "popular", title: kind === "movie" ? "Popular films" : "Popular series", kind: "titles", items: popular });
-      const genres = f.kids ? ["Kids", "Animation", "Comedy"] : Object.keys(GENRES).filter((g) => g !== "Kids");
-      const lists = await Promise.all(genres.map((g) => tmdb.discover(kind, g, 20, max).catch(() => [])));
+      const genres = f.kids ? KIDS_PAGE_GENRES : Object.keys(GENRES).filter((g) => g !== "Kids" && g !== "Adventure" && g !== "Fantasy" && g !== "Musicals");
+      // Kids pages also get "Best of <year>" for the years the library didn't already fill.
+      const thisYear = new Date().getFullYear();
+      const years = f.kids ? Array.from({ length: 8 }, (_, i) => thisYear - i).filter((y) => !rails.some((r) => r.id === `bestof-${y}`)) : [];
+      const [lists, yearLists] = await Promise.all([
+        Promise.all(genres.map((g) => tmdb.discover(kind, g, 20, max).catch(() => []))),
+        Promise.all(years.map((y) => tmdb.discover(kind, "Family", 20, max, { year: y, bestRated: true }).catch(() => []))),
+      ]);
       genres.forEach((g, i) => {
         const items = lists[i]!.filter((t) => f.ref(t));
         if (items.length) rails.push({ id: `genre-${g}`, title: g, kind: "titles", items });
       });
+      years.forEach((y, i) => {
+        const items = yearLists[i]!.filter((t) => f.ref(t));
+        if (items.length >= 3) rails.push({ id: `bestof-${y}`, title: `Best of ${y}`, kind: "titles", items });
+      });
+    }
+    if (f.kids) {
+      // Keep every "Best of <year>" row together at the end, newest year first.
+      const year = (r: Rail) => Number(r.id.slice("bestof-".length));
+      const best = rails.filter((r) => r.id.startsWith("bestof-")).sort((a, b) => year(b) - year(a));
+      rails.splice(0, rails.length, ...rails.filter((r) => !r.id.startsWith("bestof-")), ...best);
     }
     const vod = this.ctx.db
       .json<VodEntry>("SELECT data FROM vod WHERE kind = ? ORDER BY json_extract(data, '$.added') DESC LIMIT 40", kind)
