@@ -2,6 +2,7 @@
 
 package tv.ultimate.client.ui
 
+import tv.ultimate.client.Updater
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -286,27 +287,7 @@ fun SettingsScreen(nav: NavHostController) {
             OutlinedButton(onClick = { nav.navigate("whatsnew") }, enabled = ui.online, modifier = Modifier.fillMaxWidth()) { Text("What's new") }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${ui.appName} for ${BuildConfig.DEVICE_LABEL} ${BuildConfig.VERSION_NAME}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = {
-                    scope.launch {
-                        runCatching { app.hub.clientVersion() }
-                            .onSuccess { v ->
-                                if (v.versionCode > BuildConfig.VERSION_CODE) {
-                                    // #93: a build signed with the key that used to be in the repo
-                                    // can't be installed over, so the old app has to go first.
-                                    val fresh = BuildConfig.VERSION_CODE < (v.uninstallBelow ?: 0)
-                                    val said = if (fresh) {
-                                        "This is the first version signed with the house's own key, so Android won't install it over the old app. Uninstall this one, then install the download — your downloads on the phone stay, but you'll scan the TV's pairing code again. Settings and the Hub address are kept."
-                                    } else {
-                                        "Download it from the Hub and install it over this one. Your downloads stay."
-                                    }
-                                    if (ui.confirm("Version ${v.versionName ?: v.versionCode} is out", said, "Get it", "Later")) browse("${prefs.hub}${BuildConfig.UPDATE_PATH}")
-                                } else {
-                                    ui.say("This is the latest version")
-                                }
-                            }
-                            .onFailure { ui.say(explain(it)) }
-                    }
-                }) { Text("Check for updates") }
+                TextButton(onClick = { scope.launch { offerUpdate(context, app, ui, quiet = false) } }) { Text("Check for updates") }
             }
         }
     }
@@ -401,3 +382,31 @@ fun ProfilesScreen(nav: NavHostController) {
 }
 
 private fun colourOf(hex: String?): Color = runCatching { Color(android.graphics.Color.parseColor(hex ?: "#3B6FD8")) }.getOrDefault(Color(0xFF3B6FD8))
+
+
+/**
+ * Looks for a newer app on the Hub and, if the person agrees, downloads and installs it here (the
+ * Fire TV has no browser). [quiet] is the check made on start: say nothing unless there's an update.
+ */
+suspend fun offerUpdate(context: android.content.Context, app: tv.ultimate.client.App, ui: Ui, quiet: Boolean) {
+    val v = runCatching { Updater.newer(app.hub) }.getOrElse { if (!quiet) ui.say(explain(it)); return }
+    if (v == null) { if (!quiet) ui.say("This is the latest version"); return }
+    val name = v.versionName ?: v.versionCode.toString()
+    if (Updater.needsFreshInstall(v)) {
+        ui.confirm("Version $name needs a fresh install", "This one is signed with the house's own key, so Android won't install it over the old app. Uninstall this app, then install the new one from the Hub setup page. Your Hub address and pairing will need entering again.", "OK", "Later")
+        return
+    }
+    if (!ui.confirm("Version $name is out", "Update now? It downloads here, then Android asks you to press Install. Your downloads stay.", "Update now", "Later")) return
+    if (!Updater.mayInstall(context)) {
+        if (ui.confirm("Allow installing updates", "Android needs your OK once. On the next screen switch on \"Allow from this source\", press Back, then choose Check for updates again.", "Open it", "Cancel")) Updater.askPermission(context)
+        return
+    }
+    ui.say("Downloading the update…")
+    var last = -1
+    runCatching {
+        Updater.download(context, app.prefs.hub) { p ->
+            val pct = (p * 100).toInt()
+            if (p >= 0 && pct / 25 != last / 25) { last = pct; ui.say("Downloading the update… $pct%") }
+        }
+    }.onSuccess { Updater.install(context, it) }.onFailure { ui.say(explain(it)) }
+}

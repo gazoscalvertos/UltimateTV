@@ -46,6 +46,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -118,6 +119,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** The remote's Menu key (the three lines) opens Settings, wherever focus is. */
+    var onMenuKey: (() -> Unit)? = null
+
+    override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        if (keyCode == android.view.KeyEvent.KEYCODE_MENU) { onMenuKey?.invoke(); return true }
+        return super.onKeyUp(keyCode, event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Android 15 draws every app edge to edge anyway; doing it on older phones too keeps one layout,
@@ -148,6 +157,8 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
     val nav = rememberNavController()
     val app = App.instance
     val lifecycle = LocalLifecycleOwner.current
+    val context = LocalContext.current
+    var checkedUpdate by remember { mutableStateOf(false) }
 
     // Whether we're at home: checked whenever the app comes back to the front, and progress
     // watched away is sent to the Hub as soon as it answers.
@@ -162,6 +173,7 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
                     app.prefs.appName = name
                 }
                 ui.loadFeatures()
+                if (!checkedUpdate) { checkedUpdate = true; offerUpdate(context, app, ui, quiet = true) }
                 Offline.syncPositions(app.hub)
                 if (app.prefs.profileId == null) nav.navigate("profiles")
             } else if (wasOnline || startTab == null) {
@@ -170,6 +182,11 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
         }
     }
 
+    DisposableEffect(nav) {
+        val a = context as? MainActivity
+        a?.onMenuKey = { go(nav, "settings") }
+        onDispose { a?.onMenuKey = null }
+    }
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     val wide = isWide()
@@ -202,10 +219,13 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
         Row(Modifier.fillMaxSize().padding(pad).then(safe)) {
             if (wide && showBars) {
                 NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer, windowInsets = WindowInsets(0, 0, 0, 0)) {
+                    // Seven items are taller than a TV screen once enlarged: scroll, so Settings (last) is reachable.
+                    Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(Modifier.size(8.dp))
                     for (t in tabs) NavigationRailItem(selected = route == t.route, onClick = { go(nav, t.route) }, icon = { Icon(t.icon, null) }, label = { Text(t.label) })
                     if (ui.on("search")) NavigationRailItem(selected = route == "search", onClick = { go(nav, "search") }, icon = { Icon(Icons.Default.Search, null) }, label = { Text("Search") })
                     NavigationRailItem(selected = route == "settings", onClick = { go(nav, "settings") }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Settings") })
+                    }
                 }
             }
             Column(Modifier.fillMaxSize()) {
