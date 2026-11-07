@@ -27,6 +27,10 @@ import { errorToast, nav, now, openDialog, setShowStats, showStats, toast } from
 import { openSleepMenu, sleep } from "../sleep";
 import { openXray } from "../xray";
 import { canFindSubtitles, findSubtitles } from "../subtitles";
+import { adjustDelay } from "../delayDialog";
+import { canDelay, soundDelayMs, subDelayMs } from "../delays";
+import { canRemember, chooseAudio, chooseSubtitle, clearRemembered } from "../trackprefs";
+import { delayLabel } from "@ultimatetv/shared";
 
 interface UpNext {
   req: PlaybackRequest;
@@ -436,7 +440,7 @@ export function Player() {
           <div class="option-list">
             <For each={st.audioTracks}>
               {(t) => (
-                <button class="option" classList={{ selected: t.selected }} data-focus onClick={() => void agent.setAudioTrack(t.id).then(() => close())}>
+                <button class="option" classList={{ selected: t.selected }} data-focus onClick={() => void chooseAudio(t.id).then(() => close())}>
                   {[t.title ?? t.lang ?? `Track ${t.id}`, t.audioDescription && !/descri/i.test(t.title ?? "") ? "Audio description" : "", t.codec?.toUpperCase(), t.channels ? `${t.channels > 2 ? `${t.channels - 1}.1` : "Stereo"}` : ""].filter(Boolean).join(" · ")}
                 </button>
               )}
@@ -446,12 +450,12 @@ export function Player() {
             <Icon name="subtitles" /> Subtitles
           </h4>
           <div class="option-list">
-            <button class="option" classList={{ selected: !st.subtitleTracks.some((t) => t.selected) }} data-focus onClick={() => void agent.setSubtitleTrack(null).then(() => close())}>
+            <button class="option" classList={{ selected: !st.subtitleTracks.some((t) => t.selected) }} data-focus onClick={() => void chooseSubtitle(null).then(() => close())}>
               Off
             </button>
             <For each={st.subtitleTracks}>
               {(t) => (
-                <button class="option" classList={{ selected: t.selected }} data-focus onClick={() => void agent.setSubtitleTrack(t.id).then(() => close())}>
+                <button class="option" classList={{ selected: t.selected }} data-focus onClick={() => void chooseSubtitle(t.id).then(() => close())}>
                   {t.title ?? t.lang ?? `Track ${t.id}`}
                 </button>
               )}
@@ -462,6 +466,26 @@ export function Player() {
               </button>
             </Show>
           </div>
+          <Show when={canRemember()}>
+            <div class="option-list">
+              <button class="option" data-focus onClick={() => void clearRemembered().then(() => close())}>
+                Default: forget my sound and subtitle choice for this
+              </button>
+            </div>
+          </Show>
+          <Show when={canDelay()}>
+            <h4>
+              <Icon name="speaker" /> Lip-sync
+            </h4>
+            <div class="option-list">
+              <button class="option" data-focus onClick={() => (close(), void adjustDelay("sound"))}>
+                Sound delay: {delayLabel(soundDelayMs())}
+              </button>
+              <button class="option" data-focus onClick={() => (close(), void adjustDelay("subtitle"))}>
+                Subtitle delay: {delayLabel(subDelayMs())}
+              </button>
+            </div>
+          </Show>
           <h4>
             <Icon name="moon" /> Night mode
           </h4>

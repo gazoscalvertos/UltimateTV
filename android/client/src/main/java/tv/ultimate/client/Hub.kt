@@ -278,6 +278,16 @@ class Hub(private val prefs: Prefs) {
     /** Asks the TV to carry on (or Sync play) what `device` is playing: "resume", "move" or "sync". */
     suspend fun tvWatchHere(device: String, mode: String) = raw("/api/tv/call/watchHere", "POST", mapOf("device" to device, "mode" to mode), 45_000)
 
+    /** The audio and subtitle choice this profile made last time for a series or film (issue #228). */
+    suspend fun trackPref(title: String): TrackPref? = get<Map<String, TrackPref?>>("/api/track-prefs?title=${enc(title)}", 5000)["pref"]
+    suspend fun saveTrackPref(title: String, audioLang: String?, audioDescription: Boolean, subtitle: String?, subtitleOff: Boolean) {
+        val body = mutableMapOf<String, Any>("title" to title)
+        if (audioLang != null) body["audio"] = mutableMapOf<String, Any>("lang" to audioLang).also { if (audioDescription) it["description"] = true }
+        if (subtitleOff) body["subtitle"] = "off" else if (subtitle != null) body["subtitle"] = mapOf("lang" to subtitle)
+        raw("/api/track-prefs", "PUT", body, 8000)
+    }
+    suspend fun clearTrackPref(title: String) = raw("/api/track-prefs?title=${enc(title)}", "DELETE", timeoutMs = 8000)
+
     /** Kids time limits: "still playing" every half minute; the answer says how long is left (hub/src/kidstime.ts). */
     suspend fun kidsReport(playing: Boolean): Map<String, Any?>? =
         post<Map<String, Any?>>("/api/kids-time/report", mapOf("playing" to playing), timeoutMs = 8000)["status"] as? Map<String, Any?>

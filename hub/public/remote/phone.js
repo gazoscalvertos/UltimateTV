@@ -356,8 +356,15 @@
     openSheet(
       `<h3>Sound</h3>${st.audioTracks.map((t) => `<button class="row-btn${t.selected ? " on" : ""}" data-audio="${t.id}">${esc(label(t))}</button>`).join("")}
        <h3>Subtitles</h3><button class="row-btn${st.subtitleTracks.some((t) => t.selected) ? "" : " on"}" data-sub="off">Off</button>
-       ${st.subtitleTracks.map((t) => `<button class="row-btn${t.selected ? " on" : ""}" data-sub="${t.id}">${esc(label(t))}</button>`).join("")}`,
+       ${st.subtitleTracks.map((t) => `<button class="row-btn${t.selected ? " on" : ""}" data-sub="${t.id}">${esc(label(t))}</button>`).join("")}
+       ${tv.delays ? ["sound", "subtitle"].map((w) => { const ms = w === "sound" ? tv.delays.soundMs : tv.delays.subMs; return `<h3>${w === "sound" ? "Sound delay" : "Subtitle delay"}</h3><div class="delay-row"><button class="row-btn" data-delay="${w}" data-step="-1">−50 ms</button><b class="delay-ms" id="delay-${w}">${ms > 0 ? "+" : ""}${ms} ms</b><button class="row-btn" data-delay="${w}" data-step="1">+50 ms</button><button class="row-btn" data-delay="${w}" data-reset="1">Reset</button></div>`; }).join("") : ""}`,
     );
+    for (const b of document.querySelectorAll("[data-delay]"))
+      b.onclick = () =>
+        call("delay", { which: b.dataset.delay, ...(b.dataset.reset ? { reset: true } : { step: Number(b.dataset.step) }) }).then((r) => {
+          const el = document.getElementById("delay-" + b.dataset.delay);
+          if (el && r) el.textContent = (r.ms > 0 ? "+" : "") + r.ms + " ms";
+        }, (e) => toast(e.message, true));
     for (const b of document.querySelectorAll("[data-audio]")) b.onclick = () => call("track", { audio: Number(b.dataset.audio) }).then(() => (closeSheet(), poll()), (e) => toast(e.message, true));
     for (const b of document.querySelectorAll("[data-sub]")) b.onclick = () => call("track", { subtitle: b.dataset.sub === "off" ? null : Number(b.dataset.sub) }).then(() => (closeSheet(), poll()), (e) => toast(e.message, true));
   };

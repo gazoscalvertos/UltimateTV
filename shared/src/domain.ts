@@ -979,7 +979,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "radio" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite" | "bluetooth" | "watchHere";
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "radio" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite" | "bluetooth" | "watchHere" | "delay";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {
@@ -1001,6 +1001,8 @@ export interface TvNow {
     savable?: boolean;
   } | null;
   player: PlayerState;
+  /** Lip-sync and subtitle timing now, in milliseconds (the phone's Sound and subtitles sheet). */
+  delays?: { soundMs: number; subMs: number };
   /** The stats overlay's sections, when something plays. */
   stats: PlaybackStats | null;
   info: BoxInfo | null;

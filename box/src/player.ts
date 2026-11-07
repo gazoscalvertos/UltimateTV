@@ -476,7 +476,9 @@ export class Player {
   private clipSound = false;
   /** Headphones or a speaker is the sound output (#102): decode, because passthrough can't go there. */
   private bluetooth = false;
+  /** The Bluetooth lip-sync setting (#102) and the person's own nudge from the player (#223): mpv gets both. */
   private audioDelayS = 0;
+  private soundOffsetS = 0;
 
   /**
    * Passthrough (Dolby and DTS sent to the TV untouched) holds the HDMI output for mpv alone, so
@@ -517,7 +519,22 @@ export class Player {
   /** Lip-sync: shifts the sound against the picture in seconds, negative for earlier (mpv's audio-delay). */
   async setAudioDelay(seconds: number): Promise<void> {
     this.audioDelayS = Number.isFinite(seconds) ? seconds : 0;
-    await this.mpv.set("audio-delay", this.audioDelayS).catch((e: Error) => this.log(`mpv audio-delay: ${e.message}`));
+    await this.applyAudioDelay();
+  }
+
+  private async applyAudioDelay(): Promise<void> {
+    await this.mpv.set("audio-delay", Math.round((this.audioDelayS + this.soundOffsetS) * 1000) / 1000).catch((e: Error) => this.log(`mpv audio-delay: ${e.message}`));
+  }
+
+  /** Sound delay from the player's options (#223), on top of the Bluetooth setting; positive plays the sound later. */
+  async setSoundOffset(seconds: number): Promise<void> {
+    this.soundOffsetS = Number.isFinite(seconds) ? seconds : 0;
+    await this.applyAudioDelay();
+  }
+
+  /** Subtitle delay (#223), mpv's sub-delay: positive shows the words later. It starts at 0 for every title. */
+  async setSubtitleDelay(seconds: number): Promise<void> {
+    await this.mpv.set("sub-delay", Number.isFinite(seconds) ? seconds : 0).catch((e: Error) => this.log(`mpv sub-delay: ${e.message}`));
   }
 
   /** The volume, 0–100: the sleep timer fades out with it (passthrough sound can't be faded). */

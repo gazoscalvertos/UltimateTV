@@ -30,6 +30,8 @@ pop up what's new after an update. So:
 
 ## 2026-11-07
 
+- **Sound delay, subtitle delay, and the sound and subtitle choice remembered per series** ([docs/player-sync.md](docs/player-sync.md)): Options in the player has Sound delay and Subtitle delay in 50 ms steps with the number on screen (left and right to move, Back to finish). The sound delay is kept for each sound output, so headphones keep their own offset; the subtitle delay starts at 0 for every title. The phone remote's Sound and subtitles sheet has the same two controls. Picking a sound track or subtitles in a series (Japanese with English subtitles, say) is now remembered for that profile and applied to the next episode, Up Next and Resume by matching the language, whichever source it comes from; Options › Default forgets it. On the Fire TV and Android app the player gained an Audio and subtitles button and list that the Fire remote can reach (Up, Down or Menu), with Off for subtitles, and it remembers the choice the same way. The delays are not on the Android app yet. (#223, #228)
+  Household: the sound and subtitles you pick for a series now carry on to the next episode, lip-sync can be nudged from the TV or the phone, and subtitles can be switched off from the Fire TV remote.
 - **More Kids films and shows rows**: the Kids profile's Films and TV Shows pages now have far more to pick from: top rated, new additions you haven't seen, for little ones (U) and bigger kids (PG), animation, adventure, comedy, family, fantasy, superheroes, animals, musicals, mystery, Watch again, and Best of 2026, 2025, 2024 and back. All rows follow the profile's rating limit and allow list. (#246)
   Household: the Kids profile has many more categories on Films and TV Shows, including Best of each year.
 
