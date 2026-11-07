@@ -229,7 +229,7 @@ try {
   await wait(1200);
   await shot("18-settings-phone-remote");
   // The QR codes and links for downloading the two Android apps.
-  await page.locator(".settings-nav-item", { hasText: "Android apps" }).first().focus();
+  await page.locator(".settings-nav-item", { hasText: "Apps for your devices" }).first().focus();
   await wait(1200);
   await shot("63-settings-android-apps");
 
@@ -559,6 +559,12 @@ try {
   await key("ArrowDown");
   await wait(1000);
   await shot("107-settings-subtitles");
+  // Which languages' versions films and shows offer (English first, English only, all languages).
+  await page.locator(".settings-nav-item", { hasText: "Picture and sound" }).first().focus();
+  await wait(800);
+  await page.locator(".setting-row", { hasText: "Versions" }).first().focus();
+  await wait(1000);
+  await shot("126-settings-versions-language");
   await page.goto(`${base}/app/?demo-cast`);
   await wait(1500);
   await key("F4");

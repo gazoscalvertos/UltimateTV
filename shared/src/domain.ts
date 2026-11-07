@@ -705,6 +705,8 @@ export interface Settings {
     subtitlesByDefault: boolean;
     maxSizeGb: number;
     avoidDvProfile5: boolean;
+    /** Versions in another language than preferredAudioLang: ranked last, hidden, or treated like any other. */
+    otherLanguages: "last" | "hide" | "any";
     autoplayNext: boolean;
     startOn: "home" | "live";
     /**

@@ -2,7 +2,7 @@
 // returns TorBox-resolved links that play directly.
 
 import type { StreamCandidate } from "@ultimatetv/shared";
-import { parseQuality } from "@ultimatetv/shared";
+import { parseQuality, releaseLanguage } from "@ultimatetv/shared";
 import { fetchJson, type Fetch } from "../http.js";
 
 export interface AddonManifest {
@@ -81,6 +81,8 @@ export function streamToCandidate(s: AddonStream, addonName: string, index: numb
     url,
     downloadable: true,
   };
+  const lang = releaseLanguage(text);
+  if (lang) candidate.lang = lang;
   const headers = s.behaviorHints?.proxyHeaders?.request;
   if (headers) candidate.headers = headers;
   return candidate;
