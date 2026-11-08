@@ -413,6 +413,20 @@ export class PlexClient implements MediaServer {
     return (body.MediaContainer?.Metadata ?? []).filter((m) => itemType(m.type) === wanted).slice(0, limit).map((m) => this.toJf(m));
   }
 
+  /** Films with a play count and shows with any episode watched, read from each library section. */
+  async played(limit = 1500): Promise<JfItem[]> {
+    const out: JfItem[] = [];
+    for (const section of await this.sections()) {
+      if (section.type !== "movie" && section.type !== "show") continue;
+      const body = await this.get<PlexContainer>(`/library/sections/${encodeURIComponent(section.key)}/all?X-Plex-Container-Start=0&X-Plex-Container-Size=${limit}`);
+      for (const m of body.MediaContainer?.Metadata ?? []) {
+        const seen = section.type === "movie" ? (m.viewCount ?? 0) > 0 : (m.viewCount ?? 0) > 0 || (m.viewedLeafCount ?? 0) > 0;
+        if (seen) out.push(this.toJf(m));
+      }
+    }
+    return out;
+  }
+
   async items(params: ItemsQuery): Promise<{ items: JfItem[]; total: number }> {
     const limit = params.limit ?? 60;
     const start = params.start ?? 0;

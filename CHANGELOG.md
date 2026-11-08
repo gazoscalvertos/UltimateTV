@@ -28,6 +28,11 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-08
+
+- **Watched titles go last in suggestions** ([docs/watched-suggestions.md](docs/watched-suggestions.md)): the Hub notes what each profile has watched (on the TV, and on any device Jellyfin, Plex or Emby know of) and holds it back in suggestions: Because you watched, Family films, Recently added, Trending, Films on TV today, New films from your IPTV, Films and TV Shows pages (including the Kids rows and Best of each year), More like this and search results. Settings › Playback › Titles you've already watched puts them last (the default), hides them or shows them as normal. Continue watching and Watch again rows are not affected. (#251)
+  Household: films and shows you've already watched now sit at the end of the suggestions, or can be hidden in Settings.
+
 ## 2026-11-07
 
 - **Art gallery screensaver** ([docs/screensaver.md](docs/screensaver.md#art-gallery)): famous paintings full screen in high resolution, from the Art Institute of Chicago, the Met and the Cleveland Museum, all free to use. Choose how long each stays (30 seconds to an hour), shuffled or by artist, which collections (Impressionism, landscapes, Japan…), a matte or gold frame, a museum card with the title and artist, brightness, and a Kids-friendly option. The Hub keeps them, so they show smoothly and without the internet. (#249)

@@ -774,6 +774,12 @@ export interface Settings {
     /** Versions in another language than preferredAudioLang: ranked last, hidden, or treated like any other. */
     otherLanguages: "last" | "hide" | "any";
     autoplayNext: boolean;
+    /**
+     * Titles a profile has already watched in suggestion rows (Home, Films and TV pages, More like
+     * this, search): "end" moves them behind the rest, "hide" leaves them out, "off" treats them
+     * like any other. Continue watching and Watch again rows are not affected. Older Hubs: "end".
+     */
+    watchedSuggestions?: "end" | "hide" | "off";
     startOn: "home" | "live";
     /**
      * When the TV goes to standby (or switches to another input), the box pauses what's playing

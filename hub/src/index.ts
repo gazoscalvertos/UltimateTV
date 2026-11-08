@@ -75,4 +75,8 @@ if (moved) {
   const sendJellyfinProgress = () => void ctx.flushJellyfinProgress().catch((err) => app.log.warn({ err: String(err) }, "Couldn't send Jellyfin its places"));
   sendJellyfinProgress();
   setInterval(sendJellyfinProgress, HOUR);
+  // What the media servers say has been played, on any device, for the suggestion rows.
+  const syncPlayed = () => void ctx.syncPlayed().catch((err) => app.log.warn({ err: String(err) }, "Couldn't read what was played from the media server"));
+  setTimeout(syncPlayed, 30_000);
+  setInterval(syncPlayed, 15 * 60_000);
 }

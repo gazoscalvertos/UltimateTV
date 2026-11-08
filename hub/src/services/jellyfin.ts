@@ -140,6 +140,25 @@ export class JellyfinClient implements MediaServer {
     return this.get<JfItem[]>(`/Users/${this.userId}/Items/Latest?IncludeItemTypes=${type}&Limit=${limit}&GroupItems=true&Fields=${JellyfinClient.FIELDS}`);
   }
 
+  async played(limit = 1500): Promise<JfItem[]> {
+    const ask = (types: string, extra: Record<string, string> = {}) => {
+      const q = new URLSearchParams({
+        IncludeItemTypes: types,
+        Recursive: "true",
+        Filters: "IsPlayed",
+        SortBy: "DatePlayed",
+        SortOrder: "Descending",
+        Limit: String(limit),
+        Fields: "ProviderIds,ProductionYear",
+        ...extra,
+      });
+      return this.get<{ Items: JfItem[] }>(`/Users/${this.userId}/Items?${q}`).then((r) => r.Items);
+    };
+    // Films and fully watched series, and episodes, which put a series that is only part watched on the list.
+    const [titles, episodes] = await Promise.all([ask("Movie,Series"), ask("Episode")]);
+    return [...titles, ...episodes];
+  }
+
   async items(params: ItemsQuery): Promise<{ items: JfItem[]; total: number }> {
     const q = new URLSearchParams({
       IncludeItemTypes: params.type,

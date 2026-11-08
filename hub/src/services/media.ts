@@ -127,6 +127,11 @@ export interface MediaServer {
   resume(limit?: number): Promise<JfItem[]>;
   nextUp(limit?: number): Promise<JfItem[]>;
   latest(type: "Movie" | "Episode", limit?: number): Promise<JfItem[]>;
+  /**
+   * Films and series this server's viewer has played, from any device (an episode stands for its
+   * series, named in SeriesName). Newest first. Used to keep suggestions from repeating them.
+   */
+  played?(limit?: number): Promise<JfItem[]>;
   byProviderId(provider: MediaProvider, id: string, type: "Movie" | "Series"): Promise<JfItem | undefined>;
   hasProviderId(provider: MediaProvider, id: string, type: "Movie" | "Series"): Promise<boolean>;
   seasons(seriesId: string): Promise<JfItem[]>;
