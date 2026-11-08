@@ -573,7 +573,10 @@ async function main(): Promise<void> {
   win.setMenu(null);
   if (!DESKTOP) {
     // The screen changing mode or HDR (display.ts) is when the stacking is lost: raise again after.
-    for (const ev of ["display-metrics-changed", "display-added", "display-removed"] as const) screen.on(ev, () => raiseSoon(() => win));
+    const again = () => raiseSoon(() => win);
+    screen.on("display-metrics-changed", again);
+    screen.on("display-added", again);
+    screen.on("display-removed", again);
     raiseSoon(() => win);
   }
   if (DESKTOP) {
