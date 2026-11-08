@@ -2,6 +2,7 @@
 // (the media server, TMDB, TorBox, addons) are rebuilt when settings change.
 
 import path from "node:path";
+import { ArtGallery } from "./art.js";
 import { PhotoFolder } from "./screensaver.js";
 import type { Settings } from "@ultimatetv/shared";
 import { ChannelStore } from "./channels.js";
@@ -117,6 +118,7 @@ export class HubContext {
   readonly downloads: DownloadManager;
   readonly mix: MixManager;
   readonly photos: PhotoFolder;
+  readonly art: ArtGallery;
   readonly log: Logger;
   readonly fetchImpl: Fetch;
 
@@ -224,6 +226,7 @@ export class HubContext {
       mediaRoot: opts.mediaRoot ?? "/mnt/nas",
     });
     this.photos = new PhotoFolder(opts.mediaRoot ?? "/mnt/nas");
+    this.art = new ArtGallery({ dir: path.join(opts.dataDir, "art"), fetchImpl: this.fetchImpl, log: this.log, settings: () => this.settings.get().screensaver });
     this.settings.onChange((s) => this.rebuildClients(s));
     this.rebuildClients(this.settings.get());
   }

@@ -1,7 +1,7 @@
 // Jellyfin API client: Quick Connect sign-in, libraries, playback URLs (always direct play: the box
 // plays every format), progress sync, skip markers and library refresh.
 
-import type { Episode, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import type { Episode, TitleDetails, TitleRef, Trickplay } from "@ultimatetv/shared";
 import { fetchJson, fetchOk, type Fetch } from "../http.js";
 import {
   groupSeasons,
@@ -177,7 +177,8 @@ export class JellyfinClient implements MediaServer {
   }
 
   item(id: string): Promise<JfItem> {
-    return this.get<JfItem>(`/Users/${this.userId}/Items/${id}?Fields=${JellyfinClient.FIELDS}`);
+    // Trickplay (10.9+) rides along on the single item only: it is too big to ask of a whole list.
+    return this.get<JfItem>(`/Users/${this.userId}/Items/${id}?Fields=${JellyfinClient.FIELDS}${this.kind === "jellyfin" ? ",Trickplay" : ""}`);
   }
 
   private providerIndex: { at: number; map: Promise<Map<string, string>> } | null = null;
@@ -232,6 +233,30 @@ export class JellyfinClient implements MediaServer {
     } catch {
       return []; // Older servers, or no segment provider installed.
     }
+  }
+
+  /**
+   * The seek bar's preview pictures for this item, from the sheets Jellyfin has already made (10.9+;
+   * Emby and Plex have none). Undefined when there are none, so the player shows nothing.
+   */
+  trickplay(itemId: string, item: JfItem, mediaSourceId: string | undefined): Trickplay | undefined {
+    if (this.kind !== "jellyfin" || !item.Trickplay) return undefined;
+    const sourceId = mediaSourceId && item.Trickplay[mediaSourceId] ? mediaSourceId : Object.keys(item.Trickplay)[0];
+    const sizes = sourceId ? Object.values(item.Trickplay[sourceId] ?? {}) : [];
+    // The biggest frame up to 480 wide is plenty for a thumbnail; failing that, the smallest there is.
+    const usable = sizes.filter((s) => s.Interval > 0 && s.ThumbnailCount > 0 && s.TileWidth > 0 && s.TileHeight > 0);
+    const small = usable.filter((s) => s.Width <= 480).sort((a, b) => b.Width - a.Width)[0] ?? usable.sort((a, b) => a.Width - b.Width)[0];
+    if (!small || !sourceId) return undefined;
+    const q = new URLSearchParams({ mediaSourceId: sourceId, api_key: this.auth.token ?? "" });
+    return {
+      url: `${this.base}/Videos/${itemId}/Trickplay/${small.Width}/{n}.jpg?${q}`,
+      intervalMs: small.Interval,
+      width: small.Width,
+      height: small.Height,
+      tileWidth: small.TileWidth,
+      tileHeight: small.TileHeight,
+      count: small.ThumbnailCount,
+    };
   }
 
   // Playback -------------------------------------------------------------

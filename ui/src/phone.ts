@@ -2,6 +2,7 @@
 // to play something, seek, pick a track, drive the music, download to the box, save to the NAS or star a favourite. The Hub relays each call as a
 // "tv.call" event and waits for the answer posted back to /api/tv/reply/:id.
 
+import { DELAY_STEP_MS } from "@ultimatetv/shared";
 import type { BtAction, FavouriteInput, FeatureId, GameAppId, HaCommand, PlaybackRequest, SleepChoice, SpotifyCommand, SpotifySetup, TitleRef, TvMethod, TvNow } from "@ultimatetv/shared";
 import { agent, agentHas, onBox } from "./agent";
 import { canBluetooth, setBtState } from "./bluetooth";
@@ -11,6 +12,8 @@ import { allEpisodes, canDownload, downloadToBox, episodeRequest, episodesOf, fi
 import { onHubEvent } from "./events";
 import { featureLabel, featureOn } from "./features";
 import { favourites, setFavourite } from "./favourites";
+import { canDelay, setSound, setSubs, soundDelayMs, subDelayMs } from "./delays";
+import { chooseAudio, chooseSubtitle } from "./trackprefs";
 import { haCommand } from "./homeassistant";
 import { music, spotify, spotifySetup, webApp } from "./music";
 import { channels, liveChannelId, nowPlaying, play, playerState } from "./player";
@@ -102,6 +105,7 @@ async function now(): Promise<TvNow> {
     screen: nav.current().name,
     playing,
     player: playerState(),
+    ...(canDelay() ? { delays: { soundMs: soundDelayMs(), subMs: subDelayMs() } } : {}),
     stats,
     info,
     spotify: s.available && (s.status !== "stopped" || s.track) ? s : null,
@@ -129,8 +133,8 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
     return { ok: true };
   },
   track: async (a: { audio?: number; subtitle?: number | null }) => {
-    if (typeof a.audio === "number") await agent.setAudioTrack(a.audio);
-    if (a.subtitle !== undefined) await agent.setSubtitleTrack(a.subtitle);
+    if (typeof a.audio === "number") await chooseAudio(a.audio);
+    if (a.subtitle !== undefined) await chooseSubtitle(a.subtitle);
     return { ok: true };
   },
   // The phone remote's Watching elsewhere: carry on here what another screen is playing, or join it.
@@ -140,6 +144,14 @@ const handlers: Record<TvMethod, (args: never) => Promise<unknown>> = {
     const ok = a.mode === "sync" ? await syncWith(s) : await resumeHere(s, a.mode === "move");
     if (!ok) throw new Error("It didn't start on the TV");
     return { ok };
+  },
+  // Lip-sync and subtitle timing from the phone (issue #223): a step either way, or back to 0.
+  delay: async (a: { which: "sound" | "subtitle"; step?: 1 | -1; reset?: boolean }) => {
+    if (!canDelay()) throw new Error("The TV app needs updating for this (Settings › Updates › Box)");
+    const set = a.which === "sound" ? setSound : setSubs;
+    const cur = a.which === "sound" ? soundDelayMs : subDelayMs;
+    const ms = await set(a.reset ? 0 : cur() + (a.step === -1 ? -DELAY_STEP_MS : DELAY_STEP_MS));
+    return { ok: true, ms };
   },
   // The phone's Cast sheet: over to the TV's own apps (Netflix and the rest).
   musicLibrary: async (a: { kind: "playlists" | "albums" | "artists"; offset?: number }) => music().spotifyLibrary(a.kind, a.offset ?? 0),

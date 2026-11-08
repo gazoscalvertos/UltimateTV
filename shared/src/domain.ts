@@ -421,6 +421,31 @@ export interface SubtitleTrack {
   label: string;
 }
 
+/**
+ * Jellyfin's trickplay: contact sheets of small frames taken every `intervalMs`, `tileWidth` by
+ * `tileHeight` frames per picture. `url` has `{n}` where the sheet number goes (counting from 0).
+ */
+export interface Trickplay {
+  url: string;
+  intervalMs: number;
+  /** One frame's size in the sheet, in pixels. */
+  width: number;
+  height: number;
+  tileWidth: number;
+  tileHeight: number;
+  /** How many frames there are in all. */
+  count: number;
+}
+
+/** Which sheet, and where on it, holds the frame for this moment. Null when it is off the end. */
+export function trickplayFrame(tp: Trickplay, ms: number): { url: string; x: number; y: number } | null {
+  if (!(tp.intervalMs > 0) || tp.tileWidth < 1 || tp.tileHeight < 1 || tp.count < 1) return null;
+  const frame = Math.min(tp.count - 1, Math.max(0, Math.floor(ms / tp.intervalMs)));
+  const perSheet = tp.tileWidth * tp.tileHeight;
+  const within = frame % perSheet;
+  return { url: tp.url.replace("{n}", String(Math.floor(frame / perSheet))), x: (within % tp.tileWidth) * tp.width, y: Math.floor(within / tp.tileWidth) * tp.height };
+}
+
 export interface PlaybackInfo {
   url: string;
   headers?: Record<string, string>;
@@ -445,6 +470,8 @@ export interface PlaybackInfo {
   skip: { kind: "intro" | "recap" | "credits" | "adverts"; startMs: number; endMs: number }[];
   /** Jump over the advert breaks without asking (Settings › Recording). */
   autoSkipAdverts?: boolean;
+  /** Preview pictures for the seek bar, when Jellyfin has made them (#227). Absent means none. */
+  trickplay?: Trickplay;
   /** The next episode, for autoplay. */
   /** What plays next (the next episode), with its still and summary for the Up Next card. */
   next?: PlaybackRequest & { name: string; image?: string; overview?: string };
@@ -985,7 +1012,7 @@ export interface BoxState {
 // The phone remote: what the TV is doing, and machine stats
 
 /** What the phone can ask the TV app to do, through the Hub (POST /api/tv/call/:method). */
-export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "radio" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite" | "bluetooth" | "watchHere";
+export type TvMethod = "now" | "play" | "seek" | "track" | "musicLibrary" | "musicTracks" | "musicPlay" | "musicControl" | "radio" | "downloads" | "download" | "downloadRemove" | "musicStatus" | "musicSetup" | "saveToNas" | "sleep" | "cast" | "castApp" | "castAirplay" | "ha" | "favourite" | "bluetooth" | "watchHere" | "delay";
 
 /** What the TV shows and plays, for the phone's Now Playing card and Stats page. */
 export interface TvNow {
@@ -1007,6 +1034,8 @@ export interface TvNow {
     savable?: boolean;
   } | null;
   player: PlayerState;
+  /** Lip-sync and subtitle timing now, in milliseconds (the phone's Sound and subtitles sheet). */
+  delays?: { soundMs: number; subMs: number };
   /** The stats overlay's sections, when something plays. */
   stats: PlaybackStats | null;
   info: BoxInfo | null;
