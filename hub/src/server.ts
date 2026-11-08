@@ -22,6 +22,7 @@ import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { registerContinue } from "./continueroutes.js";
 import { FavouriteStore, registerFavourites } from "./favourites.js";
 import { registerSearchHistory, SearchHistory } from "./searchhistory.js";
+import { registerTrackPrefs, TrackPrefs } from "./trackprefs.js";
 import { registerSubtitles } from "./subtitles.js";
 import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
@@ -278,6 +279,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/search/history", "paired"],
     ["POST /api/search/history", "paired"],
     ["DELETE /api/search/history", "paired"],
+    ["GET /api/track-prefs", "paired"],
+    ["PUT /api/track-prefs", "paired"],
+    ["DELETE /api/track-prefs", "paired"],
     ["GET /api/backup", "paired"],
     ["GET /api/alerts", "paired"],
     ["POST /api/alerts/check", "paired"],
@@ -1167,7 +1171,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   });
 
   // The phone asks the TV app (what's playing, play this, seek, music); the TV answers at /api/tv/reply/:id.
-  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "radio", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay", "favourite", "bluetooth", "watchHere"]);
+  const TV_METHODS = new Set<TvMethod>(["now", "play", "seek", "track", "musicLibrary", "musicTracks", "musicPlay", "musicControl", "radio", "downloads", "download", "downloadRemove", "musicStatus", "musicSetup", "saveToNas", "sleep", "cast", "castApp", "castAirplay", "favourite", "bluetooth", "watchHere", "delay"]);
   /**
    * Asks one TV app something and waits for its answer (12 s at most). With more than one box
    * (issue #103) the question goes to the box asked for, or to the first one that's on.
@@ -1230,6 +1234,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // Recent searches, per profile. The phone remote knows no profile, so it asks for the TV's.
   registerSearchHistory(app, new SearchHistory(ctx.db, ctx.events), (req) => {
+    const own = viewer(req).profile?.id ?? null;
+    if (own || (req.query as { tv?: string } | undefined)?.tv !== "1") return own;
+    return homeAssistant.tvProfileId();
+  });
+
+  // Audio and subtitle choice per series, per profile (the phone passes ?tv=1 as above).
+  registerTrackPrefs(app, new TrackPrefs(ctx.db), (req) => {
     const own = viewer(req).profile?.id ?? null;
     if (own || (req.query as { tv?: string } | undefined)?.tv !== "1") return own;
     return homeAssistant.tvProfileId();

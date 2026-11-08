@@ -427,6 +427,8 @@ async function main(): Promise<void> {
     setAudioTrack: (id: never) => player.setAudioTrack(id),
     setSubtitleTrack: (id: never) => player.setSubtitleTrack(id),
     setNightMode: (on: never) => player.setNightMode(on),
+    setSoundOffset: (seconds: never) => player.setSoundOffset(seconds),
+    setSubtitleDelay: (seconds: never) => player.setSubtitleDelay(seconds),
     setClipSound: (on: never) => player.setClipSound(on),
     setLayout: (l: never) => player.setLayout(l),
     toggleFullscreen: () => player.toggleFullscreen(),

@@ -144,6 +144,8 @@ class BrowserAgent implements BoxAgent {
   }
 
   async setNightMode(): Promise<void> {}
+  async setSoundOffset(): Promise<void> {}
+  async setSubtitleDelay(): Promise<void> {}
 
   async setLayout(layout: VideoLayout): Promise<void> {
     const stage = this.video.parentElement!;

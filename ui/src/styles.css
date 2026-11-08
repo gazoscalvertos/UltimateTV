@@ -5397,6 +5397,17 @@ html.mouse:not(.mouse-idle) .row-arrow.show {
 .seek-bar:hover .seek-ad {
   height: 0.8rem;
 }
+/* The preview frame while scrubbing (#227): above the time tip, cut from the sheet by
+   background-position. The width and height are the frame's own, set inline. */
+.seek-preview {
+  position: absolute;
+  bottom: 4.4rem;
+  transform: translateX(-50%);
+  background-repeat: no-repeat;
+  border-radius: 0.4rem;
+  box-shadow: 0 0 0 0.15rem rgb(var(--bg-rgb) / 0.92), 0 0.4rem 1.2rem rgb(0 0 0 / 0.5);
+  pointer-events: none;
+}
 .seek-tip {
   position: absolute;
   bottom: 2.2rem;
@@ -5638,4 +5649,13 @@ html.mouse .skip-button {
   font-size: 0.85em;
   word-break: break-all;
   opacity: 0.85;
+}
+
+/* Sound and subtitle delay control (issue #223) */
+.delay-readout {
+  font-size: 2.4rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.5rem 0 1rem;
+  font-variant-numeric: tabular-nums;
 }
