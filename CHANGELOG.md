@@ -30,7 +30,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-08
 
-- **Pop-ups, clips and prompts stay on top of films**: a film is the only thing that makes the box change the screen's refresh rate and turn HDR on, which can leave the video window in front of the TV app so every pop-up, clip, notice, skip intro and Up Next is drawn but hidden. The box now puts the TV app back on top when a film starts and whenever the screen changes mode. Not tried on the box yet: if pop-ups still don't show on films, send the box log.
+- **Pop-ups, clips and prompts stay on top of films**: a film is the only thing that makes the box change the screen's refresh rate and turn HDR on, which can leave the video window in front of the TV app so every pop-up, clip, notice, skip intro and Up Next is drawn but hidden. The box now puts the TV app back on top when a film starts and whenever the screen changes mode. Not tried on the box yet: if pop-ups still don't show on films, send the box log. (#252)
   Household: Pop-ups and prompts should show over films again.
 
 ## 2026-11-07
