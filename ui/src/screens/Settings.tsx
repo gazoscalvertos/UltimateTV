@@ -38,6 +38,7 @@ const whenAgo = (at: number) => {
   return days === 0 ? `Today ${time}` : days === 1 ? `Yesterday ${time}` : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
 };
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const SEEN_LABELS = { end: "Put last", hide: "Hide", off: "Show as normal" } as const;
 const TV_OFF_LABELS = { pause: "Pause", stop: "Stop", keep: "Keep playing" } as const;
 const SUB_LABELS: Record<SubtitleStyle["size"], string> = { small: "Small", medium: "Medium", large: "Large", huge: "Huge" };
 const MODE_LABELS: Record<SubtitleMode, string> = { off: "Off", on: "On", foreign: "Only for other languages" };
@@ -721,6 +722,12 @@ export function Settings(props: { section?: string }) {
                 onSelect={() => void save({ playback: { ...playback(), otherLanguages: cycle(["last", "hide", "any"] as const, playback().otherLanguages ?? "last") } })}
               />
               <Row label="Play the next episode automatically" value={playback().autoplayNext ? "On" : "Off"} onSelect={() => void save({ playback: { ...playback(), autoplayNext: !playback().autoplayNext } })} />
+              <Row
+                label="Titles you've already watched"
+                hint="In suggestions (Home, Films, TV Shows, More like this): moved to the end, left out, or shown like any other. Continue watching is never affected"
+                value={SEEN_LABELS[playback().watchedSuggestions ?? "end"]}
+                onSelect={() => void save({ playback: { ...playback(), watchedSuggestions: cycle(["end", "hide", "off"] as const, playback().watchedSuggestions ?? "end") } })}
+              />
               <Row label="When the TV turns on" value={playback().startOn === "live" ? "Live TV" : "Home"} onSelect={() => void save({ playback: { ...playback(), startOn: playback().startOn === "live" ? "home" : "live" } })} />
               <Row
                 label="When the TV turns off"

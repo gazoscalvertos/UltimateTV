@@ -153,6 +153,10 @@ export class CombinedMedia implements MediaServer {
     return this.dedupe(this.interleave(await this.fromAll((s) => s.latest(type, limit)), limit * 2)).slice(0, limit);
   }
 
+  async played(limit = 1500): Promise<JfItem[]> {
+    return (await this.fromAll((s) => (s.played ? s.played(limit) : Promise.resolve([])))).flat();
+  }
+
   async items(params: ItemsQuery): Promise<{ items: JfItem[]; total: number }> {
     const start = params.start ?? 0;
     const limit = params.limit ?? 60;

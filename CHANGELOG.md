@@ -28,6 +28,11 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-08
+
+- **Watched titles go last in suggestions** ([docs/watched-suggestions.md](docs/watched-suggestions.md)): the Hub notes what each profile has watched (on the TV, and on any device Jellyfin, Plex or Emby know of) and holds it back in suggestions: Because you watched, Family films, Recently added, Trending, Films on TV today, New films from your IPTV, Films and TV Shows pages (including the Kids rows and Best of each year), More like this and search results. Settings › Playback › Titles you've already watched puts them last (the default), hides them or shows them as normal. Continue watching and Watch again rows are not affected.
+  Household: films and shows you've already watched now sit at the end of the suggestions, or can be hidden in Settings.
+
 ## 2026-11-07
 
 - **More Kids films and shows rows**: the Kids profile's Films and TV Shows pages now have far more to pick from: top rated, new additions you haven't seen, for little ones (U) and bigger kids (PG), animation, adventure, comedy, family, fantasy, superheroes, animals, musicals, mystery, Watch again, and Best of 2026, 2025, 2024 and back. All rows follow the profile's rating limit and allow list. (#246)

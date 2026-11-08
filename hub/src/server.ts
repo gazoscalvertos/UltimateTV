@@ -21,6 +21,7 @@ import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { registerContinue } from "./continueroutes.js";
 import { FavouriteStore, registerFavourites } from "./favourites.js";
+import { cleanSeenMode } from "./watchedtitles.js";
 import { registerSearchHistory, SearchHistory } from "./searchhistory.js";
 import { registerSubtitles } from "./subtitles.js";
 import { movedAway, registerMove } from "./move.js";
@@ -331,7 +332,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
         allow = kidsAllowLookup({ allow: [...once, ...stored.allow], block: stored.block.filter((e) => !onceKeys.has(`${e.kind}:${e.id}`)) });
       } else if (who.profile.kind === "kids") allow = kidsAllowLookup(stored);
     }
-    return { ...who, filter: new ContentFilter(who.profile, favourites.channelSet(who.profile?.id ?? null), allow) };
+    // What this profile has watched, and what the household chose to do about it in suggestions.
+    const seen = { lookup: ctx.watched.lookup(who.profile?.id ?? null), mode: cleanSeenMode(ctx.settings.get().playback.watchedSuggestions) };
+    return { ...who, filter: new ContentFilter(who.profile, favourites.channelSet(who.profile?.id ?? null), allow, seen) };
   };
   const filterOf = (req: FastifyRequest) => viewer(req).filter;
   /** The Android client names itself ("phone:<id>") so it can share the IPTV connection politely. */
@@ -1711,7 +1714,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (who.profile?.kind === "kids" && b.title) {
       ctx.kidsViewing.record(who.profile.id, { id: b.title.id, kind: b.title.kind, name: b.title.name });
     }
-    await playback.report(b.key, b.positionMs, b.durationMs, b.event ?? "progress", b.paused ?? false, b.title, b.at, !guest);
+    await playback.report(b.key, b.positionMs, b.durationMs, b.event ?? "progress", b.paused ?? false, b.title, b.at, !guest, who.profile?.id ?? null);
     return { ok: true };
   });
 

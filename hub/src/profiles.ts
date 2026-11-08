@@ -8,6 +8,7 @@ import type { AccessibilitySettings, Channel, ChannelCategory, FeatureId, Profil
 import { CERTIFICATIONS, cleanAccessibility, cleanFeatureList, cleanKidsLimits, DEFAULT_ACCESSIBILITY, GUEST_NEVER, hasKidsLimits, isDefaultAccessibility, kidsAllowSays, NO_KIDS_ALLOW_LOOKUP, SUBTITLE_MODES, type KidsAllowKind, type KidsAllowLookup } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
 import { newId } from "./db.js";
+import { deprioritise, type SeenLookup, type SeenMode, type SeenRef } from "./watchedtitles.js";
 
 interface StoredProfile extends Profile {
   pinHash?: string;
@@ -383,7 +384,33 @@ export class ContentFilter {
      * is kept back even when the certificate says yes. Adults have none, so this is left out.
      */
     private readonly allowList: KidsAllowLookup = NO_KIDS_ALLOW_LOOKUP,
+    /**
+     * What this profile has already watched and what to do about it in suggestions (watchedtitles.ts).
+     * Left out, nothing is held back.
+     */
+    private readonly seen?: { lookup: SeenLookup; mode: SeenMode },
   ) {}
+
+  /** What suggestions do about watched titles: "end", "hide" or "off" (also "off" when nothing is tracked). */
+  get seenMode(): SeenMode {
+    return this.seen?.mode ?? "off";
+  }
+
+  /** Whether this profile has already watched the title (on the TV, or on any device a media server knows). */
+  watched(r: SeenRef): boolean {
+    return this.seen?.lookup(r) ?? false;
+  }
+
+  /**
+   * A list of suggestions with what the profile has watched pushed to the end or taken out, as the
+   * setting says. `asked` is for a search the viewer typed: hiding there would lose what they
+   * asked for, so "hide" only moves titles back.
+   */
+  unseen<T extends TitleRef>(items: T[], asked = false): T[] {
+    if (!this.seen) return items;
+    const mode = asked && this.seen.mode === "hide" ? "end" : this.seen.mode;
+    return deprioritise(items, (t) => this.seen!.lookup(t), mode);
+  }
 
   get kids(): boolean {
     return this.profile?.kind === "kids";

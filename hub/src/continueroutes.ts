@@ -27,6 +27,13 @@ export function registerContinue(app: FastifyInstance, ctx: HubContext, who: (re
     const id = decodeURIComponent(req.params.id);
     const watched = req.body?.watched !== false;
     const keys = ctx.progress.forTitle(id).map((e) => e.key);
+    // Watched for suggestions too (or not any more): the title is held back from this profile's rows.
+    const ref = ctx.progress.forTitle(id)[0]?.title;
+    if (ref) {
+      const { profileId } = who(req);
+      if (watched) ctx.watched.mark(profileId, ref);
+      else ctx.watched.unmark(profileId, ref);
+    }
     if (watched) {
       ctx.progress.markWatched(id);
       // Nothing of it played here? Mark the title itself, so it doesn't come straight back.

@@ -105,8 +105,10 @@ export class Library {
       tmdb && f.kids && showing("kids-films") ? tmdb.discover("movie", "Family", 20, max).catch(() => []) : [],
       tmdb && f.kids && showing("kids-series") ? tmdb.discover("series", "Kids", 20).catch(() => []) : [],
     ]);
-    const latestMovies = latestRaw.filter((i) => f.ref(jf!.toTitleRef(i)));
-    const trending = trendingRaw.filter((t) => f.ref(t));
+    // Suggestions leave out (or put last) what this profile has already watched; Continue watching
+    // and the Watch again rows do not go through here.
+    const latestMovies = f.unseen(latestRaw.map((i) => jf!.toTitleRef(i)).filter((t) => f.ref(t)));
+    const trending = f.unseen(trendingRaw.filter((t) => f.ref(t)));
 
     // A Guest is a visitor: it sees no Continue watching, nothing recently recorded and no
     // "Because you watched" rail, because none of the household's history is its business.
@@ -123,34 +125,33 @@ export class Library {
     if (because) rails.push(because);
     // A series already in Continue watching (with its next episode) isn't repeated in Next up.
     const continuing = new Set(continueItems.map(titleKey));
+    // An episode this Hub saw finished isn't offered again (the media server may not know yet).
     const nextUpRefs = (guest ? [] : nextUp)
       .map((i) => ({ ...jf!.toTitleRef(i), id: jf!.key(i.SeriesId ?? i.Id), episodeId: `s${i.ParentIndexNumber ?? 0}e${i.IndexNumber ?? 0}` }))
-      .filter((t) => f.ref(t) && !continuing.has(titleKey(t)));
+      .filter((t) => f.ref(t) && !continuing.has(titleKey(t)) && !(f.seenMode !== "off" && this.ctx.progress.episodes(t.id).get(t.episodeId)?.watched));
     if (showing("nextup") && nextUpRefs.length) rails.push({ id: "nextup", title: "Next up", kind: "titles", items: nextUpRefs });
-    if (showing("kids-films") && kidsFilms.length) rails.push({ id: "kids-films", title: "Family films", kind: "titles", items: kidsFilms.filter((t) => f.ref(t)) });
-    if (showing("kids-series") && kidsSeries.length) rails.push({ id: "kids-series", title: "Cartoons and kids' shows", kind: "titles", items: kidsSeries.filter((t) => f.ref(t)) });
+    const kidsFilmRefs = f.unseen(kidsFilms.filter((t) => f.ref(t)));
+    const kidsSeriesRefs = f.unseen(kidsSeries.filter((t) => f.ref(t)));
+    if (showing("kids-films") && kidsFilmRefs.length) rails.push({ id: "kids-films", title: "Family films", kind: "titles", items: kidsFilmRefs });
+    if (showing("kids-series") && kidsSeriesRefs.length) rails.push({ id: "kids-series", title: "Cartoons and kids' shows", kind: "titles", items: kidsSeriesRefs });
 
     const evening = startOfDay(now) + 18 * 3_600_000;
     const films = this.ctx.guide.films(Math.max(now - 30 * 60_000, evening - 6 * 3_600_000), startOfDay(now) + 24 * 3_600_000, 16).filter((p) => allowed.has(p.channelId));
-    if (showing("films-tonight") && films.length) {
-      rails.push({
-        id: "films-tonight",
-        title: "Films on TV today",
-        kind: "titles",
-        items: films.map((p) => {
+    const filmRefs = f.unseen(
+      films.map((p) => {
           const ref: TitleRef = { id: `programme:${p.id}`, kind: "movie", name: p.title.replace(/^film\s*:\s*/i, ""), subtitle: `${new Date(p.start).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} · ${this.ctx.channels.get(p.channelId)?.name ?? ""}` };
           if (p.year) ref.year = p.year;
           if (p.image) ref.poster = p.image;
           return ref;
-        }),
-      });
-    }
-    if (showing("latest") && latestMovies.length) rails.push({ id: "latest", title: "Recently added", kind: "titles", items: latestMovies.map((i) => jf!.toTitleRef(i)) });
+      }),
+    );
+    if (showing("films-tonight") && filmRefs.length) rails.push({ id: "films-tonight", title: "Films on TV today", kind: "titles", items: filmRefs });
+    if (showing("latest") && latestMovies.length) rails.push({ id: "latest", title: "Recently added", kind: "titles", items: latestMovies });
     if (showing("trending") && trending.length) rails.push({ id: "trending", title: "Trending this week", kind: "titles", items: trending });
-    const iptvRecent = this.vodRecent(16).filter((t) => f.ref(t));
+    const iptvRecent = f.unseen(this.vodRecent(16).filter((t) => f.ref(t)));
     if (showing("iptv-vod") && iptvRecent.length) rails.push({ id: "iptv-vod", title: "New films from your IPTV", kind: "titles", items: iptvRecent });
 
-    const heroSource = continueItems.find((t) => t.backdrop) ?? trending.find((t) => t.backdrop) ?? latestMovies.map((i) => jf!.toTitleRef(i)).find((t) => t.backdrop);
+    const heroSource = continueItems.find((t) => t.backdrop) ?? [...trending, ...latestMovies].find((t) => t.backdrop && !f.watched(t)) ?? trending.find((t) => t.backdrop) ?? latestMovies.find((t) => t.backdrop);
     const home: HomeScreen = { rails };
     if (heroSource) {
       home.hero = { ...heroSource, action: !guest && continueItems.includes(heroSource) ? "resume" : "watch" };
@@ -225,7 +226,7 @@ export class Library {
   private async similarTo(d: TitleDetails, f: ContentFilter): Promise<TitleRef[]> {
     const tmdb = this.ctx.tmdb();
     if (!tmdb || !d.tmdbId) return [];
-    const refs = (await tmdb.recommendations(d.kind, d.tmdbId, 20)).filter((r) => r.id !== d.id && f.ref(r));
+    const refs = f.unseen((await tmdb.recommendations(d.kind, d.tmdbId, 20)).filter((r) => r.id !== d.id && f.ref(r)));
     return this.playable(refs);
   }
 
@@ -318,7 +319,7 @@ export class Library {
             ...(i.ProductionYear ? { year: i.ProductionYear } : {}),
             ...(i.CommunityRating ? { rating: i.CommunityRating } : {}),
             genres: i.Genres ?? [],
-            watched: Boolean(i.UserData?.Played),
+            watched: Boolean(i.UserData?.Played) || f.watched(ref),
             ...(i.UserData?.LastPlayedDate ? { lastPlayed: i.UserData.LastPlayedDate } : {}),
           });
         }
@@ -356,7 +357,11 @@ export class Library {
       .map((e) => this.vodRef(e))
       .filter((t) => f.ref(t));
     if (vod.length) rails.push({ id: "iptv", title: "From your IPTV", kind: "titles", items: vod });
-    return rails;
+    // Watched titles go last (or out) in every row but the ones that are about watching again.
+    if (f.seenMode === "off") return rails;
+    return rails
+      .map((r) => (r.id === "kids-again" || !r.items ? r : { ...r, items: f.unseen(r.items) }))
+      .filter((r) => r.id === "kids-again" || r.kind !== "titles" || r.items.length > 0);
   }
 
   private vodRecent(limit: number): TitleRef[] {
@@ -697,7 +702,8 @@ export class Library {
       const ref = this.vodRef(e);
       if (!titles.has(ref.id)) titles.set(ref.id, ref);
     }
-    for (const t of titles.values()) if (f.ref(t)) results.push({ kind: "title", id: t.id, name: t.name, ...(t.year ? { subtitle: String(t.year) } : {}), ...(t.poster ? { image: t.poster } : {}), title: t });
+    // Searched for on purpose: watched titles go behind the others but are never dropped.
+    for (const t of f.unseen([...titles.values()].filter((t) => f.ref(t)), true)) results.push({ kind: "title", id: t.id, name: t.name, ...(t.year ? { subtitle: String(t.year) } : {}), ...(t.poster ? { image: t.poster } : {}), title: t });
     return results;
   }
 
