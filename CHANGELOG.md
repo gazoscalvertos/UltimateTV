@@ -33,7 +33,24 @@ pop up what's new after an update. So:
 - **Pop-ups, clips and prompts stay on top of films**: a film is the only thing that makes the box change the screen's refresh rate and turn HDR on, which can leave the video window in front of the TV app so every pop-up, clip, notice, skip intro and Up Next is drawn but hidden. The box now puts the TV app back on top when a film starts and whenever the screen changes mode. Not tried on the box yet: if pop-ups still don't show on films, send the box log. (#252)
   Household: Pop-ups and prompts should show over films again.
 
+- **Watched titles go last in suggestions** ([docs/watched-suggestions.md](docs/watched-suggestions.md)): the Hub notes what each profile has watched (on the TV, and on any device Jellyfin, Plex or Emby know of) and holds it back in suggestions: Because you watched, Family films, Recently added, Trending, Films on TV today, New films from your IPTV, Films and TV Shows pages (including the Kids rows and Best of each year), More like this and search results. Settings › Playback › Titles you've already watched puts them last (the default), hides them or shows them as normal. Continue watching and Watch again rows are not affected. (#251)
+  Household: films and shows you've already watched now sit at the end of the suggestions, or can be hidden in Settings.
+
 ## 2026-11-07
+
+- **Art gallery screensaver** ([docs/screensaver.md](docs/screensaver.md#art-gallery)): famous paintings full screen in high resolution, from the Art Institute of Chicago, the Met and the Cleveland Museum, all free to use. Choose how long each stays (30 seconds to an hour), shuffled or by artist, which collections (Impressionism, landscapes, Japan…), a matte or gold frame, a museum card with the title and artist, brightness, and a Kids-friendly option. The Hub keeps them, so they show smoothly and without the internet. (#249)
+  Household: the screensaver can now show famous paintings like pictures on the wall, chosen in Settings › Screensaver.
+- **More screensaver options**: clock size, 12-hour clock, date on or off, fade length, slow drift on or off, and night hours when the screensaver gets dimmer or goes black. (#249)
+  Household: the screensaver has more choices, including a clock size and quiet night hours.
+
+- **Sound delay, subtitle delay, and the sound and subtitle choice remembered per series** ([docs/player-sync.md](docs/player-sync.md)): Options in the player has Sound delay and Subtitle delay in 50 ms steps with the number on screen (left and right to move, Back to finish). The sound delay is kept for each sound output, so headphones keep their own offset; the subtitle delay starts at 0 for every title. The phone remote's Sound and subtitles sheet has the same two controls. Picking a sound track or subtitles in a series (Japanese with English subtitles, say) is now remembered for that profile and applied to the next episode, Up Next and Resume by matching the language, whichever source it comes from; Options › Default forgets it. On the Fire TV and Android app the player gained an Audio and subtitles button and list that the Fire remote can reach (Up, Down or Menu), with Off for subtitles, and it remembers the choice the same way. The delays are not on the Android app yet. (#223, #228)
+  Household: the sound and subtitles you pick for a series now carry on to the next episode, lip-sync can be nudged from the TV or the phone, and subtitles can be switched off from the Fire TV remote.
+
+- **Preview pictures on the seek bar**: ([docs/seek-preview.md](docs/seek-preview.md)) drag along the seek bar and a small frame from the film shows above it, from the pictures Jellyfin already makes (Trickplay). The TV app (with a mouse) and the Android and Fire TV app both do it; nothing shows when the film has none. (#227)
+  Household: when you drag along the progress bar you can now see a little picture of that moment in the film.
+
+- **Fire TV: Settings reachable, and the app updates itself**: the side menu now scrolls and the remote's Menu key opens Settings, so Settings is no longer cut off the bottom of a TV screen. Check for updates downloads the new app from the Hub and opens Android's installer (no browser needed), and the app offers an update when it opens. (#247)
+  Household: Settings now opens on the Fire stick (press the Menu key), and the app can update itself.
 
 - **More Kids films and shows rows**: the Kids profile's Films and TV Shows pages now have far more to pick from: top rated, new additions you haven't seen, for little ones (U) and bigger kids (PG), animation, adventure, comedy, family, fantasy, superheroes, animals, musicals, mystery, Watch again, and Best of 2026, 2025, 2024 and back. All rows follow the profile's rating limit and allow list. (#246)
   Household: the Kids profile has many more categories on Films and TV Shows, including Best of each year.

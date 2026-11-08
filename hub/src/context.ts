@@ -2,6 +2,7 @@
 // (the media server, TMDB, TorBox, addons) are rebuilt when settings change.
 
 import path from "node:path";
+import { ArtGallery } from "./art.js";
 import { PhotoFolder } from "./screensaver.js";
 import type { Settings } from "@ultimatetv/shared";
 import { ChannelStore } from "./channels.js";
@@ -30,6 +31,7 @@ import { KidsViewing } from "./kidsviewing.js";
 import { KidsLockoutLog } from "./kidslockouts.js";
 import { drainQueue, JellyfinProgressQueue, type DrainResult } from "./jfprogress.js";
 import { ProgressStore } from "./progress.js";
+import { WatchedTitles, type SeenRef } from "./watchedtitles.js";
 import { PlayQueue } from "./queue.js";
 import { Recorder, type Remux } from "./recorder.js";
 import { RecordingStore } from "./recordings.js";
@@ -86,6 +88,8 @@ export class HubContext {
   readonly ingest: Ingestor;
   readonly progress: ProgressStore;
   readonly continueHidden: ContinueHidden;
+  /** What each profile has already watched, so suggestions can put it last or leave it out. */
+  readonly watched: WatchedTitles;
   /** Which Home rows each profile shows, and in what order (#99). */
   readonly homeRows: HomeRows;
   /** A parent's allow/block list per Kids profile (issue #110). */
@@ -114,6 +118,7 @@ export class HubContext {
   readonly downloads: DownloadManager;
   readonly mix: MixManager;
   readonly photos: PhotoFolder;
+  readonly art: ArtGallery;
   readonly log: Logger;
   readonly fetchImpl: Fetch;
 
@@ -144,6 +149,7 @@ export class HubContext {
     this.recordings = new RecordingStore(this.db);
     this.progress = new ProgressStore(this.db);
     this.continueHidden = new ContinueHidden(this.db, this.events);
+    this.watched = new WatchedTitles(this.db);
     this.homeRows = new HomeRows(this.db, this.events);
     this.kidsAllow = new KidsAllow(this.db, this.events);
     this.kidsViewing = new KidsViewing(this.db);
@@ -220,6 +226,7 @@ export class HubContext {
       mediaRoot: opts.mediaRoot ?? "/mnt/nas",
     });
     this.photos = new PhotoFolder(opts.mediaRoot ?? "/mnt/nas");
+    this.art = new ArtGallery({ dir: path.join(opts.dataDir, "art"), fetchImpl: this.fetchImpl, log: this.log, settings: () => this.settings.get().screensaver });
     this.settings.onChange((s) => this.rebuildClients(s));
     this.rebuildClients(this.settings.get());
   }
@@ -252,6 +259,29 @@ export class HubContext {
   /** Each connected media server on its own, in the order their copies of a title are listed. */
   mediaServers(): MediaServer[] {
     return this.servers;
+  }
+
+  /**
+   * Asks the media servers what has been played on any device and keeps it for the suggestion rows
+   * (watchedtitles.ts). A server that can't be reached leaves the last answer in place.
+   */
+  async syncPlayed(): Promise<number> {
+    const media = this.ms;
+    if (!media?.played) return this.watched.serverCount();
+    const items = await media.played();
+    const refs: SeenRef[] = [];
+    for (const i of items) {
+      const kind = i.Type === "Movie" ? "movie" : i.Type === "Series" || i.Type === "Episode" ? "series" : undefined;
+      const name = i.Type === "Episode" ? i.SeriesName : i.Name;
+      if (!kind || !name) continue;
+      const id = media.key(i.Type === "Episode" ? (i.SeriesId ?? i.Id) : i.Id);
+      const year = i.Type === "Episode" ? undefined : i.ProductionYear;
+      refs.push({ id, kind, name, year });
+      const tmdb = i.Type === "Episode" ? undefined : (i.ProviderIds?.Tmdb ?? i.ProviderIds?.tmdb);
+      if (tmdb) refs.push({ id: `tmdb:${kind}:${tmdb}`, kind, name, year });
+    }
+    this.watched.setServerPlayed(refs);
+    return this.watched.serverCount();
   }
 
   /**

@@ -66,6 +66,8 @@ if (moved) {
   // Warnings before things break, and advert breaks in new recordings.
   app.jobs.alerts.start();
   app.jobs.adSkipper.start();
+  // Paintings for Art mode are fetched in the background when that screensaver is chosen.
+  ctx.art.start();
   // A copy of the Hub's data on the NAS every night.
   app.jobs.backups.start();
   // Places watched while the Hub was away from Jellyfin go to it now the Hub is home (#80), and
@@ -73,4 +75,8 @@ if (moved) {
   const sendJellyfinProgress = () => void ctx.flushJellyfinProgress().catch((err) => app.log.warn({ err: String(err) }, "Couldn't send Jellyfin its places"));
   sendJellyfinProgress();
   setInterval(sendJellyfinProgress, HOUR);
+  // What the media servers say has been played, on any device, for the suggestion rows.
+  const syncPlayed = () => void ctx.syncPlayed().catch((err) => app.log.warn({ err: String(err) }, "Couldn't read what was played from the media server"));
+  setTimeout(syncPlayed, 30_000);
+  setInterval(syncPlayed, 15 * 60_000);
 }

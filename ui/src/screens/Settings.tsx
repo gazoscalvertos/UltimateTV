@@ -2,8 +2,8 @@
 // source. Typing-heavy setup (logins, URLs) happens on the phone via the QR code.
 
 import { createEffect, createResource, createSignal, For, Show, type JSX } from "solid-js";
-import type { AccessibilitySettings, BoxUpdateHealth, Certification, FeatureId, SubtitleMode, SubtitleStyle, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, RadioSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, StationOrder, ThemeName } from "@ultimatetv/shared";
-import { cleanAccessibility, TEXT_SCALES, CERTIFICATIONS, cleanKidsLimits, KIDS_ALLOWANCES, KIDS_BEDTIMES, kidsLimitsLabel, NO_KIDS_LIMITS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, guestSections, GUEST_NEVER, FEATURES, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, DEFAULT_SUBTITLE_STYLE, STATION_ORDER_NAMES, STATION_ORDERS } from "@ultimatetv/shared";
+import type { ArtFrame, ArtNight, ArtOrder, AccessibilitySettings, BoxUpdateHealth, Certification, FeatureId, SubtitleMode, SubtitleStyle, ClipSeason, ClipTheme, MixChannelInfo, NasListing, PairedDevice, PendingScreen, Profile, PublicSettings, RadioSettings, ScareSettings, ScreensaverSettings, ScreensaverThemeId, StationOrder, ThemeName } from "@ultimatetv/shared";
+import { ART_COLLECTIONS, cleanAccessibility, TEXT_SCALES, CERTIFICATIONS, cleanKidsLimits, KIDS_ALLOWANCES, KIDS_BEDTIMES, kidsLimitsLabel, NO_KIDS_LIMITS, CLIP_THEME_NAMES, CLIP_THEMES, clipSeasonFor, formatBytes, guestSections, GUEST_NEVER, FEATURES, mixTheme, resolveTheme, SCREENSAVER_THEMES, seasonalTheme, themeInfo, THEMES, DEFAULT_SUBTITLE_STYLE, STATION_ORDER_NAMES, STATION_ORDERS } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { askPin, askText, choose, confirm } from "../components/Dialog";
@@ -38,6 +38,7 @@ const whenAgo = (at: number) => {
   return days === 0 ? `Today ${time}` : days === 1 ? `Yesterday ${time}` : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
 };
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const SEEN_LABELS = { end: "Put last", hide: "Hide", off: "Show as normal" } as const;
 const TV_OFF_LABELS = { pause: "Pause", stop: "Stop", keep: "Keep playing" } as const;
 const SUB_LABELS: Record<SubtitleStyle["size"], string> = { small: "Small", medium: "Medium", large: "Large", huge: "Huge" };
 const MODE_LABELS: Record<SubtitleMode, string> = { off: "Off", on: "On", foreign: "Only for other languages" };
@@ -416,6 +417,29 @@ export function Settings(props: { section?: string }) {
     await saveSaver({ theme: id });
     if (id === "photos" && !saver().photosPath) await pickFolder();
   };
+  // Art gallery: paintings kept on the Hub.
+  const [artStatus, { refetch: refetchArt }] = createResource(
+    () => section() === "screensaver" && ["gallery", "shuffle"].includes(saver().theme),
+    (open) => (open ? hub.art().catch(() => null) : Promise.resolve(null)),
+  );
+  const artSecs = (n: number) => (n >= 3600 ? "1 hour" : n >= 60 ? `${n / 60} min` : `${n} s`);
+  const pickCollections = async () => {
+    for (;;) {
+      const chosen = saver().artCollections;
+      const id = await choose<string>({
+        title: "Which paintings?",
+        message: "Pick any number. With none picked, you get them all.",
+        options: [
+          ...ART_COLLECTIONS.map((c) => ({ label: c.name, value: c.id, detail: c.detail, ...(chosen.includes(c.id) ? { icon: "check" } : {}) })),
+          { label: "Done", value: "done", tone: "primary" as const },
+        ],
+      });
+      if (!id || id === "done") return;
+      await saveSaver({ artCollections: chosen.includes(id) ? chosen.filter((c) => c !== id) : [...chosen, id] });
+    }
+  };
+  const artBytes = (n: number) => (n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.round(n / 1e6)} MB`);
+  const hour = (h: number) => `${String(h).padStart(2, "0")}:00`;
   const pickFolder = async () => {
     let dir: string | undefined = saver().photosPath || undefined;
     for (;;) {
@@ -721,6 +745,12 @@ export function Settings(props: { section?: string }) {
                 onSelect={() => void save({ playback: { ...playback(), otherLanguages: cycle(["last", "hide", "any"] as const, playback().otherLanguages ?? "last") } })}
               />
               <Row label="Play the next episode automatically" value={playback().autoplayNext ? "On" : "Off"} onSelect={() => void save({ playback: { ...playback(), autoplayNext: !playback().autoplayNext } })} />
+              <Row
+                label="Titles you've already watched"
+                hint="In suggestions (Home, Films, TV Shows, More like this): moved to the end, left out, or shown like any other. Continue watching is never affected"
+                value={SEEN_LABELS[playback().watchedSuggestions ?? "end"]}
+                onSelect={() => void save({ playback: { ...playback(), watchedSuggestions: cycle(["end", "hide", "off"] as const, playback().watchedSuggestions ?? "end") } })}
+              />
               <Row label="When the TV turns on" value={playback().startOn === "live" ? "Live TV" : "Home"} onSelect={() => void save({ playback: { ...playback(), startOn: playback().startOn === "live" ? "home" : "live" } })} />
               <Row
                 label="When the TV turns off"
@@ -820,6 +850,51 @@ export function Settings(props: { section?: string }) {
               />
               <Row label="Each picture for" value={`${saver().photoSeconds} s`} hint="Photos, landscapes and art" onSelect={() => void saveSaver({ photoSeconds: cycle([10, 20, 30, 60], saver().photoSeconds) })} />
               <Row label="Show the clock" value={saver().clock ? "On" : "Off"} onSelect={() => void saveSaver({ clock: !saver().clock })} />
+              <Show when={saver().theme !== "off" && saver().clock}>
+                <Row label="Clock size" value={saver().clockSize[0]!.toUpperCase() + saver().clockSize.slice(1)} onSelect={() => void saveSaver({ clockSize: ({ small: "medium", medium: "large", large: "small" } as const)[saver().clockSize] })} />
+                <Row label="12-hour clock" value={saver().clock12 ? "On" : "Off"} onSelect={() => void saveSaver({ clock12: !saver().clock12 })} />
+                <Row label="Show the date" value={saver().showDate ? "On" : "Off"} onSelect={() => void saveSaver({ showDate: !saver().showDate })} />
+              </Show>
+              <Show when={saver().theme !== "off"}>
+                <Row label="Fade between pictures" value={`${saver().fadeSeconds} s`} onSelect={() => void saveSaver({ fadeSeconds: cycle([1, 2, 3, 5, 8], saver().fadeSeconds) })} />
+                <Row label="Slow drift on pictures" value={saver().drift ? "On" : "Off"} hint="Photos, landscapes and art gently zoom and pan. Always still with Reduce motion." onSelect={() => void saveSaver({ drift: !saver().drift })} />
+                <Row
+                  label="At night"
+                  value={{ none: "Carry on", dim: "Dimmer", black: "Black screen" }[saver().night]}
+                  hint={saver().night === "none" ? "Nights are set below" : `Between ${hour(saver().nightFromHour)} and ${hour(saver().nightToHour)}`}
+                  onSelect={() => void saveSaver({ night: ({ none: "dim", dim: "black", black: "none" } as Record<ArtNight, ArtNight>)[saver().night] })}
+                />
+                <Show when={saver().night !== "none"}>
+                  <Row label="Night starts" value={hour(saver().nightFromHour)} onSelect={() => void saveSaver({ nightFromHour: cycle([20, 21, 22, 23, 0], saver().nightFromHour) })} />
+                  <Row label="Night ends" value={hour(saver().nightToHour)} onSelect={() => void saveSaver({ nightToHour: cycle([5, 6, 7, 8, 9], saver().nightToHour) })} />
+                </Show>
+              </Show>
+              <Show when={["gallery", "shuffle"].includes(saver().theme)}>
+                <h3>Art gallery</h3>
+                <p class="hint">Famous paintings in high resolution from the Art Institute of Chicago, the Met and the Cleveland Museum of Art, all free to use. The Hub keeps them, so they show smoothly and without the internet.</p>
+                <Row label="Each painting for" value={artSecs(saver().artSeconds)} onSelect={() => void saveSaver({ artSeconds: cycle([30, 60, 120, 300, 600, 900, 1800, 3600], saver().artSeconds) })} />
+                <Row label="Order" value={saver().artOrder === "shuffle" ? "Shuffled" : "By artist"} onSelect={() => void saveSaver({ artOrder: (saver().artOrder === "shuffle" ? "ordered" : "shuffle") as ArtOrder })} />
+                <Row
+                  label="Paintings"
+                  icon="list"
+                  value={saver().artCollections.length ? saver().artCollections.map((id) => ART_COLLECTIONS.find((c) => c.id === id)?.name ?? id).join(", ") : "All"}
+                  onSelect={() => void pickCollections()}
+                />
+                <Row label="Kids-friendly only" value={saver().artKids ? "On" : "Off"} hint="No nudes, battles or gruesome scenes. Always on in a Kids profile." onSelect={() => void saveSaver({ artKids: !saver().artKids })} />
+                <Row label="Show title and artist" value={saver().artCaption ? "On" : "Off"} hint="A small museum card that fades away" onSelect={() => void saveSaver({ artCaption: !saver().artCaption })} />
+                <Row label="Frame" value={{ none: "None", matte: "Matte", gold: "Gold" }[saver().artFrame]} onSelect={() => void saveSaver({ artFrame: ({ none: "matte", matte: "gold", gold: "none" } as Record<ArtFrame, ArtFrame>)[saver().artFrame] })} />
+                <Row label="Brightness" value={`${saver().artBrightness}%`} onSelect={() => void saveSaver({ artBrightness: cycle([50, 70, 90, 100], saver().artBrightness) })} />
+                <Row label="Clock over paintings" value={saver().artClock ? "On" : "Off"} onSelect={() => void saveSaver({ artClock: !saver().artClock })} />
+                <Row label="Paintings kept" value={`${saver().artCount}`} hint="About 3 MB each on the Hub" onSelect={() => void saveSaver({ artCount: cycle([50, 100, 150, 300, 600], saver().artCount) })} />
+                <Row
+                  label="Get paintings now"
+                  icon="download"
+                  value={artStatus() ? `${artStatus()!.cached} saved · ${artBytes(artStatus()!.bytes)}` : ""}
+                  hint={artStatus()?.running ? "Fetching… it carries on in the background" : (artStatus()?.lastError ?? "Fetch more from the museums")}
+                  onSelect={() => void hub.artRefresh().then(() => setTimeout(() => void refetchArt(), 3000)).catch(errorToast)}
+                />
+                <Row label="Remove saved paintings" icon="trash" onSelect={() => void hub.artClear().then(() => refetchArt()).catch(errorToast)} />
+              </Show>
               <Show when={saver().theme !== "off"}>
                 <Row label="Try it now" icon="play" hint="Press any button to come back" onSelect={() => previewScreensaver()} />
               </Show>

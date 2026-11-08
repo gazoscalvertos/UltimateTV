@@ -2326,6 +2326,10 @@ html.high-contrast .guide-grid:focus .gg-cell.selected {
   min-width: 0;
   padding-right: 6rem;
 }
+.settings-panel h3 {
+  font-size: calc(1.6rem * var(--ts));
+  margin: 1.6rem 0 0.3rem;
+}
 .settings-panel h2 {
   font-size: calc(2.2rem * var(--ts));
   margin: 0.2rem 0 0.6rem;
@@ -3927,7 +3931,7 @@ canvas.scare-media {
 }
 .saver-slide {
   opacity: 0;
-  transition: opacity 2.5s ease;
+  transition: opacity var(--fade-s, 2.5s) ease;
   overflow: hidden;
 }
 .saver-slide.shown {
@@ -3956,6 +3960,10 @@ canvas.scare-media {
   object-fit: cover;
   filter: blur(40px) brightness(0.45);
   transform: scale(1.15);
+}
+.saver-slides.no-drift .saver-picture,
+.saver-slides.no-drift .saver-photo {
+  animation: none;
 }
 @keyframes saver-pan {
   from {
@@ -3990,6 +3998,15 @@ canvas.scare-media {
   top: 6vh;
   text-align: right;
 }
+.saver-clock.size-small {
+  zoom: 0.6;
+}
+.saver-clock.size-large {
+  zoom: 1.5;
+}
+.screensaver.night-dim {
+  filter: brightness(0.4);
+}
 .saver-time {
   font-size: calc(5.5rem * var(--ts));
   font-weight: 300;
@@ -4009,6 +4026,88 @@ canvas.scare-media {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Art mode: a painting on a wall. Pictures sit on black, optionally in a matte, with a museum card. */
+.gallery {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  filter: brightness(var(--art-bright, 0.9));
+}
+.gallery-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--fade-s, 3s) ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gallery-slide.shown {
+  opacity: 1;
+}
+.gallery-matte {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+.gallery-matte img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+/* An off-white matte with a soft bevel, and a thin dark edge round the picture itself. */
+.frame-matte .gallery-matte {
+  padding: 8vh 8vw;
+  background: #ece6d8;
+  background-image: radial-gradient(ellipse at center, #f3eee2 0%, #e4dccb 100%);
+  box-shadow: inset 0 0 0 1.2vh #1a1815, inset 0 0 6vh rgba(0, 0, 0, 0.35);
+}
+.frame-matte .gallery-matte img {
+  box-shadow: 0 0 0 0.25vh rgba(0, 0, 0, 0.55), 0 1vh 4vh rgba(0, 0, 0, 0.45);
+}
+/* A gilded frame round the painting, on black. */
+.frame-gold .gallery-matte {
+  padding: 6vh 6vw;
+}
+.frame-gold .gallery-matte img {
+  border: 1.4vh solid #b8923a;
+  border-image: linear-gradient(135deg, #e6c870, #8c6a1f 45%, #d9b559 70%, #7a5a18) 1;
+  box-shadow: 0 0 0 0.3vh #3a2a08, 0 1.5vh 6vh rgba(0, 0, 0, 0.7);
+}
+.gallery-card {
+  position: absolute;
+  left: 4vw;
+  bottom: 4vh;
+  max-width: 34vw;
+  padding: 1.6vh 1.6vw;
+  background: rgba(20, 18, 15, 0.82);
+  color: #eee8da;
+  border-left: 0.4vh solid #b8923a;
+  transition: opacity 2.5s ease;
+  line-height: 1.3;
+}
+.gallery-card.hide {
+  opacity: 0;
+}
+.gallery-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: calc(1.7rem * var(--ts));
+}
+.gallery-artist {
+  font-size: calc(1.3rem * var(--ts));
+  margin-top: 0.4vh;
+}
+.gallery-date,
+.gallery-credit {
+  font-size: calc(1rem * var(--ts));
+  opacity: 0.7;
+  margin-top: 0.3vh;
 }
 
 /* ------------------------------------------------------------------------------------------
@@ -5298,6 +5397,17 @@ html.mouse:not(.mouse-idle) .row-arrow.show {
 .seek-bar:hover .seek-ad {
   height: 0.8rem;
 }
+/* The preview frame while scrubbing (#227): above the time tip, cut from the sheet by
+   background-position. The width and height are the frame's own, set inline. */
+.seek-preview {
+  position: absolute;
+  bottom: 4.4rem;
+  transform: translateX(-50%);
+  background-repeat: no-repeat;
+  border-radius: 0.4rem;
+  box-shadow: 0 0 0 0.15rem rgb(var(--bg-rgb) / 0.92), 0 0.4rem 1.2rem rgb(0 0 0 / 0.5);
+  pointer-events: none;
+}
 .seek-tip {
   position: absolute;
   bottom: 2.2rem;
@@ -5539,4 +5649,13 @@ html.mouse .skip-button {
   font-size: 0.85em;
   word-break: break-all;
   opacity: 0.85;
+}
+
+/* Sound and subtitle delay control (issue #223) */
+.delay-readout {
+  font-size: 2.4rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.5rem 0 1rem;
+  font-variant-numeric: tabular-nums;
 }

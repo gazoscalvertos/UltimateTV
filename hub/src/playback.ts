@@ -10,6 +10,7 @@ import type { HubContext } from "./context.js";
 import { type Library, NotAllowedError } from "./library.js";
 import { guestAllows, guestPlaybackSection } from "./guest.js";
 import { type ContentFilter, NO_FILTER } from "./profiles.js";
+import { MIN_RESUME_MS } from "./progress.js";
 import { LiveRelay } from "./relay.js";
 import { type DeviceCaps, chooseForDevice, misfit } from "./streamcaps.js";
 import { ticksToMs } from "./services/jellyfin.js";
@@ -330,6 +331,8 @@ export class Playback {
         }
         const segments = await media.segments(itemId);
         info.skip = skipMarkersFrom(segments);
+        const trickplay = media.trickplay(itemId, item, src?.Id);
+        if (trickplay) info.trickplay = trickplay;
         info.progressKey = media.key(itemId);
         // A copy the device cannot play as it is (a 4K remux on a 1080p stick, HEVC where only H.264
         // decodes) is shrunk to what it can: Jellyfin makes it as HLS at the device's own limits.
@@ -369,14 +372,14 @@ export class Playback {
    * Saves progress, and passes it on to Jellyfin for library items (kept here too, for Continue
    * watching). A stop tells the TV, so Home shows it in Continue watching straight away.
    */
-  async report(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused = false, ref?: TitleRef, at?: number, keepHistory = true): Promise<void> {
+  async report(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused = false, ref?: TitleRef, at?: number, keepHistory = true, profileId: string | null = null): Promise<void> {
     // A Guest leaves no history: no row here, nothing passed on to the media server, no Continue watching.
     if (!keepHistory) return;
-    await this.save(key, positionMs, durationMs, event, paused, ref, at);
+    await this.save(key, positionMs, durationMs, event, paused, ref, at, profileId);
     if (event === "stop") this.ctx.events.emit({ type: "progress.changed" });
   }
 
-  private async save(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused: boolean, ref?: TitleRef, at?: number): Promise<void> {
+  private async save(key: string, positionMs: number, durationMs: number | undefined, event: "start" | "progress" | "stop", paused: boolean, ref?: TitleRef, at?: number, profileId: string | null = null): Promise<void> {
     const media = this.ctx.media();
     const serverItem = media?.parseKey(key);
     const queued = (itemId: string) => ({ itemId, positionMs, ...(durationMs ? { durationMs } : {}), event, ...(finished(event, positionMs, durationMs) ? { played: true } : {}), ...(at !== undefined ? { at } : {}) });
@@ -417,7 +420,9 @@ export class Playback {
     if (durationMs) entry.durationMs = durationMs;
     // The episode's "S1 E4 · Name" goes with it, for its card.
     if (ref) entry.title = { ...stripRef(ref), ...(subtitle ? { subtitle } : {}) };
-    this.ctx.progress.save(entry);
+    const saved = this.ctx.progress.save(entry);
+    // Seen for suggestions: finished, or watched long enough to know what it is. A Guest keeps nothing.
+    if (entry.title && (saved.watched || positionMs >= MIN_RESUME_MS)) this.ctx.watched.mark(profileId, entry.title, at ?? Date.now());
   }
 }
 

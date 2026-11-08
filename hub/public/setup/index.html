@@ -222,6 +222,7 @@
     <label class="opt"><span>Subtitle colour</span><select data-sub="colour"><option value="white">White</option><option value="yellow">Yellow</option></select></label>
     <label class="opt"><span>Subtitle position</span><select data-sub="position"><option value="bottom">Bottom</option><option value="raised">Raised</option></select></label>
     <label class="opt"><span>Play the next episode automatically</span><input type="checkbox" data-pb="autoplayNext"></label>
+    <label class="opt"><span>Titles you've already watched<small>In suggestions (Home, Films, TV Shows, More like this): put last, hidden, or shown as normal. Continue watching is never affected</small></span><select data-pb="watchedSuggestions"><option value="end">Put last</option><option value="hide">Hide</option><option value="off">Show as normal</option></select></label>
     <label class="opt"><span>When the TV turns on</span><select data-pb="startOn"><option value="home">Home</option><option value="live">Live TV</option></select></label>
     <label class="opt"><span>When the TV turns off<small>Or switches to another input. Live TV always stops, as it holds the IPTV connection</small></span><select data-pb="whenTvOff"><option value="pause">Pause</option><option value="stop">Stop</option><option value="keep">Keep playing</option></select></label>
     <label class="opt"><span>Largest file to stream<small>Bigger versions are moved down the list</small></span><select data-pb="maxSizeGb" data-number><option value="20">20 GB</option><option value="40">40 GB</option><option value="60">60 GB</option><option value="100">100 GB</option></select></label>
@@ -238,6 +239,29 @@
     <label class="opt"><span>Start the screensaver</span><select data-ss="startAfterMin" data-number><option value="0">Never</option><option value="5">After 5 min</option><option value="10">After 10 min</option><option value="15">After 15 min</option><option value="20">After 20 min</option><option value="30">After 30 min</option><option value="60">After 1 hour</option><option value="120">After 2 hours</option></select></label>
     <label class="opt"><span>Each picture for<small>Photos, landscapes and art</small></span><select data-ss="photoSeconds" data-number><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">60 s</option></select></label>
     <label class="opt"><span>Show the clock</span><input type="checkbox" data-ss="clock"></label>
+    <label class="opt"><span>Clock size</span><select data-ss="clockSize"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
+    <label class="opt"><span>12-hour clock</span><input type="checkbox" data-ss="clock12"></label>
+    <label class="opt"><span>Show the date</span><input type="checkbox" data-ss="showDate"></label>
+    <label class="opt"><span>Fade between pictures</span><select data-ss="fadeSeconds" data-number><option value="1">1 s</option><option value="2">2 s</option><option value="3">3 s</option><option value="5">5 s</option><option value="8">8 s</option></select></label>
+    <label class="opt"><span>Slow drift on pictures<small>Gently zoom and pan; always still with Reduce motion</small></span><input type="checkbox" data-ss="drift"></label>
+    <label class="opt"><span>At night</span><select data-ss="night"><option value="none">Carry on</option><option value="dim">Dimmer</option><option value="black">Black screen</option></select></label>
+    <label class="opt"><span>Night starts</span><select data-ss="nightFromHour" data-number><option value="20">20:00</option><option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option><option value="0">00:00</option></select></label>
+    <label class="opt"><span>Night ends</span><select data-ss="nightToHour" data-number><option value="5">05:00</option><option value="6">06:00</option><option value="7">07:00</option><option value="8">08:00</option><option value="9">09:00</option></select></label>
+    <div id="art-box">
+    <h3 style="margin:18px 0 4px">Art gallery</h3>
+    <p class="hint">Famous paintings in high resolution from the Art Institute of Chicago, the Met and the Cleveland Museum of Art, all free to use. The Hub keeps them, so they show smoothly and without the internet. Choose <b>Art gallery</b> (or Shuffle) above.</p>
+    <label class="opt"><span>Each painting for</span><select data-ss="artSeconds" data-number><option value="30">30 s</option><option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option><option value="600">10 min</option><option value="900">15 min</option><option value="1800">30 min</option><option value="3600">1 hour</option></select></label>
+    <label class="opt"><span>Order</span><select data-ss="artOrder"><option value="shuffle">Shuffled</option><option value="ordered">By artist</option></select></label>
+    <label class="opt"><span>Kids-friendly only<small>No nudes, battles or gruesome scenes</small></span><input type="checkbox" data-ss="artKids"></label>
+    <label class="opt"><span>Show title and artist<small>A small museum card that fades away</small></span><input type="checkbox" data-ss="artCaption"></label>
+    <label class="opt"><span>Frame</span><select data-ss="artFrame"><option value="none">None</option><option value="matte">Matte</option><option value="gold">Gold</option></select></label>
+    <label class="opt"><span>Brightness</span><select data-ss="artBrightness" data-number><option value="50">50%</option><option value="70">70%</option><option value="90">90%</option><option value="100">100%</option></select></label>
+    <label class="opt"><span>Clock over paintings</span><input type="checkbox" data-ss="artClock"></label>
+    <label class="opt"><span>Paintings kept<small>About 3 MB each, kept on the Hub</small></span><select data-ss="artCount" data-number><option value="50">50</option><option value="100">100</option><option value="150">150</option><option value="300">300</option><option value="600">600</option></select></label>
+    <div class="opt" style="display:block"><span>Paintings<small id="art-sub"> none ticked means all</small></span><div id="art-cols"></div></div>
+    <div class="row"><button class="small" type="button" id="art-get" style="margin:6px 0 0">Get paintings now</button> <button class="small secondary" type="button" id="art-clear" style="margin:6px 0 0">Remove saved paintings</button></div>
+    <p class="hint" id="art-status"></p>
+    </div>
     <form id="ss-folder">
       <label>Your photos<small id="ss-count"> a folder on the NAS; photos and short videos (mp4, mov, webm) in it and its folders</small></label>
       <div class="row"><input name="path" placeholder="/mnt/nas/Photos" autocomplete="off"><button class="small" style="margin:0">Use</button></div>
@@ -1200,8 +1224,36 @@ async function loadScreensaver(s) {
   $("#ss-detail").textContent = info.themes.find((t) => t.id === s.screensaver.theme)?.detail ?? "";
   $("#ss-folder").path.value = s.screensaver.photosPath;
   $("#ss-count").textContent = s.screensaver.photosPath ? ` ${info.photoError ?? `${info.photoCount ?? 0} photos and videos found`}` : " a folder on the NAS; photos and short videos (mp4, mov, webm) in it and its folders";
+  loadArt(s).catch(() => {});
   pill("#ss-pill", s.screensaver.theme === "off" ? (s.screensaver.dimAfterMin ? "Dims only" : "Off") : info.themes.find((t) => t.id === s.screensaver.theme)?.name ?? "", s.screensaver.theme === "off" ? "" : "ok");
 }
+
+// Art gallery: which collections, and how many paintings the Hub holds.
+async function loadArt(s) {
+  const st = await api("/api/art").catch(() => null);
+  if (!st) return;
+  const box = $("#art-cols");
+  if (!box.children.length) {
+    for (const c of st.collections) {
+      const l = document.createElement("label");
+      l.className = "opt";
+      l.innerHTML = `<span></span><input type="checkbox">`;
+      l.firstChild.textContent = c.name;
+      const sm = document.createElement("small"); sm.textContent = c.detail; l.firstChild.append(sm);
+      l.lastChild.dataset.col = c.id;
+      l.lastChild.addEventListener("change", async () => {
+        const ids = [...box.querySelectorAll("[data-col]")].filter((i) => i.checked).map((i) => i.dataset.col);
+        try { await api("/api/settings", { method: "PUT", body: { screensaver: { artCollections: ids } } }); toast("Saved"); } catch (e) { toast(e.message, true); }
+      });
+      box.append(l);
+    }
+  }
+  for (const i of box.querySelectorAll("[data-col]")) i.checked = s.screensaver.artCollections.includes(i.dataset.col);
+  const mb = Math.round(st.bytes / 1e6);
+  $("#art-status").textContent = `${st.cached} paintings saved (${mb} MB) of ${st.target}.${st.running ? " Fetching now…" : ""}${st.lastError ? ` Last problem: ${st.lastError}` : ""}`;
+}
+$("#art-get").onclick = () => api("/api/art/refresh", { method: "POST" }).then(() => { toast("Fetching paintings"); setTimeout(() => load().catch(() => {}), 4000); }).catch((e) => toast(e.message, true));
+$("#art-clear").onclick = () => { if (confirm("Remove all saved paintings from the Hub?")) api("/api/art", { method: "DELETE" }).then(() => load()).catch((e) => toast(e.message, true)); };
 $('[data-ss="theme"]').addEventListener("change", (e) => { $("#ss-detail").textContent = ssThemes.find((t) => t.id === e.target.value)?.detail ?? ""; });
 const useFolder = (path) => api("/api/settings", { method: "PUT", body: { screensaver: { photosPath: path } } })
   .then((s) => { toast("Photos folder set"); $("#ss-nas").innerHTML = ""; return loadScreensaver(s); })

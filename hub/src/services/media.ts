@@ -12,7 +12,7 @@
 // Existing Jellyfin installs keep their "jellyfin:" keys, so nothing has to be migrated when this
 // layer is added; a household that switches to Plex starts a new set of keys.
 
-import type { Episode, Season, TitleDetails, TitleRef } from "@ultimatetv/shared";
+import type { Episode, Season, TitleDetails, TitleRef, Trickplay } from "@ultimatetv/shared";
 
 /** The media server on the other end of the Hub's library. */
 export type MediaServerKind = "jellyfin" | "plex" | "emby";
@@ -44,6 +44,8 @@ export interface JfItem {
   MediaSources?: JfMediaSource[];
   Path?: string;
   CollectionType?: string;
+  /** Jellyfin 10.9+: by media source id, then by frame width. Only present when asked for in Fields. */
+  Trickplay?: Record<string, Record<string, { Width: number; Height: number; TileWidth: number; TileHeight: number; ThumbnailCount: number; Interval: number }>>;
 }
 
 export interface JfMediaSource {
@@ -125,12 +127,19 @@ export interface MediaServer {
   resume(limit?: number): Promise<JfItem[]>;
   nextUp(limit?: number): Promise<JfItem[]>;
   latest(type: "Movie" | "Episode", limit?: number): Promise<JfItem[]>;
+  /**
+   * Films and series this server's viewer has played, from any device (an episode stands for its
+   * series, named in SeriesName). Newest first. Used to keep suggestions from repeating them.
+   */
+  played?(limit?: number): Promise<JfItem[]>;
   byProviderId(provider: MediaProvider, id: string, type: "Movie" | "Series"): Promise<JfItem | undefined>;
   hasProviderId(provider: MediaProvider, id: string, type: "Movie" | "Series"): Promise<boolean>;
   seasons(seriesId: string): Promise<JfItem[]>;
   /** Every episode of a series, in the same shape `seasons` groups. */
   episodes(seriesId: string): Promise<JfItem[]>;
   segments(itemId: string): Promise<MediaSegment[]>;
+  /** Seek-bar preview pictures for an item fetched with item(); only Jellyfin has them. */
+  trickplay(itemId: string, item: JfItem, mediaSourceId: string | undefined): Trickplay | undefined;
 
   /** The original file, untouched, for direct play. */
   streamUrl(itemId: string, mediaSourceId?: string): string;

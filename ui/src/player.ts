@@ -11,6 +11,8 @@ import { startFrameWatch, stopFrameWatch } from "./perf";
 import { startedPlaying } from "./queue";
 import { autoSubtitles, subtitleModeFor } from "./subtitles";
 import { autoAudioDescription } from "./accessibility";
+import { startDelays } from "./delays";
+import { applyRemembered } from "./trackprefs";
 import { errorToast, nav, toast } from "./store";
 import { blockedPlayback, featureLabel } from "./features";
 
@@ -178,8 +180,14 @@ async function start(req: PlaybackRequest, opts: PlayOpts, since: number, n: num
   if (req.kind === "channel") setLiveChannelId(req.id);
   startedPlaying(req);
   const np = nowPlaying();
-  if (np) void autoSubtitles(np, settings);
-  if (np) void autoAudioDescription(np, s?.preferredAudioLang);
+  void startDelays();
+  // What this profile chose last time for this series wins over the defaults below.
+  if (np)
+    void applyRemembered(np).then((found) => {
+      if (found || nowPlaying() !== np) return;
+      void autoSubtitles(np, settings);
+      void autoAudioDescription(np, s?.preferredAudioLang);
+    });
   void report("start");
   clearInterval(reportTimer);
   if (!info.live) reportTimer = window.setInterval(() => void report("progress"), 10_000);
