@@ -38,6 +38,8 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -74,6 +76,7 @@ class PlayerActivity : ComponentActivity() {
     private lateinit var titleView: TextView
     private lateinit var subtitleView: TextView
     private lateinit var action: Button
+    private lateinit var optionsButton: Button
     private lateinit var seekPreview: SeekPreview
 
     private var info: PlaybackInfo? = null
@@ -83,6 +86,9 @@ class PlayerActivity : ComponentActivity() {
     private var progressKey: String = ""
     private var live = false
     private var reported = false
+    /** What this profile chose last time for this series, applied once the tracks are known (issue #228). */
+    private var remembered: TrackPref? = null
+    private var rememberedApplied = true
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -135,6 +141,8 @@ class PlayerActivity : ComponentActivity() {
             ref = entry.item.ref ?: ref
             progressKey = entry.item.progressKey
             live = false
+            remembered = null
+            rememberedApplied = true
             show(entry.item.title, entry.item.subtitle)
             val resume = Offline.position(progressKey)?.let { p -> if (p.durationMs != null && p.positionMs > p.durationMs * 0.95) 0L else p.positionMs } ?: 0L
             open(listOf(Offline.mediaItem(entry)), resume, null)
@@ -151,6 +159,7 @@ class PlayerActivity : ComponentActivity() {
         progressKey = i.progressKey
         live = i.live
         reported = false
+        loadRemembered()
         show(i.title, i.subtitle)
         val subs = i.externalSubtitles.orEmpty().map { s ->
             val ext = Regex("\\.(srt|ass|ssa|vtt)(\\?|$)", RegexOption.IGNORE_CASE).find(s.url)?.groupValues?.get(1)?.lowercase()
@@ -239,6 +248,7 @@ class PlayerActivity : ComponentActivity() {
             override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
                 if (reason == Player.DISCONTINUITY_REASON_SEEK) tellGroup("seek", newPosition.positionMs)
             }
+            override fun onTracksChanged(tracks: Tracks) = applyRemembered()
         })
         p.setMediaItems(items, 0, startMs)
         p.prepare()
@@ -608,7 +618,24 @@ class PlayerActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val p = player ?: return super.dispatchKeyEvent(event)
         val down = event.action == KeyEvent.ACTION_DOWN
+        // A press on a button of our own (Audio and subtitles, Skip intro) belongs to that button,
+        // so Select clicks it and left/right/up/down move between buttons instead of seeking.
+        if (onOwnButton() && event.keyCode in BUTTON_KEYS) return super.dispatchKeyEvent(event)
         return when (event.keyCode) {
+            // The Fire remote's menu key, and Down, open Audio and subtitles (the bar's CC button
+            // can't be reached by D-pad while Select means play/pause); Up focuses the button.
+            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_CAPTIONS, KeyEvent.KEYCODE_MEDIA_AUDIO_TRACK, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (down) openTrackMenu()
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_UP -> {
+                if (down) {
+                    view.showController()
+                    topBar.visibility = View.VISIBLE
+                    optionsButton.requestFocus()
+                }
+                true
+            }
             // Play/pause: the remote's transport button, and Select on a D-pad.
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_HEADSETHOOK,
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
@@ -652,6 +679,158 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
             else -> super.dispatchKeyEvent(event)
+        }
+    }
+
+    private fun onOwnButton(): Boolean {
+        val f = currentFocus ?: return false
+        return f === optionsButton || f === action || (f.parent === topBar)
+    }
+
+    // ---------------------------------------------------------------------
+    // Audio and subtitles, as a plain list a D-pad can walk (and Off for subtitles).
+
+    private class TrackChoice(val group: Tracks.Group, val index: Int, val label: String, val lang: String?, val description: Boolean)
+
+    private fun choices(type: Int): List<TrackChoice> {
+        val p = player ?: return emptyList()
+        val out = mutableListOf<TrackChoice>()
+        for (g in p.currentTracks.groups) {
+            if (g.type != type) continue
+            for (i in 0 until g.length) {
+                val f = g.getTrackFormat(i)
+                val lang = f.language?.takeIf { it != "und" }
+                val name = f.label ?: lang?.let { java.util.Locale(it).displayLanguage.takeIf { n -> n.isNotBlank() } } ?: "Track ${out.size + 1}"
+                val extra = if (type == C.TRACK_TYPE_AUDIO && f.channelCount > 2) " ${f.channelCount - 1}.1" else ""
+                val description = (f.roleFlags and C.ROLE_FLAG_DESCRIBES_VIDEO) != 0
+                out.add(TrackChoice(g, i, name + extra + (if (description) " (audio description)" else ""), lang, description))
+            }
+        }
+        return out
+    }
+
+    private fun isOn(c: TrackChoice) = c.group.isTrackSelected(c.index)
+
+    private fun openTrackMenu() {
+        val p = player ?: return
+        if (isFinishing) return
+        val audio = choices(C.TRACK_TYPE_AUDIO)
+        val subs = choices(C.TRACK_TYPE_TEXT)
+        val subsOn = !p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) && subs.any { isOn(it) }
+        val entries = mutableListOf<Pair<String, () -> Unit>>()
+        entries.add("Subtitles: " + (if (subsOn) subs.first { isOn(it) }.label else "Off") to { pickSubtitle(subs, subsOn) })
+        entries.add("Sound: " + (audio.firstOrNull { isOn(it) }?.label ?: "Default") to { pickAudio(audio) })
+        if (rememberKey() != null) entries.add("Default: forget my choice for this series" to { forgetChoice() })
+        AlertDialog.Builder(this)
+            .setTitle("Audio and subtitles")
+            .setItems(entries.map { it.first }.toTypedArray()) { _, which -> entries[which].second() }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun pickSubtitle(subs: List<TrackChoice>, subsOn: Boolean) {
+        val labels = listOf("Off") + subs.map { it.label }
+        val checked = if (!subsOn) 0 else subs.indexOfFirst { isOn(it) } + 1
+        AlertDialog.Builder(this)
+            .setTitle("Subtitles")
+            .setSingleChoiceItems(labels.toTypedArray(), checked) { d, which ->
+                if (which == 0) setSubtitle(null) else setSubtitle(subs[which - 1])
+                d.dismiss()
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun pickAudio(audio: List<TrackChoice>) {
+        if (audio.isEmpty()) return
+        AlertDialog.Builder(this)
+            .setTitle("Sound")
+            .setSingleChoiceItems(audio.map { it.label }.toTypedArray(), audio.indexOfFirst { isOn(it) }) { d, which ->
+                setAudio(audio[which])
+                d.dismiss()
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun setSubtitle(choice: TrackChoice?, remember: Boolean = true) {
+        val p = player ?: return
+        val b = p.trackSelectionParameters.buildUpon()
+        if (choice == null) {
+            b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+        } else {
+            b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            b.setOverrideForType(TrackSelectionOverride(choice.group.mediaTrackGroup, choice.index))
+        }
+        p.trackSelectionParameters = b.build()
+        if (remember) remember(subtitleOff = choice == null, subtitleLang = choice?.lang, audio = null)
+    }
+
+    private fun setAudio(choice: TrackChoice, remember: Boolean = true) {
+        val p = player ?: return
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setOverrideForType(TrackSelectionOverride(choice.group.mediaTrackGroup, choice.index)).build()
+        if (remember) remember(subtitleOff = false, subtitleLang = null, audio = choice)
+    }
+
+    // ---------------------------------------------------------------------
+    // Remembered choice per series (issue #228): a language, matched on whichever source plays.
+
+    private fun rememberKey(): String? = req?.takeIf { it.kind == "title" && !live }?.id
+
+    /** "eng", "en" and "en-GB" are one language; the Hub stores the two-letter form. */
+    private fun lang2(l: String?): String {
+        val c = l.orEmpty().lowercase()
+        return when (c.take(3)) {
+            "eng" -> "en"; "jpn" -> "ja"; "fra", "fre" -> "fr"; "deu", "ger" -> "de"; "spa" -> "es"; "ita" -> "it"
+            "por" -> "pt"; "nld", "dut" -> "nl"; "rus" -> "ru"; "kor" -> "ko"; "zho", "chi" -> "zh"; "pol" -> "pl"
+            else -> c.take(2)
+        }
+    }
+
+    private fun remember(subtitleOff: Boolean, subtitleLang: String?, audio: TrackChoice?) {
+        val key = rememberKey() ?: return
+        val audioLang = audio?.lang
+        if (!subtitleOff && subtitleLang == null && audioLang == null) return
+        scope.launch { runCatching { hub.saveTrackPref(key, audioLang, audio?.description == true, subtitleLang, subtitleOff) } }
+    }
+
+    private fun forgetChoice() {
+        val key = rememberKey() ?: return
+        remembered = null
+        scope.launch { runCatching { hub.clearTrackPref(key) } }
+        Toast.makeText(this, "Back to your usual sound and subtitles from the next episode", Toast.LENGTH_LONG).show()
+    }
+
+    private fun loadRemembered() {
+        remembered = null
+        rememberedApplied = true
+        val key = rememberKey() ?: return
+        scope.launch {
+            val pref = runCatching { hub.trackPref(key) }.getOrNull() ?: return@launch
+            remembered = pref
+            rememberedApplied = false
+            applyRemembered()
+        }
+    }
+
+    /** Picks the remembered sound and subtitles once the player lists its tracks; once per title. */
+    private fun applyRemembered() {
+        val pref = remembered ?: return
+        if (rememberedApplied || player == null) return
+        val audio = choices(C.TRACK_TYPE_AUDIO)
+        if (audio.isEmpty()) return
+        rememberedApplied = true
+        pref.audio?.let { want ->
+            val same = audio.filter { lang2(it.lang) == lang2(want.lang) }
+            val pick = same.firstOrNull { it.description == (want.description == true) } ?: if (want.description == true) null else same.firstOrNull()
+            if (pick != null && !isOn(pick)) setAudio(pick, remember = false)
+        }
+        if (pref.subtitleOff) {
+            setSubtitle(null, remember = false)
+        } else {
+            val lang = pref.subtitleLang
+            val pick = lang?.let { l -> choices(C.TRACK_TYPE_TEXT).firstOrNull { lang2(it.lang) == lang2(l) } }
+            if (pick != null) setSubtitle(pick, remember = false)
         }
     }
 
@@ -752,6 +931,18 @@ class PlayerActivity : ComponentActivity() {
         subtitleView = TextView(this).apply { setTextColor(0xFFC8D0E0.toInt()); textSize = 14f; maxLines = 1 }
         texts.addView(titleView)
         texts.addView(subtitleView)
+        // Reachable by the Fire remote: Up from the picture lands here, Select opens the list.
+        optionsButton = Button(this).apply {
+            text = "Audio and subtitles"
+            isAllCaps = false
+            textSize = 14f
+            isFocusable = true
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { setColor(0x55FFFFFF); cornerRadius = dp(20).toFloat() }
+            setPadding(dp(18), 0, dp(18), 0)
+            setOnClickListener { openTrackMenu() }
+            setOnFocusChangeListener { v, focused -> v.background = GradientDrawable().apply { setColor(if (focused) 0xFFFFFFFF.toInt() else 0x55FFFFFF); cornerRadius = dp(20).toFloat() }; (v as Button).setTextColor(if (focused) Color.BLACK else Color.WHITE) }
+        }
         // Watch on the TV: move it there, or Sync play on both.
         val tvButton = ImageButton(this).apply {
             setImageResource(R.drawable.ic_screens)
@@ -761,6 +952,7 @@ class PlayerActivity : ComponentActivity() {
         }
         topBar.addView(back, LinearLayout.LayoutParams(dp(44), dp(44)))
         topBar.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        topBar.addView(optionsButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)))
         topBar.addView(tvButton, LinearLayout.LayoutParams(dp(44), dp(44)))
         root.addView(topBar, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
 
@@ -793,6 +985,9 @@ class PlayerActivity : ComponentActivity() {
         /** A tap of rewind, and of fast forward, on a TV remote. */
         private const val SEEK_BACK_MS = 10_000L
         private const val SEEK_FORWARD_MS = 30_000L
+
+        /** Keys a focused button of ours handles itself: Select, and moving between buttons. */
+        private val BUTTON_KEYS = setOf(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN)
 
         fun play(context: Context, info: PlaybackInfo, req: PlaybackRequest, title: TitleRef?, startMs: Long? = null, sync: String? = null) {
             val gson = App.instance.hub.gson

@@ -5551,3 +5551,12 @@ html.mouse .skip-button {
   word-break: break-all;
   opacity: 0.85;
 }
+
+/* Sound and subtitle delay control (issue #223) */
+.delay-readout {
+  font-size: 2.4rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.5rem 0 1rem;
+  font-variant-numeric: tabular-nums;
+}

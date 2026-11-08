@@ -289,6 +289,12 @@ export interface BoxAgent {
   setAudioTrack(id: number): Promise<void>;
   setSubtitleTrack(id: number | null): Promise<void>;
   setNightMode(on: boolean): Promise<void>;
+  /**
+   * Sound delay and subtitle delay in seconds (issue #223): positive plays the sound or shows the
+   * words later. Older box shells lack them: check with agentHas.
+   */
+  setSoundOffset?(seconds: number): Promise<void>;
+  setSubtitleDelay?(seconds: number): Promise<void>;
   setLayout(layout: VideoLayout): Promise<void>;
   /**
    * Full screen or not, from the player's button or a double-click: a desktop's mpv window, or a

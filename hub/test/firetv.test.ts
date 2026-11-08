@@ -114,11 +114,11 @@ describe("the version the Hub offers", () => {
   it("is the version this test expects, so the setup page can tell a stick to update", () => {
     const file = "hub/public/setup/firetv-app.json";
     const version = JSON.parse(readFileSync(path.join(root, file), "utf8")) as { versionCode: number; versionName: string; uninstallBelow?: number };
-    expect(version.versionCode, `${file} isn't the version this test expects — update it`).toBe(15);
+    expect(version.versionCode, `${file} isn't the version this test expects — update it`).toBe(16);
     // Android refuses to install over the old signing key, so the Hub has to be able to say which
     // builds are on it; a missing uninstallBelow leaves the household with "App not installed".
     expect(version.uninstallBelow, `${file} has no uninstallBelow — update it`).toBe(12);
-    expect(version.versionName, `${file} has no versionName — update it`).toBe("0.7.2");
+    expect(version.versionName, `${file} has no versionName — update it`).toBe("0.7.3");
   });
 
   it("is offered on the setup page, with a code and a link of its own", () => {
