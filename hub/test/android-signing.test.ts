@@ -77,7 +77,7 @@ describe("the Android apps' signing key", () => {
     // uninstallBelow stays at the first build on the new key; later builds install over it.
     for (const [file, code, below] of [
       ["hub/public/remote/app-version.json", 8, 8],
-      ["hub/public/setup/client-app.json", 16, 12],
+      ["hub/public/setup/client-app.json", 17, 12],
     ] as const) {
       const version = JSON.parse(readFileSync(path.join(root, file), "utf8")) as { versionCode: number; uninstallBelow?: number };
       expect(version.versionCode, `${file} isn't the version this test expects — update it`).toBe(code);
