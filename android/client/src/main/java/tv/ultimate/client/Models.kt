@@ -282,6 +282,8 @@ data class PlaybackInfo(
     val logo: String?,
     val queue: List<String>?,
     val hls: Boolean?,
+    /** Preview pictures for the seek bar, when Jellyfin has made them (#227). */
+    val trickplay: Trickplay? = null,
 )
 
 data class Profile(

@@ -5298,6 +5298,17 @@ html.mouse:not(.mouse-idle) .row-arrow.show {
 .seek-bar:hover .seek-ad {
   height: 0.8rem;
 }
+/* The preview frame while scrubbing (#227): above the time tip, cut from the sheet by
+   background-position. The width and height are the frame's own, set inline. */
+.seek-preview {
+  position: absolute;
+  bottom: 4.4rem;
+  transform: translateX(-50%);
+  background-repeat: no-repeat;
+  border-radius: 0.4rem;
+  box-shadow: 0 0 0 0.15rem rgb(var(--bg-rgb) / 0.92), 0 0.4rem 1.2rem rgb(0 0 0 / 0.5);
+  pointer-events: none;
+}
 .seek-tip {
   position: absolute;
   bottom: 2.2rem;

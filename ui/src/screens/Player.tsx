@@ -4,8 +4,8 @@
 // episode.
 
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import type { NowNext, PlaybackInfo, PlaybackRequest, PlaybackStats, TitleRef } from "@ultimatetv/shared";
-import { clockTime, creditsHandover, digitOf } from "@ultimatetv/shared";
+import type { NowNext, PlaybackInfo, PlaybackRequest, PlaybackStats, TitleRef, Trickplay } from "@ultimatetv/shared";
+import { clockTime, creditsHandover, digitOf, trickplayFrame } from "@ultimatetv/shared";
 import { agent, agentHas } from "../agent";
 import { hub } from "../api";
 import { DialogFrame } from "../components/Dialog";
@@ -118,8 +118,51 @@ function AdvertMarks(props: { skip: PlaybackInfo["skip"]; duration: number }) {
   );
 }
 
+/** The little picture above the seek bar: one frame cut out of Jellyfin's contact sheet. It sits
+ * just above the time tip, kept inside the bar's ends, and shows nothing until the sheet has loaded
+ * (so a slow or missing sheet is never a broken-image box). */
+function SeekPreview(props: { tp: Trickplay; ms: number; x: number; barWidth: number }) {
+  const frame = () => trickplayFrame(props.tp, props.ms);
+  createEffect(() => {
+    const f = frame();
+    if (f) loadSheet(f.url);
+  });
+  const shown = () => {
+    const f = frame();
+    return f && loadedSheets().has(f.url) ? f : null;
+  };
+  const half = () => props.tp.width / 2;
+  return (
+    <Show when={shown()}>
+      {(f) => (
+        <div
+          class="seek-preview"
+          style={{
+            left: `${Math.max(half(), Math.min(props.barWidth - half(), props.x))}px`,
+            width: `${props.tp.width}px`,
+            height: `${props.tp.height}px`,
+            "background-image": `url("${f().url}")`,
+            "background-position": `-${f().x}px -${f().y}px`,
+          }}
+        />
+      )}
+    </Show>
+  );
+}
+/** Sheets fetched this session (and those being fetched), so moving back over one shows at once. */
+const [loadedSheets, setLoadedSheets] = createSignal<ReadonlySet<string>>(new Set());
+const askedSheets = new Set<string>();
+function loadSheet(url: string) {
+  if (askedSheets.has(url)) return;
+  if (askedSheets.size > 200) askedSheets.clear();
+  askedSheets.add(url);
+  const img = new Image();
+  img.onload = () => setLoadedSheets((prev) => new Set(prev).add(url));
+  img.src = url;
+}
+
 /** The film's bar with the mouse: click to go there, or drag and let go. */
-function SeekBar(props: { duration: number; position: number; onDrag: (ms: number) => void; onSeek: (ms: number) => void; skip: PlaybackInfo["skip"] }) {
+function SeekBar(props: { duration: number; position: number; onDrag: (ms: number) => void; onSeek: (ms: number) => void; skip: PlaybackInfo["skip"]; trickplay?: Trickplay | undefined }) {
   const [drag, setDrag] = createSignal<number | null>(null);
   const [hover, setHover] = createSignal<{ x: number; ms: number } | null>(null);
   let el!: HTMLDivElement;
@@ -159,11 +202,17 @@ function SeekBar(props: { duration: number; position: number; onDrag: (ms: numbe
       <Progress value={(drag() ?? props.position) / props.duration} class="osd-progress" />
       <AdvertMarks skip={props.skip} duration={props.duration} />
       <Show when={hover()}>
-        {(h) => (
-          <span class="seek-tip" style={{ left: `${h().x}px` }}>
-            {fmt(drag() ?? h().ms)}
-          </span>
-        )}
+        {(h) => {
+          const ms = () => drag() ?? h().ms;
+          return (
+            <>
+              <Show when={props.trickplay}>{(tp) => <SeekPreview tp={tp()} ms={ms()} x={h().x} barWidth={el.clientWidth} />}</Show>
+              <span class="seek-tip" style={{ left: `${h().x}px` }}>
+                {fmt(ms())}
+              </span>
+            </>
+          );
+        }}
       </Show>
     </div>
   );
@@ -883,7 +932,7 @@ export function Player() {
                     <AdvertMarks skip={np()?.info.skip ?? []} duration={duration()} />
                   </div>
                 }>
-                  <SeekBar duration={duration()} position={st().positionMs} skip={np()?.info.skip ?? []} onDrag={(ms) => (setDragMs(ms), poke(8000))} onSeek={(ms) => (setDragMs(null), void userSeek(ms, "absolute"), poke())} />
+                  <SeekBar duration={duration()} position={st().positionMs} skip={np()?.info.skip ?? []} trickplay={np()?.info.trickplay} onDrag={(ms) => (setDragMs(ms), poke(8000))} onSeek={(ms) => (setDragMs(null), void userSeek(ms, "absolute"), poke())} />
                 </Show>
                 <span class="osd-time">{duration() ? `-${fmt(duration() - (dragMs() ?? st().positionMs))}` : ""}</span>
               </div>

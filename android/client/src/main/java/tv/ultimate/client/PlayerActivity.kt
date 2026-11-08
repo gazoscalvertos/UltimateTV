@@ -77,6 +77,7 @@ class PlayerActivity : ComponentActivity() {
     private lateinit var subtitleView: TextView
     private lateinit var action: Button
     private lateinit var optionsButton: Button
+    private lateinit var seekPreview: SeekPreview
 
     private var info: PlaybackInfo? = null
     private var req: PlaybackRequest? = null
@@ -136,6 +137,7 @@ class PlayerActivity : ComponentActivity() {
             val entry = Offline.entry(offlineId) ?: return finishWith("That download has gone.")
             offline = entry
             info = null
+            seekPreview.set(null)
             ref = entry.item.ref ?: ref
             progressKey = entry.item.progressKey
             live = false
@@ -153,6 +155,7 @@ class PlayerActivity : ComponentActivity() {
 
     private fun playInfo(i: PlaybackInfo) {
         info = i
+        seekPreview.set(i.trickplay)
         progressKey = i.progressKey
         live = i.live
         reported = false
@@ -962,6 +965,9 @@ class PlayerActivity : ComponentActivity() {
             setPadding(dp(22), 0, dp(22), 0)
         }
         root.addView(action, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(44), Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(24), dp(96)) })
+        // Preview pictures while scrubbing (#227), cut from Jellyfin's sheets when the Hub sent them.
+        seekPreview = SeekPreview(root, scope) { player?.duration?.takeIf { it > 0 } ?: info?.durationMs ?: 0L }
+        seekPreview.attach(view.findViewById<androidx.media3.ui.DefaultTimeBar>(androidx.media3.ui.R.id.exo_progress))
         setContentView(root)
     }
 
