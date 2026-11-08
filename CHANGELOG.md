@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-08
 
+- **Pop-ups, clips and prompts stay on top of films**: a film is the only thing that makes the box change the screen's refresh rate and turn HDR on, which can leave the video window in front of the TV app so every pop-up, clip, notice, skip intro and Up Next is drawn but hidden. The box now puts the TV app back on top when a film starts and whenever the screen changes mode. Not tried on the box yet: if pop-ups still don't show on films, send the box log. (#252)
+  Household: Pop-ups and prompts should show over films again.
+
 - **Watched titles go last in suggestions** ([docs/watched-suggestions.md](docs/watched-suggestions.md)): the Hub notes what each profile has watched (on the TV, and on any device Jellyfin, Plex or Emby know of) and holds it back in suggestions: Because you watched, Family films, Recently added, Trending, Films on TV today, New films from your IPTV, Films and TV Shows pages (including the Kids rows and Best of each year), More like this and search results. Settings › Playback › Titles you've already watched puts them last (the default), hides them or shows them as normal. Continue watching and Watch again rows are not affected. (#251)
   Household: films and shows you've already watched now sit at the end of the suggestions, or can be hidden in Settings.
 
