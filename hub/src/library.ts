@@ -30,6 +30,7 @@ import { addonKey, iptvKey, orderedKeys, orderStreams, pausedKeys } from "./sour
 import { streamToCandidate } from "./services/stremio.js";
 import { GENRES, KIDS_PAGE_GENRES } from "./services/tmdb.js";
 import { buildKidsRails, type KidsCandidate } from "./kidsrows.js";
+import { dedupeRails } from "./railsdedupe.js";
 
 export interface EpisodeRef {
   season: number;
@@ -309,7 +310,7 @@ export class Library {
       if (f.kids) {
         // A Kids profile gets many more rows, all built from the same rating-limited, allow-listed
         // titles: top rated, age bands, genres, Watch again and Best of each year.
-        const wide = await jf.items({ type: kind === "movie" ? "Movie" : "Series", sortBy: "DateCreated", limit: 400, ...(max ? { maxRating: max } : {}) }).catch(() => ({ items: [] as JfItem[], total: 0 }));
+        const wide = await jf.items({ type: kind === "movie" ? "Movie" : "Series", sortBy: "DateCreated", limit: 1000, ...(max ? { maxRating: max } : {}) }).catch(() => ({ items: [] as JfItem[], total: 0 }));
         const candidates: KidsCandidate[] = [];
         for (const i of wide.items) {
           const ref = jf.toTitleRef(i);
@@ -357,9 +358,12 @@ export class Library {
       .map((e) => this.vodRef(e))
       .filter((t) => f.ref(t));
     if (vod.length) rails.push({ id: "iptv", title: "From your IPTV", kind: "titles", items: vod });
+    // The same title from different sources, or in row after row, is shown once per row and in a
+    // few rows at most. Kids pages have many more rows, so they get a tighter cap.
+    const spread = dedupeRails(rails, { maxRows: f.kids ? 2 : 3, exempt: new Set(["kids-again", "iptv", "library"]) });
     // Watched titles go last (or out) in every row but the ones that are about watching again.
-    if (f.seenMode === "off") return rails;
-    return rails
+    if (f.seenMode === "off") return spread;
+    return spread
       .map((r) => (r.id === "kids-again" || !r.items ? r : { ...r, items: f.unseen(r.items) }))
       .filter((r) => r.id === "kids-again" || r.kind !== "titles" || r.items.length > 0);
   }
