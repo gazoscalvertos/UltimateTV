@@ -156,6 +156,15 @@ describe("hub API", () => {
     expect((await app.inject("/api/screensaver/photos/0123456789abcdef0123")).statusCode).toBe(404);
   });
 
+  it("keeps the art gallery's settings in range and serves its (empty) list", async () => {
+    await start();
+    const saved = await app.inject({ method: "PUT", url: "/api/settings", payload: { screensaver: { artSeconds: 1, artFrame: "gold", artCollections: ["flowers", "nope"], night: "dim" } } });
+    expect(saved.json().screensaver).toMatchObject({ artSeconds: 30, artFrame: "gold", artCollections: ["flowers"], night: "dim" });
+    expect((await app.inject("/api/art")).json()).toMatchObject({ cached: 0 });
+    expect((await app.inject("/api/art/items")).json()).toEqual({ items: [] });
+    expect((await app.inject("/api/art/image/aic-1")).statusCode).toBe(404);
+  });
+
   it("returns no clips when the folder is missing", async () => {
     await start();
     expect((await app.inject("/api/clips")).json()).toEqual({ clips: [] });

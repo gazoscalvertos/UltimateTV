@@ -2,7 +2,7 @@
 
 import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsAsk, KidsAskAnswer, KidsSummary, KidsTimeStatus, PersonDetails, SubtitleResult, TitleCast, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, TrackPref, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
-import type { BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
+import type { ArtItem, ArtStatus, BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
 const store = {
   get(key: string): string | null {
@@ -195,6 +195,10 @@ export const hub = {
   removeSource: (key: string) => api<PublicSettings>(`/api/sources/${enc(key)}`, { method: "DELETE" }),
   screensaver: () => api<ScreensaverInfo>("/api/screensaver"),
   screensaverPhotos: () => api<{ photos: ScreensaverPhoto[] }>("/api/screensaver/photos"),
+  art: () => api<ArtStatus>("/api/art"),
+  artItems: (kids: boolean) => api<{ items: ArtItem[] }>(`/api/art/items${q({ kids: kids ? "1" : undefined })}`),
+  artRefresh: () => api<{ ok: boolean }>("/api/art/refresh", { method: "POST" }),
+  artClear: () => api<{ ok: boolean }>("/api/art", { method: "DELETE" }),
   browsePhotos: (dir?: string) => api<NasListing>(`/api/screensaver/nas${q({ dir })}`),
   saveSettings: (patch: Partial<Pick<Settings, "recording" | "playback" | "appName" | "theme" | "seasonal" | "radio">> & { screensaver?: Partial<ScreensaverSettings> }) => api<PublicSettings>("/api/settings", { method: "PUT", body: patch }),
 

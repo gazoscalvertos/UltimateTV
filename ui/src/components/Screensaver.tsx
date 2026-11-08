@@ -3,14 +3,14 @@
 // with a slow pan. A small clock moves round the corners so nothing sits still for long.
 
 import { createEffect, createMemo, createResource, createSignal, For, Match, on, onCleanup, onMount, Show, Switch } from "solid-js";
-import { describeWeather, formatTemp, shuffleThemes, type ScreensaverPhoto, type ScreensaverThemeId } from "@ultimatetv/shared";
+import { describeWeather, formatTemp, isNightHour, shuffleThemes, type ArtItem, type ScreensaverPhoto, type ScreensaverThemeId } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { idleMode, screensaverConfig } from "../idle";
 import { activeMusic, spotify, webApp } from "../music";
 import { radioLine, radioSettings } from "../radio";
 import { artwork, landscape, svgUrl } from "../screensavers/pictures";
 import { SCENES } from "../screensavers/scenes";
-import { appName, now, reducedMotion } from "../store";
+import { appName, isKids, now, reducedMotion } from "../store";
 import { weather } from "../weather";
 import { WeatherIcon } from "./WeatherIcon";
 
@@ -73,7 +73,7 @@ function Slideshow(props: { next: () => { src: string; kind: Slide["kind"] } | n
   onCleanup(() => window.clearTimeout(timer));
   const top = () => slides()[slides().length - 1]?.key;
   return (
-    <div class="saver-slides" style={{ "--slide-s": `${props.seconds + 3}s` }}>
+    <div class="saver-slides" classList={{ "no-drift": !screensaverConfig().drift || reducedMotion() }} style={{ "--slide-s": `${props.seconds + 3}s`, "--fade-s": `${screensaverConfig().fadeSeconds}s` }}>
       <For each={slides()}>
         {(s) => (
           <div class="saver-slide" classList={{ shown: s.key === top() }} style={{ "--pan-x": `${s.pan[0]}%`, "--pan-y": `${s.pan[1]}%` }}>
@@ -119,6 +119,95 @@ function Photos(props: { seconds: number; empty: () => void }) {
   );
 }
 
+function shuffled<T>(list: T[]): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+
+const artUrl = (a: ArtItem) => `/api/art/image/${a.id}`;
+
+/**
+ * Art mode: one painting at a time, as large as it goes without being stretched, on black, with an
+ * optional matte and a museum card. Paintings come from the Hub (already sized for the TV), the
+ * next is loaded before the fade starts, and the card fades away after a while so nothing stays
+ * lit in one place.
+ */
+function Gallery(props: { empty: () => void }) {
+  const c = screensaverConfig;
+  const [items] = createResource(() => hub.artItems(isKids()).then((r) => r.items).catch(() => [] as ArtItem[]));
+  const [slides, setSlides] = createSignal<{ key: number; art: ArtItem }[]>([]);
+  const [card, setCard] = createSignal(true);
+  let order: ArtItem[] = [];
+  let i = 0;
+  let key = 0;
+  let timer: number | undefined;
+  let cardTimer: number | undefined;
+  const pick = (): ArtItem | undefined => {
+    if (i >= order.length) {
+      const all = items() ?? [];
+      // Shuffle again each lap, without repeating the painting just shown.
+      const last = order[order.length - 1];
+      order = c().artOrder === "ordered" ? all : shuffled(all);
+      if (order.length > 1 && order[0] === last) order = [...order.slice(1), order[0]!];
+      i = 0;
+    }
+    return order[i++];
+  };
+  const peek = () => order[i];
+  const advance = () => {
+    window.clearTimeout(timer);
+    window.clearTimeout(cardTimer);
+    const art = pick();
+    if (!art) return;
+    setSlides((s) => [...s.slice(-1), { key: ++key, art }]);
+    setCard(true);
+    // The card stays up for a while, then goes; a long-held painting is just the painting.
+    cardTimer = window.setTimeout(() => setCard(false), Math.min(30_000, c().artSeconds * 500));
+    timer = window.setTimeout(advance, c().artSeconds * 1000);
+    // Fetch the next while this one is showing, so the fade never waits.
+    const next = peek();
+    if (next) new Image().src = artUrl(next);
+  };
+  createEffect(() => {
+    const list = items();
+    if (list === undefined) return;
+    if (list.length === 0) props.empty();
+    else if (slides().length === 0) advance();
+  });
+  onCleanup(() => {
+    window.clearTimeout(timer);
+    window.clearTimeout(cardTimer);
+  });
+  const top = () => slides()[slides().length - 1]?.key;
+  return (
+    <div class="gallery" style={{ "--fade-s": `${c().fadeSeconds}s`, "--art-bright": String(c().artBrightness / 100) }}>
+      <For each={slides()}>
+        {(s) => (
+          <div class={`gallery-slide frame-${c().artFrame}`} classList={{ shown: s.key === top() }}>
+            <div class="gallery-matte">
+              <img src={artUrl(s.art)} alt={s.art.title} onError={advance} />
+            </div>
+            <Show when={c().artCaption}>
+              <div class="gallery-card" classList={{ hide: !card() }}>
+                <div class="gallery-title">{s.art.title}</div>
+                <div class="gallery-artist">{s.art.artist}</div>
+                <Show when={s.art.date}>
+                  <div class="gallery-date">{s.art.date}</div>
+                </Show>
+                <div class="gallery-credit">{{ aic: "Art Institute of Chicago", met: "The Metropolitan Museum of Art", cma: "Cleveland Museum of Art" }[s.art.source]} · Public domain</div>
+              </div>
+            </Show>
+          </div>
+        )}
+      </For>
+    </div>
+  );
+}
+
 function Theme(props: { id: ScreensaverThemeId; fallback: () => void }) {
   const seconds = () => screensaverConfig().photoSeconds;
   let seed = Math.floor(Math.random() * 1e9);
@@ -136,6 +225,9 @@ function Theme(props: { id: ScreensaverThemeId; fallback: () => void }) {
       <Match when={props.id === "photos"}>
         <Photos seconds={seconds()} empty={props.fallback} />
       </Match>
+      <Match when={props.id === "gallery"}>
+        <Gallery empty={props.fallback} />
+      </Match>
     </Switch>
   );
 }
@@ -144,7 +236,7 @@ function Clock() {
   const [spot, setSpot] = createSignal(0);
   const t = window.setInterval(() => setSpot((s) => (s + 1) % 4), 60_000);
   onCleanup(() => window.clearInterval(t));
-  const time = () => new Date(now()).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const time = () => new Date(now()).toLocaleTimeString(screensaverConfig().clock12 ? "en-US" : "en-GB", { hour: screensaverConfig().clock12 ? "numeric" : "2-digit", minute: "2-digit", hour12: screensaverConfig().clock12 });
   const date = () => new Date(now()).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   const song = () => {
     const which = activeMusic();
@@ -158,9 +250,11 @@ function Clock() {
     return which === "deezer" && np?.playing ? `${np.title}${np.artist ? ` · ${np.artist}` : ""}` : "";
   };
   return (
-    <div class={`saver-clock spot-${spot()}`}>
+    <div class={`saver-clock spot-${spot()} size-${screensaverConfig().clockSize}`}>
       <div class="saver-time">{time()}</div>
-      <div class="saver-date">{date()}</div>
+      <Show when={screensaverConfig().showDate}>
+        <div class="saver-date">{date()}</div>
+      </Show>
       <Show when={weather()?.settings.onScreensaver ? weather()!.report : undefined}>
         {(r) => (
           <div class="saver-weather">
@@ -179,7 +273,10 @@ function Clock() {
 function Saver() {
   const c = screensaverConfig;
   const [photosFailed, setPhotosFailed] = createSignal(false);
-  const choices = () => shuffleThemes(new Date().getMonth() + 1, Boolean(c().photosPath) && !photosFailed());
+  const [galleryFailed, setGalleryFailed] = createSignal(false);
+  // Shuffle only includes the gallery once the Hub has paintings for it.
+  const [hasArt] = createResource(() => hub.art().then((a) => a.cached > 0).catch(() => false));
+  const choices = () => shuffleThemes(new Date().getMonth() + 1, Boolean(c().photosPath) && !photosFailed(), Boolean(hasArt()) && !galleryFailed());
   const choose = (): ScreensaverThemeId => {
     const list = choices();
     return list[Math.floor(Math.random() * list.length)] ?? "aurora";
@@ -192,20 +289,24 @@ function Saver() {
     if (t === "shuffle") return shuffled();
     // An empty or missing photos folder: something pretty rather than nothing.
     if (t === "photos" && photosFailed()) return "landscapes";
+    if (t === "gallery" && galleryFailed()) return "landscapes";
     return t;
   });
   const fallback = () => {
-    setPhotosFailed(true);
+    if (theme() === "gallery") setGalleryFailed(true);
+    else setPhotosFailed(true);
     if (c().theme === "shuffle") setShuffled(choose());
   };
+  // Night hours (Settings › Screensaver): carry on, a good deal dimmer, or black.
+  const night = () => c().night !== "none" && isNightHour(new Date(now()).getHours(), c().nightFromHour, c().nightToHour);
   return (
-    <div class="screensaver">
-      <Show when={theme() !== "black"}>
+    <div class="screensaver" classList={{ "night-dim": night() && c().night === "dim" }}>
+      <Show when={theme() !== "black" && !(night() && c().night === "black")}>
         {/* Keyed, so a new theme starts afresh. */}
         <Show when={theme()} keyed>
           {(id) => <Theme id={id} fallback={fallback} />}
         </Show>
-        <Show when={c().clock}>
+        <Show when={theme() === "gallery" ? c().artClock : c().clock}>
           <Clock />
         </Show>
       </Show>

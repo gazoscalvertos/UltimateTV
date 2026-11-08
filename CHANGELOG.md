@@ -30,6 +30,11 @@ pop up what's new after an update. So:
 
 ## 2026-11-07
 
+- **Art gallery screensaver** ([docs/screensaver.md](docs/screensaver.md#art-gallery)): famous paintings full screen in high resolution, from the Art Institute of Chicago, the Met and the Cleveland Museum, all free to use. Choose how long each stays (30 seconds to an hour), shuffled or by artist, which collections (Impressionism, landscapes, Japan…), a matte or gold frame, a museum card with the title and artist, brightness, and a Kids-friendly option. The Hub keeps them, so they show smoothly and without the internet. (#249)
+  Household: the screensaver can now show famous paintings like pictures on the wall, chosen in Settings › Screensaver.
+- **More screensaver options**: clock size, 12-hour clock, date on or off, fade length, slow drift on or off, and night hours when the screensaver gets dimmer or goes black. (#249)
+  Household: the screensaver has more choices, including a clock size and quiet night hours.
+
 - **Sound delay, subtitle delay, and the sound and subtitle choice remembered per series** ([docs/player-sync.md](docs/player-sync.md)): Options in the player has Sound delay and Subtitle delay in 50 ms steps with the number on screen (left and right to move, Back to finish). The sound delay is kept for each sound output, so headphones keep their own offset; the subtitle delay starts at 0 for every title. The phone remote's Sound and subtitles sheet has the same two controls. Picking a sound track or subtitles in a series (Japanese with English subtitles, say) is now remembered for that profile and applied to the next episode, Up Next and Resume by matching the language, whichever source it comes from; Options › Default forgets it. On the Fire TV and Android app the player gained an Audio and subtitles button and list that the Fire remote can reach (Up, Down or Menu), with Off for subtitles, and it remembers the choice the same way. The delays are not on the Android app yet. (#223, #228)
   Household: the sound and subtitles you pick for a series now carry on to the next episode, lip-sync can be nudged from the TV or the phone, and subtitles can be switched off from the Fire TV remote.
 
