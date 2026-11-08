@@ -30,7 +30,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-08
 
-- **Fewer repeats on Films and TV pages**: a title now shows once per row, even when two sources (Jellyfin, Plex, the online catalogue, IPTV) both have it, and in at most a few rows instead of nearly all of them. Kids pages read up to 1000 library titles, so the rows are fuller.
+- **Fewer repeats on Films and TV pages**: a title now shows once per row, even when two sources (Jellyfin, Plex, the online catalogue, IPTV) both have it, and in at most a few rows instead of nearly all of them. Kids pages read up to 1000 library titles, so the rows are fuller. (#254)
   Household: the Kids profile's shows no longer repeat across rows, and the Films and TV pages show a wider choice.
 
 - **Pop-ups, clips and prompts stay on top of films**: a film is the only thing that makes the box change the screen's refresh rate and turn HDR on, which can leave the video window in front of the TV app so every pop-up, clip, notice, skip intro and Up Next is drawn but hidden. The box now puts the TV app back on top when a film starts and whenever the screen changes mode. Not tried on the box yet: if pop-ups still don't show on films, send the box log. (#252)
