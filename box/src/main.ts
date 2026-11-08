@@ -41,6 +41,7 @@ import { jellyfinReportFor, reportJellyfinProgress, resolveLimitedPlay, type Jel
 import { UiCheck } from "./uicheck.js";
 import { Mpv } from "./mpv.js";
 import { Player } from "./player.js";
+import { raiseSoon } from "./raise.js";
 import { defaultSelftestDir, desktopSelftestDir, ensureClips, SelfTester } from "./selftest.js";
 import { renameSpotifyDevice, Spotify } from "./spotify.js";
 import { desktopLogFile, desktopPlatform, downloadsDir, mpvBinary, mpvSocket } from "./platform.js";
@@ -330,6 +331,9 @@ async function main(): Promise<void> {
       // (Not from a desktop: the Hub keeps one box's diagnostics, and that's the TV's.)
       if (!DESKTOP) setTimeout(() => void diagnostics.send(), s.status === "playing" ? 5000 : 0);
     }
+    // A film switches the screen's refresh rate and HDR, which can leave mpv's window in front of the
+    // UI and hide every pop-up, clip and prompt (raise.ts). Put the UI back on top as it starts.
+    if (!DESKTOP && s.status !== lastStatus && (s.status === "loading" || s.status === "playing")) raiseSoon(() => win);
     lastStatus = s.status;
     // Keep the screen awake while something plays.
     const playing = s.status === "playing" || s.status === "buffering" || s.status === "loading";
@@ -567,6 +571,11 @@ async function main(): Promise<void> {
         webPreferences,
       });
   win.setMenu(null);
+  if (!DESKTOP) {
+    // The screen changing mode or HDR (display.ts) is when the stacking is lost: raise again after.
+    for (const ev of ["display-metrics-changed", "display-added", "display-removed"] as const) screen.on(ev, () => raiseSoon(() => win));
+    raiseSoon(() => win);
+  }
   if (DESKTOP) {
     // F11 for full screen, as in a browser; the TV UI has no use for the key.
     win.webContents.on("before-input-event", (e, input) => {

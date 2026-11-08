@@ -28,6 +28,11 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-08
+
+- **Pop-ups, clips and prompts stay on top of films**: a film is the only thing that makes the box change the screen's refresh rate and turn HDR on, which can leave the video window in front of the TV app so every pop-up, clip, notice, skip intro and Up Next is drawn but hidden. The box now puts the TV app back on top when a film starts and whenever the screen changes mode. Not tried on the box yet: if pop-ups still don't show on films, send the box log.
+  Household: Pop-ups and prompts should show over films again.
+
 ## 2026-11-07
 
 - **More Kids films and shows rows**: the Kids profile's Films and TV Shows pages now have far more to pick from: top rated, new additions you haven't seen, for little ones (U) and bigger kids (PG), animation, adventure, comedy, family, fantasy, superheroes, animals, musicals, mystery, Watch again, and Best of 2026, 2025, 2024 and back. All rows follow the profile's rating limit and allow list. (#246)
