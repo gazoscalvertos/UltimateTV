@@ -330,6 +330,8 @@ export class Playback {
         }
         const segments = await media.segments(itemId);
         info.skip = skipMarkersFrom(segments);
+        const trickplay = media.trickplay(itemId, item, src?.Id);
+        if (trickplay) info.trickplay = trickplay;
         info.progressKey = media.key(itemId);
         // A copy the device cannot play as it is (a 4K remux on a 1080p stick, HEVC where only H.264
         // decodes) is shrunk to what it can: Jellyfin makes it as HLS at the device's own limits.

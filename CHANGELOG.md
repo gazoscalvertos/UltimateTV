@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-07
 
+- **Preview pictures on the seek bar**: ([docs/seek-preview.md](docs/seek-preview.md)) drag along the seek bar and a small frame from the film shows above it, from the pictures Jellyfin already makes (Trickplay). The TV app (with a mouse) and the Android and Fire TV app both do it; nothing shows when the film has none. (#227)
+  Household: when you drag along the progress bar you can now see a little picture of that moment in the film.
+
 - **Fire TV: Settings reachable, and the app updates itself**: the side menu now scrolls and the remote's Menu key opens Settings, so Settings is no longer cut off the bottom of a TV screen. Check for updates downloads the new app from the Hub and opens Android's installer (no browser needed), and the app offers an update when it opens. (#247)
   Household: Settings now opens on the Fire stick (press the Menu key), and the app can update itself.
 

@@ -512,6 +512,11 @@ export class PlexClient implements MediaServer {
     return (body.MediaContainer?.Metadata ?? []).map((m) => this.toJf({ ...m, grandparentRatingKey: m.grandparentRatingKey ?? seriesId }));
   }
 
+  /** Plex has no preview sheets the Hub can use. */
+  trickplay(): undefined {
+    return undefined;
+  }
+
   /** Plex's `Marker[]` (intro and credits) as the Hub's segments, in Jellyfin's ticks. */
   async segments(itemId: string): Promise<MediaSegment[]> {
     try {
