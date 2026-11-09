@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -173,9 +174,13 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
                     app.prefs.appName = name
                 }
                 ui.loadFeatures()
-                if (!checkedUpdate) { checkedUpdate = true; offerUpdate(context, app, ui, quiet = true) }
                 Offline.syncPositions(app.hub)
-                if (app.prefs.profileId == null) nav.navigate("profiles")
+                // Who's watching comes first, and the update question never waits in front of it.
+                if (app.prefs.profileId == null && nav.currentDestination?.route != "profiles") nav.navigate("profiles")
+                if (!checkedUpdate) {
+                    checkedUpdate = true
+                    ui.scope.launch { offerUpdate(context, app, ui, quiet = true) }
+                }
             } else if (wasOnline || startTab == null) {
                 if (Offline.entries.value.isNotEmpty()) go(nav, "downloads")
             }

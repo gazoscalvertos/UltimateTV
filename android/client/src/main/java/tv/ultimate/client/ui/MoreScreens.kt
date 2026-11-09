@@ -323,18 +323,26 @@ fun ProfilesScreen(nav: NavHostController) {
     val scope = rememberCoroutineScope()
     val list = rememberLoad { app.hub.profiles() }
     var pinFor by remember { mutableStateOf<Profile?>(null) }
+    var busy by remember { mutableStateOf(false) }
     fun choose(p: Profile, pin: String?) {
+        if (busy) return
+        busy = true
         scope.launch {
-            runCatching { app.hub.unlock(p.id, pin) }
-                .onSuccess { token ->
-                    app.prefs.profileId = p.id
-                    app.prefs.profileToken = token
-                    app.prefs.profileName = p.name
-                    app.prefs.profileKind = p.kind
-                    pinFor = null
-                    go(nav, "home")
-                }
-                .onFailure { ui.say(explain(it)) }
+            try {
+                val token = app.hub.unlock(p.id, pin)
+                app.prefs.profileId = p.id
+                app.prefs.profileToken = token
+                app.prefs.profileName = p.name
+                app.prefs.profileKind = p.kind
+                pinFor = null
+                // Leave Who's watching for good: back to Home, whatever else is on the stack.
+                if (!nav.popBackStack("home", false)) nav.navigate("home") { popUpTo(nav.graph.id) { inclusive = true } }
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ui.say(explain(e))
+            } finally {
+                busy = false
+            }
         }
     }
     Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -344,7 +352,7 @@ fun ProfilesScreen(nav: NavHostController) {
         Loaded(list) { ps ->
             val locked = ps.locked == true
             LazyVerticalGrid(GridCells.Adaptive(120.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                items(ps.profiles.orEmpty()) { p ->
+                items(ps.profiles.orEmpty(), key = { it.id }) { p ->
                     val needsPin = p.hasPin == true || (locked && p.kind == "adult")
                     Column(Modifier.tvClickable { if (needsPin) pinFor = p else choose(p, null) }, horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.size(88.dp).clip(CircleShape).background(colourOf(p.colour)), contentAlignment = Alignment.Center) {
