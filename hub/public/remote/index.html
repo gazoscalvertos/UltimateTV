@@ -2,7 +2,7 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#070b14">
 <script src="/theme.js"></script>
 <meta name="mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
   :root { --bg: #070b14; --panel: #121b2e; --panel-2: #18233a; --fg: #f3f6fb; --fg-2: #d5dbe7; --muted: #9aa6bd; --dim: #66728a; --accent: #3d8bff; --accent-2: #00c2d1; --on-accent: #fff; --good: #35c27a; --bad: #ff5468; --hi: 255 255 255; --bg-rgb: 7 11 20; color-scheme: dark; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 16px/1.3 Inter, "Noto Sans", Roboto, system-ui, sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
-  body { display: flex; flex-direction: column; padding: env(safe-area-inset-top) 18px calc(env(safe-area-inset-bottom) + 14px); }
+  body { display: flex; flex-direction: column; padding: env(safe-area-inset-top) calc(env(safe-area-inset-right) + 18px) calc(env(safe-area-inset-bottom) + 14px) calc(env(safe-area-inset-left) + 18px); }
   header { display: flex; align-items: center; justify-content: space-between; height: 56px; }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; }
   .mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
@@ -66,8 +66,8 @@
   .hint { text-align: center; color: var(--muted); font-size: 12px; margin: 0; }
   .head-right { display: flex; align-items: center; gap: 10px; }
   /* Which room this remote is for, when the Hub has more than one box (issue #103). */
-  .box-pick { height: 30px; max-width: 130px; border-radius: 9px; background: var(--panel); color: var(--fg); border: 1px solid rgb(var(--hi) / .12); padding: 0 6px; font: inherit; font-size: 12px; }
-  .gear { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--panel); color: var(--fg); }
+  .box-pick { height: 36px; max-width: 130px; border-radius: 9px; background: var(--panel); color: var(--fg); border: 1px solid rgb(var(--hi) / .12); padding: 0 6px; font: inherit; font-size: 12px; }
+  .gear { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--panel); color: var(--fg); }
   .gear svg { width: 22px; height: 22px; }
   .r4 .mic { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); }
   .r4 .mic svg { color: var(--on-accent); }
@@ -83,14 +83,14 @@
   .change { padding: 10px 12px; border-radius: 12px; background: rgb(var(--hi) / .05); }
   .change b { display: block; font-size: 15px; }
   .change small { display: block; color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 3px; }
-  .banner .x { flex: none; width: 30px; height: 30px; border-radius: 50%; background: rgb(var(--hi) / .08); font-size: 16px; }
+  .banner .x { flex: none; width: 40px; height: 40px; border-radius: 50%; background: rgb(var(--hi) / .08); font-size: 16px; }
   .heard { min-height: 1.3em; text-align: center; color: var(--muted); font-size: 13px; margin: -4px 0 0; }
   .heard b { color: var(--fg); font-weight: 600; }
   [hidden] { display: none !important; }
   .side { display: contents; }
   main { overflow-y: auto; }
   body { padding-bottom: calc(env(safe-area-inset-bottom) + 76px); }
-  .np { display: grid; grid-template-columns: 64px 1fr; gap: 6px 12px; padding: 12px; margin-bottom: 10px; border-radius: 18px; background: linear-gradient(135deg, var(--panel-2), var(--panel)); border: 1px solid rgb(var(--hi) / .07); max-width: 420px; width: 100%; margin-left: auto; margin-right: auto; }
+  .np { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px 12px; padding: 12px; margin-bottom: 10px; border-radius: 18px; background: linear-gradient(135deg, var(--panel-2), var(--panel)); border: 1px solid rgb(var(--hi) / .07); max-width: 420px; width: 100%; margin-left: auto; margin-right: auto; }
   .np-art { width: 64px; height: 64px; border-radius: 12px; background: var(--panel-2) center / cover no-repeat; grid-row: span 2; }
   .np-text { min-width: 0; }
   .np-text b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; }
@@ -98,18 +98,18 @@
   .np-text small { color: var(--accent-2); }
   .np-progress { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .np-progress input { width: 100%; accent-color: var(--accent); height: 24px; margin: 0; }
-  .np-controls { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 8px; }
-  .np-controls button { flex: 1; height: 42px; border-radius: 12px; font-size: 13px; font-weight: 700; display: grid; place-items: center; }
+  .np-controls { grid-column: 1 / -1; min-width: 0; display: flex; justify-content: space-between; gap: 8px; }
+  .np-controls button { flex: 1 1 0; min-width: 0; padding: 0; height: 44px; border-radius: 12px; font-size: 13px; font-weight: 700; display: grid; place-items: center; }
   .np-controls svg { width: 20px; height: 20px; }
   #np-play[data-state="playing"] .i-play, #np-play[data-state="paused"] .i-pause { display: none; }
   #np-live { color: var(--bad); }
   .tabbar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 6px; padding: 8px 18px calc(env(safe-area-inset-bottom) + 8px); background: rgb(var(--bg-rgb) / .94); backdrop-filter: blur(10px); border-top: 1px solid rgb(var(--hi) / .07); z-index: 5; }
-  .tabbar button, .tabbar a { flex: 1; text-decoration: none; border-radius: 16px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; color: var(--muted); background: transparent; }
+  .tabbar button, .tabbar a { flex: 1 1 0; text-decoration: none; border-radius: 16px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; color: var(--muted); background: transparent; }
   .tabbar button svg, .tabbar a svg { width: 22px; height: 22px; }
   .tabbar button.on { color: var(--fg); background: var(--panel); }
   .browse { flex: 1; display: flex; flex-direction: column; max-width: 560px; width: 100%; margin: 0 auto; min-height: 0; user-select: text; -webkit-user-select: text; }
   .chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; flex: none; }
-  .chips button { flex: none; padding: 9px 14px; border-radius: 99px; font-size: 14px; background: var(--panel); color: var(--muted); }
+  .chips button { flex: none; min-height: 44px; padding: 9px 16px; border-radius: 99px; font-size: 14px; background: var(--panel); color: var(--muted); }
   .chips button.on { background: var(--accent); color: var(--on-accent); }
   #browse-body { flex: 1; overflow-y: auto; padding-bottom: 12px; }
   .empty { color: var(--muted); text-align: center; padding: 30px 10px; margin: 0; font-size: 14px; }
@@ -124,7 +124,7 @@
   .item .tick { color: var(--good); }
   .ep-row { display: flex; align-items: center; gap: 6px; }
   .ep-row .item { flex: 1; min-width: 0; }
-  .qbtn { flex: none; width: 40px; height: 40px; border-radius: 12px; font-size: 18px; font-weight: 700; display: grid; place-items: center; }
+  .qbtn { flex: none; width: 44px; height: 44px; border-radius: 12px; font-size: 18px; font-weight: 700; display: grid; place-items: center; }
   .qbtn.danger { color: var(--bad); }
   /* Watching elsewhere's Move and Sync: words, not a symbol. */
   .qbtn.wide { width: auto; padding: 0 10px; font-size: 13px; }
@@ -156,7 +156,7 @@
   .poster img { padding: 0; }
   .poster small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .seg { display: flex; gap: 6px; margin-bottom: 10px; }
-  .seg button { flex: 1; height: 38px; border-radius: 10px; font-size: 13px; color: var(--muted); }
+  .seg button { flex: 1; height: 44px; border-radius: 10px; font-size: 13px; color: var(--muted); }
   .seg button.on { background: var(--panel-2); color: var(--fg); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
   .tile { padding: 8px; border-radius: 14px; text-align: left; display: flex; flex-direction: column; gap: 4px; }
@@ -208,7 +208,7 @@
   .pu-media button { height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; }
   .pu-on { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px; border-radius: 12px; background: var(--panel); font-size: 14px; }
   .pu-on span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pu-on button { height: 34px; padding: 0 12px; border-radius: 9px; font-size: 13px; background: var(--panel-2); }
+  .pu-on button { height: 40px; padding: 0 12px; border-radius: 9px; font-size: 13px; background: var(--panel-2); }
   .check { display: flex; align-items: center; gap: 10px; font-size: 14px; margin: 6px 0 10px; }
   .check input { width: 20px; height: 20px; accent-color: var(--accent); }
   .row-btn { display: block; width: 100%; text-align: left; padding: 12px 14px; margin-bottom: 6px; border-radius: 12px; font-size: 14px; }
@@ -307,6 +307,21 @@
     .text button { width: 54px; }
     #numbers button { height: 34px; }
   }
+  /* Seven tabs must fit a 360px phone: tighter gutters and labels that cut off instead of wrapping. */
+  @media (orientation: portrait) and (max-width: 400px) {
+    .tabbar { gap: 2px; padding-left: calc(env(safe-area-inset-left) + 8px); padding-right: calc(env(safe-area-inset-right) + 8px); }
+    .tabbar button, .tabbar a { min-width: 0; font-size: 11px; border-radius: 12px; }
+  }
+  .tabbar button, .tabbar a { min-width: 0; padding: 0; overflow: hidden; white-space: nowrap; }
+  /* A grab handle on every sheet says it slides away; tapping outside or Escape closes it. */
+  .sheet-body::before { content: ""; display: block; width: 40px; height: 4px; margin: -8px auto 12px; border-radius: 2px; background: rgb(var(--hi) / .22); }
+  .sheet-body:focus { outline: none; }
+  /* Keyboard and switch users (and a Bluetooth keyboard on a tablet) can see where they are. */
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+  .pad button:focus-visible { outline-offset: -4px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
   /* Switched off on the TV this remote works (issue #124). */
   [data-feature-off] { display: none !important; }
 </style>
@@ -317,7 +332,7 @@
   <div class="brand"><span class="mark" id="brand-mark">U</span><span id="brand-name">TV Remote</span></div>
   <div class="head-right">
     <select class="box-pick" id="box-pick" aria-label="Which TV" hidden></select>
-    <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">Connecting…</span><button id="change-hub" hidden style="height:30px;padding:0 10px;font-size:12px;margin-left:6px">Change Hub</button></div>
+    <div class="conn" id="conn" role="status" aria-live="polite"><span class="dot"></span><span id="conn-text">Connecting…</span><button id="change-hub" hidden style="height:36px;padding:0 12px;font-size:12px;margin-left:6px">Change Hub</button></div>
     <a class="gear" href="/setup/" id="settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
   </div>
 </header>
@@ -346,7 +361,7 @@
     <span id="ios-hint-text">To keep this remote, tap <b>Share</b> then <b>Add to Home Screen</b>: it opens full screen, with no address bar.</span>
     <button class="x" id="ios-hint-x" aria-label="Not now">×</button>
   </div>
-  <p class="heard" id="heard"></p>
+  <p class="heard" id="heard" aria-live="polite"></p>
 
   <div class="side" id="side-left">
   <div class="row r4">
@@ -414,15 +429,15 @@
   <div id="browse-body"></div>
 </main>
 <nav class="tabbar">
-  <button data-tab="remote" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="2" width="12" height="20" rx="4"/><circle cx="12" cy="9" r="2.5"/><path d="M10 15h.01M14 15h.01M10 18h.01M14 18h.01"/></svg>Remote</button>
-  <button data-tab="browse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Watch</button>
+  <button data-tab="remote" class="on" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="2" width="12" height="20" rx="4"/><circle cx="12" cy="9" r="2.5"/><path d="M10 15h.01M14 15h.01M10 18h.01M14 18h.01"/></svg>Remote</button>
+  <button data-tab="browse" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Watch</button>
   <button id="cast-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><path d="M3 12a8 8 0 0 1 8 8M3 16a4 4 0 0 1 4 4M3 20h.01"/></svg>Cast</button>
   <button id="news-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM16 8.5a5 5 0 0 1 0 7M19 5.5a9 9 0 0 1 0 13"/></svg>News</button>
   <button id="notify-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><rect x="12" y="10" width="6" height="4" rx="1" fill="currentColor"/></svg>Pop-up</button>
   <button id="scare-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11a7 7 0 0 1 14 0v9l-2.5-2-2.3 2.2-2.2-2.2-2.2 2.2L5.5 18z"/><path d="M9.5 10.5h.01M14.5 10.5h.01"/></svg>Clips</button>
   <a href="/setup/stats.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Stats</a>
 </nav>
-<div class="sheet" id="sheet" hidden><div class="sheet-body" id="sheet-body"></div></div>
+<div class="sheet" id="sheet" hidden><div class="sheet-body" id="sheet-body" role="dialog" aria-modal="true" aria-label="Details" tabindex="-1"></div></div>
 <script>
 const conn = document.getElementById("conn");
 const connText = document.getElementById("conn-text");

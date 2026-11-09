@@ -229,6 +229,14 @@ Accessibility: see [accessibility.md](accessibility.md).
 - [ ] Audio description on: a BBC channel or a film known to have a described track switches to it a few seconds after starting, and says so. Yellow › Audio shows it as "Audio description". Off again: the plain track plays.
 - [ ] Switch to the Kids profile and back: each keeps its own settings. The phone's setup page shows and changes the same ones.
 
+## 8i. Phone remote on a small phone
+
+See [phone-remote.md](phone-remote.md#small-phones-and-accessibility).
+
+- [ ] On a 360px-wide phone all seven tabs show their labels without cut-off, and the Now Playing buttons (back, pause, forward, stop, sleep) are all tappable.
+- [ ] Open a film's details, then press Escape (Bluetooth keyboard) or tap outside: it closes. With TalkBack on, the sheet is announced and the tabs say whether they are selected.
+- [ ] Pinch to zoom on the Watch tab works; the d-pad still doesn't zoom.
+
 ## 9. The WAF test
 
 Hand over the remote with no instructions and ask for: watch BBC One; find tonight's film and record it; set a series link; carry on the film from yesterday; find a 4K comedy.

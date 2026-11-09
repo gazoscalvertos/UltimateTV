@@ -180,6 +180,16 @@ the doorbell, dinner, a meeting, an alarm. Home Assistant can send the same pop-
 
 What's switched off on the TV box (Settings › Features on this screen) goes from the remote too: the Guide button, the Watch tab's lists, Cast, Clips, News and Pop-up. See [features-per-screen.md](features-per-screen.md).
 
+## Small phones and accessibility
+
+- The seven tabs share the bar equally, down to a 360px-wide phone; the Now Playing buttons fit the card.
+- Buttons people tap while watching the TV (settings ⚙, chips, queue and dismiss buttons) are at least 44px.
+- Sheets (details, choices, What's new) have a grab handle, close with Escape, and take focus so a screen reader announces them; focus goes back to what opened them.
+- The connection status and what Voice heard are announced; the current tab is marked as pressed.
+- A keyboard or switch shows a focus ring; the remote's animations stop when the phone asks for reduced motion; pinch-zoom works.
+
+![Narrow phone](screenshots/250-phone-remote-narrow.png)
+
 ## Settings
 
 Tap ⚙ at the top of the remote for the settings page. It has everything the TV's Settings has
