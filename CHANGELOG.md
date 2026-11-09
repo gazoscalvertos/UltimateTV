@@ -28,6 +28,11 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-09
+
+- **Phone remote: bigger touch targets and a tidier small-phone layout**: all seven tabs now share the bar equally on a 360px phone, the Now Playing buttons all fit, and the small buttons (settings, chips, queue buttons, the dismiss ×) are at least 44px. Sheets get a grab handle and close with Escape, the status text is announced by screen readers, keyboard focus is visible, animations stop when the phone asks for reduced motion, and pinch-zoom works again. ([docs/phone-remote.md](docs/phone-remote.md#small-phones-and-accessibility)) (#258)
+  Household: the phone remote is easier to tap on small phones.
+
 ## 2026-11-08
 
 - **Fewer repeats on Films and TV pages**: a title now shows once per row, even when two sources (Jellyfin, Plex, the online catalogue, IPTV) both have it, and in at most a few rows instead of nearly all of them. Kids pages read up to 1000 library titles, so the rows are fuller. (#254)

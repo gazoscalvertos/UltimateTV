@@ -393,10 +393,19 @@
     $("sheet-body").innerHTML = html;
     $("sheet").hidden = false;
     $("sheet-body").scrollTop = 0;
+    // Take focus into the sheet (screen readers announce it) and remember where to give it back.
+    sheetOpener = document.activeElement instanceof HTMLElement && !$("sheet").contains(document.activeElement) ? document.activeElement : sheetOpener;
+    $("sheet-body").focus({ preventScroll: true });
   }
+  let sheetOpener = null;
   function closeSheet() {
     $("sheet").hidden = true;
+    if (sheetOpener && document.contains(sheetOpener)) sheetOpener.focus({ preventScroll: true });
+    sheetOpener = null;
   }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("sheet").hidden) closeSheet();
+  });
   $("sheet").addEventListener("click", (e) => {
     if (e.target === $("sheet") || e.target.closest("[data-close]")) closeSheet();
   });
@@ -457,7 +466,7 @@
   for (const b of document.querySelectorAll("[data-tab]")) {
     b.addEventListener("click", () => {
       for (const [name, el] of Object.entries(tabs)) el.hidden = name !== b.dataset.tab;
-      for (const x of document.querySelectorAll("[data-tab]")) x.classList.toggle("on", x === b);
+      for (const x of document.querySelectorAll("[data-tab]")) { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", String(x === b)); }
       if (b.dataset.tab === "browse" && !browsed) show(current);
     });
   }

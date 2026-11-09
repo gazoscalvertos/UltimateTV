@@ -721,6 +721,16 @@ try {
   await phone.waitForTimeout(800);
   await phone.screenshot({ path: path.join(out, "22-phone-remote.png") });
   console.log("  22-phone-remote.png");
+  // A narrow 360px phone: all seven tabs have to fit, and a sheet shows its grab handle (issue: remote UX review).
+  const narrow = await browser.newPage({ viewport: { width: 360, height: 740 }, deviceScaleFactor: 2, reducedMotion: "reduce" });
+  await narrow.context().addCookies([{ name: "utv_device", value: phonePairing.token, url: base }]);
+  await narrow.goto(`${base}/remote/`);
+  await narrow.waitForTimeout(800);
+  const narrowFit = await narrow.evaluate(() => [...document.querySelectorAll(".tabbar > *, .np-controls > *:not([hidden])")].filter((t) => t.scrollWidth > t.clientWidth + 1 || t.getBoundingClientRect().width < 40 || t.getBoundingClientRect().right > innerWidth).map((t) => `${t.textContent.trim() || t.id}:${t.scrollWidth}/${t.clientWidth}/${Math.round(t.getBoundingClientRect().width)}`));
+  if (narrowFit.length) errors.push(`narrow phone: cut off or too small: ${narrowFit.join(", ")}`);
+  await narrow.screenshot({ path: path.join(out, "250-phone-remote-narrow.png") });
+  console.log("  250-phone-remote-narrow.png");
+  await narrow.close();
   // Voice control, as the Android app hands over what it heard.
   await phone.evaluate(() => window.utvVoiceResult("watch BBC One"));
   await phone.waitForTimeout(800);
