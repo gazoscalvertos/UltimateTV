@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-08
 
+- **Fewer repeats on Films and TV pages**: a title now shows once per row, even when two sources (Jellyfin, Plex, the online catalogue, IPTV) both have it, and in at most a few rows instead of nearly all of them. Kids pages read up to 1000 library titles, so the rows are fuller. (#254)
+  Household: the Kids profile's shows no longer repeat across rows, and the Films and TV pages show a wider choice.
+
 - **Who's watching works again on Android and Fire TV**: choosing a profile did nothing (only Back worked). The update question no longer sits in front of Who's watching, a left-over pop-up can no longer swallow presses, and picking a profile now always returns to Home. Android app 0.7.4. Not tried on a device yet: update from Settings › Check for updates (or sideload from the Hub) and tell me if it still sticks. (#253)
   Household: the Android and Fire TV apps let you pick who's watching again.
 
