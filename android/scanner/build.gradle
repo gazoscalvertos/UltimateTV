@@ -40,7 +40,7 @@ dependencies {
     implementation "androidx.camera:camera-view:1.5.3"
     implementation "androidx.activity:activity-ktx:1.9.3"
     // Apache-2.0, no Play services, and the decoder is the same one every Android barcode app uses.
-    implementation "com.google.zxing:core:3.5.3"
+    implementation "com.google.zxing:core:3.5.4"
 
     testImplementation "junit:junit:4.13.2"
 }
