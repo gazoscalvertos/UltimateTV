@@ -10,7 +10,7 @@
     "start": "electron dist/main.js"
   },
   "dependencies": {
-    "electron": "45.1.0"
+    "electron": "45.2.3"
   },
   "devDependencies": {
     "@ultimatetv/shared": "0.2.0"
