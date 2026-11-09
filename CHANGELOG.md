@@ -30,7 +30,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-09
 
-- **Phone remote: bigger touch targets and a tidier small-phone layout**: all seven tabs now share the bar equally on a 360px phone, the Now Playing buttons all fit, and the small buttons (settings, chips, queue buttons, the dismiss ×) are at least 44px. Sheets get a grab handle and close with Escape, the status text is announced by screen readers, keyboard focus is visible, animations stop when the phone asks for reduced motion, and pinch-zoom works again. ([docs/phone-remote.md](docs/phone-remote.md#small-phones-and-accessibility)) (#255)
+- **Phone remote: bigger touch targets and a tidier small-phone layout**: all seven tabs now share the bar equally on a 360px phone, the Now Playing buttons all fit, and the small buttons (settings, chips, queue buttons, the dismiss ×) are at least 44px. Sheets get a grab handle and close with Escape, the status text is announced by screen readers, keyboard focus is visible, animations stop when the phone asks for reduced motion, and pinch-zoom works again. ([docs/phone-remote.md](docs/phone-remote.md#small-phones-and-accessibility)) (#258)
   Household: the phone remote is easier to tap on small phones.
 
 ## 2026-11-08
