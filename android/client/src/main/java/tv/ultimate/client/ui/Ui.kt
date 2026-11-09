@@ -87,7 +87,9 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
     suspend fun confirm(title: String, message: String, yes: String, no: String = "Cancel"): Boolean {
         val answer = CompletableDeferred<Boolean>()
         ask = Ask(title, message, yes, no, answer)
-        return answer.await().also { ask = null }
+        // Cleared even if the caller is cancelled (the app paused): a dialog left behind with nobody
+        // waiting on it would swallow every press and could never be dismissed.
+        try { return answer.await() } finally { ask = null }
     }
 
     fun say(message: String) {

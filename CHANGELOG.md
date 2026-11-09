@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-08
 
+- **Who's watching works again on Android and Fire TV**: choosing a profile did nothing (only Back worked). The update question no longer sits in front of Who's watching, a left-over pop-up can no longer swallow presses, and picking a profile now always returns to Home. Android app 0.7.4. Not tried on a device yet: update from Settings › Check for updates (or sideload from the Hub) and tell me if it still sticks. (#253)
+  Household: the Android and Fire TV apps let you pick who's watching again.
+
 - **Pop-ups, clips and prompts stay on top of films**: a film is the only thing that makes the box change the screen's refresh rate and turn HDR on, which can leave the video window in front of the TV app so every pop-up, clip, notice, skip intro and Up Next is drawn but hidden. The box now puts the TV app back on top when a film starts and whenever the screen changes mode. Not tried on the box yet: if pop-ups still don't show on films, send the box log. (#252)
   Household: Pop-ups and prompts should show over films again.
 
