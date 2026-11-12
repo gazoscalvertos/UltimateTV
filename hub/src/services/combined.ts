@@ -176,6 +176,15 @@ export class CombinedMedia implements MediaServer {
     return { items: ordered.slice(start, start + limit), total: totals.reduce((a, b) => a + b, 0) };
   }
 
+  async collections(): Promise<JfItem[]> {
+    return (await this.fromAll((s) => (s.collections ? s.collections() : Promise.resolve([])))).flat();
+  }
+
+  async collectionItems(id: string): Promise<JfItem[]> {
+    const { server, raw } = this.route(id);
+    return server.collectionItems ? (await server.collectionItems(raw)).map((i) => this.tag(server, i)) : [];
+  }
+
   async item(id: string): Promise<JfItem> {
     const { server, raw } = this.route(id);
     return this.tag(server, await server.item(raw));

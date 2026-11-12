@@ -1,6 +1,6 @@
 # ADR 0004: The PlayStation 5 gets its own app, not just a browser
 
-- Status: accepted (2026-11-03)
+- Status: accepted (2026-11-03); the player and drawing choices are superseded by [ADR 0005](0005-the-ps5-builds-on-evo-players-engine.md)
 - Decider: Gary
 
 ## Context

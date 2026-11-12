@@ -42,6 +42,7 @@ import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
 import { Weather } from "./screens/Weather";
 import { startWeather } from "./weather";
+import { startFamily } from "./family";
 import { startHomeAssistant } from "./homeassistant";
 import { startWhatsNew } from "./whatsnew";
 import { closeTopDialog, dropToast, isEasy, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
@@ -54,6 +55,7 @@ import { ElsewhereScreen } from "./screens/Elsewhere";
 import { ComingUpScreen } from "./screens/ComingUp";
 import { SportScreen } from "./screens/Sport";
 import { startEpisodePopups } from "./following";
+import { CollectionScreen } from "./screens/Collection";
 import { RequestsScreen } from "./screens/Requests";
 import { startRequestPopups } from "./requests";
 import { startWatching } from "./watching";
@@ -231,6 +233,7 @@ export function App() {
     startPodcastPlaces();
   startRadioSettings();
     startWeather();
+    startFamily();
     startHomeAssistant();
     startWhatsNew();
     void startMusic();
@@ -366,6 +369,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "coming-up"}>
             <ComingUpScreen />
+          </Match>
+          <Match when={(() => { const r = nav.current(); return r.name === "collection" ? r : null; })()} keyed>
+            {(r) => <CollectionScreen id={r.id} />}
           </Match>
           <Match when={nav.current().name === "requests"}>
             <RequestsScreen />

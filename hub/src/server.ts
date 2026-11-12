@@ -15,12 +15,15 @@ import { registerScares } from "./scares.js";
 import { AdSkipper, registerAdSkip } from "./adskip.js";
 import { Alerts, deliver, BOX_UPDATE_ALERT_MS, boxUpdateAlert, registerAlerts } from "./alerts.js";
 import { HomeAssistant, registerHomeAssistant } from "./homeassistant.js";
+import { Family, registerFamily } from "./family.js";
 import { registerWeather, Weather } from "./weather.js";
 import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { registerContinue } from "./continueroutes.js";
+import { registerPs5 } from "./ps5routes.js";
 import { registerFollowing } from "./followingroutes.js";
+import { Collections } from "./collections.js";
 import { mergeRequestSettings, registerRequests, RequestError, TitleRequests } from "./requests.js";
 import { Following } from "./following.js";
 import { registerSport } from "./sportroutes.js";
@@ -63,6 +66,7 @@ import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
 import { capsFromHeaders } from "./streamcaps.js";
 import { guestBlocks } from "./guest.js";
+import { guestAllows } from "@ultimatetv/shared";
 import { ContentFilter, certificationRank, NO_FILTER } from "./profiles.js";
 import { ReportStore } from "./reports.js";
 import { orderPatch, pausePatch, removePatch, testSource, UnknownSourceError } from "./sourceoptions.js";
@@ -122,7 +126,7 @@ export const HUB_BUILD = { commit: process.env.GIT_COMMIT || undefined, date: pr
 
 type Req<P = Record<string, string>, Q = Record<string, string | undefined>, B = unknown> = FastifyRequest<{ Params: P; Querystring: Q; Body: B }>;
 
-export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Promise<FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper; weather: Weather; backups: Backups } }> {
+export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Promise<FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper; weather: Weather; family: Family; backups: Backups } }> {
   // With a log ring the logger runs at LOG_LEVEL (debug by default): the rolling file in
   // data/logs gets everything, docker logs info and up.
   const app = Fastify({ logger: deps.logger ? (deps.logRing ? { level: deps.env?.LOG_LEVEL ?? "debug", stream: deps.logRing.stream } : true) : false, bodyLimit: 2 * 1024 * 1024 });
@@ -130,6 +134,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   const ctx = deps.context ?? new HubContext({ dataDir: config.dataDir, mediaRoot: config.mediaRoot, env: deps.env ?? {}, log, ...(config.demo ? { demo: true, ytdlp: null } : {}) });
   if (config.demo) seedDemo(ctx, config);
   const library = new Library(ctx);
+  // Collections and franchises: BoxSets, Plex collections and TMDB's (#238).
+  const collections = new Collections(ctx);
+  ctx.collections = collections;
   const playback = new Playback(ctx, library);
   const watchlist = new Watchlist(ctx.db, ctx.events);
   // Followed series: Coming up, Home's New episodes row and the pop-up when one arrives (#226).
@@ -239,6 +246,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/remote/key", "script"],
     ["POST /api/remote/text", "script"],
     ["POST /api/remote/voice", "paired"],
+    // The PlayStation 5 title (docs/ps5-architecture.md): each runs the Hub's own route as the same caller.
+    ["POST /api/ps5/resolve", "paired"],
+    ["POST /api/ps5/progress", "paired"],
     ["GET /api/remote/now", "paired"],
     // Bluetooth belongs to the box; the phone's page asks the Hub, which asks the TV (#102).
     ["GET /api/bluetooth", "paired"],
@@ -346,6 +356,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/weather/places", "paired"],
     ["POST /api/weather/refresh", "paired"],
     ["POST /api/weather/show", "paired"],
+    ["GET /api/family", "paired"],
+    ["POST /api/family/refresh", "paired"],
     ["POST /api/recordings/:id/adscan", "paired"],
     // Making a recording, a series link or a reminder is "paired", not adult-only: the phone
     // remote and the TV offer them to any paired device (Kids profiles included), while deleting
@@ -507,6 +519,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "PUT /api/alerts/settings",
     "PUT /api/ha/settings",
     "PUT /api/weather/settings",
+    // Calendar links can be secret addresses and the Home Assistant token is a key: adults only.
+    "GET /api/family/settings",
+    "PUT /api/family/settings",
 
     "POST /api/backup",
     "POST /api/backup/restore",
@@ -987,6 +1002,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // The forecast for Home, the top bar and the screensaver (see weather.ts).
   const weather = new Weather(ctx, config.demo);
   registerWeather(app, ctx, weather);
+  // The family board: calendars, birthdays, bins and the school run for Home and the idle screen (see family.ts).
+  const family = new Family(ctx, config.demo);
+  registerFamily(app, family, (req) => viewer(req).profile);
   // Advert breaks in recordings (see adskip.ts).
   const adSkipper = new AdSkipper(ctx, config.dataDir);
   await registerAdSkip(app, adSkipper, config.dataDir);
@@ -1689,6 +1707,16 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return sendFile(req, reply, r.path);
   });
 
+  // Seek-bar preview sheet n for a finished recording (#227).
+  app.get("/api/recordings/:id/seek/:sheet", async (req: Req<{ id: string; sheet: string }>, reply) => {
+    const r = ctx.recordings.get(req.params.id);
+    if (!r) return reply.code(404).send({ error: "No such recording" });
+    if (!recordingAllowed(req, r.channelId)) throw new NotAllowedError();
+    const file = ctx.seekSheets.sheetFile(r.id, Number(req.params.sheet.replace(/\.jpg$/, "")));
+    if (!file) return reply.code(404).send({ error: "No preview there" });
+    return sendFile(req, reply, file);
+  });
+
   app.get("/api/series-links", async () => ({ seriesLinks: ctx.recordings.links() }));
 
   app.post("/api/series-links", async (req: Req<Record<string, string>, Record<string, string>, { programmeId: string; scope?: "this" | "any"; newOnly?: boolean; keepLatest?: number }>) => {
@@ -1744,6 +1772,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   );
 
   // Taking a title off Continue watching, for this profile: the TV's Options menu and the phone.
+  registerPs5(app, ctx);
   registerContinue(app, ctx, (req) => ({ profileId: viewer(req).profile?.id ?? null }));
   registerRequests(app, { requests, profiles: ctx.profiles, viewer, settings: () => ctx.settings.get().requests });
   registerSport(app, sport, (req) => {
@@ -2191,6 +2220,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       const items = requests.homeItems(who.profile ?? null);
       if (items.length) home.rails.splice(home.rails.findIndex((r) => r.id === "new-episodes") + 1 || home.rails.findIndex((r) => r.id === "nextup") + 1 || home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0), 0, { id: "requests", title: "Your requests", kind: "titles", items: items.slice(0, 30) });
     }
+    // Franchises: Bond, Harry Potter, Marvel in order (#238). Per film for Kids, so a collection only counts the films the profile may see.
+    if (showing.includes("collections") && collectionsAllowed(who.filter)) {
+      const items = await collections.cards(who.filter, 30).catch(() => []);
+      if (items.length) home.rails.push({ id: "collections", title: "Collections", kind: "titles", items });
+    }
     // Sport today: live and upcoming sport, the profile's teams first (#231).
     if (showing.includes("sport")) {
       const games = sport.row(profileId, who.filter);
@@ -2215,6 +2249,21 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       const real = await library.details(req.params.id).catch(() => null);
       return reply.code(403).send({ error: err.message, code: "profile", ...(real ? { askable: { id: real.id, kind: real.kind, name: real.name } } : {}) });
     }
+  });
+  // Collections (#238): the list for Films, one collection, and the one a film belongs to.
+  const collectionsAllowed = (f: ContentFilter): boolean => !f.guest || guestAllows(f.profile, "films");
+  app.get("/api/collections", async (req) => ({ collections: collectionsAllowed(filterOf(req)) ? await collections.cards(filterOf(req), 200).catch(() => []) : [] }));
+  app.get("/api/collections/:id", async (req: Req<{ id: string }>, reply) => {
+    const f = filterOf(req);
+    const view = collectionsAllowed(f) ? await collections.view(req.params.id, f) : undefined;
+    return view ?? reply.code(404).send({ error: "No such collection" });
+  });
+  app.get("/api/titles/:id/collection", async (req: Req<{ id: string }>) => {
+    const f = filterOf(req);
+    if (!collectionsAllowed(f)) return { collection: null };
+    const d = await library.details(req.params.id, f);
+    if (d.kind !== "movie") return { collection: null };
+    return { collection: (await collections.of({ id: d.id, tmdbId: d.tmdbId }, f).catch(() => undefined)) ?? null };
   });
   app.get("/api/titles/:id/extras", async (req: Req<{ id: string }>) => library.extras(req.params.id, filterOf(req)));
   app.get("/api/titles/:id/cast", async (req: Req<{ id: string }, { episode?: string }>) => library.cast(req.params.id, req.query.episode ? episodeNumbers(req.query.episode) : undefined, filterOf(req)));
@@ -2386,13 +2435,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   }
 
   app.decorate("hub", ctx);
-  app.decorate("jobs", { alerts, adSkipper, weather, backups });
+  app.decorate("jobs", { alerts, adSkipper, weather, family, backups });
   app.addHook("onClose", async () => {
     alerts.stop();
     weather.stop();
+    family.stop();
     adSkipper.stop();
   });
-  return app as unknown as FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper; weather: Weather; backups: Backups } };
+  return app as unknown as FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper; weather: Weather; family: Family; backups: Backups } };
 }
 
 function marksFor(ctx: HubContext, from: number, to: number): Record<string, ProgrammeMark> {

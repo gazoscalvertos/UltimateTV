@@ -141,7 +141,8 @@ describe("in the demo Hub", () => {
     const x = (await app.inject("/api/titles/" + encodeURIComponent("demo:movie:copper-sky") + "/extras")).json<TitleExtras>();
     expect(x.trailer?.url).toBeTruthy();
     expect(x.scores.map((s) => s.label)).toEqual(["TMDB", "IMDb", "Rotten Tomatoes"]);
-    expect(x.similar[0]!.name).toBe("Starfall");
+    // Its own sequels share every genre, so they come first (the demo has two since #238).
+    expect(x.similar.slice(0, 2).map((t) => t.name).sort()).toEqual(["Copper Sky: Dust Season", "Copper Sky: Red Tide"]);
     expect(x.similar.some((t) => t.id === "demo:movie:copper-sky")).toBe(false);
   });
 

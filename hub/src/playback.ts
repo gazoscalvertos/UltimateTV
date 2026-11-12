@@ -2,7 +2,7 @@
 // subtitles, skip markers, frame rate and what plays next.
 
 import { randomBytes } from "node:crypto";
-import type { Channel, PlaybackInfo, PlaybackRequest, StreamCandidate, TitleRef } from "@ultimatetv/shared";
+import type { Channel, PlaybackInfo, PlaybackRequest, StreamCandidate, TitleRef, Trickplay } from "@ultimatetv/shared";
 import { episodeLabel, skipMarkersFrom } from "@ultimatetv/shared";
 import { adSkipSettings } from "./adskip.js";
 import { catchupUrl } from "./catchup.js";
@@ -234,6 +234,7 @@ export class Playback {
       skip: (r.adBreaks ?? []).map((b) => ({ kind: "adverts" as const, startMs: b.startMs, endMs: b.endMs })),
       ...(r.adBreaks?.length && adSkipSettings(this.ctx.db).mode === "auto" ? { autoSkipAdverts: true } : {}),
       ...(p.image ? { artwork: p.image } : {}),
+      ...trickplayOf(this.ctx.seekSheets.trickplay(id, hubBase)),
     };
   }
 
@@ -288,8 +289,18 @@ export class Playback {
         if (image) info.next.image = image;
         if (next.overview) info.next.overview = next.overview;
       }
-    } else if (details.year) {
-      info.subtitle = String(details.year);
+    } else {
+      if (details.year) info.subtitle = String(details.year);
+      // A film in a collection hands over to the next film in it (#238): per film for Kids, so the
+      // next one is the next the profile may watch.
+      if (details.kind === "movie" && this.ctx.collections) {
+        const c = await this.ctx.collections.of({ id: details.id, tmdbId: details.tmdbId }, f).catch(() => undefined);
+        if (c?.next) {
+          info.next = { kind: "title", id: c.next.id, name: c.next.name, label: `Next in ${c.name.replace(/\s+collection$/i, "")}` };
+          const image = c.next.backdrop ?? c.next.poster;
+          if (image) info.next.image = image;
+        }
+      }
     }
 
     // IPTV VOD counts against the connection limit, so it goes through the Hub's proxy.
@@ -445,4 +456,8 @@ export function episodeNumbers(episodeId: string): { season: number; episode: nu
   const se = /(?:^|:)s(\d+)e(\d+)$/i.exec(episodeId);
   if (se) return { season: Number(se[1]), episode: Number(se[2]) };
   return undefined;
+}
+
+function trickplayOf(t: Trickplay | undefined): { trickplay?: Trickplay } {
+  return t ? { trickplay: t } : {};
 }

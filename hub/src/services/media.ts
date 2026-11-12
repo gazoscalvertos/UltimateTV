@@ -132,6 +132,10 @@ export interface MediaServer {
    * series, named in SeriesName). Newest first. Used to keep suggestions from repeating them.
    */
   played?(limit?: number): Promise<JfItem[]>;
+  /** The server's collections (Jellyfin/Emby BoxSets, Plex collections) as items of Type "BoxSet" (#238). */
+  collections?(): Promise<JfItem[]>;
+  /** The films in one of those collections, in whatever order the server gives. */
+  collectionItems?(id: string): Promise<JfItem[]>;
   byProviderId(provider: MediaProvider, id: string, type: "Movie" | "Series"): Promise<JfItem | undefined>;
   hasProviderId(provider: MediaProvider, id: string, type: "Movie" | "Series"): Promise<boolean>;
   seasons(seriesId: string): Promise<JfItem[]>;

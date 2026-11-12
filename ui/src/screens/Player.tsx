@@ -40,6 +40,8 @@ interface UpNext {
   overview?: string;
   /** From the play queue, rather than the next episode. */
   queued: boolean;
+  /** "Next in Bond" for the next film of a collection (#238). */
+  label?: string;
 }
 
 /** The volume the mouse controls last set, 0–100 (the box starts each video at full). */
@@ -237,8 +239,8 @@ export function Player() {
     if (q) return { req: q.req, name: q.subtitle ? `${q.name} · ${q.subtitle}` : q.name, queued: true, ...(q.title ? { title: q.title } : {}), ...(q.image ? { image: q.image } : {}) };
     const n = np.info.next;
     if (!n) return null;
-    const { name, image, overview, ...req } = n;
-    return { req, name, queued: false, ...(np.title ? { title: np.title } : {}), ...(image ? { image } : {}), ...(overview ? { overview } : {}) };
+    const { name, image, overview, label, ...req } = n;
+    return { req, name, queued: false, ...(label ? { label } : {}), ...(np.title ? { title: np.title } : {}), ...(image ? { image } : {}), ...(overview ? { overview } : {}) };
   });
 
   // Look up what's next near the end of this, so it starts straight away.
@@ -302,7 +304,7 @@ export function Player() {
   };
   const nextLabel = () => {
     const next = upNext();
-    const what = next?.queued ? "Up next from your queue" : "Next episode";
+    const what = next?.queued ? "Up next from your queue" : (next?.label ?? "Next episode");
     const counting = (next?.queued || autoplay()) && remainingS() !== null && playerState().status !== "ended";
     return counting ? `${what} in ${remainingS()} s` : what;
   };

@@ -15,7 +15,7 @@ import { pairStamp } from "../pairing";
 import { appName, errorToast, setAppName, nav, previewTheme, profile, setProfile, setShowStats, setTheme, showStats, toast } from "../store";
 import { onCleanup } from "solid-js";
 import { Row, Status } from "../components/SettingRow";
-import { AdvertRows, AlertsSection, FeaturesSection, CastSection, HomeRowsSection, RecentChanges, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
+import { AdvertRows, AlertsSection, FeaturesSection, CastSection, HomeRowsSection, FamilySection, RecentChanges, SeasonalSection, WeatherSection, WhatsNewSection } from "./SettingsMore";
 import { MeasureSection } from "./Measure";
 import { SelfTestSection } from "./SelfTest";
 import { BluetoothSection } from "./Bluetooth";
@@ -663,6 +663,7 @@ export function Settings(props: { section?: string }) {
     { id: "theme", label: "Theme" },
     { id: "screensaver", label: "Screensaver" },
     { id: "weather", label: "Weather" },
+    { id: "family", label: "Family board" },
     { id: "recording", label: "Recording" },
     { id: "music", label: "Music channels" },
     { id: "radio", label: "Radio and podcasts" },
@@ -1058,6 +1059,10 @@ export function Settings(props: { section?: string }) {
 
             <Show when={section() === "weather"}>
               <WeatherSection />
+            </Show>
+
+            <Show when={section() === "family"}>
+              <FamilySection />
             </Show>
 
             <Show when={section() === "alerts"}>

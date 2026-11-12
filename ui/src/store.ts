@@ -26,6 +26,7 @@ export type Route =
   | { name: "elsewhere" }
   | { name: "coming-up" }
   | { name: "requests" }
+  | { name: "collection"; id: string }
   | { name: "sport" };
 
 export type PlannerTab = "recorded" | "scheduled" | "reminders" | "series" | "downloads";

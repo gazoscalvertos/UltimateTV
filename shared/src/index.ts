@@ -15,6 +15,7 @@ export * from "./household.js";
 export * from "./seasons.js";
 export * from "./themes.js";
 export * from "./weather.js";
+export * from "./family.js";
 
 export * from "./backup.js";
 export * from "./changelog.js";
@@ -33,6 +34,7 @@ export * from "./watching.js";
 export * from "./shareplay.js";
 export * from "./trackprefs.js";
 export * from "./following.js";
+export * from "./collections.js";
 export * from "./requests.js";
 export * from "./overrun.js";
 export * from "./sport.js";
