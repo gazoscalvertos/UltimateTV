@@ -9,6 +9,8 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DownloadForOffline
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Movie
@@ -32,16 +35,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -80,35 +78,35 @@ import tv.ultimate.client.App
 import tv.ultimate.client.Hub
 import tv.ultimate.client.Offline
 
-private val Colours = darkColorScheme(
-    primary = Color(0xFF6EA8FF),
-    onPrimary = Color(0xFF041431),
-    secondary = Color(0xFFFFC43D),
-    background = Color(0xFF070B14),
-    surface = Color(0xFF070B14),
-    surfaceVariant = Color(0xFF151D2C),
-    onSurfaceVariant = Color(0xFFA9B4C8),
-    surfaceContainer = Color(0xFF0E1522),
-)
-
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
-
 /** Whether a screen is switched off on this phone (Settings › Features on this phone). */
 private fun routeOn(ui: Ui, route: String?): Boolean = when (route?.substringBefore('/')) {
     "guide", "channel" -> ui.on("live")
     "library" -> ui.on("films") || ui.on("shows")
+    "films" -> ui.on("films")
+    "shows" -> ui.on("shows")
     "recordings" -> ui.on("recordings")
     "downloads" -> ui.on("downloads")
     "search" -> ui.on("search")
     else -> true
 }
 
-private val TABS = listOf(
-    Tab("home", "Home", Icons.Default.Home),
-    Tab("guide", "TV Guide", Icons.Default.LiveTv),
-    Tab("library", "Films & TV", Icons.Default.Movie),
-    Tab("recordings", "Recordings", Icons.Default.VideoLibrary),
-    Tab("downloads", "Downloads", Icons.Default.DownloadForOffline),
+// A TV and a tablet have the TV app's tabs: Films and TV Shows apart. A phone has one tab for both,
+// with the choice at the top of the screen, because six tabs don't fit along the bottom.
+private val TABS_WIDE = listOf(
+    NavTab("home", "Home", Icons.Default.Home),
+    NavTab("guide", "TV Guide", Icons.Default.LiveTv),
+    NavTab("films", "Films", Icons.Default.Movie),
+    NavTab("shows", "TV Shows", Icons.Default.VideoLibrary),
+    NavTab("recordings", "Recordings", Icons.Default.FiberManualRecord),
+    NavTab("downloads", "Downloads", Icons.Default.DownloadForOffline),
+)
+
+private val TABS_PHONE = listOf(
+    NavTab("home", "Home", Icons.Default.Home),
+    NavTab("guide", "TV Guide", Icons.Default.LiveTv),
+    NavTab("library", "Films & TV", Icons.Default.Movie),
+    NavTab("recordings", "Recordings", Icons.Default.FiberManualRecord),
+    NavTab("downloads", "Downloads", Icons.Default.DownloadForOffline),
 )
 
 class MainActivity : ComponentActivity() {
@@ -135,17 +133,28 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge(SystemBarStyle.dark(0xFF070B14.toInt()), SystemBarStyle.dark(0xFF070B14.toInt()))
         val startTab = intent.getStringExtra("tab")
         setContent {
-            MaterialTheme(colorScheme = Colours) {
-                val snackbar = remember { SnackbarHostState() }
-                val scope = rememberCoroutineScope()
-                val context = LocalContext.current
-                val ui = remember { Ui(context, scope, snackbar, ::askNotifications) }
-                // Ten feet from a TV: text and controls drawn for a phone are too small, so a TV
-                // gets everything about a quarter bigger.
-                val tv = rememberIsTv()
-                val density = LocalDensity.current
-                val sized = if (tv) Density(density.density * 1.25f, density.fontScale) else density
-                CompositionLocalProvider(LocalUi provides ui, LocalDensity provides sized) {
+            val snackbar = remember { SnackbarHostState() }
+            val scope = rememberCoroutineScope()
+            val context = LocalContext.current
+            val ui = remember { Ui(context, scope, snackbar, ::askNotifications) }
+            val tv = rememberIsTv()
+            val wide = isWide()
+            val density = LocalDensity.current
+            // A TV is drawn on a fixed canvas, 120 × 67.5 rem like the TV app's own screens (1 rem = 10 dp
+            // here), so it looks the same on a 720p stick and a 4K one and the sizes in the code can be
+            // read straight off the TV's stylesheet. A phone or tablet keeps its own density.
+            val sized = if (tv) {
+                val dm = context.resources.displayMetrics
+                Density(minOf(dm.widthPixels / 1200f, dm.heightPixels / 675f), 1f)
+            } else density
+            val base = MaterialTheme.typography
+            CompositionLocalProvider(
+                LocalUi provides ui,
+                LocalUtv provides ui.theme,
+                LocalDensity provides sized,
+                LocalGutter provides (if (tv) 60.dp else if (wide) 32.dp else 16.dp),
+            ) {
+                MaterialTheme(colorScheme = ui.theme.scheme(), typography = if (tv) base.scaled(0.85f) else base) {
                     Root(ui, snackbar, startTab)
                 }
             }
@@ -174,6 +183,7 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
                     app.prefs.appName = name
                 }
                 ui.loadFeatures()
+                ui.loadTheme()
                 Offline.syncPositions(app.hub)
                 // Who's watching comes first, and the update question never waits in front of it.
                 if (app.prefs.profileId == null && nav.currentDestination?.route != "profiles") nav.navigate("profiles")
@@ -194,54 +204,41 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
     }
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
+    val tv = rememberIsTv()
     val wide = isWide()
+    val topMenu = tv || wide
+    val colours = LocalUtv.current
     val showBars = route != "profiles"
-    val tabs = TABS.filter { routeOn(ui, it.route) }
+    val tabs = (if (topMenu) TABS_WIDE else TABS_PHONE).filter { routeOn(ui, it.route) }
     // A screen switched off here (from Settings, the Hub, or a link into the app) goes back Home.
     LaunchedEffect(route, ui.featuresOff) { if (route != null && !routeOn(ui, route)) go(nav, "home") }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
-        containerColor = MaterialTheme.colorScheme.background,
-        // The status bar, nav bar and (in landscape) the camera cut-out, applied here only once.
-        contentWindowInsets = WindowInsets.safeDrawing,
-        bottomBar = {
-            if (!wide && showBars) {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-                    for (t in tabs) NavigationBarItem(
-                        selected = route == t.route,
-                        onClick = { go(nav, t.route) },
-                        icon = { Icon(t.icon, null) },
-                        label = { Text(t.label, maxLines = 1) },
-                    )
+    // The TV's backdrop: the theme's colour with a soft glow at the top.
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to colours.glow, 0.5f to colours.bg, 1f to colours.bg))) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbar) },
+            containerColor = Color.Transparent,
+            // The status bar, nav bar and (in landscape) the camera cut-out, applied here only once.
+            contentWindowInsets = WindowInsets.safeDrawing,
+            bottomBar = { if (!topMenu && showBars) BottomTabs(nav, route, tabs) },
+        ) { pad ->
+            // A TV can crop the edge of the picture (overscan): keep a little clear at the top and bottom.
+            // The sides are the screens' own gutter, 6rem like the TV app.
+            val safe = if (tv) Modifier.padding(top = 8.dp, bottom = 12.dp) else Modifier
+            Column(Modifier.fillMaxSize().padding(pad).then(safe)) {
+                if (showBars) {
+                    if (topMenu) TopBar(nav, route, tabs) else PhoneBar(nav, route)
                 }
-            }
-        },
-    ) { pad ->
-        // TVs crop the edge of the picture (overscan): keep everything inside the safe area, 5%
-        // across and 5% down, or the first poster and the rail's labels get cut off.
-        val safe = if (rememberIsTv()) Modifier.padding(horizontal = 48.dp, vertical = 27.dp) else Modifier
-        Row(Modifier.fillMaxSize().padding(pad).then(safe)) {
-            if (wide && showBars) {
-                NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer, windowInsets = WindowInsets(0, 0, 0, 0)) {
-                    // Seven items are taller than a TV screen once enlarged: scroll, so Settings (last) is reachable.
-                    Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Spacer(Modifier.size(8.dp))
-                    for (t in tabs) NavigationRailItem(selected = route == t.route, onClick = { go(nav, t.route) }, icon = { Icon(t.icon, null) }, label = { Text(t.label) })
-                    if (ui.on("search")) NavigationRailItem(selected = route == "search", onClick = { go(nav, "search") }, icon = { Icon(Icons.Default.Search, null) }, label = { Text("Search") })
-                    NavigationRailItem(selected = route == "settings", onClick = { go(nav, "settings") }, icon = { Icon(Icons.Default.Settings, null) }, label = { Text("Settings") })
-                    }
-                }
-            }
-            Column(Modifier.fillMaxSize()) {
                 if (!ui.online && route != "downloads" && route != "settings" && ui.on("downloads")) OfflineBanner { go(nav, "downloads") }
                 // On a TV the remote has to start somewhere: this puts focus on the first thing
                 // in the new screen whenever the route changes. On a phone it does nothing.
-                Box(Modifier.fillMaxSize().tvLanding(route)) {
+                Box(Modifier.weight(1f).fillMaxWidth().tvLanding(route)) {
                     NavHost(nav, startDestination = startTab ?: "home") {
                         composable("home") { HomeScreen(nav) }
                         composable("guide") { GuideScreen(nav) }
-                        composable("library") { LibraryScreen(nav) }
+                        composable("library") { LibraryScreen(nav, null) }
+                        composable("films") { LibraryScreen(nav, "movie") }
+                        composable("shows") { LibraryScreen(nav, "series") }
                         composable("recordings") { RecordingsScreen(nav) }
                         composable("downloads") { DownloadsScreen(nav) }
                         composable("search") { SearchScreen(nav) }
@@ -304,7 +301,7 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
 @Composable
 private fun OfflineBanner(open: () -> Unit) {
     Surface(color = Color(0xFF3A2A08), modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(horizontal = gutter(), vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Away from home: your downloads still play.", Modifier.weight(1f), color = Color(0xFFFFE2A0), style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = open) { Text("Downloads") }
         }

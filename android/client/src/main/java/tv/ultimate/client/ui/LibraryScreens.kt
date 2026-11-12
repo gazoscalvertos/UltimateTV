@@ -35,20 +35,14 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Tv
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import tv.ultimate.client.App
 import tv.ultimate.client.Episode
@@ -80,39 +75,54 @@ import tv.ultimate.client.SavedForLater
 import tv.ultimate.client.StreamCandidate
 import tv.ultimate.client.TitleDetails
 
+/**
+ * Films or TV shows: your library first, then popular titles and genres. A TV and a tablet have a
+ * tab each for Films and TV Shows (the TV app's menu), so [fixedKind] says which; a phone has one
+ * tab for both and chooses here.
+ */
 @Composable
-fun LibraryScreen(nav: NavHostController) {
+fun LibraryScreen(nav: NavHostController, fixedKind: String?) {
     val ui = LocalUi.current
     var picked by rememberSaveable { mutableIntStateOf(0) }
     // Films or TV shows switched off on this phone leave just the other.
     val films = ui.on("films")
     val shows = ui.on("shows")
-    val tab = if (!films) 1 else if (!shows) 0 else picked
-    val kind = if (tab == 0) "movie" else "series"
+    val kind = fixedKind ?: if (!films) "series" else if (!shows) "movie" else if (picked == 0) "movie" else "series"
     val rails = rememberLoad(kind, ui.online) { App.instance.hub.browse(kind) }
     var onlyFavourites by rememberSaveable { mutableStateOf(false) }
     val favourites by Favourites.state.collectAsState()
     LaunchedEffect(ui.online) { Favourites.load() }
+    val liked = favourites.titles.orEmpty().map { it.title }.filter { it.kind == kind }
     Column {
-        Header(if (!films) "TV shows" else if (!shows) "Films" else "Films & TV", nav)
-        if (films && shows) TabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.background) {
-            Tab(selected = tab == 0, onClick = { picked = 0 }, text = { Text("Films") })
-            Tab(selected = tab == 1, onClick = { picked = 1 }, text = { Text("TV shows") })
-        }
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = !onlyFavourites, onClick = { onlyFavourites = false }, label = { Text("Everything") })
-            FilterChip(selected = onlyFavourites, onClick = { onlyFavourites = true }, label = { Text("Favourites") }, leadingIcon = { Icon(Icons.Default.Favorite, null, Modifier.size(18.dp)) })
+        Header(if (kind == "movie") "Films" else "TV Shows", nav)
+        // The chips: on a phone, which of Films and TV shows; then Everything or just your Favourites.
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = gutter(), vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (rememberIsTv()) 8.dp else 8.dp),
+        ) {
+            if (fixedKind == null && films && shows) {
+                item { FilterChip(selected = kind == "movie", onClick = { picked = 0 }, label = { Text("Films") }) }
+                item { FilterChip(selected = kind == "series", onClick = { picked = 1 }, label = { Text("TV shows") }) }
+            }
+            item { FilterChip(selected = !onlyFavourites, onClick = { onlyFavourites = false }, label = { Text("Everything") }) }
+            item {
+                FilterChip(
+                    selected = onlyFavourites,
+                    onClick = { onlyFavourites = true },
+                    label = { Text("Favourites") },
+                    leadingIcon = { Icon(Icons.Default.Favorite, null, Modifier.size(15.dp)) },
+                )
+            }
         }
         if (onlyFavourites) {
-            val liked = favourites.titles.orEmpty().map { it.title }.filter { it.kind == kind }
-            if (liked.isEmpty()) Empty("No favourites yet. Open a ${if (kind == "movie") "film" else "show"} and tap the heart.")
+            if (liked.isEmpty()) Empty("No favourites yet. Open a ${if (kind == "movie") "film" else "show"} and choose Add to Favourites.")
             val rows = liked.chunked(10)
-            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-                items(rows.size) { i -> PosterRail(if (i == 0) "Your favourites" else "", rows[i]) { details(nav, it.id) } }
+            LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
+                items(rows.size) { i -> PosterRail(if (i == 0) "Your favourite ${if (kind == "movie") "films" else "shows"}" else "", rows[i]) { details(nav, it.id) } }
             }
         } else Loaded(rails) { list ->
             if (list.isEmpty()) Empty("Nothing here yet. Add Jellyfin or an addon on the Hub's setup page.")
-            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+            LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
                 items(list) { r -> PosterRail(r.title, r.items.orEmpty()) { details(nav, it.id) } }
             }
         }
@@ -154,14 +164,14 @@ fun DetailsScreen(nav: NavHostController, id: String) {
             }
             LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
                 item {
-                    Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 2.6f else 16f / 9f)) {
+                    Box(Modifier.fillMaxWidth().aspectRatio(if (rememberIsTv()) 3.6f else if (wide) 2.6f else 16f / 9f)) {
                         Picture(d.backdrop ?: d.poster, Modifier.fillMaxSize())
-                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xFF070B14)))))
+                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, LocalUtv.current.bg))))
                     }
                 }
                 item {
-                    Column(Modifier.padding(horizontal = 16.dp)) {
-                        Text(d.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Column(Modifier.padding(horizontal = gutter())) {
+                        Text(d.name, fontSize = if (rememberIsTv()) 34.sp else 24.sp, fontWeight = FontWeight.ExtraBold, color = LocalUtv.current.fg)
                         val facts = listOfNotNull(d.year?.toString(), d.certification, d.runtimeMin?.let { minutes(it * 60_000L) }, d.rating?.let { String.format(java.util.Locale.UK, "★ %.1f", it) }, d.genres?.take(3)?.joinToString(", "))
                         Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(12.dp))
@@ -247,7 +257,7 @@ fun DetailsScreen(nav: NavHostController, id: String) {
                 }
                 if (d.kind == "series") {
                     item {
-                        LazyRow(Modifier.padding(top = 16.dp), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LazyRow(Modifier.padding(top = 16.dp), contentPadding = PaddingValues(horizontal = gutter()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(d.seasons.orEmpty()) { s -> FilterChip(selected = s.season == season, onClick = { season = s.season }, label = { Text(s.name) }) }
                         }
                     }
@@ -347,7 +357,7 @@ private fun DownloadButton(entry: OfflineEntry?, onClick: () -> Unit) {
 
 @Composable
 private fun EpisodeRow(e: Episode, entry: OfflineEntry?, play: () -> Unit, download: () -> Unit, versions: () -> Unit) {
-    Row(Modifier.fillMaxWidth().tvClickable(onClick = play).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().tvClickable(onClick = play).padding(horizontal = gutter(), vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Box {
             Picture(e.still, Modifier.width(if (isWide()) 200.dp else 136.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)))
             val p = e.progress ?: 0.0

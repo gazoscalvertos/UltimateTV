@@ -14,6 +14,8 @@ it out as an app for phones.
 run it on a Fire TV stick. Treat the first install as an experiment, and see
 [If it won't start](#if-it-wont-start).
 
+The app looks like the TV app, with the same top menu, cards and theme: see [The look](android-client.md#the-look-the-same-as-the-tv).
+
 ## Which devices work
 
 **Works:** a Fire TV Stick or any other device running **Fire OS 7 or Fire OS 8**. Those are Android

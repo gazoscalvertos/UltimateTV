@@ -400,3 +400,6 @@ data class TrackPref(
     val subtitleOff get() = subtitle == "off"
     val subtitleLang get() = (subtitle as? Map<*, *>)?.get("lang") as? String
 }
+
+/** Today's theme from the Hub (GET /api/theme): the TV's palette, by its CSS custom property names. */
+data class ThemeInfo(val id: String?, val name: String?, val light: Boolean?, val palette: Map<String, String>?)

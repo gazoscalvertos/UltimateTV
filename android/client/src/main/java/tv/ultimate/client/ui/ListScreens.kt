@@ -29,11 +29,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -67,7 +64,7 @@ fun ListsBar(nav: NavHostController) {
     }
     // Three buttons don't fit across a small phone: the row scrolls sideways.
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = gutter(), vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -108,7 +105,7 @@ fun SavedScreen(nav: NavHostController) {
             }
             LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                 item {
-                    Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.padding(horizontal = gutter()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("${items.size} ${if (items.size == 1) "thing" else "things"} saved", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         TextButton(onClick = { nav.navigate("queue") { launchSingleTop = true } }) { Text("See the queue") }
                     }
@@ -130,7 +127,7 @@ private fun SavedRow(nav: NavHostController, item: WatchItem, reload: () -> Unit
     Row(
         Modifier.fillMaxWidth()
             .tvClickable(enabled = t != null) { if (t != null) details(nav, t.id) }
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = gutter(), vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Picture(t?.poster ?: t?.backdrop, Modifier.width(56.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainer))
@@ -201,7 +198,7 @@ fun QueueScreen(nav: NavHostController) {
             }
             LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                 item {
-                    Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.padding(horizontal = gutter()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Plays in this order on the TV", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         TextButton(onClick = { nav.navigate("saved") { launchSingleTop = true } }) { Text("Saved") }
                         TextButton(onClick = {
@@ -233,7 +230,7 @@ fun QueueScreen(nav: NavHostController) {
 @Composable
 private fun QueueRow(index: Int, item: QueueItem, reload: () -> Unit) {
     val ui = LocalUi.current
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = gutter(), vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("${index + 1}", Modifier.width(22.dp), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Picture(item.image ?: item.title?.poster, Modifier.width(88.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainer))
         Spacer(Modifier.width(12.dp))

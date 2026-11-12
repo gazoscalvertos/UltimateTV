@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-12
 
+- **Fire TV and Android apps look like the TV app** ([docs/android-client.md](docs/android-client.md#the-look-the-same-as-the-tv)): the Fire TV, tablet and phone apps now use the TV app's design: the same top menu (name, pill tabs, clock, who's watching) instead of a tall side rail, Films and TV Shows as their own tabs, the same poster cards, rails, buttons, chips and focus ring, a Home with a big picture at the top, and the TV's theme (the Hub sends today's, seasonal ones included). On a TV everything is sized like the TV app's own screens, so nothing is cut off at the bottom or sides, and posters without artwork show their name. The Hub gets `GET /api/theme`. App version 0.8.0; the Fire TV needs the new APK once (Settings › Check for updates). (#PR)
+  Household: The Fire TV and Android apps now look and move like the main TV app.
+
 - **Family quiz** ([docs/family-quiz.md](docs/family-quiz.md)): a quiz in Cast and games where a question appears on the TV with four coloured answers. Answer with the remote's Red, Green, Yellow and Blue keys (1 to 4, or the arrows and OK, work too), taking turns with one remote, or all at once on your own phones by scanning a QR code. Rounds of general knowledge, science, geography, animals, history, food, sport and entertainment, plus questions made from your own films, shows and music videos, and extracts (a few seconds of a film or music video: name it). Easy, family and tricky; Kids only get the gentler ones. Also fixes three CSS rules left unclosed in the TV app's stylesheet. (#264)
   Household: Cast and games now has a Family quiz: pick it on the TV and answer with the coloured buttons, or on your phones.
 

@@ -28,9 +28,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -117,7 +115,7 @@ fun ElsewhereScreen(nav: NavHostController) {
                     item {
                         Text(
                             "Carry on from another screen, or watch together with Sync play: pausing or skipping on one does both.",
-                            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            Modifier.padding(horizontal = gutter(), vertical = 4.dp),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -135,7 +133,7 @@ private fun ElsewhereRow(s: WatchSession, offset: Long) {
     val hub = App.instance.hub
     val place = if (s.stopped || s.live) s.positionMs else placeAt(s.positionMs, s.paused, s.at, s.durationMs, System.currentTimeMillis() + offset)
     val isTv = s.client == "tv" || s.box != null
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = gutter(), vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Picture(s.artwork ?: s.title?.backdrop ?: s.title?.poster, Modifier.width(112.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainer))
             Spacer(Modifier.width(12.dp))

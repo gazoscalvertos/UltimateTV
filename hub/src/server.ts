@@ -40,7 +40,7 @@ import { movedAway, registerMove } from "./move.js";
 import { Backups, registerBackups } from "./backup.js";
 import { ChangelogFile, registerChangelog } from "./changelog.js";
 import type { AccessibilitySettings, BoxState, BoxTarget, DeviceList, FeatureId, NewsFlash, PairedDevice, TvMethod, WebAppLoginResult, Certification, Channel, ChannelCategory, HomeRowId, GuideChoices, GuideWindow, HubStatus, IptvSource, MixChannel, PlaybackRequest, ProfileKind, ProgrammeMark, Settings, SubtitleMode, TitleRef } from "@ultimatetv/shared";
-import { FEATURES, featuresFor, isClientKind, type ClientFeatureState, cleanAppName, cleanSubtitleStyle, cleanLook, resolveTheme, THEMES, cleanScreensaver, cleanRadioSettings, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
+import { FEATURES, featuresFor, isClientKind, type ClientFeatureState, cleanAppName, cleanSubtitleStyle, cleanLook, resolveTheme, themeInfo, THEMES, cleanScreensaver, cleanRadioSettings, renderMatrix, SCREENSAVER_THEMES, THEME_CHOICES, type ScreensaverInfo, validateReport, type ProbeReport } from "@ultimatetv/shared";
 import { listClips } from "./clips.js";
 import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
@@ -2369,6 +2369,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // The colours of every theme, and today's one put on straight away, for the phone remote and the
   // web pages: each loads this in its <head>, so it never flashes the wrong colours first.
   // `utvTheme.apply(name)` puts on another, which is how the settings page previews one.
+  // Today's theme and its palette, for the Android apps (Fire TV, phone, tablet), which paint with
+  // the same colours as the TV. The same theme.js uses, as JSON.
+  app.get("/api/theme", async () => {
+    const id = resolveTheme(ctx.settings.get());
+    const t = themeInfo(id);
+    return { id, name: t.name, light: !!t.light, palette: t.palette };
+  });
+
   app.get("/theme.js", async (_req, reply) => {
     const palettes = Object.fromEntries(THEMES.map((t) => [t.id, { ...t.palette, "color-scheme": t.light ? "light" : "dark" }]));
     const themes = THEMES.map(({ id, name, detail, season }) => ({ id, name, detail, season }));

@@ -114,4 +114,14 @@ describe("the theme on the Hub", () => {
     expect(res.body).toContain('apply("slick")');
     expect(res.body).toContain('"cyberpunk":{');
   });
+
+  it("serves today's palette as JSON for the Android apps", async () => {
+    await put({ theme: "light", seasonal: false });
+    const res = await app.inject("/api/theme");
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { id: string; name: string; light: boolean; palette: Record<string, string> };
+    expect(body).toMatchObject({ id: "light", name: "Light", light: true });
+    expect(body.palette["--bg"]).toBe("#e9eef6");
+    expect(body.palette["--sel"]).toBeTruthy();
+  });
 });
