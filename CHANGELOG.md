@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-12
 
+- **Family quiz** ([docs/family-quiz.md](docs/family-quiz.md)): a quiz in Cast and games where a question appears on the TV with four coloured answers. Answer with the remote's Red, Green, Yellow and Blue keys (1 to 4, or the arrows and OK, work too), taking turns with one remote, or all at once on your own phones by scanning a QR code. Rounds of general knowledge, science, geography, animals, history, food, sport and entertainment, plus questions made from your own films, shows and music videos, and extracts (a few seconds of a film or music video: name it). Easy, family and tricky; Kids only get the gentler ones. Also fixes three CSS rules left unclosed in the TV app's stylesheet. (#264)
+  Household: Cast and games now has a Family quiz: pick it on the TV and answer with the coloured buttons, or on your phones.
+
 - **Collections and franchises: Bond, Harry Potter, Marvel in order** ([docs/collections.md](docs/collections.md)): Home gets a Collections row and Films gets a Collections list, from your Jellyfin/Emby BoxSets, Plex collections and, for films you only have online, TMDB's collections. A collection's page shows its films in release order with Play on the first one you haven't watched. A film's page says "Part of the Bond collection · 3 of 24", lists its siblings and has **Next in collection**, and after one film ends the next in the collection starts like the next episode of a series. Kids ratings apply per film: a Kids profile only sees (and only counts) the films it's allowed. (#238)
   Household: franchises now sit together in order, and the next film starts when one finishes.
 

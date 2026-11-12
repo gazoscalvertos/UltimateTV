@@ -75,6 +75,7 @@ export function featureOfRoute(route: { name: string; kind?: string }): FeatureI
     case "search":
       return "search";
     case "cast":
+    case "quiz":
       return "cast";
     case "weather":
       return "weather";

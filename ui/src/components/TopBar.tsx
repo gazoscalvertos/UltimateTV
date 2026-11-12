@@ -3,7 +3,6 @@
 import { For, Show } from "solid-js";
 import { clockTime, formatTemp } from "@ultimatetv/shared";
 import type { FeatureId } from "@ultimatetv/shared";
-import { castSettings } from "../cast";
 import { featureOn } from "../features";
 import { visibleDownloads } from "../downloads";
 import { activeMusic, musicLine, musicPlayPause, spotify, webApp } from "../music";
@@ -28,8 +27,8 @@ const TABS: Tab[] = [
   { label: "Recordings", route: { name: "planner" }, match: "planner", feature: "recordings" },
   // Once something is on the box's own disk (for a trip, say).
   { label: "Downloaded", route: { name: "downloads" }, match: "downloads", when: () => visibleDownloads().length > 0, feature: "downloads" },
-  // Kids only see it when a grown-up has allowed the games.
-  { label: "Cast & games", route: { name: "cast" }, match: "cast", when: () => !isKids() || castSettings().gamesForKids, feature: "cast" },
+  // Kids have it too: the quiz is on it, and the games on it stay behind the grown-ups' switch.
+  { label: "Cast & games", route: { name: "cast" }, match: "cast", feature: "cast" },
 ];
 
 /** Easy mode (#229) keeps the menu to the short list: where the four tiles go, and Home. */
@@ -37,7 +36,8 @@ const EASY_TABS = new Set(["Home", "TV Guide", "Films", "TV Shows", "Recordings"
 
 function isActive(t: Tab): boolean {
   const cur = nav.current();
-  if (t.match !== cur.name) return false;
+  // The quiz is part of Cast & games.
+  if (t.match !== cur.name && !(t.match === "cast" && cur.name === "quiz")) return false;
   return cur.name !== "browse" || (t.route.name === "browse" && t.route.kind === cur.kind);
 }
 

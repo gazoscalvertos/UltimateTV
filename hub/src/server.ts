@@ -27,6 +27,9 @@ import { Collections } from "./collections.js";
 import { mergeRequestSettings, registerRequests, RequestError, TitleRequests } from "./requests.js";
 import { Following } from "./following.js";
 import { registerSport } from "./sportroutes.js";
+import { Quiz } from "./quiz.js";
+import { readQuizPool } from "./quizpool.js";
+import { registerQuiz } from "./quizroutes.js";
 import { Sport } from "./sport.js";
 import { FavouriteStore, registerFavourites } from "./favourites.js";
 import { cleanSeenMode } from "./watchedtitles.js";
@@ -178,6 +181,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     profileIds: () => ctx.profiles.list().map((p) => p.id),
     isKids: (id) => (id ? ctx.profiles.get(id)?.kind === "kids" : false),
   });
+  // The family quiz (#264): one game at a time, run here so the TV and every phone see the same thing.
+  const quiz = new Quiz({ events: ctx.events, pool: (f) => readQuizPool(ctx, f, config.demo), log: ctx.log, appName: () => ctx.settings.get().appName });
   // Favourites per profile; the household's channel favourites are copied to each profile once.
   const favourites = new FavouriteStore(ctx.db, ctx.events, ctx.channels);
   favourites.migrate(ctx.profiles.list().map((p) => p.id));
@@ -369,6 +374,19 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/following", "paired"],
     ["DELETE /api/following/:id", "paired"],
     ["PUT /api/following/popups", "paired"],
+    // The family quiz (#264): the TV and the phone remote run it; phones that join use the public routes below.
+    ["GET /api/quiz", "paired"],
+    ["GET /api/quiz/qr.svg", "paired"],
+    ["POST /api/quiz/open", "paired"],
+    ["PUT /api/quiz/settings", "paired"],
+    ["POST /api/quiz/players", "paired"],
+    ["DELETE /api/quiz/players/:id", "paired"],
+    ["POST /api/quiz/start", "paired"],
+    ["POST /api/quiz/again", "paired"],
+    ["POST /api/quiz/answer", "paired"],
+    ["POST /api/quiz/next", "paired"],
+    ["POST /api/quiz/clip-done", "paired"],
+    ["DELETE /api/quiz", "paired"],
     ["PUT /api/sport/settings", "paired"],
     ["POST /api/sport/teams", "paired"],
     ["DELETE /api/sport/teams", "paired"],
@@ -539,6 +557,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/selftest", "the TV sends the run it just finished; cleaning applies and it changes no settings"],
     ["POST /api/perf", "the TV sends its own timings; only numbers are kept and it changes no settings"],
     ["POST /api/probe-reports", "the probe page posts a speed report; the report is cleaned and only read by an adult"],
+    ["POST /api/quiz/phone/join", "a phone joining the family quiz: the four-letter code on the TV is the key, and all it grants is a seat in that game"],
+    ["POST /api/quiz/phone/answer", "a player's answer in the family quiz: needs the secret that player was given on joining"],
+    ["POST /api/quiz/phone/leave", "a player leaves the family quiz: needs the secret that player was given on joining"],
     ["POST /api/cast/share", "a laptop with no device key offers its screen: the share id is unguessable"],
     ["DELETE /api/cast/share/:id", "that laptop withdraws its own offer; only the id holder can, and it grants nothing"],
     ["POST /api/kids-time/:id/extra", "asks for extra time with the adult PIN in the body, which the handler checks itself"],
@@ -1758,6 +1779,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     const who = viewer(req);
     return { profileId: who.profile?.id ?? null, filter: who.filter };
   });
+  registerQuiz(app, { quiz, filter: filterOf, phoneBase });
   registerFollowing(app, following, (req) => {
     const who = viewer(req);
     return { profileId: who.profile?.id ?? null, filter: who.filter };
@@ -2392,6 +2414,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   await serveDir(config.setupDir, "/setup/", "Setup page missing.");
   // A laptop's screen share page (open it over HTTPS: see cast.ts).
   if (config.castDir) await serveDir(config.castDir, "/cast/", "Screen share page missing.");
+  // The family quiz's page for phones (docs/family-quiz.md).
+  if (config.quizDir) await serveDir(config.quizDir, "/quiz/", "Quiz page missing.");
   if (config.remoteDir) {
     const remoteDir = config.remoteDir;
     // The install name follows the app's name, so a renamed app installs as "GazosTV Remote".

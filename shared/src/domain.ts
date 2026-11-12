@@ -13,6 +13,7 @@ import { seasonOn } from "./seasons.js";
 import type { FollowOverruns } from "./overrun.js";
 import type { ThemeChoice, ThemeName } from "./themes.js";
 import type { SportMatch } from "./sport.js";
+import type { QuizView } from "./quiz.js";
 import type { AccessibilitySettings } from "./accessibility.js";
 import type { KidsAsk } from "./kidsallow.js";
 import type { FeatureId } from "./features.js";
@@ -904,6 +905,8 @@ export type HubEvent =
   | { type: "request.awaiting"; request: TitleRequest; message: string }
   /** A requested title has arrived (issue #225): the TV pops it up for the profile that asked. */
   | { type: "request.ready"; profileId: string | null; request: TitleRequest; message: string }
+  /** The family quiz changed (issue #264): the whole game as the TV shows it, or null when it has ended. */
+  | { type: "quiz.state"; view: QuizView | null }
   /** A profile's sport favourites changed (issue #231). */
   | { type: "sport.changed"; profileId: string | null }
   /** A profile's followed series changed (issue #226). */

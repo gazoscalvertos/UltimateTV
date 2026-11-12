@@ -38,3 +38,4 @@ export * from "./collections.js";
 export * from "./requests.js";
 export * from "./overrun.js";
 export * from "./sport.js";
+export * from "./quiz.js";

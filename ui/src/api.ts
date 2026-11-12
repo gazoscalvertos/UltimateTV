@@ -3,6 +3,7 @@
 import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsAsk, KidsAskAnswer, KidsSummary, KidsTimeStatus, PersonDetails, SubtitleResult, TitleCast, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
 import type { FamilyPatch, FamilySettingsView, FamilyState } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, TrackPref, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
+import type { QuizSettings, QuizState } from "@ultimatetv/shared";
 import type { CollectionView, TitleCollection, RequestsView, TitleRequest, SportView, FollowingView, ArtItem, ArtStatus, BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
 const store = {
@@ -269,6 +270,18 @@ export const hub = {
   requests: () => api<RequestsView>("/api/requests"),
   request: (title: TitleRef) => api<{ request: TitleRequest; fresh: boolean }>("/api/requests", { method: "POST", body: { title } }),
   answerRequest: (id: string, answer: "approve" | "decline") => api<{ request: TitleRequest }>(`/api/requests/${enc(id)}/answer`, { method: "POST", body: { answer } }),
+  // The family quiz (issue #264).
+  quiz: () => api<QuizState>("/api/quiz"),
+  quizOpen: () => api<QuizState>("/api/quiz/open", { method: "POST" }),
+  quizSettings: (patch: Partial<QuizSettings>) => api<QuizState>("/api/quiz/settings", { method: "PUT", body: patch }),
+  quizAddPlayer: (name: string) => api<QuizState>("/api/quiz/players", { method: "POST", body: { name } }),
+  quizRemovePlayer: (id: string) => api<QuizState>(`/api/quiz/players/${enc(id)}`, { method: "DELETE" }),
+  quizStart: () => api<QuizState>("/api/quiz/start", { method: "POST" }),
+  quizAgain: () => api<QuizState>("/api/quiz/again", { method: "POST" }),
+  quizAnswer: (choice: number) => api<QuizState>("/api/quiz/answer", { method: "POST", body: { choice } }),
+  quizNext: () => api<QuizState>("/api/quiz/next", { method: "POST" }),
+  quizClipDone: () => api<QuizState>("/api/quiz/clip-done", { method: "POST" }),
+  quizEnd: () => api<{ view: null }>("/api/quiz", { method: "DELETE" }),
   sport: () => api<SportView>("/api/sport"),
   sportSettings: (patch: { teams?: string[]; remind?: boolean; record?: boolean }) => api<SportView>("/api/sport/settings", { method: "PUT", body: patch }),
   sportAddTeam: (name: string) => api<SportView>("/api/sport/teams", { method: "POST", body: { name } }),

@@ -9,7 +9,8 @@ import { Icon } from "../components/Icon";
 import { TopBar } from "../components/TopBar";
 import { useHints } from "../hints";
 import { useKeys } from "../keys";
-import { appName, errorToast, isKids, toast } from "../store";
+import { quizView } from "../quiz";
+import { appName, errorToast, isKids, nav, toast } from "../store";
 
 export function CastScreen() {
   onMount(() => void refreshCast());
@@ -106,6 +107,18 @@ export function CastScreen() {
             </div>
           </section>
         </Show>
+
+        <h2 class="rail-title">Play together</h2>
+        <section class="cast-cards quiz-cards" data-row data-focus-group>
+          <button class="cast-card quiz-card" data-focus data-autofocus={isKids() && !castState().foreground ? "" : undefined} onClick={() => nav.push({ name: "quiz" })}>
+            <Icon name="gamepad" />
+            <h3>Family quiz</h3>
+            <p>Questions on the TV with four coloured answers. Pick them with Red, Green, Yellow and Blue, or on your phone. Take turns or all play at once; there are rounds from your own films and music too.</p>
+            <span class="cast-status" classList={{ ok: Boolean(quizView()) }}>
+              {quizView() ? "A quiz is on: OK to carry on" : "OK to start"}
+            </span>
+          </button>
+        </section>
 
         <h2 class="rail-title">Games</h2>
         <Show when={gamesAllowed()} fallback={<p class="hint">Games are turned off on the Kids profile. A grown-up can turn them on in Settings › Cast and games.</p>}>
