@@ -36,6 +36,16 @@ interface TmdbDetails extends TmdbResult {
   content_ratings?: { results: { iso_3166_1: string; rating: string }[] };
 }
 
+/** One TMDB collection, as the Hub uses it. */
+export interface TmdbCollection {
+  id: number;
+  name: string;
+  overview?: string;
+  poster?: string;
+  backdrop?: string;
+  films: { ref: TitleRef; released?: string }[];
+}
+
 interface TmdbAirEpisode {
   season_number: number;
   episode_number: number;
@@ -301,6 +311,28 @@ export class TmdbClient {
         .map((s) => ({ season: s.season_number, name: s.season_number === 0 ? "Specials" : `Series ${s.season_number}`, episodes: [] }));
     }
     return details;
+  }
+
+  /** The TMDB collection a film belongs to ("The James Bond Collection"), if it is in one (issue #238). */
+  async collectionOf(movieId: number): Promise<number | undefined> {
+    const d = await this.get<{ belongs_to_collection?: { id: number } | null }>(`/movie/${movieId}`, {}, 30 * DAY);
+    return d.belongs_to_collection?.id;
+  }
+
+  /** A TMDB collection: its films with release dates, for the franchise page (issue #238). */
+  async collection(id: number): Promise<TmdbCollection> {
+    const c = await this.get<{ name?: string; overview?: string; poster_path?: string | null; backdrop_path?: string | null; parts?: TmdbResult[] }>(`/collection/${id}`, {}, 7 * DAY);
+    const out: TmdbCollection = { id, name: c.name ?? "Collection", films: [] };
+    if (c.overview) out.overview = c.overview;
+    const poster = TmdbClient.image(c.poster_path, "w500");
+    if (poster) out.poster = poster;
+    const backdrop = TmdbClient.image(c.backdrop_path, "w1280");
+    if (backdrop) out.backdrop = backdrop;
+    for (const part of c.parts ?? []) {
+      const ref = this.toRef(part, "movie");
+      if (ref) out.films.push({ ref, ...(part.release_date ? { released: part.release_date } : {}) });
+    }
+    return out;
   }
 
   /** A series' TheTVDB id, which Sonarr looks series up by (issue #225). */

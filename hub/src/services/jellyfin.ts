@@ -176,6 +176,20 @@ export class JellyfinClient implements MediaServer {
     return { items: r.Items, total: r.TotalRecordCount };
   }
 
+  /** BoxSets: Jellyfin's and Emby's collections (#238). */
+  async collections(): Promise<JfItem[]> {
+    const q = new URLSearchParams({ IncludeItemTypes: "BoxSet", Recursive: "true", SortBy: "SortName", Limit: "500", Fields: "Overview,ProviderIds" });
+    const r = await this.get<{ Items: JfItem[] }>(`/Users/${this.userId}/Items?${q}`);
+    return r.Items;
+  }
+
+  /** The films inside one BoxSet. */
+  async collectionItems(id: string): Promise<JfItem[]> {
+    const q = new URLSearchParams({ ParentId: id, IncludeItemTypes: "Movie", Fields: JellyfinClient.FIELDS });
+    const r = await this.get<{ Items: JfItem[] }>(`/Users/${this.userId}/Items?${q}`);
+    return r.Items.filter((i) => i.Type === "Movie");
+  }
+
   item(id: string): Promise<JfItem> {
     // Trickplay (10.9+) rides along on the single item only: it is too big to ask of a whole list.
     return this.get<JfItem>(`/Users/${this.userId}/Items/${id}?Fields=${JellyfinClient.FIELDS}${this.kind === "jellyfin" ? ",Trickplay" : ""}`);

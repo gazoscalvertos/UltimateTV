@@ -142,6 +142,11 @@ export function Details(props: { id: string }) {
     () => (d()?.kind === "movie" ? d()!.id : null),
     (id) => hub.streams(id).catch(() => ({ streams: [] as StreamRow[] })),
   );
+  // The collection this film is part of ("Part of the Bond collection"), with what follows it (#238).
+  const [collection] = createResource(
+    () => (d()?.kind === "movie" ? d()!.id : null),
+    (id) => hub.titleCollection(id).then((r) => r.collection, () => null),
+  );
   const [season, setSeason] = createSignal<number | null>(null);
   // Save for later (the watchlist, one per profile).
   const [saved, { mutate: setSaved }] = createResource(
@@ -474,6 +479,13 @@ export function Details(props: { id: string }) {
                       </button>
                     )}
                   </Show>
+                  <Show when={collection()?.next}>
+                    {(next) => (
+                      <button class="btn btn-large" data-focus onClick={() => void play({ kind: "title", id: next().id }, { title: next() })}>
+                        <Icon name="play" /> Next in collection: {next().name}
+                      </button>
+                    )}
+                  </Show>
                   <Show when={t().kind === "movie"}>
                     <button class="btn btn-large" data-focus onClick={() => queueIt()}>
                       <Icon name="plus" /> Add to queue
@@ -589,6 +601,26 @@ export function Details(props: { id: string }) {
                     </Show>
                   </div>
                 </section>
+              </Show>
+
+              <Show when={collection()}>
+                {(c) => (
+                  <>
+                    <RailRow
+                      rail={{
+                        id: "collection",
+                        title: `Part of the ${c().name.replace(/\s+collection$/i, "")} collection · ${c().position + 1} of ${c().total}`,
+                        kind: "titles",
+                        items: c().films.map((f, i) => ({ ...f, subtitle: f.watched ? "Watched" : (f.subtitle ?? (f.year ? String(f.year) : "")), badges: i === c().position ? ["This film"] : (f.badges ?? []) })),
+                      }}
+                    />
+                    <section class="rail" data-row>
+                      <button class="chip" data-focus onClick={() => nav.push({ name: "collection", id: c().id })}>
+                        <Icon name="list" /> See the whole collection
+                      </button>
+                    </section>
+                  </>
+                )}
               </Show>
 
               <Show when={extras()?.similar.length}>

@@ -23,6 +23,7 @@ import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { registerContinue } from "./continueroutes.js";
 import { registerPs5 } from "./ps5routes.js";
 import { registerFollowing } from "./followingroutes.js";
+import { Collections } from "./collections.js";
 import { mergeRequestSettings, registerRequests, RequestError, TitleRequests } from "./requests.js";
 import { Following } from "./following.js";
 import { registerSport } from "./sportroutes.js";
@@ -62,6 +63,7 @@ import type { Logger } from "./log.js";
 import { Playback, PlaybackError, episodeNumbers } from "./playback.js";
 import { capsFromHeaders } from "./streamcaps.js";
 import { guestBlocks } from "./guest.js";
+import { guestAllows } from "@ultimatetv/shared";
 import { ContentFilter, certificationRank, NO_FILTER } from "./profiles.js";
 import { ReportStore } from "./reports.js";
 import { orderPatch, pausePatch, removePatch, testSource, UnknownSourceError } from "./sourceoptions.js";
@@ -129,6 +131,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   const ctx = deps.context ?? new HubContext({ dataDir: config.dataDir, mediaRoot: config.mediaRoot, env: deps.env ?? {}, log, ...(config.demo ? { demo: true, ytdlp: null } : {}) });
   if (config.demo) seedDemo(ctx, config);
   const library = new Library(ctx);
+  // Collections and franchises: BoxSets, Plex collections and TMDB's (#238).
+  const collections = new Collections(ctx);
+  ctx.collections = collections;
   const playback = new Playback(ctx, library);
   const watchlist = new Watchlist(ctx.db, ctx.events);
   // Followed series: Coming up, Home's New episodes row and the pop-up when one arrives (#226).
@@ -2193,6 +2198,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       const items = requests.homeItems(who.profile ?? null);
       if (items.length) home.rails.splice(home.rails.findIndex((r) => r.id === "new-episodes") + 1 || home.rails.findIndex((r) => r.id === "nextup") + 1 || home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0), 0, { id: "requests", title: "Your requests", kind: "titles", items: items.slice(0, 30) });
     }
+    // Franchises: Bond, Harry Potter, Marvel in order (#238). Per film for Kids, so a collection only counts the films the profile may see.
+    if (showing.includes("collections") && collectionsAllowed(who.filter)) {
+      const items = await collections.cards(who.filter, 30).catch(() => []);
+      if (items.length) home.rails.push({ id: "collections", title: "Collections", kind: "titles", items });
+    }
     // Sport today: live and upcoming sport, the profile's teams first (#231).
     if (showing.includes("sport")) {
       const games = sport.row(profileId, who.filter);
@@ -2217,6 +2227,21 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       const real = await library.details(req.params.id).catch(() => null);
       return reply.code(403).send({ error: err.message, code: "profile", ...(real ? { askable: { id: real.id, kind: real.kind, name: real.name } } : {}) });
     }
+  });
+  // Collections (#238): the list for Films, one collection, and the one a film belongs to.
+  const collectionsAllowed = (f: ContentFilter): boolean => !f.guest || guestAllows(f.profile, "films");
+  app.get("/api/collections", async (req) => ({ collections: collectionsAllowed(filterOf(req)) ? await collections.cards(filterOf(req), 200).catch(() => []) : [] }));
+  app.get("/api/collections/:id", async (req: Req<{ id: string }>, reply) => {
+    const f = filterOf(req);
+    const view = collectionsAllowed(f) ? await collections.view(req.params.id, f) : undefined;
+    return view ?? reply.code(404).send({ error: "No such collection" });
+  });
+  app.get("/api/titles/:id/collection", async (req: Req<{ id: string }>) => {
+    const f = filterOf(req);
+    if (!collectionsAllowed(f)) return { collection: null };
+    const d = await library.details(req.params.id, f);
+    if (d.kind !== "movie") return { collection: null };
+    return { collection: (await collections.of({ id: d.id, tmdbId: d.tmdbId }, f).catch(() => undefined)) ?? null };
   });
   app.get("/api/titles/:id/extras", async (req: Req<{ id: string }>) => library.extras(req.params.id, filterOf(req)));
   app.get("/api/titles/:id/cast", async (req: Req<{ id: string }, { episode?: string }>) => library.cast(req.params.id, req.query.episode ? episodeNumbers(req.query.episode) : undefined, filterOf(req)));

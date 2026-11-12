@@ -40,6 +40,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Pop-ups and breaking news | #39 | Untested |
 | Play queue | #43 | Untested |
 | Sport tonight (Home row, favourite teams, auto reminders) | #231 | Untested with a real guide and on the box (demo Hub only); no phone or Android screen yet |
+| Collections and franchises (Collections row, Part of the … collection, Next in collection) | #238 | Untested against real Jellyfin, Emby, Plex or TMDB (demo Hub and a pretend server only); TV only, no phone or Android screen yet |
 | Coming up and New episodes (follow a series) | #226 | Untested with real TMDB and Jellyfin (demo Hub only) |
 | Family board (Home card, Today screensaver, calendars, bins, birthdays) | #233 | Untested with real Google/Nextcloud calendars and Home Assistant (unit tests and a demo Hub only); TV and phone setup page only, no Android screen |
 | Request a title (Jellyseerr, Radarr, Sonarr) | #225 | Untested against real Jellyseerr/Radarr/Sonarr (a pretend Jellyseerr and unit tests only) |

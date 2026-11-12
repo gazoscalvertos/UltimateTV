@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-12
 
+- **Collections and franchises: Bond, Harry Potter, Marvel in order** ([docs/collections.md](docs/collections.md)): Home gets a Collections row and Films gets a Collections list, from your Jellyfin/Emby BoxSets, Plex collections and, for films you only have online, TMDB's collections. A collection's page shows its films in release order with Play on the first one you haven't watched. A film's page says "Part of the Bond collection · 3 of 24", lists its siblings and has **Next in collection**, and after one film ends the next in the collection starts like the next episode of a series. Kids ratings apply per film: a Kids profile only sees (and only counts) the films it's allowed. (#238)
+  Household: franchises now sit together in order, and the next film starts when one finishes.
+
 - **Family board: today at home on Home and the idle screen** ([docs/family-board.md](docs/family-board.md)): a "Coming up at home" card on Home and a **Today** screensaver show the next five things: calendar events (iCal links from Google, Nextcloud, iCloud or Outlook, or Home Assistant calendars), birthdays, bin day (a weekly or alternate-week schedule, or Home Assistant sensors, with "Green bin out tonight" the evening before) and the school run, beside the clock and the weather. Set up in Settings › Family board or on the phone's Settings page. A calendar is grown-ups only until you share it with Kids; Kids profiles see a smaller version and a Guest sees none of it. Also closes three CSS rules that were missing their closing brace (Easy mode, X-Ray and Watching elsewhere styles). (#233)
   Household: The TV now shows what's on today, bin day and birthdays at home on Home and when it's idle.
 

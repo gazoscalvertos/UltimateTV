@@ -1,6 +1,7 @@
 // Wires the Hub's services together. Built once at start-up; clients that depend on settings
 // (the media server, TMDB, TorBox, addons) are rebuilt when settings change.
 
+import type { Collections } from "./collections.js";
 import type { TitleRequests } from "./requests.js";
 import path from "node:path";
 import { ArtGallery } from "./art.js";
@@ -108,6 +109,10 @@ export class HubContext {
   readonly jellyfinProgress: JellyfinProgressQueue;
   /** When a saved title is next on TV, matched against the guide (#74). */
   readonly nextAirings: NextAirings;
+  /** Collections and franchises (#238); set by the server. */
+  collections?: Collections;
+  /** The demo Hub's made-up franchises: a name and the demo library films in it, so Collections can be shown (#238). */
+  demoCollections?: { name: string; overview?: string; films: string[] }[];
   /** Requests for titles that aren't in the library (#225); set by the server. */
   requests?: TitleRequests;
   /** The demo Hub's made-up titles that no source has, so Request can be shown (#225). */
