@@ -79,7 +79,7 @@ PY
          rc=$?
          # package-app.sh only prints the last 40 lines of its compile log, which are usually warnings.
          echo "--- compiler errors from output/app/.build/compile.log ---" >&2
-         grep -n -E "error:|Error [0-9]|undefined reference|fatal" "$WORK/output/app/.build/compile.log" 2>/dev/null | head -60 >&2 || true
+         docker compose run --rm ps5-dev bash -c 'f=output/app/.build/compile.log; ls -la "$f" >&2; grep -n -B3 -A8 -E "error|Error [0-9]|undefined reference|fatal|Killed|No such file" "$f" | grep -v "unused function" | head -150' >&2 || true
          exit "$rc"; }; })
 
 rm -rf "$OUT"; mkdir -p "$OUT"
