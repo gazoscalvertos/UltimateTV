@@ -60,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -206,7 +207,9 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
     val route = entry?.destination?.route
     val tv = rememberIsTv()
     val wide = isWide()
-    val topMenu = tv || wide
+    // Held upright, a tablet gets the phone's layout (tabs along the bottom): the top bar needs the width.
+    val upright = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+    val topMenu = tv || (wide && !upright)
     val colours = LocalUtv.current
     val showBars = route != "profiles"
     val tabs = (if (topMenu) TABS_WIDE else TABS_PHONE).filter { routeOn(ui, it.route) }

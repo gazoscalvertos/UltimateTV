@@ -14,7 +14,7 @@ app comes to the front, and the last one is kept for away from home.
   poster gets a white ring and lifts. A TV is drawn on a fixed 120 × 67.5 rem canvas like the TV
   app's own screens (1 rem is 10 dp in the code), so it looks the same on a 720p stick and a 4K one.
   Rails, titles and gutters use the same sizes as `ui/src/styles.css`.
-- **Vertical (portrait):** the whole app, the player included, turns with the phone or tablet (it follows the rotation lock). A tablet held upright keeps the top bar, whose tabs scroll sideways if they do not fit.
+- **Vertical (portrait):** the whole app, the player included, turns with the phone or tablet (it follows the rotation lock). Held upright, a tablet gets the phone layout (tabs along the bottom); on its side it has the TV-style top bar.
 - **Phones:** a slim bar with the name, Search, Settings and who's watching, and the tabs along the
   bottom (Films and TV shows share one tab, with a chip to choose). Same colours, cards and rails.
 
