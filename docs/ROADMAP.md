@@ -40,6 +40,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Pop-ups and breaking news | #39 | Untested |
 | Play queue | #43 | Untested |
 | Sport tonight (Home row, favourite teams, auto reminders) | #231 | Untested with a real guide and on the box (demo Hub only); no phone or Android screen yet |
+| Family quiz (colour keys, phones, library rounds, film and music extracts) | #264 | Untested on the box: colour keys on the Hisense, extracts playing, a phone joining (demo Hub, unit and HTTP tests only); no Android watching-app screen |
 | Coming up and New episodes (follow a series) | #226 | Untested with real TMDB and Jellyfin (demo Hub only) |
 | Request a title (Jellyseerr, Radarr, Sonarr) | #225 | Untested against real Jellyseerr/Radarr/Sonarr (a pretend Jellyseerr and unit tests only) |
 | Screensavers and dimming | #46 | Untested |

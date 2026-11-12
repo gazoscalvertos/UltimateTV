@@ -778,6 +778,9 @@
       ${info?.shareUrl ? `<h3>A laptop's screen</h3><p class="meta">On the laptop, open this in Chrome or Edge and choose Share my screen. The TV asks first.</p><div class="copy"><code>${esc(info.shareUrl)}</code><button id="ca-copy">Copy</button></div>` : ""}
       ${air?.installed ? `<h3>iPhone, iPad or Mac (AirPlay)</h3><p class="meta">Control Centre › Screen Mirroring › “${esc(air.name)}”.</p><div class="seg" id="ca-air"><button type="button" data-v="1" class="${air.enabled ? "on" : ""}">On</button><button type="button" data-v="0" class="${air.enabled ? "" : "on"}">Off</button></div>` : ""}
       ${info?.box && info.gamesAllowed && games.length ? `<h3>Games</h3><div class="games">${games.map((g) => `<button type="button" data-game="${esc(g.id)}">${esc(g.name)}<small>${esc(g.detail)}</small></button>`).join("")}</div>` : ""}
+      <h3>Family quiz</h3>
+      <p class="meta">Start it on the TV (Cast and games), then answer on this phone: tap a colour, and quicker answers score more.</p>
+      <div class="actions"><button id="ca-quiz">Join the quiz on this phone</button></div>
       <h3>Seasonal clips</h3>
       <div class="actions"><button id="ca-proj">Show one on the TV now</button><button id="ca-proj-add">Add your own</button></div>
       <button class="link" data-close>Close</button>`);
@@ -799,6 +802,13 @@
     if ($("ca-back")) $("ca-back").onclick = () => void call("castApp", { stop: true }).then(() => (closeSheet(), toast("Back to the TV app")), (e) => toast(e.message, true));
     for (const b of document.querySelectorAll("#ca-air button")) b.onclick = () => void call("castAirplay", { on: b.dataset.v === "1" }).then(() => castSheet(), (e) => toast(e.message, true));
     for (const b of document.querySelectorAll("[data-game]")) b.onclick = () => void call("castApp", { id: b.dataset.game }).then(() => (closeSheet(), toast("Opening on the TV")), (e) => toast(e.message, true));
+    // The page for the quiz opens with this game's code filled in; with no quiz on, say where to start one.
+    $("ca-quiz").onclick = async () => {
+      const r = await fetch("/api/quiz", { cache: "no-store" }).catch(() => null);
+      const state = r && r.ok ? await r.json().catch(() => null) : null;
+      if (state && state.url) location.href = state.url;
+      else toast("No quiz is on yet. Start it on the TV: Cast and games, then Family quiz", true);
+    };
     $("ca-proj").onclick = () => void post("/api/projections/now", {}).then(() => toast("On the TV now"), (e) => toast(e.message, true));
     $("ca-proj-add").onclick = () => projectionUpload();
   }

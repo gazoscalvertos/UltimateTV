@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="robots" content="noindex">
+<title>Family quiz</title>
+<style>
+  /* The family quiz (issue #264): a phone's side of it. Scan the QR code on the TV, type a name, tap a colour. */
+  :root {
+    --bg: #0b1220; --card: #131c2e; --line: #24324d; --fg: #eef3fb; --muted: #9aa8c2; --accent: #4f8cff;
+    --ok: #35c27a; --bad: #ff6b6b; --radius: 16px;
+    --red: #e5393f; --green: #2ea84f; --yellow: #f2c418; --blue: #2a7de1;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--fg); font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; min-height: 100dvh; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  header b { font-size: 18px; }
+  header small { color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  h1 { font-size: 22px; line-height: 1.25; margin: 0 0 8px; }
+  h2 { font-size: 20px; line-height: 1.3; margin: 0; }
+  p { margin: 0 0 8px; }
+  .muted { color: var(--muted); }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 12px 0 4px; }
+  input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--line); background: #0d1526; color: var(--fg); font: inherit; font-size: 18px; }
+  input.code { text-transform: uppercase; letter-spacing: .3em; text-align: center; font-weight: 700; }
+  button { font: inherit; cursor: pointer; }
+  .go { margin-top: 16px; width: 100%; padding: 15px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 700; font-size: 18px; }
+  .go:disabled { opacity: .5; }
+  .quiet { background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 10px; padding: 8px 12px; font-size: 14px; }
+  .error { color: var(--bad); min-height: 1.4em; margin-top: 10px; }
+  .round { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+  .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left; }
+  .bar.low i { background: var(--bad); }
+  .picture { width: 100%; max-height: 28vh; object-fit: contain; border-radius: 12px; background: #000; }
+  .picture.blur { filter: blur(16px); }
+  .detail { color: var(--muted); font-size: 16px; }
+  .answers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; min-height: 40vh; }
+  .answers button { border: 0; border-radius: var(--radius); color: #fff; font-weight: 700; font-size: 18px; line-height: 1.2; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-shadow: 0 1px 2px rgba(0,0,0,.35); min-height: 96px; }
+  .answers button .shape { font-size: 28px; line-height: 1; }
+  .answers button.red { background: var(--red); } .answers button.green { background: var(--green); }
+  .answers button.yellow { background: var(--yellow); color: #1b1500; text-shadow: none; } .answers button.blue { background: var(--blue); }
+  .answers button:disabled { opacity: .35; }
+  .answers button.mine { opacity: 1; outline: 4px solid #fff; outline-offset: 2px; }
+  .answers button.right { opacity: 1; outline: 4px solid var(--ok); outline-offset: 2px; }
+  .answers button.wrong { opacity: .25; }
+  .banner { border-radius: 12px; padding: 12px 14px; font-weight: 700; text-align: center; }
+  .banner.ok { background: rgba(53,194,122,.18); color: var(--ok); } .banner.bad { background: rgba(255,107,107,.15); color: var(--bad); }
+  .banner.wait { background: rgba(79,140,255,.15); color: #9dbdff; }
+  ol.scores { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  ol.scores li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #0d1526; border: 1px solid var(--line); }
+  ol.scores li.me { border-color: var(--accent); }
+  ol.scores .pos { width: 1.6em; text-align: center; font-weight: 700; color: var(--muted); }
+  ol.scores .name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ol.scores .pts { font-variant-numeric: tabular-nums; font-weight: 700; }
+  ol.scores .gain { color: var(--ok); font-size: 14px; }
+  .big { font-size: 44px; text-align: center; margin: 4px 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><b id="app">Family quiz</b><br><small id="where"></small></div>
+    <button class="quiet" id="leave" hidden>Leave</button>
+  </header>
+
+  <section class="card" id="join" hidden>
+    <h1>Join the quiz</h1>
+    <p class="muted">Type the four letters on the TV and your name.</p>
+    <label for="code">Code</label>
+    <input id="code" class="code" maxlength="4" autocomplete="off" autocapitalize="characters" inputmode="text" placeholder="ABCD">
+    <label for="name">Your name</label>
+    <input id="name" maxlength="16" autocomplete="nickname" placeholder="Name">
+    <button class="go" id="joinbtn">Join</button>
+    <div class="error" id="joinerr" role="alert"></div>
+  </section>
+
+  <section id="game" hidden style="display:flex;flex-direction:column;gap:14px;flex:1">
+    <div class="round"><span id="roundname"></span><span id="count"></span></div>
+    <div class="bar" id="clock" hidden><i id="clockfill"></i></div>
+    <div id="status" class="banner wait" role="status" aria-live="polite" hidden></div>
+    <div class="card" id="questioncard" hidden>
+      <img class="picture" id="picture" alt="" hidden>
+      <h2 id="qtext"></h2>
+      <p class="detail" id="qdetail"></p>
+    </div>
+    <div class="answers" id="answers" hidden></div>
+    <div class="card" id="boardcard" hidden>
+      <div class="big" id="bigmark"></div>
+      <p class="muted" id="fact" hidden></p>
+      <ol class="scores" id="board"></ol>
+    </div>
+  </section>
+
+  <section class="card" id="ended" hidden>
+    <h1>That quiz has finished</h1>
+    <p class="muted">Scan the code on the TV to join the next one.</p>
+    <button class="go" id="again">Join another</button>
+  </section>
+</main>
+<script>
+(function () {
+  "use strict";
+  var SHAPES = ["▲", "●", "■", "◆"], COLOURS = ["red", "green", "yellow", "blue"], LETTERS = ["A", "B", "C", "D"];
+  var $ = function (id) { return document.getElementById(id); };
+  var me = null, rev = -1, offset = 0, view = null, timer = null, tick = null, busy = false;
+
+  function load() { try { return JSON.parse(localStorage.getItem("utv-quiz") || "null"); } catch (e) { return null; } }
+  function save(v) { try { if (v) localStorage.setItem("utv-quiz", JSON.stringify(v)); else localStorage.removeItem("utv-quiz"); } catch (e) { /* no storage: reload means joining again */ } }
+  function show(which) { ["join", "game", "ended"].forEach(function (id) { $(id).hidden = id !== which; }); $("leave").hidden = which !== "game"; }
+
+  function post(path, body) {
+    return fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) { var e = new Error(d.error || "Something went wrong"); e.status = r.status; throw e; } return d; }); });
+  }
+
+  function join() {
+    var code = $("code").value.trim().toUpperCase(), name = $("name").value.trim();
+    $("joinerr").textContent = "";
+    if (code.length !== 4) { $("joinerr").textContent = "The code is four letters, on the TV."; return; }
+    if (!name) { $("joinerr").textContent = "Type your name first."; return; }
+    $("joinbtn").disabled = true;
+    post("/api/quiz/phone/join", { code: code, name: name }).then(function (d) {
+      me = { code: code, id: d.id, secret: d.secret };
+      save(me);
+      try { localStorage.setItem("utv-quiz-name", name); } catch (e) { /* the name is asked for again next time */ }
+      history.replaceState(null, "", location.pathname);
+      apply(d.view);
+      poll();
+    }).catch(function (e) { $("joinerr").textContent = e.message; }).then(function () { $("joinbtn").disabled = false; });
+  }
+
+  function poll() {
+    clearTimeout(timer);
+    if (!me) return;
+    var url = "/api/quiz/phone?code=" + encodeURIComponent(me.code) + "&player=" + encodeURIComponent(me.id) + "&secret=" + encodeURIComponent(me.secret) + "&rev=" + rev;
+    fetch(url, { cache: "no-store" }).then(function (r) {
+      if (r.status === 404 || r.status === 403) { finish(); return null; }
+      return r.json();
+    }).then(function (d) {
+      if (!d) return;
+      offset = d.now - Date.now();
+      if (!d.unchanged) apply(d);
+      timer = setTimeout(poll, 900);
+    }).catch(function () { timer = setTimeout(poll, 2500); });
+  }
+
+  function finish() { me = null; save(null); clearTimeout(timer); clearInterval(tick); show("ended"); }
+
+  function rank(v) { return v.players.slice().sort(function (a, b) { return b.score - a.score; }); }
+  function mine(v) { return v.players.filter(function (p) { return p.id === me.id; })[0]; }
+  function setBanner(text, kind) { var b = $("status"); b.hidden = !text; b.textContent = text || ""; b.className = "banner " + (kind || "wait"); }
+
+  function board(v, gains) {
+    var list = $("board"); list.textContent = "";
+    rank(v).forEach(function (p, i) {
+      var li = document.createElement("li"); if (p.id === me.id) li.className = "me";
+      var pos = document.createElement("span"); pos.className = "pos"; pos.textContent = String(i + 1);
+      var nm = document.createElement("span"); nm.className = "name"; nm.textContent = p.name;
+      li.appendChild(pos); li.appendChild(nm);
+      if (gains && gains[p.id]) { var g = document.createElement("span"); g.className = "gain"; g.textContent = "+" + gains[p.id]; li.appendChild(g); }
+      var pts = document.createElement("span"); pts.className = "pts"; pts.textContent = String(p.score);
+      li.appendChild(pts); list.appendChild(li);
+    });
+  }
+
+  function apply(v) {
+    view = v; rev = v.rev; offset = v.now - Date.now();
+    if (v.appName) { $("app").textContent = v.appName + " quiz"; document.title = v.appName + " quiz"; }
+    show("game");
+    $("where").textContent = "Playing as " + (mine(v) ? mine(v).name : "…");
+    var q = v.question, you = mine(v);
+    $("questioncard").hidden = !q; $("answers").hidden = !q; $("boardcard").hidden = true; $("clock").hidden = true;
+    $("roundname").textContent = q ? q.roundLabel : "Family quiz";
+    $("count").textContent = q ? "Question " + q.number + " of " + q.of : "";
+    $("fact").hidden = true; $("bigmark").textContent = "";
+    clearInterval(tick);
+
+    if (v.phase === "lobby" || v.phase === "loading") {
+      $("boardcard").hidden = false; board(v);
+      $("bigmark").textContent = v.phase === "loading" ? "…" : "🎉";
+      setBanner(v.phase === "loading" ? "Getting the questions ready…" : "You're in! Waiting for the quiz to start on the TV.", "wait");
+      return;
+    }
+    if (v.phase === "final") {
+      var top = rank(v), win = top[0];
+      $("boardcard").hidden = false; board(v);
+      $("bigmark").textContent = win && win.id === me.id ? "🏆" : "🎉";
+      setBanner(win ? (win.id === me.id ? "You won!" : win.name + " won") : "Finished", win && win.id === me.id ? "ok" : "wait");
+      return;
+    }
+    var turnMine = !v.question.turn || v.question.turn === me.id;
+    var turnName = v.question.turn ? (v.players.filter(function (p) { return p.id === v.question.turn; })[0] || {}).name : "";
+    $("qtext").textContent = q.text; $("qdetail").textContent = q.detail || ""; $("qdetail").hidden = !q.detail;
+    var pic = $("picture"); if (q.image) { pic.src = q.image; pic.hidden = false; pic.className = "picture" + (q.blur && v.phase === "question" ? " blur" : ""); } else pic.hidden = true;
+
+    var box = $("answers"); box.textContent = "";
+    var reveal = v.phase === "reveal" ? v.reveal : null;
+    var locked = (you && you.answered) || (reveal !== null);
+    q.options.forEach(function (text, i) {
+      var b = document.createElement("button"); b.type = "button"; b.className = COLOURS[i];
+      var s = document.createElement("span"); s.className = "shape"; s.setAttribute("aria-hidden", "true"); s.textContent = SHAPES[i];
+      var t = document.createElement("span"); t.textContent = LETTERS[i] + ". " + text;
+      b.appendChild(s); b.appendChild(t);
+      var canAnswer = v.phase === "question" && !q.watching && turnMine && !locked;
+      b.disabled = !canAnswer;
+      if (v.phase === "question" && you && you.answered && v.yourChoice === undefined) b.disabled = true;
+      if (reveal) { b.disabled = true; b.className += i === reveal.correct ? " right" : " wrong"; if (v.yourChoice === i) b.className += " mine"; }
+      b.addEventListener("click", function () { answer(i); });
+      box.appendChild(b);
+    });
+
+    if (v.phase === "question") {
+      if (q.watching) setBanner("Watch the TV…", "wait");
+      else if (!turnMine) setBanner("It's " + turnName + "'s turn. Watch the TV.", "wait");
+      else if (you && you.answered) setBanner("Locked in! Waiting for the others…", "wait");
+      else setBanner(q.turn ? "Your turn!" : "", "ok");
+      if (q.endsAt && !q.watching) { $("clock").hidden = false; clock(q); tick = setInterval(function () { clock(q); }, 200); }
+    } else {
+      var res = reveal.results.filter(function (r) { return r.playerId === me.id; })[0];
+      var gains = {}; reveal.results.forEach(function (r) { gains[r.playerId] = r.gained; });
+      if (res) setBanner(res.right ? "Right! +" + res.gained : res.choice === null ? "Too slow" : "Not this time", res.right ? "ok" : "bad");
+      else setBanner(q.turn ? "It was " + turnName + "'s turn" : "", "wait");
+      $("boardcard").hidden = false; board(v, gains);
+      if (reveal.fact) { $("fact").hidden = false; $("fact").textContent = reveal.fact; }
+    }
+  }
+
+  function clock(q) {
+    var now = Date.now() + offset, left = Math.max(q.endsAt - now, 0), span = q.seconds * 1000;
+    $("clockfill").style.transform = "scaleX(" + Math.min(left / span, 1) + ")";
+    $("clock").className = "bar" + (left < 5000 ? " low" : "");
+  }
+
+  function answer(i) {
+    if (!me || busy) return;
+    busy = true;
+    try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) { /* no buzz */ }
+    post("/api/quiz/phone/answer", { code: me.code, player: me.id, secret: me.secret, choice: i })
+      .then(function () { rev = -1; poll(); })
+      .catch(function (e) { setBanner(e.message, "bad"); })
+      .then(function () { busy = false; });
+  }
+
+  $("joinbtn").addEventListener("click", join);
+  $("name").addEventListener("keydown", function (e) { if (e.key === "Enter") join(); });
+  $("code").addEventListener("keydown", function (e) { if (e.key === "Enter") $("name").focus(); });
+  $("again").addEventListener("click", function () { show("join"); });
+  $("leave").addEventListener("click", function () {
+    if (!me) return;
+    var m = me; finish();
+    post("/api/quiz/phone/leave", { code: m.code, player: m.id, secret: m.secret }).catch(function () {});
+  });
+
+  try { $("name").value = localStorage.getItem("utv-quiz-name") || ""; } catch (e) { /* no storage */ }
+  var fromLink = new URLSearchParams(location.search).get("code");
+  if (fromLink) $("code").value = fromLink.toUpperCase().slice(0, 4);
+  var saved = load();
+  if (saved && !fromLink) {
+    me = saved; show("game"); setBanner("Reconnecting…", "wait"); poll();
+  } else {
+    show("join");
+    if ($("code").value && !$("name").value) $("name").focus();
+  }
+})();
+</script>
+</body>
+</html>

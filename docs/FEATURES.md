@@ -132,6 +132,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 - **AirPlay** from an iPhone, iPad or Mac (UxPlay on the box); Back ends it, and Kids can't be cast to.
 - **Laptop screen share** from Chrome, Edge or Firefox at `https://<hub>:8096/cast/`, after the TV asks.
 - **Links and photos from a phone**: the phone remote's Cast sheet, also in Android's share menu; YouTube plays through mpv and yt-dlp.
+- **Family quiz** ([family-quiz.md](family-quiz.md)): multiple-choice questions on the TV answered with the colour keys (or 1 to 4, or on phones that join with a QR code), taking turns or all together, with rounds from a built-in bank and from your own films, shows and music videos, film and music extracts, scores and a podium. Open to Kids with gentler questions.
 - **Games**: RetroArch, Moonlight, Steam Link, GeForce NOW and Steam open full screen from Cast and games (Blue on Home), and the TV app comes back when they close. Off on Kids unless allowed.
 
 ## Running and looking after it

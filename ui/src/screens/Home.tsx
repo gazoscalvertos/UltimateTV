@@ -16,7 +16,6 @@ import { play } from "../player";
 import { errorToast, isKids, nav, toast } from "../store";
 import { choose } from "../components/Dialog";
 import { continueOptions, undoLabel, type ContinuePick } from "../continueWatching";
-import { castSettings } from "../cast";
 import { HomeWeather } from "../components/HomeWeather";
 import { featureOn, shownRails, titleShown } from "../features";
 import { current } from "../focus";
@@ -54,13 +53,13 @@ export function Home() {
   onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" || e.type === "favourites.changed" || e.type === "progress.changed" || e.type === "following.changed" ? void refetch() : undefined)));
 
   // The colour keys are shortcuts on Home, as on Sky.
-  const castOk = () => !isKids() || castSettings().gamesForKids;
-  useHints(() => HOME_KEYS.filter((h) => h.key !== "blue" || castOk()));
+  // Kids open it too: the quiz on it is for them, and the games stay behind the grown-ups' switch.
+  useHints(() => HOME_KEYS);
   useKeys((a) => {
     if (a === "red") nav.push({ name: "planner" });
     else if (a === "green") nav.push({ name: "guide" });
     else if (a === "yellow") nav.push({ name: "search" });
-    else if (a === "blue" && castOk()) nav.push({ name: "cast" });
+    else if (a === "blue") nav.push({ name: "cast" });
     else return false;
     return true;
   });

@@ -12,6 +12,7 @@ import type { HubContext } from "./context.js";
 import type { VodEntry } from "./ingest/index.js";
 import { MIX_SEEDS } from "./mixseeds.js";
 import { hash } from "./ingest/xmltv.js";
+import type { LibSong, LibTitle, QuizPool } from "./quizsources.js";
 
 interface DemoChannel {
   number: number;
@@ -530,4 +531,24 @@ export function demoRequestables(): TitleDetails[] {
     make("movie", 9002, "The Long Meridian", 2024, ["Adventure"], "Two rival surveyors race to chart the last unmapped valley before the winter closes it."),
     make("series", 9003, "Lighthouse Row", 2025, ["Drama"], "Three families share a terrace on a clifftop, and one secret too many."),
   ];
+}
+
+/** Invented actors, so the family quiz can ask who was in a made-up film (#264). */
+const DEMO_ACTORS = ["Mara Ellison", "Tom Hartley", "Priya Nair", "Dylan Brooks", "Isla Rennie", "Ewan Mackay", "Noor Haddad", "Callum Reid", "Freya Lindqvist", "Owen Pryce", "Tilda Okafor", "Jack Merriweather"];
+
+/** The demo Hub's films and series as the family quiz's library (there is no media server in demo mode). */
+export function demoQuizPool(): QuizPool {
+  const titles: LibTitle[] = TITLES.map((t, i) => ({
+    req: { kind: "title", id: `demo:${t.kind}:${t.slug}` },
+    kind: t.kind,
+    name: t.name,
+    year: t.year,
+    overview: t.overview,
+    cast: [DEMO_ACTORS[i % DEMO_ACTORS.length]!, DEMO_ACTORS[(i * 5 + 3) % DEMO_ACTORS.length]!],
+    genres: t.genres,
+    poster: `/api/art/poster/${t.slug}.svg`,
+    runtimeMs: 100 * 60_000,
+  }));
+  const songs: LibSong[] = [];
+  return { titles, songs };
 }

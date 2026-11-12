@@ -63,6 +63,8 @@ import { startIdle, wake } from "./idle";
 import { startCast } from "./cast";
 import { startSleep } from "./sleep";
 import { CastScreen } from "./screens/Cast";
+import { QuizScreen } from "./screens/Quiz";
+import { startQuiz } from "./quiz";
 import { KeyHints, openHelp } from "./components/KeyHints";
 import { AlertCard, KidsTimeCard, MirroringLayer, ScreenShareLayer, SleepWarning } from "./components/Overlays";
 import { startKidsTime } from "./kidstime";
@@ -221,6 +223,7 @@ export function App() {
     startDownloads();
     startWatching();
     startCast();
+    startQuiz();
     startSleep();
     startKidsTime();
     startFavourites();
@@ -357,6 +360,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "cast"}>
             <CastScreen />
+          </Match>
+          <Match when={nav.current().name === "quiz"}>
+            <QuizScreen />
           </Match>
           <Match when={nav.current().name === "coming-up"}>
             <ComingUpScreen />

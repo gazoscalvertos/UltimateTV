@@ -30,6 +30,8 @@ pop up what's new after an update. So:
 
 ## 2026-11-12
 
+- **Family quiz** ([docs/family-quiz.md](docs/family-quiz.md)): a quiz in Cast and games where a question appears on the TV with four coloured answers. Answer with the remote's Red, Green, Yellow and Blue keys (1 to 4, or the arrows and OK, work too), taking turns with one remote, or all at once on your own phones by scanning a QR code. Rounds of general knowledge, science, geography, animals, history, food, sport and entertainment, plus questions made from your own films, shows and music videos, and extracts (a few seconds of a film or music video: name it). Easy, family and tricky; Kids only get the gentler ones. Also fixes three CSS rules left unclosed in the TV app's stylesheet. (#264)
+  Household: Cast and games now has a Family quiz: pick it on the TV and answer with the coloured buttons, or on your phones.
 - **Request a film or series that isn't in the library** ([docs/requests.md](docs/requests.md)): search and a title's page show **Request** for anything no source has, and the Hub passes it to Jellyseerr/Overseerr or straight to Radarr and Sonarr (set up on the phone's setup page, with a Test button; nothing shows until then). Status (Requested, Downloading, Ready) is on the title, in Home › Requests and in a Home row, and the TV, the phone and Home Assistant/ntfy are told when it arrives. A Kids or Guest profile can only ask: a grown-up approves on the TV or the phone first. (#225)
   Household: If a film isn't here, ask for it from the TV and you'll be told when it's ready.
 

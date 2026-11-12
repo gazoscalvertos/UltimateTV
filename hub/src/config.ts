@@ -37,6 +37,8 @@ export interface HubConfig {
   shareUrl?: string;
   /** The Share Play watch page. */
   shareDir?: string;
+  /** The family quiz's page for phones. */
+  quizDir?: string;
   /** The HTTPS port as phones and laptops reach it (Docker maps it to 8096 by default). */
   httpsPublicPort?: number;
 }
@@ -58,6 +60,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     pairing: env.PAIRING !== "off",
     castDir: env.CAST_DIR ?? path.resolve(here, "../public/cast"),
     shareDir: env.SHARE_DIR ?? path.resolve(here, "../public/share"),
+    quizDir: env.QUIZ_DIR ?? path.resolve(here, "../public/quiz"),
     changelogPath: env.CHANGELOG_PATH ?? path.resolve(here, "../../CHANGELOG.md"),
     httpsPort: Number(env.HTTPS_PORT ?? 8443),
   };

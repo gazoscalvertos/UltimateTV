@@ -21,6 +21,7 @@ export type Route =
   | { name: "mix-channel"; id: string }
   | { name: "downloads" }
   | { name: "cast" }
+  | { name: "quiz" }
   | { name: "weather" }
   | { name: "elsewhere" }
   | { name: "coming-up" }
