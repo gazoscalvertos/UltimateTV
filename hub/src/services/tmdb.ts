@@ -36,6 +36,28 @@ interface TmdbDetails extends TmdbResult {
   content_ratings?: { results: { iso_3166_1: string; rating: string }[] };
 }
 
+interface TmdbAirEpisode {
+  season_number: number;
+  episode_number: number;
+  air_date?: string | null;
+  name?: string;
+}
+
+/** One episode's place and air date (`2026-11-14`, no time of day). */
+export interface AirEpisode {
+  season: number;
+  episode: number;
+  airDate: string;
+  name?: string;
+}
+
+export interface SeriesSchedule {
+  last?: AirEpisode;
+  next?: AirEpisode;
+  /** "Returning Series", "Ended", … */
+  status?: string;
+}
+
 interface TmdbCastCredit {
   id: number;
   name: string;
@@ -279,6 +301,23 @@ export class TmdbClient {
         .map((s) => ({ season: s.season_number, name: s.season_number === 0 ? "Specials" : `Series ${s.season_number}`, episodes: [] }));
     }
     return details;
+  }
+
+  /**
+   * When a series last aired and next airs (issue #226): TMDB's own "last" and "next" episode, which
+   * are dates with no time of day. Kept for six hours, so a new air date shows up the same morning.
+   */
+  async schedule(tvId: number): Promise<SeriesSchedule> {
+    const d = await this.get<{ status?: string; last_episode_to_air?: TmdbAirEpisode | null; next_episode_to_air?: TmdbAirEpisode | null }>(`/tv/${tvId}`, {}, 6 * 3_600_000);
+    const pick = (e?: TmdbAirEpisode | null): AirEpisode | undefined =>
+      e?.air_date && Number.isInteger(e.season_number) && Number.isInteger(e.episode_number) ? { season: e.season_number, episode: e.episode_number, airDate: e.air_date, ...(e.name ? { name: e.name } : {}) } : undefined;
+    const out: SeriesSchedule = {};
+    const last = pick(d.last_episode_to_air);
+    const next = pick(d.next_episode_to_air);
+    if (last) out.last = last;
+    if (next) out.next = next;
+    if (d.status) out.status = d.status;
+    return out;
   }
 
   async season(tvId: number, season: number): Promise<Season> {

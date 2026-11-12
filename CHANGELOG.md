@@ -28,6 +28,11 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-12
+
+- **Coming up: new episodes of the series you follow** ([docs/coming-up.md](docs/coming-up.md)): follow a series from its page (the ones you save, keep watching, record by series link or queue are followed for you) and Home gets a New episodes row with a New badge, a Coming up screen lists the next seven days of air dates with Remind and Record when the guide has it on a channel, and a pop-up tells you the day a new episode arrives (switch it off on the Coming up screen). Kids profiles only see what they're allowed. (#226)
+  Household: Home now shows new episodes of your shows, and Coming up says what's on this week.
+
 ## 2026-11-09
 
 - **Phone remote: bigger touch targets and a tidier small-phone layout**: all seven tabs now share the bar equally on a 360px phone, the Now Playing buttons all fit, and the small buttons (settings, chips, queue buttons, the dismiss ×) are at least 44px. Sheets get a grab handle and close with Escape, the status text is announced by screen readers, keyboard focus is visible, animations stop when the phone asks for reduced motion, and pinch-zoom works again. ([docs/phone-remote.md](docs/phone-remote.md#small-phones-and-accessibility)) (#258)

@@ -51,6 +51,8 @@ import { startDownloads } from "./downloads";
 import { startSaveNotices } from "./save";
 import { DownloadsScreen } from "./screens/Downloads";
 import { ElsewhereScreen } from "./screens/Elsewhere";
+import { ComingUpScreen } from "./screens/ComingUp";
+import { startEpisodePopups } from "./following";
 import { startWatching } from "./watching";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
@@ -238,6 +240,7 @@ export function App() {
     const lookTimer = window.setInterval(loadLook, 60 * 60_000);
     onCleanup(() => window.clearInterval(lookTimer));
     onCleanup(startAskParentPopups());
+    onCleanup(startEpisodePopups());
     onCleanup(
       onHubEvent(async (e) => {
         if (e.type === "settings.changed") void loadLook();
@@ -350,6 +353,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "cast"}>
             <CastScreen />
+          </Match>
+          <Match when={nav.current().name === "coming-up"}>
+            <ComingUpScreen />
           </Match>
           <Match when={nav.current().name === "elsewhere"}>
             <ElsewhereScreen />

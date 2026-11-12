@@ -37,7 +37,7 @@ Not touched: Continue watching, Saved for later, Favourites, Recently recorded, 
 again" row (that one is meant to show watched titles), and the player's Up Next, which carries on
 to the next episode of the series being watched.
 
-The Hub has no separate "Coming up", "Art" or random-pick rows today; when they are added they
+The New episodes row (docs/coming-up.md) leaves out an episode already watched, and nothing else. The Hub has no separate "Art" or random-pick rows today; when they are added they
 should call `ContentFilter.unseen()` on their titles.
 
 ## For developers

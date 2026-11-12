@@ -104,6 +104,8 @@ export class HubContext {
   readonly jellyfinProgress: JellyfinProgressQueue;
   /** When a saved title is next on TV, matched against the guide (#74). */
   readonly nextAirings: NextAirings;
+  /** Looks for new episodes of followed series and pops each up once (#226); set by the server. */
+  checkEpisodes?: () => Promise<number>;
   /** The radio stations the household can start (#86). */
   readonly radio: Radio;
   /** The podcast shows it follows, and where it got to (#86). */

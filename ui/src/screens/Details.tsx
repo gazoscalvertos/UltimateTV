@@ -19,6 +19,7 @@ import { play, playLink } from "../player";
 import { addToQueue } from "../queue";
 import { allEpisodes, canDownload, downloadLabel, downloadOf, downloadToBox, episodeRequest, episodesOf, filmRequest } from "../downloads";
 import { canSave, saveEpisodes, saveToNas } from "../save";
+import { isFollowing, setFollowing } from "../following";
 import { isFavouriteTitle, toggleFavouriteTitle } from "../favourites";
 import { errorToast, isKids, isLimited, nav, openDialog, toast } from "../store";
 
@@ -156,6 +157,17 @@ export function Details(props: { id: string }) {
         setSaved(r.item);
         toast(`${t.name} saved for later: it's on Home`, "good");
       }
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  // Follow a series: new episodes show on Home and Coming up (#226).
+  const followingNow = () => isFollowing(d()?.id);
+  const toggleFollow = async () => {
+    const t = d();
+    if (!t) return;
+    try {
+      await setFollowing({ id: t.id, kind: "series", name: t.name, ...(t.year ? { year: t.year } : {}), ...(t.poster ? { poster: t.poster } : {}), ...(t.backdrop ? { backdrop: t.backdrop } : {}), ...(t.certification ? { certification: t.certification } : {}), ...(t.genres?.length ? { genres: t.genres } : {}) }, !followingNow());
     } catch (err) {
       errorToast(err);
     }
@@ -460,6 +472,11 @@ export function Details(props: { id: string }) {
                   <button class="btn btn-large" classList={{ selected: Boolean(saved()) }} data-focus onClick={() => void toggleSaved()}>
                     <Icon name={saved() ? "bookmarked" : "bookmark"} /> {saved() ? "Saved" : "Save for later"}
                   </button>
+                  <Show when={t().kind === "series"}>
+                    <button class="btn btn-large" classList={{ selected: followingNow() }} data-focus aria-pressed={followingNow()} onClick={() => void toggleFollow()}>
+                      <Icon name="bell" /> {followingNow() ? "Following" : "Follow"}
+                    </button>
+                  </Show>
                   <button class="btn btn-large btn-favourite" classList={{ selected: liked() }} data-focus aria-pressed={liked()} onClick={toggleLiked}>
                     <Icon name={liked() ? "hearted" : "heart"} /> {liked() ? "Favourite" : "Add to Favourites"}
                   </button>

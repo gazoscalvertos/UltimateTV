@@ -866,6 +866,10 @@ export type HubEvent =
   | { type: "settings.changed" }
   | { type: "profiles.changed" }
   | { type: "toast"; message: string }
+  /** A profile's followed series changed (issue #226). */
+  | { type: "following.changed"; profileId: string | null }
+  /** A followed series has a new episode (issue #226): the TV pops it up for that profile only. */
+  | { type: "episode.new"; profileId: string | null; title: TitleRef; message: string }
   /** From the phone remote: a key press, or text typed on the phone. */
   | { type: "remote.key"; action: string; box?: BoxTarget }
   | { type: "remote.text"; text: string; box?: BoxTarget }

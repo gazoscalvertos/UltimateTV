@@ -19,6 +19,7 @@ import { castSettings } from "../cast";
 import { HomeWeather } from "../components/HomeWeather";
 import { featureOn, shownRails, titleShown } from "../features";
 import { current } from "../focus";
+import { openComingUp } from "../following";
 import { markHome } from "../perf";
 import type { TitleRef, WatchItem } from "@ultimatetv/shared";
 
@@ -47,7 +48,7 @@ export function Home() {
   };
   // Refreshed only when a recording finishes, the watchlist or favourites change, or something stops playing
   // (Continue watching), so the rails don't shift under the remote otherwise.
-  onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" || e.type === "favourites.changed" || e.type === "progress.changed" ? void refetch() : undefined)));
+  onCleanup(onHubEvent((e) => (e.type === "recording.finished" || e.type === "watchlist.changed" || e.type === "favourites.changed" || e.type === "progress.changed" || e.type === "following.changed" ? void refetch() : undefined)));
 
   // The colour keys are shortcuts on Home, as on Sky.
   const castOk = () => !isKids() || castSettings().gamesForKids;
@@ -165,6 +166,13 @@ export function Home() {
             )}
           </Show>
           <ElsewhereRow />
+          <Show when={!isKids() ? true : false}>
+            <section class="rail" data-row>
+              <button class="chip" data-focus onClick={openComingUp}>
+                <Icon name="bell" /> Coming up
+              </button>
+            </section>
+          </Show>
           <QueueRow />
           <For each={shownRails(home()!.rails)}>
             {(rail) =>
