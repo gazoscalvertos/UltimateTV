@@ -106,6 +106,8 @@ export class HubContext {
   readonly nextAirings: NextAirings;
   /** Looks for new episodes of followed series and pops each up once (#226); set by the server. */
   checkEpisodes?: () => Promise<number>;
+  /** Sets reminders (and recordings) for favourite teams' games in the guide (#231); set by the server. */
+  checkSport?: () => { reminders: number; recordings: number };
   /** The radio stations the household can start (#86). */
   readonly radio: Radio;
   /** The podcast shows it follows, and where it got to (#86). */

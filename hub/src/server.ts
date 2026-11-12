@@ -22,6 +22,8 @@ import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { registerContinue } from "./continueroutes.js";
 import { registerFollowing } from "./followingroutes.js";
 import { Following } from "./following.js";
+import { registerSport } from "./sportroutes.js";
+import { Sport } from "./sport.js";
 import { FavouriteStore, registerFavourites } from "./favourites.js";
 import { cleanSeenMode } from "./watchedtitles.js";
 import { registerSearchHistory, SearchHistory } from "./searchhistory.js";
@@ -139,6 +141,19 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     queue: () => ctx.queue.list(),
     profileIds: () => ctx.profiles.list().map((p) => p.id),
     ...(config.demo ? { scheduleFor: demoSchedule } : {}),
+  });
+  // Sport tonight: the guide's sport, favourite teams, and automatic reminders and recordings (#231).
+  const sport = new Sport({
+    db: ctx.db,
+    events: ctx.events,
+    guide: ctx.guide,
+    channels: ctx.channels,
+    reminders: () => ctx.recordings.reminders(),
+    recording: (id) => ctx.recordings.forProgramme(id),
+    addReminder: (id) => ctx.scheduler.addReminder(id),
+    record: (id) => ctx.scheduler.recordProgramme(id),
+    profileIds: () => ctx.profiles.list().map((p) => p.id),
+    isKids: (id) => (id ? ctx.profiles.get(id)?.kind === "kids" : false),
   });
   // Favourites per profile; the household's channel favourites are copied to each profile once.
   const favourites = new FavouriteStore(ctx.db, ctx.events, ctx.channels);
@@ -323,6 +338,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/following", "paired"],
     ["DELETE /api/following/:id", "paired"],
     ["PUT /api/following/popups", "paired"],
+    ["PUT /api/sport/settings", "paired"],
+    ["POST /api/sport/teams", "paired"],
+    ["DELETE /api/sport/teams", "paired"],
     ["POST /api/continue/:id/hide", "paired"],
     ["POST /api/continue/:id/watched", "paired"],
     ["POST /api/series-links", "paired"],
@@ -375,6 +393,15 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
       const allow = profile?.kind === "kids" ? kidsAllowLookup(ctx.kidsAllow.list(profile.id)) : NO_KIDS_ALLOW_LOOKUP;
       return new ContentFilter(profile, favourites.channelSet(id), allow, { lookup: ctx.watched.lookup(id), mode: cleanSeenMode(ctx.settings.get().playback.watchedSuggestions) });
     });
+  // Favourite games in the guide get a reminder (and a recording, if asked) once each (#231).
+  ctx.checkSport = () => {
+    const filterFor = (id: string | null) => {
+      const profile = id ? (ctx.profiles.get(id) ?? null) : null;
+      const allow = profile?.kind === "kids" ? kidsAllowLookup(ctx.kidsAllow.list(profile.id)) : NO_KIDS_ALLOW_LOOKUP;
+      return new ContentFilter(profile, favourites.channelSet(id), allow, { lookup: ctx.watched.lookup(id), mode: "off" });
+    };
+    return sport.check(filterFor);
+  };
   /** The Android client names itself ("phone:<id>") so it can share the IPTV connection politely. */
   const deviceOf = (req: FastifyRequest): string | undefined => {
     const v = req.headers["x-device"];
@@ -1669,6 +1696,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // Taking a title off Continue watching, for this profile: the TV's Options menu and the phone.
   registerContinue(app, ctx, (req) => ({ profileId: viewer(req).profile?.id ?? null }));
+  registerSport(app, sport, (req) => {
+    const who = viewer(req);
+    return { profileId: who.profile?.id ?? null, filter: who.filter };
+  });
   registerFollowing(app, following, (req) => {
     const who = viewer(req);
     return { profileId: who.profile?.id ?? null, filter: who.filter };
@@ -2103,6 +2134,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
         const after = home.rails.findIndex((r) => r.id === "nextup") + 1 || home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0);
         home.rails.splice(after, 0, { id: "new-episodes", title: "New episodes", kind: "titles", items: items.slice(0, 30) });
       }
+    }
+    // Sport today: live and upcoming sport, the profile's teams first (#231).
+    if (showing.includes("sport")) {
+      const games = sport.row(profileId, who.filter);
+      if (games.length) home.rails.push({ id: "sport", title: "Sport today", kind: "sport", items: [], sport: games });
     }
     // In the profile's order; a row that isn't switched on is left out even if the library built it.
     const rank = new Map(showing.map((id, i) => [id, i]));

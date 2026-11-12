@@ -21,6 +21,7 @@ import { HomeWeather } from "../components/HomeWeather";
 import { featureOn, shownRails, titleShown } from "../features";
 import { current } from "../focus";
 import { openComingUp } from "../following";
+import { openSport } from "../sport";
 import { markHome } from "../perf";
 import type { TitleRef, WatchItem } from "@ultimatetv/shared";
 
@@ -174,6 +175,9 @@ export function Home() {
             <section class="rail" data-row>
               <button class="chip" data-focus onClick={openComingUp}>
                 <Icon name="bell" /> Coming up
+              </button>
+              <button class="chip" data-focus onClick={openSport}>
+                <Icon name="star" /> Sport
               </button>
             </section>
           </Show>

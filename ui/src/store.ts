@@ -23,7 +23,8 @@ export type Route =
   | { name: "cast" }
   | { name: "weather" }
   | { name: "elsewhere" }
-  | { name: "coming-up" };
+  | { name: "coming-up" }
+  | { name: "sport" };
 
 export type PlannerTab = "recorded" | "scheduled" | "reminders" | "series" | "downloads";
 
