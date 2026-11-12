@@ -52,10 +52,9 @@ sed -i 's|^extern const evo_provider_t evo_provider_jellyfin;|&\nextern const ev
 sed -i 's|^    &evo_provider_jellyfin,|    \&evo_provider_ultimatetv,   /* UltimateTV: first, so it opens first */\n&|' "$MGR"
 grep -q '&evo_provider_ultimatetv' "$MGR" || { echo "Couldn't add the provider to the table" >&2; exit 1; }
 
-# Make sure the build picks the new file up (EVO's Makefile globs addons/src; if it ever lists files, say so).
-if ! grep -Eq 'addons/src/\*\.c|wildcard' "$P/Makefile" 2>/dev/null; then
-  echo "warning: EVO's Makefile doesn't glob addons/src; add provider_ultimatetv.c to its source list" >&2
-fi
+# EVO's Makefile lists its sources one by one, so add ours next to the Jellyfin provider.
+sed -i 's|^\( *\)addons/src/provider_jellyfin.c \\|&\n\1addons/src/provider_ultimatetv.c \\|' "$P/Makefile"
+grep -q 'addons/src/provider_ultimatetv.c' "$P/Makefile" || { echo "Couldn't add the provider to EVO's Makefile" >&2; exit 1; }
 
 # Its own title, so it sits beside EVO Player instead of replacing it, and doesn't touch EVO's data.
 PJ="$P/sce_sys/param.json"
