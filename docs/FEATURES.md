@@ -23,6 +23,7 @@ Everything UltimateTV does as of 2026-11-02. **Nothing has run on the Hisense ye
 - Record a single programme or a whole series from the guide (Red). Recordings land on the NAS with ffmpeg stream copy and show up in Jellyfin.
 - Series links schedule new episodes as the guide refreshes; each has a Cancel button, and you choose whether to keep every episode or only the latest 3, 5 or 10 (the older recordings are deleted as new ones arrive, never one being recorded or lined up to watch).
 - The one IPTV connection is shared: watching and recording the same channel uses one stream. When more recordings overlap than the plan has connections, Recordings shows a clash banner naming the programmes, and **OK on it chooses which one to keep**: the others are cancelled, or keep them all and the Hub records what the connection allows.
+- **Overruns** ([overruns.md](overruns.md)): sport and live recordings keep going while the guide says the programme is still on (up to 60 minutes extra, Settings › Recording), show "Extended by 12 minutes", and can be extended by hand with Record 15 more minutes. The Hub won't take the connection from a recording about to start elsewhere.
 - Recordings screen: recorded (grouped by series), coming up, series links, a clash banner and NAS downloads.
 
 ## Films and TV

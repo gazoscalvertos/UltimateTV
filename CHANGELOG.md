@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-12
 
+- **Recordings follow overruns** ([docs/overruns.md](docs/overruns.md)): sport and live shows now keep recording while the guide says they're still on, up to 60 minutes extra, so the end of the match isn't cut off. Recordings say "Extended by 12 minutes", **Record 15 more minutes** adds time by hand, and the Hub won't take the connection from a recording that's about to start on another channel. Settings › Recording chooses sport and live, everything or off, and one recording can differ. It relies on your guide updating the end time. (#230)
+  Household: the end of a football match or a live final is no longer lost when it runs over.
+
 - **Coming up: new episodes of the series you follow** ([docs/coming-up.md](docs/coming-up.md)): follow a series from its page (the ones you save, keep watching, record by series link or queue are followed for you) and Home gets a New episodes row with a New badge, a Coming up screen lists the next seven days of air dates with Remind and Record when the guide has it on a channel, and a pop-up tells you the day a new episode arrives (switch it off on the Coming up screen). Kids profiles only see what they're allowed. (#226)
   Household: Home now shows new episodes of your shows, and Coming up says what's on this week.
 

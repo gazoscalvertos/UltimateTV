@@ -9,6 +9,7 @@ import type { CastLink, ShareOffer } from "./cast.js";
 import type { AdBreak, Alert, SleepChoice, SleepState } from "./household.js";
 import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
 import { seasonOn } from "./seasons.js";
+import type { FollowOverruns } from "./overrun.js";
 import type { ThemeChoice, ThemeName } from "./themes.js";
 import type { AccessibilitySettings } from "./accessibility.js";
 import type { KidsAsk } from "./kidsallow.js";
@@ -150,6 +151,12 @@ export interface Recording {
   seriesLinkId?: Id;
   /** Set when the recording finished early or had gaps. */
   incomplete: boolean;
+  /** Follow the guide past the end time (#230). Left out: use the Settings choice. */
+  followOverrun?: boolean;
+  /** How much longer than planned the recording ran, because the programme overran or it was extended by hand. */
+  extendedMs?: number;
+  /** The overrun carried on past the limit, or stopped short so the next recording could have the connection. */
+  overrunLimited?: "cap" | "clash";
   error?: string;
   path?: string;
   sizeBytes?: number;
@@ -769,6 +776,10 @@ export interface Settings {
     paddingAfterMin: number;
     preferCatchup: boolean;
     autoDeleteWatchedDays: number;
+    /** Keep recording while the guide says the programme is still on: sport and live only, always, or never. */
+    followOverruns: FollowOverruns;
+    /** The most a recording is extended for an overrun, in minutes. */
+    maxOverrunMin: number;
   };
   playback: {
     preferredAudioLang: string;

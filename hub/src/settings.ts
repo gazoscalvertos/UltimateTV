@@ -22,6 +22,8 @@ export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
       paddingAfterMin: 5,
       preferCatchup: true,
       autoDeleteWatchedDays: 0,
+      followOverruns: "auto",
+      maxOverrunMin: 60,
     },
     playback: {
       preferredAudioLang: "eng",

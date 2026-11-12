@@ -3,7 +3,7 @@
 
 import { createMemo, createResource, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js";
 import type { Conflict, Download, Recording, Reminder, SeriesLink } from "@ultimatetv/shared";
-import { clockTime, dayLabel, episodeLabel, formatBytes } from "@ultimatetv/shared";
+import { clockTime, dayLabel, episodeLabel, extendedLabel, followsOverrun, formatBytes } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { choose, confirm } from "../components/Dialog";
 import { Icon } from "../components/Icon";
@@ -39,6 +39,7 @@ const STATUS: Record<Recording["status"], string> = {
 export function Planner(props: { tab?: PlannerTab }) {
   const [tab, setTab] = createSignal<PlannerTab>(props.tab ?? "recorded");
   const [data, { refetch }] = createResource(() => hub.planner());
+  const [settings] = createResource(() => hub.settings());
   const [downloads, dl] = createResource(() => hub.downloads().then((d) => d.downloads));
   onCleanup(
     onHubEvent((e) => {
@@ -88,7 +89,20 @@ export function Planner(props: { tab?: PlannerTab }) {
   };
 
   const upcomingMenu = async (r: Recording) => {
-    if (await confirm(`Cancel ${r.programme.title}?`, r.status === "recording" ? "It's recording now. What's been recorded so far is kept." : "It won't be recorded.", "Cancel recording", true)) {
+    const live = r.method === "live";
+    const follows = followsOverrun(r, settings()?.recording.followOverruns);
+    const pick = await choose({
+      title: r.programme.title,
+      message: [r.channelName, extendedLabel(r), r.overrunLimited === "clash" ? "Stopped short so the next recording could start" : r.overrunLimited === "cap" ? "Hit the overrun limit" : undefined].filter(Boolean).join(" · "),
+      options: [
+        ...(live ? [{ label: "Record 15 more minutes", value: "more", icon: "record", detail: r.status === "recording" ? "Keeps going after the end time" : "Adds 15 minutes to the end" }] : []),
+        ...(live ? [{ label: follows ? "Stop following overruns" : "Follow overruns", value: "follow", icon: "restart", detail: follows ? "Ends at the time it's planned to" : "Keeps recording while the guide says it's still on" }] : []),
+        { label: "Cancel recording", value: "cancel", icon: "trash", tone: "danger" as const },
+      ],
+    });
+    if (pick === "more") await act(() => hub.extendRecording(r.id, 15), "Recording 15 more minutes");
+    if (pick === "follow") await act(() => hub.followOverrun(r.id, !follows), follows ? "Won't follow overruns" : "Following overruns");
+    if (pick === "cancel" && (await confirm(`Cancel ${r.programme.title}?`, r.status === "recording" ? "It's recording now. What's been recorded so far is kept." : "It won't be recorded.", "Cancel recording", true))) {
       await act(() => hub.deleteRecording(r.id), "Recording cancelled");
     }
   };
@@ -253,6 +267,9 @@ export function Planner(props: { tab?: PlannerTab }) {
                                   <Show when={r.incomplete}>
                                     <span class="flag">Part recorded</span>
                                   </Show>
+                                  <Show when={extendedLabel(r)}>
+                                    <span class="flag">{extendedLabel(r)}</span>
+                                  </Show>
                                 </span>
                                 <span class="list-sub">
                                   {r.channelName} · {dayLabel(r.programme.start)} {clockTime(r.programme.start)} · {r.method === "catchup" ? "From catch-up" : "Recorded live"}
@@ -289,7 +306,7 @@ export function Planner(props: { tab?: PlannerTab }) {
                               <Icon name="series" class="mark-series" />
                             </Show>
                           </span>
-                          <span class="list-sub">{[episodeLabel(r.programme.season, r.programme.episode), r.channelName].filter(Boolean).join(" · ")}</span>
+                          <span class="list-sub">{[episodeLabel(r.programme.season, r.programme.episode), r.channelName, extendedLabel(r)].filter(Boolean).join(" · ")}</span>
                         </span>
                         <span class="list-side" classList={{ "rec-now": r.status === "recording" }}>
                           <Show when={r.status === "recording"}>

@@ -336,12 +336,19 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   const clash = lm ? programmes.find((p) => p.channelId === itv.id && p.start < lm.end && p.end > lm.start) : undefined;
   if (clash && lm && lm.end > now) ctx.recordings.save(rec("demo-r3", clash, "scheduled"));
 
+  // A live match coming up, which follows an overrun (#230).
+  const matchStart = today.getTime() + 86_400_000 + 19 * 3_600_000;
+  const match = demoProgramme(itv, matchStart, 120, "Cup Final Live", { categories: ["Sport", "Football"] }, "The final, live from the stadium.");
+  ctx.recordings.save(rec("demo-r4", match, "scheduled", { followOverrun: true }));
+
   const done = (title: string, daysAgo: number, season: number, episode: number, sub: string, channelIdx: number, watched = false) => {
     const c = channels[channelIdx]!;
     const s = today.getTime() - daysAgo * 86_400_000 + 20 * 3_600_000;
     const p = demoProgramme(c, s, 60, title, { season, episode, subtitle: sub }, DESCRIPTIONS[episode % DESCRIPTIONS.length]!);
     const extra: Partial<Recording> = { path: path.join(config.clipsDir, "h264-1080p25-aac.mp4"), sizeBytes: 2.4e9, watched, positionMs: episode === 3 ? 22 * 60_000 : 0 };
     if (title === "Harbour Lights") extra.seriesLinkId = link.id;
+    // A live final that ran over: the Hub kept recording for 12 minutes (#230).
+    if (title === "Kitchen Rivals") Object.assign(extra, { extendedMs: 12 * 60_000, followOverrun: true });
     // Advert breaks found by comskip, for the Skip adverts button.
     if (title === "Wild Islands") Object.assign(extra, { adBreaks: [{ startMs: 1000, endMs: 4 * 60_000 }, { startMs: 22 * 60_000, endMs: 25 * 60_000 }], adScan: "done" });
     return rec(`demo-done-${slugOf(title)}-${episode}`, p, "completed", extra);

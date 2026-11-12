@@ -179,6 +179,36 @@ export class Scheduler {
     return next;
   }
 
+  /**
+   * Records longer: for one that's running the Recorder pushes its end out, for one still to come the
+   * padding grows. Returns undefined when there's nothing to extend (it has finished or been cancelled).
+   */
+  extendRecording(id: string, minutes: number): Recording | undefined {
+    const r = this.d.store.get(id);
+    if (!r || r.method !== "live") return undefined;
+    const ms = Math.round(Math.min(Math.max(minutes, 1), 180)) * 60_000;
+    if (r.status === "recording") {
+      if (!this.d.recorder.extend(id, ms)) return undefined;
+      return this.d.store.get(id);
+    }
+    if (r.status !== "scheduled") return undefined;
+    const next = { ...r, end: r.end + ms, extendedMs: (r.extendedMs ?? 0) + ms };
+    this.d.store.save(next);
+    this.d.events.emit({ type: "recordings.changed" });
+    return next;
+  }
+
+  /** Per recording: follow the guide past the end time, or not. Passing undefined goes back to the Settings choice. */
+  setFollowOverrun(id: string, follow: boolean | undefined): Recording | undefined {
+    const r = this.d.store.get(id);
+    if (!r) return undefined;
+    const { followOverrun: _old, ...rest } = r;
+    const next: Recording = follow === undefined ? rest : { ...rest, followOverrun: follow };
+    this.d.store.save(next);
+    this.d.events.emit({ type: "recordings.changed" });
+    return next;
+  }
+
   async deleteRecording(id: string): Promise<void> {
     const r = this.d.store.get(id);
     if (!r) return;
@@ -260,7 +290,7 @@ export class Scheduler {
     const link = r.seriesLinkId ? this.d.store.link(r.seriesLinkId) : undefined;
     const s = this.d.settings.get().recording;
     const window = recordingWindow(p, link?.paddingBeforeMin ?? s.paddingBeforeMin, link?.paddingAfterMin ?? s.paddingAfterMin);
-    this.d.store.save({ ...r, programme: p, ...window });
+    this.d.store.save({ ...r, programme: p, ...window, end: window.end + (r.extendedMs ?? 0) });
   }
 
   /** The same episode on the same channel within an hour of where it was (schedule drift). */
