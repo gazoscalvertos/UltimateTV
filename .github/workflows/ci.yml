@@ -106,6 +106,38 @@ jobs:
           gh release view ps5-app > /dev/null 2>&1 || gh release create ps5-app --title "PS5 app (latest)" --notes "The PlayStation 5 app, built from main by CI. See docs/ps5.md." --latest=false
           gh release upload ps5-app ps5/build/UltimateTV-PS5.elf ps5/build/UltimateTV-PS5-tile.zip --clobber
 
+  # The installable PS5 title: EVO Player's engine plus the UltimateTV provider (docs/ps5-architecture.md).
+  # The provider is compile-checked against EVO's real headers on every run. The full build needs
+  # EVO's own Docker toolchain; it has never run here yet, so a failure of that step is reported
+  # but doesn't turn main red until someone has seen it pass once.
+  ps5-title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: The provider agrees with EVO's headers
+        run: ps5/evo/build-title.sh --check
+      - name: Build the title
+        id: build
+        continue-on-error: true
+        run: |
+          ps5/evo/build-title.sh
+          cd ps5/build/evo && zip -q -r ../UltimateTV-PS5-title.zip .
+      - uses: actions/upload-artifact@v7
+        if: steps.build.outcome == 'success'
+        with:
+          name: ultimatetv-ps5-title
+          path: ps5/build/UltimateTV-PS5-title.zip
+      - name: Publish to the ps5-title release
+        if: steps.build.outcome == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view ps5-title > /dev/null 2>&1 || gh release create ps5-title --title "PS5 title (latest)" --notes "The installable PlayStation 5 title, built from main by CI. See docs/ps5-architecture.md." --latest=false
+          gh release upload ps5-title ps5/build/UltimateTV-PS5-title.zip --clobber
+
   box-scripts:
     runs-on: ubuntu-latest
     steps:
