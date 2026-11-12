@@ -13,7 +13,7 @@ import { registerNotices } from "./notify.js";
 import { registerQueue } from "./queue.js";
 import { registerScares } from "./scares.js";
 import { AdSkipper, registerAdSkip } from "./adskip.js";
-import { Alerts, BOX_UPDATE_ALERT_MS, boxUpdateAlert, registerAlerts } from "./alerts.js";
+import { Alerts, deliver, BOX_UPDATE_ALERT_MS, boxUpdateAlert, registerAlerts } from "./alerts.js";
 import { HomeAssistant, registerHomeAssistant } from "./homeassistant.js";
 import { registerWeather, Weather } from "./weather.js";
 import { registerCast, ScreenShares } from "./cast.js";
@@ -21,6 +21,7 @@ import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { registerContinue } from "./continueroutes.js";
 import { registerFollowing } from "./followingroutes.js";
+import { mergeRequestSettings, registerRequests, RequestError, TitleRequests } from "./requests.js";
 import { Following } from "./following.js";
 import { registerSport } from "./sportroutes.js";
 import { Sport } from "./sport.js";
@@ -39,7 +40,7 @@ import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
 import { ConnectionBusyError } from "./connections.js";
 import { HubContext } from "./context.js";
-import { demoArt, demoSchedule, seedDemo } from "./demo.js";
+import { demoArt, demoRequestables, demoSchedule, seedDemo } from "./demo.js";
 import { hubHealth } from "./health.js";
 import { BoxReportStore, cleanBoxReport, renderDiagnostics, RollingFile, type LogRing } from "./diagnostics.js";
 import { cleanPerfReport } from "./perf.js";
@@ -142,6 +143,21 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     profileIds: () => ctx.profiles.list().map((p) => p.id),
     ...(config.demo ? { scheduleFor: demoSchedule } : {}),
   });
+  // Requests for films and series that aren't in the library: Jellyseerr/Overseerr or Radarr and Sonarr (#225).
+  const requests = new TitleRequests({
+    db: ctx.db,
+    events: ctx.events,
+    settings: () => ctx.settings.get().requests,
+    tvdbOf: async (id) => ctx.tmdb()?.tvdbId(id),
+    fetchImpl: ctx.fetchImpl,
+    tell: (title, message, key) => {
+      const a = alerts.settings();
+      if (a.webhookUrl || a.ntfyUrl) void deliver({ key, level: "info", title, message }, a, ctx.settings.get().appName || "UltimateTV", ctx.fetchImpl).catch((err) => ctx.log.warn({ err: String(err) }, "Couldn't send the request alert"));
+    },
+    log: ctx.log,
+  });
+  ctx.requests = requests;
+  if (config.demo) ctx.demoCatalogue = demoRequestables();
   // Sport tonight: the guide's sport, favourite teams, and automatic reminders and recordings (#231).
   const sport = new Sport({
     db: ctx.db,
@@ -332,6 +348,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     // press Record, and an unpaired browser on the network still gets nothing.
     ["POST /api/recordings", "paired"],
     ["POST /api/recordings/:id/watched", "paired"],
+    ["GET /api/requests", "paired"],
+    ["POST /api/requests", "paired"],
+    ["POST /api/requests/:id/answer", "paired"],
     ["POST /api/recordings/:id/extend", "paired"],
     ["POST /api/recordings/:id/follow", "paired"],
     ["GET /api/following", "paired"],
@@ -420,6 +439,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "POST /api/settings/iptv",
     "DELETE /api/settings/iptv/:id",
     "POST /api/sources/:id/test",
+    "POST /api/requests/test",
     "POST /api/sources/:id/pause",
     "PUT /api/sources/order",
     "DELETE /api/sources/:id",
@@ -723,6 +743,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (body.tmdbApiKey !== undefined) patch.tmdbApiKey = body.tmdbApiKey.trim();
     if (body.torboxApiKey !== undefined) patch.torboxApiKey = body.torboxApiKey.trim();
     if (body.omdbApiKey !== undefined) patch.omdbApiKey = body.omdbApiKey.trim();
+    if (body.requests !== undefined) {
+      try {
+        patch.requests = mergeRequestSettings(s.requests, body.requests);
+      } catch (err) {
+        if (err instanceof RequestError) throw Object.assign(new Error(err.message), { statusCode: err.statusCode });
+        throw err;
+      }
+    }
     if (body.openSubtitles !== undefined) {
       // The setup page sends what was typed: a blank key leaves the old one, a blank username signs out.
       const o = body.openSubtitles ?? { apiKey: "" };
@@ -1696,6 +1724,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // Taking a title off Continue watching, for this profile: the TV's Options menu and the phone.
   registerContinue(app, ctx, (req) => ({ profileId: viewer(req).profile?.id ?? null }));
+  registerRequests(app, { requests, profiles: ctx.profiles, viewer, settings: () => ctx.settings.get().requests });
   registerSport(app, sport, (req) => {
     const who = viewer(req);
     return { profileId: who.profile?.id ?? null, filter: who.filter };
@@ -2135,6 +2164,11 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
         home.rails.splice(after, 0, { id: "new-episodes", title: "New episodes", kind: "titles", items: items.slice(0, 30) });
       }
     }
+    // What this profile asked for that isn't here yet or has just arrived (#225).
+    if (showing.includes("requests") && requests.enabled()) {
+      const items = requests.homeItems(who.profile ?? null);
+      if (items.length) home.rails.splice(home.rails.findIndex((r) => r.id === "new-episodes") + 1 || home.rails.findIndex((r) => r.id === "nextup") + 1 || home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0), 0, { id: "requests", title: "Your requests", kind: "titles", items: items.slice(0, 30) });
+    }
     // Sport today: live and upcoming sport, the profile's teams first (#231).
     if (showing.includes("sport")) {
       const games = sport.row(profileId, who.filter);
@@ -2149,7 +2183,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   app.get("/api/titles/:id", async (req: Req<{ id: string }>, reply) => {
     const filter = filterOf(req);
     try {
-      return await library.details(req.params.id, filter);
+      const d = await library.details(req.params.id, filter);
+      const requesting = requests.stateFor(d);
+      return requesting ? { ...d, requesting } : d;
     } catch (err) {
       if (!(err instanceof NotAllowedError) || !filter.limited) throw err;
       // A Kids or Guest profile reached something it isn't allowed (a link, a cast, a remembered

@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-12
 
+- **Request a film or series that isn't in the library** ([docs/requests.md](docs/requests.md)): search and a title's page show **Request** for anything no source has, and the Hub passes it to Jellyseerr/Overseerr or straight to Radarr and Sonarr (set up on the phone's setup page, with a Test button; nothing shows until then). Status (Requested, Downloading, Ready) is on the title, in Home › Requests and in a Home row, and the TV, the phone and Home Assistant/ntfy are told when it arrives. A Kids or Guest profile can only ask: a grown-up approves on the TV or the phone first. (#225)
+  Household: If a film isn't here, ask for it from the TV and you'll be told when it's ready.
+
 - **Sport tonight: fixtures row and favourite teams** ([docs/sport-tonight.md](docs/sport-tonight.md)): Home gets a Sport today row (live and upcoming sport from the guide, soonest first, with channel logos, a LIVE badge or kick-off time, your teams first) and a Sport screen with the week's games for the teams and sports you follow ("Arsenal", "Formula 1"). Follow a side straight from a game. A favourite's game gets a reminder by itself, and can be recorded too (off by default). Kids only see sport on channels they are allowed. (#231)
   Household: Home now shows what sport is on tonight, and the TV reminds you when your team plays.
 

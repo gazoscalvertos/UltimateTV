@@ -1,5 +1,6 @@
 import { cleanLook, cleanRadioSettings, DEFAULT_APP_NAME, DEFAULT_RADIO_SETTINGS, DEFAULT_SCREENSAVER, DEFAULT_SUBTITLE_STYLE, resolveTheme, type IptvSource, type IptvSourceStatus, type PublicSettings, type Settings } from "@ultimatetv/shared";
 import type { Db } from "./db.js";
+import { publicRequestSettings } from "./services/requests.js";
 import { activeIptv, addonKey, orderedKeys, pausedKeys } from "./sourceoptions.js";
 
 export function defaultSettings(mediaRoot = "/mnt/nas"): Settings {
@@ -176,6 +177,7 @@ export function publicSettings(s: Settings, setupUrl: string, statusOf?: (source
     }),
     xmltvCount: s.xmltvUrls.length,
     tmdb: Boolean(s.tmdbApiKey),
+    requests: publicRequestSettings(s.requests),
     omdb: Boolean(s.omdbApiKey),
     openSubtitles: { configured: Boolean(s.openSubtitles?.apiKey), signedIn: Boolean(s.openSubtitles?.username && s.openSubtitles.password) },
     addons: s.addonUrls.map((url) => ({ id: addonKey(url), url: redactAddonUrl(url), name: addonName(url) })),

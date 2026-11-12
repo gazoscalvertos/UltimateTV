@@ -3,6 +3,7 @@
 
 import type { BoxInfo, BoxSoftware, PlaybackStats, PlayerState, SubtitleMode, SubtitleStyle } from "./agent.js";
 import type { SpotifyState, WebAppState } from "./music.js";
+import type { PublicRequestSettings, RequestSettings, TitleRequest, TitleRequestState } from "./requests.js";
 import type { RadioSettings } from "./radio.js";
 import type { ScreensaverSettings } from "./screensaver.js";
 import type { CastLink, ShareOffer } from "./cast.js";
@@ -307,6 +308,8 @@ export interface TitleDetails extends TitleRef {
   availability: SourceKind[];
   inLibrary: boolean;
   resumeMs?: number;
+  /** Whether to offer Request, and where an earlier one got to (#225); only set when requests are set up. */
+  requesting?: TitleRequestState;
 }
 
 /** A review score for the details page: TMDB's own, and IMDb, Rotten Tomatoes and Metacritic from OMDb. */
@@ -751,6 +754,8 @@ export interface Settings {
   /** Emby Server (#216). */
   emby?: { url: string; userId: string; token: string; serverName?: string };
   tmdbApiKey?: string;
+  /** Jellyseerr/Overseerr, or Radarr and Sonarr: where a Request button sends a title (#225). */
+  requests?: RequestSettings;
   /** OMDb (omdbapi.com, free) for IMDb, Rotten Tomatoes and Metacritic scores. */
   omdbApiKey?: string;
   /** OpenSubtitles (opensubtitles.com) for subtitles a film doesn't come with. The login lifts the daily limit. */
@@ -830,6 +835,8 @@ export interface PublicSettings {
   plex?: { url: string; serverName?: string };
   emby?: { url: string; serverName?: string };
   tmdb: boolean;
+  /** Which program takes requests for titles that aren't in the library (#225). */
+  requests: PublicRequestSettings;
   omdb: boolean;
   /** OpenSubtitles is set up (and signed in, which allows more downloads a day). */
   openSubtitles: { configured: boolean; signedIn: boolean };
@@ -885,6 +892,12 @@ export type HubEvent =
   | { type: "settings.changed" }
   | { type: "profiles.changed" }
   | { type: "toast"; message: string }
+  /** A request for a title that isn't in the library changed, or an adult is asked to answer one (issue #225). */
+  | { type: "requests.changed" }
+  /** A Kids or Guest profile asked for a title that needs a grown-up's yes (issue #225). */
+  | { type: "request.awaiting"; request: TitleRequest; message: string }
+  /** A requested title has arrived (issue #225): the TV pops it up for the profile that asked. */
+  | { type: "request.ready"; profileId: string | null; request: TitleRequest; message: string }
   /** A profile's sport favourites changed (issue #231). */
   | { type: "sport.changed"; profileId: string | null }
   /** A profile's followed series changed (issue #226). */

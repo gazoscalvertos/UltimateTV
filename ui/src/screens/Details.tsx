@@ -3,7 +3,8 @@
 // to queue, Favourite (Blue; one set per profile), Save to NAS (kept for good and added to Jellyfin; Red in Versions saves that exact
 // version), and Download to box (onto the box's own disk, to watch away from home).
 
-import { createEffect, createResource, createSignal, For, Show } from "solid-js";
+import { createEffect, createResource, createSignal, For, onCleanup, Show } from "solid-js";
+import { onHubEvent } from "../events";
 import type { Episode, TitleDetails, TitleRef, TitleScore } from "@ultimatetv/shared";
 import { durationLabel, episodeLabel, formatBytes } from "@ultimatetv/shared";
 import { hub, type StreamRow } from "../api";
@@ -20,6 +21,8 @@ import { addToQueue } from "../queue";
 import { allEpisodes, canDownload, downloadLabel, downloadOf, downloadToBox, episodeRequest, episodesOf, filmRequest } from "../downloads";
 import { canSave, saveEpisodes, saveToNas } from "../save";
 import { isFollowing, setFollowing } from "../following";
+import { openRequests, requestTitle } from "../requests";
+import { requestActive, REQUEST_STATUS_LABEL } from "@ultimatetv/shared";
 import { isFavouriteTitle, toggleFavouriteTitle } from "../favourites";
 import { errorToast, isKids, isLimited, nav, openDialog, toast } from "../store";
 
@@ -117,6 +120,8 @@ function NotAllowed(props: { title: { id: string; kind: "movie" | "series" | "ch
 
 export function Details(props: { id: string }) {
   const [d, { refetch: refetchTitle }] = createResource(() => props.id, (id) => hub.title(id));
+  // Where a request for this title is up to changes while the page is open (#225).
+  onCleanup(onHubEvent((e) => e.type === "requests.changed" && void refetchTitle()));
   // A Kids or Guest profile that opened something it isn't allowed gets Ask a parent (#224).
   const askable = () => (d.error ? askableOf(d.error) : null);
   // A film or series whose tab is switched off on this screen (features.ts) doesn't open from a link either.
@@ -435,6 +440,18 @@ export function Details(props: { id: string }) {
                   <button class="btn btn-primary btn-large" data-focus data-autofocus onClick={() => playMain()}>
                     <Icon name="play" /> {playLabel(t())}
                   </button>
+                  <Show when={t().requesting?.requestable}>
+                    <button class="btn btn-large" classList={{ "btn-primary": !t().inLibrary }} data-focus onClick={() => void requestTitle(t()).then(() => refetchTitle())}>
+                      <Icon name="download" /> {isLimited() ? "Ask for it" : "Request"}
+                    </button>
+                  </Show>
+                  <Show when={t().requesting?.request}>
+                    {(r) => (
+                      <button class="btn btn-large" classList={{ selected: requestActive(r().status) }} data-focus onClick={openRequests}>
+                        <Icon name={r().status === "ready" ? "check" : "download"} /> {REQUEST_STATUS_LABEL[r().status]}
+                      </button>
+                    )}
+                  </Show>
                   <Show when={t().resumeMs}>
                     <button class="btn btn-large" data-focus onClick={() => playMain(true)}>
                       <Icon name="restart" /> Start again

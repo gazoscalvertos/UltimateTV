@@ -54,6 +54,8 @@ import { ElsewhereScreen } from "./screens/Elsewhere";
 import { ComingUpScreen } from "./screens/ComingUp";
 import { SportScreen } from "./screens/Sport";
 import { startEpisodePopups } from "./following";
+import { RequestsScreen } from "./screens/Requests";
+import { startRequestPopups } from "./requests";
 import { startWatching } from "./watching";
 import { pairingWait, pairScreen } from "./pairing";
 import { startRemoteBridge } from "./remote";
@@ -242,6 +244,7 @@ export function App() {
     onCleanup(() => window.clearInterval(lookTimer));
     onCleanup(startAskParentPopups());
     onCleanup(startEpisodePopups());
+    onCleanup(startRequestPopups());
     onCleanup(
       onHubEvent(async (e) => {
         if (e.type === "settings.changed") void loadLook();
@@ -357,6 +360,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "coming-up"}>
             <ComingUpScreen />
+          </Match>
+          <Match when={nav.current().name === "requests"}>
+            <RequestsScreen />
           </Match>
           <Match when={nav.current().name === "sport"}>
             <SportScreen />
