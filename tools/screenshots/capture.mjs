@@ -219,6 +219,11 @@ try {
   await key("Enter");
   await wait(600);
   await shot("17-profile-menu");
+  // The trailer behind Home (#240): the menu row, then Home a few seconds later with it playing.
+  await key("ArrowDown", 4);
+  await shot("240-profile-menu-trailer");
+  await key("Enter");
+  await wait(800);
   await key("Escape");
   await key("ArrowLeft");
   // A phone pairs with the TV's code, so the list shows it.

@@ -575,6 +575,7 @@ export function Settings(props: { section?: string }) {
         { label: `Subtitles: ${p.subtitles ? MODE_LABELS[p.subtitles] : `as the household (${settings()?.playback.subtitlesByDefault ? "on" : "off"})`}`, value: "subtitles", icon: "subtitles" },
         { label: "Accessibility", value: "a11y", icon: "eye", detail: "Audio description, bigger text, bold focus, less movement" },
         { label: `Easy mode: ${p.easy ? "on" : "off"}`, value: "easy", icon: "sparkle", detail: "Four big tiles on Home, a short menu, and no Settings. Switch back here from another profile" },
+        { label: `Trailer behind Home: ${p.heroTrailer ? "on" : "off"}`, value: "trailer", icon: "trailer", detail: "Muted, behind the top title. Stops if the box can't keep up" },
         { label: p.hasPin ? "Change PIN" : "Set a PIN", value: "pin", icon: "lock" },
         ...(p.hasPin ? [{ label: "Remove PIN", value: "nopin" }] : []),
         { label: "Delete profile", value: "delete", icon: "trash", tone: "danger" as const },
@@ -613,6 +614,10 @@ export function Settings(props: { section?: string }) {
           setProfile(updated);
           if (updated.easy) nav.reset({ name: "home" });
         }
+      }
+      if (pick === "trailer") {
+        const updated = await hub.updateProfile(p.id, { heroTrailer: !p.heroTrailer });
+        if (updated.id === profile()?.id) setProfile(updated);
       }
       if (pick === "limits") await limitsMenu(p);
       if (pick === "sections") await guestSectionsMenu(p);

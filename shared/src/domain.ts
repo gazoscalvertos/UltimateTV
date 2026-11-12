@@ -579,6 +579,11 @@ export interface Profile {
    * list, and Settings is out of reach. Missing = off.
    */
   easy?: boolean;
+  /**
+   * A muted trailer plays behind Home's hero after a few seconds (#240). Off unless switched on,
+   * so a Kids profile only has it when a grown-up chose it. Missing = off.
+   */
+  heroTrailer?: boolean;
   /** The first-time tour has been shown (or skipped) for this profile; missing = not yet. */
   toured?: boolean;
 }

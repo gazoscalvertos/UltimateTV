@@ -219,7 +219,7 @@ export class ProfileStore {
     return this.pub(p);
   }
 
-  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles" | "limits" | "guestFeatures" | "easy" | "toured">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }): Profile | undefined {
+  update(id: string, patch: Partial<Pick<Profile, "name" | "colour" | "maxCertification" | "channelCategories" | "allowedChannels" | "defaultGuide" | "subtitles" | "limits" | "guestFeatures" | "easy" | "toured" | "heroTrailer">> & { accessibility?: Partial<AccessibilitySettings> | null; pin?: string | null }): Profile | undefined {
     const list = this.all();
     const p = list.find((x) => x.id === id);
     if (!p) return undefined;
@@ -243,7 +243,7 @@ export class ProfileStore {
       else p.accessibility = a;
     }
     // Easy mode and the tour flag are plain on/off switches; off is stored as missing.
-    for (const key of ["easy", "toured"] as const) {
+    for (const key of ["easy", "toured", "heroTrailer"] as const) {
       if (patch[key] === undefined) continue;
       if (patch[key]) p[key] = true;
       else delete p[key];
