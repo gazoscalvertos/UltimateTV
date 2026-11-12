@@ -43,6 +43,8 @@ import { cleanSelfTestReport } from "./selftest.js";
 import { phoneReachable } from "./lan.js";
 import { buildLimitedSnapshot, jellyfinOfflineItems } from "./boxoffline.js";
 import { Library, NotAllowedError } from "./library.js";
+import { TrailerStreams } from "./trailers.js";
+import { Readable } from "node:stream";
 import { Pairing, PairingError } from "./pairing.js";
 import { PhoneNow, registerPhoneNow } from "./phonenow.js";
 import { registerWatching, Watching } from "./watching.js";
@@ -1765,6 +1767,17 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return reply.send(consumer.stream);
   });
 
+  // The muted trailer behind Home's hero (#240): a YouTube trailer's picture, passed on from yt-dlp's
+  // address with Range support so the page's own <video> can seek and buffer. The key is the
+  // YouTube id the profile's own extras call handed out; it's public content, and a <video> tag
+  // can't send the profile headers anyway.
+  const trailers = new TrailerStreams(ctx.ytdlp, ctx.fetchImpl);
+  app.get("/api/trailers/:key", async (req: Req<{ key: string }>, reply) => {
+    const r = await trailers.open(req.params.key, typeof req.headers.range === "string" ? req.headers.range : undefined);
+    reply.code(r.status).headers(r.headers);
+    return reply.send(r.body ? Readable.fromWeb(r.body as never) : "");
+  });
+
   app.get("/api/stream/:token", (req: Req<{ token: string }>, reply) => ctx.proxy.handle(req, reply));
 
   // -------------------------------------------------------------------------
@@ -1940,7 +1953,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   app.patch(
     "/api/profiles/:id",
-    async (req: Req<{ id: string }, Record<string, string>, { name?: string; colour?: string; maxCertification?: Certification; channelCategories?: ChannelCategory[]; allowedChannels?: string[]; guestFeatures?: FeatureId[]; subtitles?: SubtitleMode; accessibility?: Partial<AccessibilitySettings> | null; easy?: boolean; toured?: boolean; pin?: string | null }>, reply) => {
+    async (req: Req<{ id: string }, Record<string, string>, { name?: string; colour?: string; maxCertification?: Certification; channelCategories?: ChannelCategory[]; allowedChannels?: string[]; guestFeatures?: FeatureId[]; subtitles?: SubtitleMode; accessibility?: Partial<AccessibilitySettings> | null; easy?: boolean; toured?: boolean; heroTrailer?: boolean; pin?: string | null }>, reply) => {
       const p = ctx.profiles.update(req.params.id, req.body ?? {});
       if (!p) return reply.code(404).send({ error: "No such profile" });
       ctx.events.emit({ type: "profiles.changed" });

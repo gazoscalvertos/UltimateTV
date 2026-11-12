@@ -304,6 +304,18 @@ export class YtDlp {
     return JSON.parse(line) as YtInfo;
   }
 
+  /**
+   * A direct address for a small, picture-only copy of a video (720p or less, H.264 so the TV app's
+   * own player takes it), for the muted trailer behind Home (#240). The address is tied to this
+   * Hub and lasts hours, so the Hub fetches it for the page (hub/src/trailers.ts).
+   */
+  async streamUrl(url: string): Promise<string> {
+    const r = await this.run(this.args(["-g", "--no-playlist", "-f", "bv[height<=720][ext=mp4][vcodec^=avc1]/best[height<=720][ext=mp4][vcodec^=avc1]/best[height<=720][ext=mp4]/18", url]), { timeoutMs: 60_000 });
+    const line = r.stdout.split("\n").find((l) => /^https?:\/\//.test(l.trim()));
+    if (r.code !== 0 || !line) throw new Error(lastError(r.stderr) || "yt-dlp couldn't find that video's address");
+    return line.trim();
+  }
+
   /** The videos in a playlist, in its order, up to `max` of them (a quick listing, no downloads). */
   async playlist(url: string, max = 200): Promise<Playlist> {
     const r = await this.run(this.args(["--flat-playlist", "--yes-playlist", "--dump-single-json", "--ignore-errors", "--playlist-end", String(max), url]), { timeoutMs: 300_000 });

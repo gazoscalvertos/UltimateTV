@@ -3,6 +3,7 @@
 
 import { createEffect, createResource, For, onCleanup, Show } from "solid-js";
 import { hub } from "../api";
+import { HeroTrailer } from "../components/HeroTrailer";
 import { Icon } from "../components/Icon";
 import { QueueRow } from "../components/QueueRow";
 import { ElsewhereRow } from "./Elsewhere";
@@ -129,6 +130,9 @@ export function Home() {
         {(hero) => (
           <div class="hero-bg">
             <img src={hero().backdrop} alt="" />
+            <Show when={hero().action !== "live"}>
+              <HeroTrailer id={hero().id} />
+            </Show>
           </div>
         )}
       </Show>

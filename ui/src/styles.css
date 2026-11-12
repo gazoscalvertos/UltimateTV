@@ -767,6 +767,20 @@ html.high-contrast .guide-grid:focus .gg-cell.selected {
   object-fit: cover;
   object-position: top right;
 }
+/* The muted trailer (#240) fades in over the still, under the same shading, so the text stays readable. */
+.hero-trailer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top right;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.hero-trailer.shown {
+  opacity: 1;
+}
 .hero-bg::after,
 .details-bg::after {
   content: "";
