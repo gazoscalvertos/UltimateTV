@@ -36,6 +36,7 @@ command -v docker >/dev/null || { echo "Docker is needed: EVO builds inside its 
 rm -rf "$WORK"
 git clone --quiet "$EVO_REPO" "$WORK"
 git -C "$WORK" checkout --quiet "$EVO_REF"
+git -C "$WORK" submodule update --init --recursive --quiet
 SHA="$(git -C "$WORK" rev-parse HEAD)"
 echo "EVO at $SHA"
 
