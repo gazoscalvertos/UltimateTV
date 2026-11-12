@@ -38,7 +38,7 @@ async function setup(fetchImpl: typeof fetch, extra: { refreshLibrary?: () => vo
   const events = new EventBus();
   const remuxed: string[] = [];
   const recorder = new Recorder({
-    store, channels, relay, guard, settings, events, log: silentLogger, tmpDir: path.join(dir, "tmp"), fetchImpl,
+    store, channels, relay, guard, settings, events, guide, log: silentLogger, tmpDir: path.join(dir, "tmp"), fetchImpl,
     catchup: { settings: settings.get(), timeZoneOf: () => "Europe/London" },
     remux: async (i, o) => {
       remuxed.push(o);
@@ -108,6 +108,58 @@ describe("recorder", () => {
     expect(await readFile(done.path!.replace(".mkv", ".nfo"), "utf8")).toContain("<season>28</season>");
     expect(t.guard.status().used).toBe(0);
   }, 10_000);
+
+  describe("following overruns (#230)", () => {
+    const record = (t: Awaited<ReturnType<typeof setup>>, extra: Partial<Recording> = {}, cats = ["Sport"], title = "The Final") => {
+      const now = Date.now();
+      const p = programme("bbc1", now - 1000, 0, { title, categories: cats, end: now + 1000 });
+      const rec: Recording = { id: "r1", programme: p, channelId: "bbc1", channelName: "BBC One", status: "scheduled", method: "live", start: now - 1000, end: now + 1500, incomplete: false, watched: false, positionMs: 0, createdAt: now, ...extra };
+      t.store.save(rec);
+      t.guide.upsert([p]);
+      return { now, p, rec };
+    };
+
+    it("keeps recording while the guide says a sport programme is still on, up to the limit", async () => {
+      const t = await setup(liveFetch({ chunkMs: 2, chunkBytes: 188 * 64 }).impl);
+      t.settings.update({ recording: { ...t.settings.get().recording, maxOverrunMin: 0.05 } });
+      const { p, rec } = record(t);
+      const started = Date.now();
+      t.guide.upsert([{ ...p, end: p.end + 30 * 60_000 }]);
+      await t.recorder.recordLive(rec);
+      const done = t.store.get("r1")!;
+      expect(Date.now() - started).toBeGreaterThan(3000);
+      expect(done.extendedMs).toBe(3000);
+      expect(done.overrunLimited).toBe("cap");
+      expect(done.status).toBe("completed");
+    }, 20_000);
+
+    it("stops on time when the programme isn't sport and Settings says sport only", async () => {
+      const t = await setup(liveFetch({ chunkMs: 2, chunkBytes: 188 * 64 }).impl);
+      const { p, rec } = record(t, {}, ["Drama"]);
+      t.guide.upsert([{ ...p, end: p.end + 30 * 60_000 }]);
+      await t.recorder.recordLive(rec);
+      expect(t.store.get("r1")!.extendedMs).toBeUndefined();
+    }, 20_000);
+
+    it("a recording's own choice beats the setting", async () => {
+      const t = await setup(liveFetch({ chunkMs: 2, chunkBytes: 188 * 64 }).impl);
+      const { p, rec } = record(t, { followOverrun: false });
+      t.guide.upsert([{ ...p, end: p.end + 30 * 60_000 }]);
+      await t.recorder.recordLive(rec);
+      expect(t.store.get("r1")!.extendedMs).toBeUndefined();
+    }, 20_000);
+
+    it("can be extended by hand while it records", async () => {
+      const t = await setup(liveFetch({ chunkMs: 2, chunkBytes: 188 * 64 }).impl);
+      const { rec } = record(t, { followOverrun: false });
+      const running = t.recorder.recordLive(rec);
+      await new Promise((r) => setTimeout(r, 300));
+      expect(t.scheduler.extendRecording("r1", 1)?.extendedMs).toBe(60_000);
+      t.recorder.stop("r1");
+      await running;
+      expect(t.store.get("r1")!.extendedMs).toBe(60_000);
+    }, 20_000);
+  });
 
   it("downloads catch-up recordings", async () => {
     const big = new Uint8Array(400 * 1024).fill(0x47);

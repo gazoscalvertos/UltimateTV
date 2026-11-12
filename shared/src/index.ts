@@ -33,4 +33,5 @@ export * from "./watching.js";
 export * from "./shareplay.js";
 export * from "./trackprefs.js";
 export * from "./following.js";
+export * from "./overrun.js";
 export * from "./sport.js";

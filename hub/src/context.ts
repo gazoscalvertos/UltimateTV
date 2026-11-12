@@ -189,6 +189,8 @@ export class HubContext {
       settings: this.settings,
       events: this.events,
       log: this.log,
+      guide: this.guide,
+      refreshGuide: () => this.ingest.refreshGuide(),
       tmpDir: path.join(opts.dataDir, "recording-tmp"),
       catchup: {
         get settings() {

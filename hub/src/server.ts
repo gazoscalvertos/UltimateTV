@@ -332,6 +332,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     // press Record, and an unpaired browser on the network still gets nothing.
     ["POST /api/recordings", "paired"],
     ["POST /api/recordings/:id/watched", "paired"],
+    ["POST /api/recordings/:id/extend", "paired"],
+    ["POST /api/recordings/:id/follow", "paired"],
     ["GET /api/following", "paired"],
     ["POST /api/following", "paired"],
     ["DELETE /api/following/:id", "paired"],
@@ -1605,6 +1607,22 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (r.status === "completed" || r.status === "failed") await ctx.scheduler.deleteRecording(r.id);
     else ctx.scheduler.cancelRecording(r.id);
     return { ok: true };
+  });
+
+  app.post("/api/recordings/:id/extend", async (req: Req<{ id: string }, Record<string, string>, { minutes?: number }>, reply) => {
+    const r = ctx.recordings.get(req.params.id);
+    if (!r) return reply.code(404).send({ error: "No such recording" });
+    if (!recordingAllowed(req, r.channelId)) throw new NotAllowedError();
+    const next = ctx.scheduler.extendRecording(r.id, Number(req.body?.minutes ?? 15));
+    if (!next) return reply.code(409).send({ error: "That recording isn't recording or waiting to record" });
+    return next;
+  });
+
+  app.post("/api/recordings/:id/follow", async (req: Req<{ id: string }, Record<string, string>, { follow?: boolean | null }>, reply) => {
+    const r = ctx.recordings.get(req.params.id);
+    if (!r) return reply.code(404).send({ error: "No such recording" });
+    if (!recordingAllowed(req, r.channelId)) throw new NotAllowedError();
+    return ctx.scheduler.setFollowOverrun(r.id, typeof req.body?.follow === "boolean" ? req.body.follow : undefined);
   });
 
   app.post("/api/recordings/:id/watched", async (req: Req<{ id: string }, Record<string, string>, { watched: boolean }>, reply) => {

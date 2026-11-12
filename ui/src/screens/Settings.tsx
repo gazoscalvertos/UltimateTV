@@ -909,6 +909,15 @@ export function Settings(props: { section?: string }) {
               <h2>Recording</h2>
               <Row label="Start early by" value={`${recording().paddingBeforeMin} min`} onSelect={() => void save({ recording: { ...recording(), paddingBeforeMin: cycle([0, 1, 2, 5, 10], recording().paddingBeforeMin) } })} />
               <Row label="Carry on after by" value={`${recording().paddingAfterMin} min`} onSelect={() => void save({ recording: { ...recording(), paddingAfterMin: cycle([0, 2, 5, 10, 15, 30], recording().paddingAfterMin) } })} />
+              <Row
+                label="Keep recording if a programme overruns"
+                hint="Sport and live shows run over. The Hub watches the guide and records on until it ends, so you don't lose the finish. It only helps when your guide updates the end time"
+                value={{ auto: "Sport and live", on: "Everything", off: "Off" }[recording().followOverruns ?? "auto"]}
+                onSelect={() => void save({ recording: { ...recording(), followOverruns: cycle(["auto", "on", "off"] as const, recording().followOverruns ?? "auto") } })}
+              />
+              <Show when={(recording().followOverruns ?? "auto") !== "off"}>
+                <Row label="Longest overrun" hint="The most a recording is extended past its end time" value={`${recording().maxOverrunMin ?? 60} min`} onSelect={() => void save({ recording: { ...recording(), maxOverrunMin: cycle([15, 30, 60, 90, 120], recording().maxOverrunMin ?? 60) } })} />
+              </Show>
               <Row label="Use catch-up when it can" hint="Saves programmes from catch-up afterwards, keeping your connection free to watch" value={recording().preferCatchup ? "On" : "Off"} onSelect={() => void save({ recording: { ...recording(), preferCatchup: !recording().preferCatchup } })} />
               <Row label="Delete watched recordings" value={recording().autoDeleteWatchedDays ? `After ${recording().autoDeleteWatchedDays} days` : "Never"} onSelect={() => void save({ recording: { ...recording(), autoDeleteWatchedDays: cycle([0, 7, 30, 90], recording().autoDeleteWatchedDays) } })} />
               <AdvertRows />
