@@ -39,6 +39,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Spotify and Deezer (Music tab) | #22, #24, #56 | Untested against the real services |
 | Pop-ups and breaking news | #39 | Untested |
 | Play queue | #43 | Untested |
+| Sport tonight (Home row, favourite teams, auto reminders) | #231 | Untested with a real guide and on the box (demo Hub only); no phone or Android screen yet |
 | Coming up and New episodes (follow a series) | #226 | Untested with real TMDB and Jellyfin (demo Hub only) |
 | Screensavers and dimming | #46 | Untested |
 | Halloween, Spooky TV, jump scares | #45 | Untested |

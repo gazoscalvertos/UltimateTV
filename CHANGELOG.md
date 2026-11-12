@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-12
 
+- **Sport tonight: fixtures row and favourite teams** ([docs/sport-tonight.md](docs/sport-tonight.md)): Home gets a Sport today row (live and upcoming sport from the guide, soonest first, with channel logos, a LIVE badge or kick-off time, your teams first) and a Sport screen with the week's games for the teams and sports you follow ("Arsenal", "Formula 1"). Follow a side straight from a game. A favourite's game gets a reminder by itself, and can be recorded too (off by default). Kids only see sport on channels they are allowed. (#231)
+  Household: Home now shows what sport is on tonight, and the TV reminds you when your team plays.
+
 - **Coming up: new episodes of the series you follow** ([docs/coming-up.md](docs/coming-up.md)): follow a series from its page (the ones you save, keep watching, record by series link or queue are followed for you) and Home gets a New episodes row with a New badge, a Coming up screen lists the next seven days of air dates with Remind and Record when the guide has it on a channel, and a pop-up tells you the day a new episode arrives (switch it off on the Coming up screen). Kids profiles only see what they're allowed. (#226)
   Household: Home now shows new episodes of your shows, and Coming up says what's on this week.
 

@@ -1,10 +1,12 @@
 // Rows of cards: titles (posters), channels on now, recordings.
 
 import { For, Match, Show, Switch } from "solid-js";
-import type { NowNext, Rail as RailData, Recording, TitleRef } from "@ultimatetv/shared";
+import type { NowNext, Rail as RailData, Recording, SportMatch, TitleRef } from "@ultimatetv/shared";
 import { clockTime, dayLabel, episodeLabel } from "@ultimatetv/shared";
 import { play } from "../player";
 import { nav, now } from "../store";
+import { pickMatch } from "../sport";
+import { Icon } from "./Icon";
 
 export function Progress(props: { value: number; class?: string }) {
   return (
@@ -35,6 +37,40 @@ export function Poster(props: { title: TitleRef; wide?: boolean; onSelect?: () =
         <Show when={t().subtitle ?? t().year}>
           <span class="card-sub">{t().subtitle ?? t().year}</span>
         </Show>
+      </div>
+    </button>
+  );
+}
+
+/** One sport programme: the channel, kick-off time and whether it's one of your teams. */
+export function SportCard(props: { match: SportMatch }) {
+  const m = () => props.match;
+  return (
+    <button class="card card-wide card-channel" data-focus onClick={() => void pickMatch(m())}>
+      <div class="card-art">
+        <Show when={m().programme.image} fallback={<div class="card-fallback channel-fallback">{m().programme.title}</div>}>
+          <img src={m().programme.image} alt="" loading="lazy" />
+        </Show>
+        <div class="channel-chip">
+          <Show when={m().channelLogo} fallback={<span>{m().channelName}</span>}>
+            <img src={m().channelLogo} alt={m().channelName} />
+          </Show>
+        </div>
+        <span class="card-badge card-badge-download" classList={{ "card-badge-live": m().live }}>
+          {m().live ? "LIVE" : m().when}
+        </span>
+      </div>
+      <div class="card-label">
+        <span class="card-title">
+          <Show when={m().favourite}>
+            <Icon name="hearted" />{" "}
+          </Show>
+          {m().programme.title}
+        </span>
+        <span class="card-sub">
+          {m().live ? "Live now" : m().when} · {m().channelName}
+          {m().reminder ? " · Reminder set" : m().recording ? " · Recording" : ""}
+        </span>
       </div>
     </button>
   );
@@ -107,6 +143,9 @@ export function RailRow(props: { rail: RailData; onPick?: (title: TitleRef) => v
           </Match>
           <Match when={props.rail.kind === "recordings"}>
             <For each={props.rail.recordings ?? []}>{(r) => <RecordingCard recording={r} />}</For>
+          </Match>
+          <Match when={props.rail.kind === "sport"}>
+            <For each={props.rail.sport ?? []}>{(m) => <SportCard match={m} />}</For>
           </Match>
           <Match when={true}>
             <For each={props.rail.items}>
