@@ -29,6 +29,8 @@ export interface SchedulerDeps {
   queue?: Pick<PlayQueue, "list">;
   /** Asks Jellyfin to rescan after a prune batch, so deleted episodes leave the library too. */
   refreshLibrary?: () => void | Promise<void>;
+  /** A recording's file has been deleted: drop what was made from it (seek preview sheets). */
+  onFileDeleted?: (id: string) => void;
   log: Logger;
   now?: () => number;
 }
@@ -216,6 +218,7 @@ export class Scheduler {
     if (r.path) {
       await rm(r.path, { force: true });
       await rm(r.path.replace(/\.(mkv|ts)$/, ".nfo"), { force: true });
+      this.d.onFileDeleted?.(id);
     }
     // Keep a cancelled stub for series-linked episodes so the planner doesn't record them again.
     if (r.seriesLinkId) {

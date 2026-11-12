@@ -3,8 +3,9 @@
 // with a slow pan. A small clock moves round the corners so nothing sits still for long.
 
 import { createEffect, createMemo, createResource, createSignal, For, Match, on, onCleanup, onMount, Show, Switch } from "solid-js";
-import { describeWeather, formatTemp, isNightHour, shuffleThemes, type ArtItem, type ScreensaverPhoto, type ScreensaverThemeId } from "@ultimatetv/shared";
+import { binNotice, describeWeather, formatTemp, greeting, isNightHour, visibleItems, weatherHeadline, whenLabel, shuffleThemes, type ArtItem, type ScreensaverPhoto, type ScreensaverThemeId } from "@ultimatetv/shared";
 import { hub } from "../api";
+import { family, familyViewer, loadFamily } from "../family";
 import { idleMode, screensaverConfig } from "../idle";
 import { activeMusic, spotify, webApp } from "../music";
 import { radioLine, radioSettings } from "../radio";
@@ -208,6 +209,71 @@ function Gallery(props: { empty: () => void }) {
   );
 }
 
+/**
+ * "Today": the family board as an idle screen. A big clock and the weather on the left, what's on
+ * (the next five things), bin day and birthdays on the right. It nudges itself round every minute
+ * so nothing stays lit in one place, and re-reads the Hub now and then so it is never stale.
+ * A Guest, or a house with nothing set up, gets the fallback instead.
+ */
+function Today(props: { empty: () => void }) {
+  const [spot, setSpot] = createSignal(0);
+  const t = window.setInterval(() => setSpot((s) => (s + 1) % 4), 60_000);
+  const reload = window.setInterval(() => void loadFamily(), 5 * 60_000);
+  onCleanup(() => {
+    window.clearInterval(t);
+    window.clearInterval(reload);
+  });
+  onMount(() => void loadFamily());
+  createEffect(() => {
+    const f = family();
+    if (f && (!f.configured || familyViewer() === "guest")) props.empty();
+  });
+  const c = screensaverConfig;
+  const items = () => visibleItems(family()?.items ?? [], now(), familyViewer(), { days: 7, limit: 5 });
+  const bin = () => binNotice(family()?.items ?? [], now(), 17);
+  const time = () => new Date(now()).toLocaleTimeString(c().clock12 ? "en-US" : "en-GB", { hour: c().clock12 ? "numeric" : "2-digit", minute: "2-digit", hour12: c().clock12 });
+  return (
+    <div class="saver-today">
+      <div class={`today-board spot-${spot()}`}>
+        <div>
+          <div class="today-greeting">{greeting(now())}</div>
+          <div class="today-time">{time()}</div>
+          <div class="today-date">{new Date(now()).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>
+          <Show when={weather()?.report}>
+            {(r) => (
+              <div class="today-weather">
+                <WeatherIcon code={r().now.code} isDay={r().now.isDay} />
+                <div>
+                  {formatTemp(r().now.tempC, weather()!.settings.temperature)} {describeWeather(r().now.code, r().now.isDay).label}
+                  <small>{weatherHeadline(r(), now(), weather()!.settings.wind)}</small>
+                </div>
+              </div>
+            )}
+          </Show>
+          <Show when={bin()}>
+            <div class="today-bin">{bin()}</div>
+          </Show>
+        </div>
+        <Show when={items().length} fallback={<div class="today-empty">Nothing planned. Enjoy the day.</div>}>
+          <ul class="today-list">
+            <For each={items()}>
+              {(i) => (
+                <li class={`family-item kind-${i.kind}`}>
+                  <span class="family-when">{whenLabel(i, now(), c().clock12)}</span>
+                  <span class="family-title">{i.title}</span>
+                  <Show when={i.detail}>
+                    <small>{i.detail}</small>
+                  </Show>
+                </li>
+              )}
+            </For>
+          </ul>
+        </Show>
+      </div>
+    </div>
+  );
+}
+
 function Theme(props: { id: ScreensaverThemeId; fallback: () => void }) {
   const seconds = () => screensaverConfig().photoSeconds;
   let seed = Math.floor(Math.random() * 1e9);
@@ -227,6 +293,9 @@ function Theme(props: { id: ScreensaverThemeId; fallback: () => void }) {
       </Match>
       <Match when={props.id === "gallery"}>
         <Gallery empty={props.fallback} />
+      </Match>
+      <Match when={props.id === "today"}>
+        <Today empty={props.fallback} />
       </Match>
     </Switch>
   );
@@ -274,6 +343,7 @@ function Saver() {
   const c = screensaverConfig;
   const [photosFailed, setPhotosFailed] = createSignal(false);
   const [galleryFailed, setGalleryFailed] = createSignal(false);
+  const [todayFailed, setTodayFailed] = createSignal(false);
   // Shuffle only includes the gallery once the Hub has paintings for it.
   const [hasArt] = createResource(() => hub.art().then((a) => a.cached > 0).catch(() => false));
   const choices = () => shuffleThemes(new Date().getMonth() + 1, Boolean(c().photosPath) && !photosFailed(), Boolean(hasArt()) && !galleryFailed());
@@ -290,10 +360,12 @@ function Saver() {
     // An empty or missing photos folder: something pretty rather than nothing.
     if (t === "photos" && photosFailed()) return "landscapes";
     if (t === "gallery" && galleryFailed()) return "landscapes";
+    if (t === "today" && todayFailed()) return "landscapes";
     return t;
   });
   const fallback = () => {
     if (theme() === "gallery") setGalleryFailed(true);
+    else if (theme() === "today") setTodayFailed(true);
     else setPhotosFailed(true);
     if (c().theme === "shuffle") setShuffled(choose());
   };
@@ -306,7 +378,7 @@ function Saver() {
         <Show when={theme()} keyed>
           {(id) => <Theme id={id} fallback={fallback} />}
         </Show>
-        <Show when={theme() === "gallery" ? c().artClock : c().clock}>
+        <Show when={theme() === "today" ? false : theme() === "gallery" ? c().artClock : c().clock}>
           <Clock />
         </Show>
       </Show>

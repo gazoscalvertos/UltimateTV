@@ -15,6 +15,7 @@ import { registerScares } from "./scares.js";
 import { AdSkipper, registerAdSkip } from "./adskip.js";
 import { Alerts, deliver, BOX_UPDATE_ALERT_MS, boxUpdateAlert, registerAlerts } from "./alerts.js";
 import { HomeAssistant, registerHomeAssistant } from "./homeassistant.js";
+import { Family, registerFamily } from "./family.js";
 import { registerWeather, Weather } from "./weather.js";
 import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
@@ -121,7 +122,7 @@ export const HUB_BUILD = { commit: process.env.GIT_COMMIT || undefined, date: pr
 
 type Req<P = Record<string, string>, Q = Record<string, string | undefined>, B = unknown> = FastifyRequest<{ Params: P; Querystring: Q; Body: B }>;
 
-export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Promise<FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper; weather: Weather; backups: Backups } }> {
+export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Promise<FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper; weather: Weather; family: Family; backups: Backups } }> {
   // With a log ring the logger runs at LOG_LEVEL (debug by default): the rolling file in
   // data/logs gets everything, docker logs info and up.
   const app = Fastify({ logger: deps.logger ? (deps.logRing ? { level: deps.env?.LOG_LEVEL ?? "debug", stream: deps.logRing.stream } : true) : false, bodyLimit: 2 * 1024 * 1024 });
@@ -346,6 +347,8 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["GET /api/weather/places", "paired"],
     ["POST /api/weather/refresh", "paired"],
     ["POST /api/weather/show", "paired"],
+    ["GET /api/family", "paired"],
+    ["POST /api/family/refresh", "paired"],
     ["POST /api/recordings/:id/adscan", "paired"],
     // Making a recording, a series link or a reminder is "paired", not adult-only: the phone
     // remote and the TV offer them to any paired device (Kids profiles included), while deleting
@@ -494,6 +497,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     "PUT /api/alerts/settings",
     "PUT /api/ha/settings",
     "PUT /api/weather/settings",
+    // Calendar links can be secret addresses and the Home Assistant token is a key: adults only.
+    "GET /api/family/settings",
+    "PUT /api/family/settings",
 
     "POST /api/backup",
     "POST /api/backup/restore",
@@ -971,6 +977,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   // The forecast for Home, the top bar and the screensaver (see weather.ts).
   const weather = new Weather(ctx, config.demo);
   registerWeather(app, ctx, weather);
+  // The family board: calendars, birthdays, bins and the school run for Home and the idle screen (see family.ts).
+  const family = new Family(ctx, config.demo);
+  registerFamily(app, family, (req) => viewer(req).profile);
   // Advert breaks in recordings (see adskip.ts).
   const adSkipper = new AdSkipper(ctx, config.dataDir);
   await registerAdSkip(app, adSkipper, config.dataDir);
@@ -1671,6 +1680,16 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (!r?.path) return reply.code(404).send({ error: "No file for that recording" });
     if (!recordingAllowed(req, r.channelId)) throw new NotAllowedError();
     return sendFile(req, reply, r.path);
+  });
+
+  // Seek-bar preview sheet n for a finished recording (#227).
+  app.get("/api/recordings/:id/seek/:sheet", async (req: Req<{ id: string; sheet: string }>, reply) => {
+    const r = ctx.recordings.get(req.params.id);
+    if (!r) return reply.code(404).send({ error: "No such recording" });
+    if (!recordingAllowed(req, r.channelId)) throw new NotAllowedError();
+    const file = ctx.seekSheets.sheetFile(r.id, Number(req.params.sheet.replace(/\.jpg$/, "")));
+    if (!file) return reply.code(404).send({ error: "No preview there" });
+    return sendFile(req, reply, file);
   });
 
   app.get("/api/series-links", async () => ({ seriesLinks: ctx.recordings.links() }));
@@ -2387,13 +2406,14 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   }
 
   app.decorate("hub", ctx);
-  app.decorate("jobs", { alerts, adSkipper, weather, backups });
+  app.decorate("jobs", { alerts, adSkipper, weather, family, backups });
   app.addHook("onClose", async () => {
     alerts.stop();
     weather.stop();
+    family.stop();
     adSkipper.stop();
   });
-  return app as unknown as FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper; weather: Weather; backups: Backups } };
+  return app as unknown as FastifyInstance & { hub: HubContext; jobs: { alerts: Alerts; adSkipper: AdSkipper; weather: Weather; family: Family; backups: Backups } };
 }
 
 function marksFor(ctx: HubContext, from: number, to: number): Record<string, ProgrammeMark> {

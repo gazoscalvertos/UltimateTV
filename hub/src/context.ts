@@ -52,6 +52,7 @@ import { OpenSubtitlesClient } from "./services/opensubtitles.js";
 import { TorboxClient } from "./services/torbox.js";
 import { defaultSettings, SettingsStore, settingsFromEnv } from "./settings.js";
 import { addonKey, pausedKeys } from "./sourceoptions.js";
+import { SeekSheets } from "./seeksheets.js";
 import { StreamProxy } from "./streaming.js";
 import { spawnRun, YtDlp, type Run } from "./ytdlp.js";
 
@@ -63,6 +64,8 @@ export interface ContextOptions {
   log: Logger;
   fetchImpl?: Fetch;
   remux?: Remux;
+  /** Runs ffmpeg for seek preview sheets; tests pass a fake. */
+  sheetRun?: Run;
   /** Runs yt-dlp; tests pass a fake. Default: the YTDLP_PATH binary (yt-dlp on the PATH). */
   ytdlp?: Run | null;
   /** Pause between YouTube searches and downloads (tests: 0). */
@@ -135,6 +138,8 @@ export class HubContext {
   readonly ytdlp: YtDlp | null;
   readonly photos: PhotoFolder;
   readonly art: ArtGallery;
+  /** Seek-bar preview sheets for finished recordings (#227). */
+  readonly seekSheets: SeekSheets;
   readonly log: Logger;
   readonly fetchImpl: Fetch;
 
@@ -223,6 +228,7 @@ export class HubContext {
       queue: this.queue,
       // A prune deletes files, so tell the media server to rescan once the batch is gone (#98).
       refreshLibrary: () => void this.media()?.refreshLibrary().catch((err) => this.log.warn({ err: String(err) }, "Library refresh failed")),
+      onFileDeleted: (id) => void this.seekSheets.remove(id),
       log: this.log,
     });
     this.downloads = new DownloadManager(this.db, this.settings, this.events, this.log, () => this.torbox(), onLibraryChanged, this.fetchImpl);
@@ -246,6 +252,7 @@ export class HubContext {
     });
     this.photos = new PhotoFolder(opts.mediaRoot ?? "/mnt/nas");
     this.art = new ArtGallery({ dir: path.join(opts.dataDir, "art"), fetchImpl: this.fetchImpl, log: this.log, settings: () => this.settings.get().screensaver });
+    this.seekSheets = new SeekSheets({ dir: path.join(opts.dataDir, "seek-sheets"), events: this.events, log: this.log, list: () => this.recordings.list(), get: (id) => this.recordings.get(id), ...(opts.sheetRun ? { run: opts.sheetRun } : {}) });
     this.settings.onChange((s) => this.rebuildClients(s));
     this.rebuildClients(this.settings.get());
   }
@@ -379,6 +386,7 @@ export class HubContext {
     this.scheduler.dispose();
     this.downloads.stop();
     this.mix.stop();
+    this.seekSheets.stop();
     this.relay.closeAll();
     this.db.close();
   }

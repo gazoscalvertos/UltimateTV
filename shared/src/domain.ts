@@ -966,6 +966,8 @@ export type HubEvent =
   | { type: "sleep"; choice: SleepChoice; box?: BoxTarget }
   /** A new forecast, or the weather settings changed: fetch /api/weather again. */
   | { type: "weather.changed" }
+  /** The family board's calendars were read again, or its settings changed: fetch /api/family again. */
+  | { type: "family.changed" }
   /** A TV box came on or went off, or a box was renamed: fetch /api/boxes again (issue #103). */
   | { type: "boxes.changed" }
   /** Open the forecast on the TV (asked for by voice, or from the phone). */

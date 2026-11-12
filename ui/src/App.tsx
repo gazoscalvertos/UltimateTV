@@ -42,6 +42,7 @@ import { Search } from "./screens/Search";
 import { Settings } from "./screens/Settings";
 import { Weather } from "./screens/Weather";
 import { startWeather } from "./weather";
+import { startFamily } from "./family";
 import { startHomeAssistant } from "./homeassistant";
 import { startWhatsNew } from "./whatsnew";
 import { closeTopDialog, dropToast, isEasy, nav, setAppName, setProfile, setTheme, toast, toasts } from "./store";
@@ -229,6 +230,7 @@ export function App() {
     startPodcastPlaces();
   startRadioSettings();
     startWeather();
+    startFamily();
     startHomeAssistant();
     startWhatsNew();
     void startMusic();

@@ -1,6 +1,7 @@
 // Talks to the Hub. Every request carries the current profile so the Hub can filter for Kids.
 
 import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsAsk, KidsAskAnswer, KidsSummary, KidsTimeStatus, PersonDetails, SubtitleResult, TitleCast, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
+import type { FamilyPatch, FamilySettingsView, FamilyState } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, TrackPref, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
 import type { CollectionView, TitleCollection, RequestsView, TitleRequest, SportView, FollowingView, ArtItem, ArtStatus, BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
@@ -298,6 +299,11 @@ export const hub = {
   saveWeather: (patch: Partial<WeatherSettings>) => api<WeatherState>("/api/weather/settings", { method: "PUT", body: patch }),
   weatherPlaces: (q: string) => api<{ places: WeatherPlace[] }>(`/api/weather/places${q ? `?q=${enc(q)}` : ""}`),
   refreshWeather: () => api<WeatherState>("/api/weather/refresh", { method: "POST" }),
+  // The family board: what's on today, cleaned for the profile asking; the settings are for adults.
+  family: () => api<FamilyState>("/api/family"),
+  refreshFamily: () => api<FamilyState>("/api/family/refresh", { method: "POST" }),
+  familySettings: () => api<FamilySettingsView>("/api/family/settings"),
+  saveFamilySettings: (patch: FamilyPatch) => api<FamilySettingsView>("/api/family/settings", { method: "PUT", body: patch }),
   // Home Assistant playback events (the webhook; the media player side needs no setting).
   haSettings: () => api<{ settings: HaSettings; events: HaEvent[] }>("/api/ha/settings"),
   saveHa: (patch: Partial<HaSettings>) => api<{ settings: HaSettings; events: HaEvent[] }>("/api/ha/settings", { method: "PUT", body: patch }),
