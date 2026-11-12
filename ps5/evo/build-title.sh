@@ -71,7 +71,11 @@ for loc in d.get("localizedParameters", {}).values():
 json.dump(d, open(path, "w"), indent=2)
 PY
 
-(cd "$WORK" && docker compose build && docker compose run --rm ps5-dev ./scripts/package-app.sh --ffpfsc --zip)
+# EVO needs FFmpeg 7.1.1 and the image only carries 7.0.1 (evo_dovi.c refuses to build against
+# anything else), so build it into the SDK volume first. It is the slow step, about half an hour.
+(cd "$WORK" && docker compose build \
+  && docker compose run --rm ps5-dev ./scripts/build-ffmpeg.sh --profile minimal --install \
+  && docker compose run --rm ps5-dev ./scripts/package-app.sh --ffpfsc --zip)
 
 rm -rf "$OUT"; mkdir -p "$OUT"
 cp -r "$P/output/app/PPSA"*/. "$OUT/" 2>/dev/null || cp -r "$WORK/output/app/"* "$OUT/"
