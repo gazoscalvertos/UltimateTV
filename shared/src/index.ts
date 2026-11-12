@@ -32,3 +32,4 @@ export * from "./limited.js";
 export * from "./watching.js";
 export * from "./shareplay.js";
 export * from "./trackprefs.js";
+export * from "./following.js";

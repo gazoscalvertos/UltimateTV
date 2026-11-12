@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { Channel, ChannelCategory, Episode, Programme, Recording, Season, SeriesLink, TitleRef } from "@ultimatetv/shared";
 import { normaliseTitle } from "@ultimatetv/shared";
+import type { SeriesSchedule } from "./services/tmdb.js";
 import type { StoredFeed } from "./channels.js";
 import type { HubConfig } from "./config.js";
 import type { HubContext } from "./context.js";
@@ -467,4 +468,29 @@ export function demoSeasons(slug: string): Season[] {
       return ep;
     }),
   }));
+}
+
+/**
+ * Made-up air dates for the demo shows, relative to today, so Coming up and Home's New episodes row
+ * have something to show (issue #226).
+ */
+export function demoSchedule(title: TitleRef, now: number): SeriesSchedule | undefined {
+  const slug = /^demo:series:(.+)$/.exec(title.id)?.[1];
+  const day = (n: number) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  switch (slug) {
+    case "harbour-lights":
+      return { last: { season: 2, episode: 4, airDate: day(-2), name: "Low Tide" }, next: { season: 2, episode: 5, airDate: day(1), name: "The Lamp Keeper" } };
+    case "northern-line":
+      return { last: { season: 2, episode: 1, airDate: day(-1), name: "Signal Failure" }, next: { season: 2, episode: 2, airDate: day(6), name: "Platform Zero" } };
+    case "wild-islands":
+      return { last: { season: 3, episode: 2, airDate: day(-6), name: "Puffin Rock" }, next: { season: 3, episode: 3, airDate: day(0), name: "Seal Bay" } };
+    case "kitchen-rivals":
+      return { last: { season: 4, episode: 6, airDate: day(-8) }, next: { season: 4, episode: 7, airDate: day(3), name: "The Final Course" } };
+    default:
+      return undefined;
+  }
 }

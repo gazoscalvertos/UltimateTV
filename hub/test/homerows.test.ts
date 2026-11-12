@@ -169,7 +169,7 @@ describe("Home rows on the Hub", () => {
     expect(asked).toContain("/Shows/NextUp");
     expect(asked).toContain("/Items/Latest");
 
-    await patch({ hidden: ["continue", "nextup", "latest", "trending", "because"] });
+    await patch({ hidden: ["continue", "nextup", "new-episodes", "latest", "trending", "because"] });
     asks.length = 0;
     await app.inject({ url: "/api/home", headers: family });
     const after = asks.map((a) => a.url).join(" ");

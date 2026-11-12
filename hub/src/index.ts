@@ -63,6 +63,10 @@ if (moved) {
   ctx.mix.seed();
   void ctx.mix.start().catch((err) => app.log.error({ err: String(err) }, "Music channels failed to start"));
   setInterval(() => void ctx.downloads.tidyInbox().catch(() => undefined), 5 * 60_000);
+  // New episodes of followed series: a look a minute after start (to learn where each is up to) and then hourly.
+  const checkEpisodes = () => void ctx.checkEpisodes?.().catch((err) => app.log.warn({ err: String(err) }, "Couldn't check for new episodes"));
+  setTimeout(checkEpisodes, 60_000);
+  setInterval(checkEpisodes, HOUR);
   // Warnings before things break, and advert breaks in new recordings.
   app.jobs.alerts.start();
   app.jobs.adSkipper.start();

@@ -22,7 +22,8 @@ export type Route =
   | { name: "downloads" }
   | { name: "cast" }
   | { name: "weather" }
-  | { name: "elsewhere" };
+  | { name: "elsewhere" }
+  | { name: "coming-up" };
 
 export type PlannerTab = "recorded" | "scheduled" | "reminders" | "series" | "downloads";
 

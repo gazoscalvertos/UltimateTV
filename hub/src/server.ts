@@ -20,6 +20,8 @@ import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { registerContinue } from "./continueroutes.js";
+import { registerFollowing } from "./followingroutes.js";
+import { Following } from "./following.js";
 import { FavouriteStore, registerFavourites } from "./favourites.js";
 import { cleanSeenMode } from "./watchedtitles.js";
 import { registerSearchHistory, SearchHistory } from "./searchhistory.js";
@@ -35,7 +37,7 @@ import { guideBlocks, mixLogo } from "./mixchannels.js";
 import type { HubConfig } from "./config.js";
 import { ConnectionBusyError } from "./connections.js";
 import { HubContext } from "./context.js";
-import { demoArt, seedDemo } from "./demo.js";
+import { demoArt, demoSchedule, seedDemo } from "./demo.js";
 import { hubHealth } from "./health.js";
 import { BoxReportStore, cleanBoxReport, renderDiagnostics, RollingFile, type LogRing } from "./diagnostics.js";
 import { cleanPerfReport } from "./perf.js";
@@ -124,6 +126,20 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   const library = new Library(ctx);
   const playback = new Playback(ctx, library);
   const watchlist = new Watchlist(ctx.db, ctx.events);
+  // Followed series: Coming up, Home's New episodes row and the pop-up when one arrives (#226).
+  const following = new Following({
+    db: ctx.db,
+    events: ctx.events,
+    progress: ctx.progress,
+    nextAirings: ctx.nextAirings,
+    tmdb: () => ctx.tmdb(),
+    media: () => ctx.media(),
+    watchlist: (p) => watchlist.list(p),
+    links: () => ctx.recordings.links(),
+    queue: () => ctx.queue.list(),
+    profileIds: () => ctx.profiles.list().map((p) => p.id),
+    ...(config.demo ? { scheduleFor: demoSchedule } : {}),
+  });
   // Favourites per profile; the household's channel favourites are copied to each profile once.
   const favourites = new FavouriteStore(ctx.db, ctx.events, ctx.channels);
   favourites.migrate(ctx.profiles.list().map((p) => p.id));
@@ -301,6 +317,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     // press Record, and an unpaired browser on the network still gets nothing.
     ["POST /api/recordings", "paired"],
     ["POST /api/recordings/:id/watched", "paired"],
+    ["GET /api/following", "paired"],
+    ["POST /api/following", "paired"],
+    ["DELETE /api/following/:id", "paired"],
+    ["PUT /api/following/popups", "paired"],
     ["POST /api/continue/:id/hide", "paired"],
     ["POST /api/continue/:id/watched", "paired"],
     ["POST /api/series-links", "paired"],
@@ -346,6 +366,13 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return { ...who, filter: new ContentFilter(who.profile, favourites.channelSet(who.profile?.id ?? null), allow, seen) };
   };
   const filterOf = (req: FastifyRequest) => viewer(req).filter;
+  // Which episodes arrived since the last look, popped up for the profiles that follow them (#226).
+  ctx.checkEpisodes = () =>
+    following.checkArrivals((id) => {
+      const profile = id ? (ctx.profiles.get(id) ?? null) : null;
+      const allow = profile?.kind === "kids" ? kidsAllowLookup(ctx.kidsAllow.list(profile.id)) : NO_KIDS_ALLOW_LOOKUP;
+      return new ContentFilter(profile, favourites.channelSet(id), allow, { lookup: ctx.watched.lookup(id), mode: cleanSeenMode(ctx.settings.get().playback.watchedSuggestions) });
+    });
   /** The Android client names itself ("phone:<id>") so it can share the IPTV connection politely. */
   const deviceOf = (req: FastifyRequest): string | undefined => {
     const v = req.headers["x-device"];
@@ -1624,6 +1651,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
 
   // Taking a title off Continue watching, for this profile: the TV's Options menu and the phone.
   registerContinue(app, ctx, (req) => ({ profileId: viewer(req).profile?.id ?? null }));
+  registerFollowing(app, following, (req) => {
+    const who = viewer(req);
+    return { profileId: who.profile?.id ?? null, filter: who.filter };
+  });
 
   // The TV asks for the next episode while the current one plays; the answer comes straight back.
   app.post("/api/play/prefetch", async (req: Req<Record<string, string>, Record<string, string>, PlaybackRequest>) => {
@@ -2045,6 +2076,15 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     if (liked.length) {
       const after = home.rails.findIndex((r) => r.id === "watchlist") + 1 || home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0);
       home.rails.splice(after, 0, { id: "favourites", title: "Favourites", kind: "titles", items: liked.slice(0, 30) });
+    }
+    // New episodes of the series this profile follows, after Next up (#226).
+    if (showing.includes("new-episodes") && !who.filter.guest) {
+      const fresh = await following.view(profileId, who.filter, Date.now(), false).catch(() => null);
+      const items = fresh ? following.asRow(fresh.newEpisodes) : [];
+      if (items.length) {
+        const after = home.rails.findIndex((r) => r.id === "nextup") + 1 || home.rails.findIndex((r) => r.id === "continue") + 1 || (home.rails[0]?.id === "live" ? 1 : 0);
+        home.rails.splice(after, 0, { id: "new-episodes", title: "New episodes", kind: "titles", items: items.slice(0, 30) });
+      }
     }
     // In the profile's order; a row that isn't switched on is left out even if the library built it.
     const rank = new Map(showing.map((id, i) => [id, i]));
