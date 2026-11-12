@@ -25,7 +25,7 @@ if [[ "${1:-}" == "--check" ]]; then
   # The provider only has to agree with EVO's headers and cJSON's, so those are all this fetches.
   tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
   for h in evo_addon.h evo_provider.h evo_net.h; do curl -fsS "$RAW/$h" -o "$tmp/$h"; done
-  curl -fsS https://raw.githubusercontent.com/DaveGamble/cJSON/v1.7.18/cJSON.h -o "$tmp/cJSON.h"
+  curl -fsS "$RAW/cJSON.h" -o "$tmp/cJSON.h"   # EVO ships its own cJSON header
   gcc -std=gnu11 -Wall -Wextra -Werror -fsyntax-only -I"$tmp" "$HERE/provider_ultimatetv.c"
   echo "provider_ultimatetv.c compiles against EVO@$EVO_REF headers"
   exit 0
@@ -75,7 +75,12 @@ PY
 # anything else), so build it into the SDK volume first. It is the slow step, about half an hour.
 (cd "$WORK" && docker compose build \
   && docker compose run --rm ps5-dev ./scripts/build-ffmpeg.sh --profile minimal --install \
-  && docker compose run --rm ps5-dev ./scripts/package-app.sh --ffpfsc --zip)
+  && { docker compose run --rm ps5-dev ./scripts/package-app.sh --ffpfsc --zip || {
+         rc=$?
+         # package-app.sh only prints the last 40 lines of its compile log, which are usually warnings.
+         echo "--- compiler errors from output/app/.build/compile.log ---" >&2
+         grep -n -E "error:|Error [0-9]|undefined reference|fatal" "$WORK/output/app/.build/compile.log" 2>/dev/null | head -60 >&2 || true
+         exit "$rc"; }; })
 
 rm -rf "$OUT"; mkdir -p "$OUT"
 cp -r "$P/output/app/PPSA"*/. "$OUT/" 2>/dev/null || cp -r "$WORK/output/app/"* "$OUT/"
