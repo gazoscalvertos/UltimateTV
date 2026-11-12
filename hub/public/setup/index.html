@@ -124,6 +124,10 @@
   .ch .fav { min-width: 38px; }
   .ch .fav.on { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
   .ch li.off .ch-name { opacity: .5; }
+  .hr li { gap: 12px; min-width: 0; }
+  .hr li > input[type=checkbox] { width: 22px; height: 22px; padding: 0; flex: none; margin: 0; accent-color: var(--accent); }
+  .hr .ch-name { white-space: normal; }
+  .hr li.off .ch-name { opacity: .5; }
   .cg-edit { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
   .cg-edit ol { margin: 8px 0 0; padding: 0; list-style: none; }
   .cg-edit li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
@@ -409,7 +413,7 @@
     <div class="row"><div><label>Profile</label><select id="hr-profile"></select></div></div>
     <div class="tabs"><button class="small" type="button" id="hr-simple">Simple Home</button><button class="secondary small" type="button" id="hr-everything">Everything</button></div>
     <p class="hint" id="hr-preset" style="margin:10px 0 0"></p>
-    <ul class="list order" id="hr-list"></ul>
+    <ul class="list hr" id="hr-list"></ul>
   </section>
 
   <section id="bluetooth">
@@ -1779,8 +1783,9 @@ async function renderHomeRows() {
       el(
         "li",
         { className: r.on ? "" : "off" },
-        el("div", { className: "ch-top" }, el("span", { className: "ch-name" }, r.label, el("small", { textContent: r.detail })), on),
-        el("div", { className: "ch-tools" }, arrows(() => move(i, -1), () => move(i, 1))),
+        on,
+        el("span", { className: "ch-name" }, r.label, el("small", { textContent: r.detail })),
+        arrows(() => move(i, -1), () => move(i, 1)),
       ),
     );
   });
