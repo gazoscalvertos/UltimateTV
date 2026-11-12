@@ -1,5 +1,8 @@
 # UltimateTV on a PlayStation 5
 
+> **The PS5 app is being rebuilt.** The `.elf` and tile described below cannot show a picture on a real console (a payload has no access to the hardware decoder or the GPU). The replacement is an installable title built on EVO Player's engine: see [ps5-architecture.md](ps5-architecture.md). Until it has been seen on a console, treat everything below as the old app.
+
+
 UltimateTV runs on a PlayStation 5 as a **homebrew app**: it appears on the console's home screen as a tile and starts like a game. It is the same viewer as the TV, the phone and the box — it pairs with the Hub, picks a profile, and shows Home, the guide and films from the same place.
 
 It needs a **jailbroken console**, because that is the only way to run anything that Sony did not sign. If your console is not jailbroken, or its firmware has gone past what the exploit covers, the way to use UltimateTV on it is to put the console into Linux instead — see [Linux on the PS5](#linux-on-the-ps5) below.

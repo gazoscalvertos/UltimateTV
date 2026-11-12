@@ -20,6 +20,7 @@ import { registerCast, ScreenShares } from "./cast.js";
 import { Projections, registerProjections } from "./projections.js";
 import { registerWatchlist, Watchlist } from "./watchlist.js";
 import { registerContinue } from "./continueroutes.js";
+import { registerPs5 } from "./ps5routes.js";
 import { registerFollowing } from "./followingroutes.js";
 import { mergeRequestSettings, registerRequests, RequestError, TitleRequests } from "./requests.js";
 import { Following } from "./following.js";
@@ -234,6 +235,9 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["POST /api/remote/key", "script"],
     ["POST /api/remote/text", "script"],
     ["POST /api/remote/voice", "paired"],
+    // The PlayStation 5 title (docs/ps5-architecture.md): each runs the Hub's own route as the same caller.
+    ["POST /api/ps5/resolve", "paired"],
+    ["POST /api/ps5/progress", "paired"],
     ["GET /api/remote/now", "paired"],
     // Bluetooth belongs to the box; the phone's page asks the Hub, which asks the TV (#102).
     ["GET /api/bluetooth", "paired"],
@@ -1733,6 +1737,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   );
 
   // Taking a title off Continue watching, for this profile: the TV's Options menu and the phone.
+  registerPs5(app, ctx);
   registerContinue(app, ctx, (req) => ({ profileId: viewer(req).profile?.id ?? null }));
   registerRequests(app, { requests, profiles: ctx.profiles, viewer, settings: () => ctx.settings.get().requests });
   registerSport(app, sport, (req) => {
