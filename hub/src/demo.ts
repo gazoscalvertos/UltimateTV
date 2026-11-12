@@ -107,6 +107,9 @@ const TITLES: DemoTitle[] = [
   { slug: "starfall", name: "Starfall", kind: "movie", year: 2017, genres: ["Sci-Fi", "Action"], rating: 7.0, quality: "2160p DV HDR10 TrueHD Atmos", overview: "A meteor shower brings something with it, and a small Welsh town is the first to notice." },
   { slug: "last-train-to-brighton", name: "Last Train to Brighton", kind: "movie", year: 2021, genres: ["Comedy", "Romance"], rating: 6.7, quality: "1080p DDP5.1", overview: "Two strangers miss the last train and spend one chaotic night getting to the seaside by any means possible." },
   { slug: "the-lighthouse-keeper", name: "The Lighthouse Keeper", kind: "movie", year: 2018, genres: ["Drama", "Mystery"], rating: 7.3, quality: "2160p HDR10 DDP5.1", overview: "The new keeper of a remote lighthouse starts receiving messages from someone who left forty years ago." },
+  { slug: "copper-sky-red-tide", name: "Copper Sky: Red Tide", kind: "movie", year: 2025, genres: ["Sci-Fi", "Adventure"], rating: 7.3, quality: "2160p HDR10 Atmos", overview: "The pilot who found the missing ship is sent back to Mars to learn why its crew would not come home." },
+  { slug: "copper-sky-dust-season", name: "Copper Sky: Dust Season", kind: "movie", year: 2026, genres: ["Sci-Fi", "Adventure"], rating: 7.0, quality: "2160p HDR10 DDP5.1", overview: "A storm the size of a continent closes in on the colony, and the only way out is through the desert." },
+  { slug: "paper-moons-the-far-side", name: "Paper Moons: The Far Side", kind: "movie", year: 2022, genres: ["Family", "Animation"], rating: 7.8, quality: "1080p DDP5.1", overview: "The little origami artist follows her paper moon to the dark side of the city, where nothing is folded yet." },
   { slug: "harbour-lights", name: "Harbour Lights", kind: "series", year: 2023, genres: ["Drama", "Crime"], rating: 8.1, quality: "1080p DDP5.1", overview: "Life, love and crime in a Cornish fishing village where everyone knows everyone's business, except the truth." },
   { slug: "northern-line", name: "Northern Line", kind: "series", year: 2022, genres: ["Thriller"], rating: 7.8, quality: "2160p HDR10 Atmos", overview: "A transport police detective follows a trail of disappearances along London's oldest Underground line." },
   { slug: "wild-islands", name: "Wild Islands", kind: "series", year: 2024, genres: ["Documentary"], rating: 8.9, quality: "2160p HDR10 DDP5.1", overview: "The extraordinary wildlife of the British Isles, filmed across a year from the Shetlands to the Scillies." },
@@ -295,6 +298,11 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
     url: clip(t.quality.startsWith("2160p") ? "hevc-2160p23976-eac3.mkv" : "h264-1080p25-aac.mp4"),
     added: now - i * 86_400_000,
   }));
+  // Two franchises, so Collections has something to show (#238).
+  ctx.demoCollections = [
+    { name: "Copper Sky collection", overview: "The mining colony saga, in the order it was made.", films: ["demo:movie:copper-sky", "demo:movie:copper-sky-red-tide", "demo:movie:copper-sky-dust-season"] },
+    { name: "Paper Moons collection", overview: "A shy origami artist and her paper moon.", films: ["demo:movie:paper-moons", "demo:movie:paper-moons-the-far-side"] },
+  ];
   ctx.db.run("DELETE FROM vod");
   for (const e of vod) ctx.db.run("INSERT INTO vod (id, kind, source_id, name_norm, year, data) VALUES (?, ?, ?, ?, ?, ?)", e.id, e.kind, e.sourceId, normaliseTitle(e.name), e.year ?? null, JSON.stringify(e));
 

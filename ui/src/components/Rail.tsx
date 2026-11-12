@@ -2,7 +2,7 @@
 
 import { For, Match, Show, Switch } from "solid-js";
 import type { NowNext, Rail as RailData, Recording, SportMatch, TitleRef } from "@ultimatetv/shared";
-import { clockTime, dayLabel, episodeLabel } from "@ultimatetv/shared";
+import { clockTime, dayLabel, episodeLabel, isCollectionId } from "@ultimatetv/shared";
 import { play } from "../player";
 import { nav, now } from "../store";
 import { pickMatch } from "../sport";
@@ -20,7 +20,7 @@ export function Poster(props: { title: TitleRef; wide?: boolean; onSelect?: () =
   const t = () => props.title;
   const image = () => (props.wide ? (t().backdrop ?? t().poster) : (t().poster ?? t().backdrop));
   return (
-    <button class={`card ${props.wide ? "card-wide" : "card-poster"}`} data-focus onClick={() => (props.onSelect ? props.onSelect() : nav.push({ name: "details", id: t().id }))}>
+    <button class={`card ${props.wide ? "card-wide" : "card-poster"}`} data-focus onClick={() => (props.onSelect ? props.onSelect() : isCollectionId(t().id) ? nav.push({ name: "collection", id: t().id }) : nav.push({ name: "details", id: t().id }))}>
       <div class="card-art">
         <Show when={image()} fallback={<div class="card-fallback">{t().name}</div>}>
           <img src={image()} alt="" loading="lazy" />

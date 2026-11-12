@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-12
 
+- **Collections and franchises: Bond, Harry Potter, Marvel in order** ([docs/collections.md](docs/collections.md)): Home gets a Collections row and Films gets a Collections list, from your Jellyfin/Emby BoxSets, Plex collections and, for films you only have online, TMDB's collections. A collection's page shows its films in release order with Play on the first one you haven't watched. A film's page says "Part of the Bond collection · 3 of 24", lists its siblings and has **Next in collection**, and after one film ends the next in the collection starts like the next episode of a series. Kids ratings apply per film: a Kids profile only sees (and only counts) the films it's allowed. (#238)
+  Household: franchises now sit together in order, and the next film starts when one finishes.
+
 - **Request a film or series that isn't in the library** ([docs/requests.md](docs/requests.md)): search and a title's page show **Request** for anything no source has, and the Hub passes it to Jellyseerr/Overseerr or straight to Radarr and Sonarr (set up on the phone's setup page, with a Test button; nothing shows until then). Status (Requested, Downloading, Ready) is on the title, in Home › Requests and in a Home row, and the TV, the phone and Home Assistant/ntfy are told when it arrives. A Kids or Guest profile can only ask: a grown-up approves on the TV or the phone first. (#225)
   Household: If a film isn't here, ask for it from the TV and you'll be told when it's ready.
 

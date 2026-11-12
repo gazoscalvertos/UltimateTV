@@ -18,6 +18,7 @@ export type HomeRowId =
   | "films-tonight"
   | "sport"
   | "latest"
+  | "collections"
   | "trending"
   | "iptv-vod";
 
@@ -48,6 +49,7 @@ export const HOME_ROWS: HomeRowInfo[] = [
   { id: "sport", label: "Sport today", detail: "Live and upcoming sport in the guide, your teams first (#231)." },
   { id: "films-tonight", label: "Films on TV today", detail: "Films in the guide this evening." },
   { id: "latest", label: "Recently added", detail: "New films in the Jellyfin library." },
+  { id: "collections", label: "Collections", detail: "Franchises in your library: Bond, Harry Potter, Marvel and more, in order (#238)." },
   { id: "trending", label: "Trending this week", detail: "What's popular at the moment (needs a streaming addon)." },
   { id: "iptv-vod", label: "New films from your IPTV", detail: "Films your IPTV provider has added." },
 ];

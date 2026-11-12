@@ -474,6 +474,25 @@ export class PlexClient implements MediaServer {
     return { items, total: items.length };
   }
 
+  /** Plex collections, read from each film library section (#238). */
+  async collections(): Promise<JfItem[]> {
+    const out: JfItem[] = [];
+    for (const section of (await this.sections()).filter((s) => s.type === "movie")) {
+      const body = await this.get<PlexContainer>(`/library/sections/${encodeURIComponent(section.key)}/collections?X-Plex-Container-Start=0&X-Plex-Container-Size=500`);
+      for (const m of body.MediaContainer?.Metadata ?? []) {
+        if (!m.ratingKey) continue;
+        out.push({ ...this.toJf(m), Type: "BoxSet" });
+      }
+    }
+    return out;
+  }
+
+  /** The films in one Plex collection. */
+  async collectionItems(id: string): Promise<JfItem[]> {
+    const body = await this.get<PlexContainer>(`/library/collections/${encodeURIComponent(id)}/children`);
+    return (body.MediaContainer?.Metadata ?? []).map((m) => this.toJf(m)).filter((i) => i.Type === "Movie");
+  }
+
   async item(id: string): Promise<JfItem> {
     const body = await this.get<PlexContainer>(`/library/metadata/${encodeURIComponent(id)}`);
     const item = body.MediaContainer?.Metadata?.[0];

@@ -54,6 +54,7 @@ import { ElsewhereScreen } from "./screens/Elsewhere";
 import { ComingUpScreen } from "./screens/ComingUp";
 import { SportScreen } from "./screens/Sport";
 import { startEpisodePopups } from "./following";
+import { CollectionScreen } from "./screens/Collection";
 import { RequestsScreen } from "./screens/Requests";
 import { startRequestPopups } from "./requests";
 import { startWatching } from "./watching";
@@ -360,6 +361,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "coming-up"}>
             <ComingUpScreen />
+          </Match>
+          <Match when={(() => { const r = nav.current(); return r.name === "collection" ? r : null; })()} keyed>
+            {(r) => <CollectionScreen id={r.id} />}
           </Match>
           <Match when={nav.current().name === "requests"}>
             <RequestsScreen />

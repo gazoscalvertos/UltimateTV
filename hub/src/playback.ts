@@ -288,8 +288,18 @@ export class Playback {
         if (image) info.next.image = image;
         if (next.overview) info.next.overview = next.overview;
       }
-    } else if (details.year) {
-      info.subtitle = String(details.year);
+    } else {
+      if (details.year) info.subtitle = String(details.year);
+      // A film in a collection hands over to the next film in it (#238): per film for Kids, so the
+      // next one is the next the profile may watch.
+      if (details.kind === "movie" && this.ctx.collections) {
+        const c = await this.ctx.collections.of({ id: details.id, tmdbId: details.tmdbId }, f).catch(() => undefined);
+        if (c?.next) {
+          info.next = { kind: "title", id: c.next.id, name: c.next.name, label: `Next in ${c.name.replace(/\s+collection$/i, "")}` };
+          const image = c.next.backdrop ?? c.next.poster;
+          if (image) info.next.image = image;
+        }
+      }
     }
 
     // IPTV VOD counts against the connection limit, so it goes through the Hub's proxy.
