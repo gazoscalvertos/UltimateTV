@@ -76,10 +76,11 @@ fun Modifier.tvClickable(enabled: Boolean = true, onClick: () -> Unit): Modifier
     if (!rememberIsTv()) return this.clickable(enabled = enabled, onClick = onClick)
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.05f else 1f, label = "tvFocusScale")
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(8.dp)
+    val c = LocalUtv.current
     return this
         .onFocusChanged { focused = it.isFocused }
         .graphicsLayer { scaleX = scale; scaleY = scale }
-        .then(if (focused) Modifier.background(Color(0x22FFFFFF), shape).border(3.dp, Color.White, shape) else Modifier)
+        .then(if (focused) Modifier.background(c.lift(0.14f), shape).border(2.5.dp, c.focus, shape) else Modifier)
         .clickable(enabled = enabled, onClick = onClick)
 }

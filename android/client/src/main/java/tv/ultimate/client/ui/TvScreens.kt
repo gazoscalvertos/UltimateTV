@@ -3,6 +3,8 @@
 package tv.ultimate.client.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,19 +35,13 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tv
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -69,28 +65,61 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tv.ultimate.client.App
 import tv.ultimate.client.Favourites
+import tv.ultimate.client.Hero
 import tv.ultimate.client.NowNext
 import tv.ultimate.client.PlaybackRequest
 import tv.ultimate.client.Programme
 
-/** The title bar; on phones it carries Search and Settings (tablets have them in the side rail). */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A screen's title, large, as on the TV. The app's name and menu are in the bar above (NavBar.kt).
+ * A TV has the remote's Back key, so only a phone or tablet gets a back arrow.
+ */
 @Composable
 fun Header(title: String, nav: NavHostController, back: Boolean = false) {
+    val c = LocalUtv.current
+    val tv = rememberIsTv()
+    val arrow = back && !tv
+    if (title.isBlank() && !arrow) return
+    Row(
+        Modifier.fillMaxWidth().padding(start = gutter(), end = gutter(), top = if (tv) 4.dp else 2.dp, bottom = if (tv) 6.dp else 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (arrow) {
+            IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(title, color = c.fg, fontWeight = FontWeight.Bold, fontSize = if (tv) 26.sp else 24.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** The big picture at the top of Home, with the title over it and Watch / Resume under, like the TV's. */
+@Composable
+private fun HeroBanner(hero: Hero, nav: NavHostController) {
+    val ui = LocalUi.current
+    val c = LocalUtv.current
+    val tv = rememberIsTv()
     val wide = isWide()
-    TopAppBar(
-        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        navigationIcon = { if (back) IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-        actions = {
-            if (!wide) {
-                if (LocalUi.current.on("search")) IconButton(onClick = { go(nav, "search") }) { Icon(Icons.Default.Search, "Search") }
-                IconButton(onClick = { go(nav, "settings") }) { Icon(Icons.Default.Settings, "Settings") }
+    val height = if (tv) 260.dp else if (wide) 260.dp else 220.dp
+    val open = { details(nav, hero.id) }
+    Box(Modifier.fillMaxWidth().height(height).then(if (tv) Modifier else Modifier.clickable(onClick = open))) {
+        Picture(hero.backdrop ?: hero.poster, Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to c.bg, 0.45f to c.bg.copy(alpha = 0.8f), 1f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to c.bg)))
+        Column(Modifier.align(Alignment.BottomStart).padding(start = gutter(), end = gutter(), bottom = 14.dp).fillMaxWidth(if (tv || wide) 0.55f else 1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(hero.name, color = c.fg, fontWeight = FontWeight.ExtraBold, fontSize = if (tv) 30.sp else 26.sp, lineHeight = if (tv) 32.sp else 28.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            hero.overview?.let { Text(it, color = c.fg2, maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = if (tv) 12.sp else 14.sp) }
+            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = {
+                    if (hero.action == "live") ui.play(PlaybackRequest("channel", hero.id), name = hero.name)
+                    else ui.play(PlaybackRequest("title", hero.id), hero.ref())
+                }) {
+                    Icon(Icons.Default.PlayArrow, null)
+                    Text(if (hero.action == "resume") "Resume" else if (hero.action == "live") "Watch live" else "Watch")
+                }
+                if (hero.action != "live") OutlinedButton(onClick = open) { Text("More info") }
             }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-        // The Scaffold already pads for the status bar; the bar's own inset doubled it (a big empty band).
-        windowInsets = WindowInsets(0, 0, 0, 0),
-    )
+        }
+    }
 }
 
 @Composable
@@ -99,32 +128,14 @@ fun HomeScreen(nav: NavHostController) {
     val hub = App.instance.hub
     val home = rememberLoad(ui.online) { hub.home() }
     Column {
-        Header(ui.appName, nav)
-        // What's saved and what's queued, at the top where the TV has its queue row too.
-        ListsBar(nav)
         Loaded(home) { h ->
-            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+            LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
                 // What's switched off on this phone leaves Home too.
                 h.hero?.takeIf { ui.titleShown(it.kind) && (it.action != "live" || ui.on("live")) }?.let { hero ->
-                    item {
-                        Box(Modifier.fillMaxWidth().aspectRatio(if (isWide()) 2.4f else 16f / 9f).tvClickable { details(nav, hero.id) }) {
-                            Picture(hero.backdrop ?: hero.poster, Modifier.fillMaxSize())
-                            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE070B14)))))
-                            Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
-                                Text(hero.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                                hero.overview?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                Spacer(Modifier.height(10.dp))
-                                Button(onClick = {
-                                    if (hero.action == "live") ui.play(PlaybackRequest("channel", hero.id), name = hero.name)
-                                    else ui.play(PlaybackRequest("title", hero.id), hero.ref())
-                                }) {
-                                    Icon(Icons.Default.PlayArrow, null)
-                                    Text(if (hero.action == "resume") "Resume" else "Watch")
-                                }
-                            }
-                        }
-                    }
+                    item { HeroBanner(hero, nav) }
                 }
+                // What's saved and what's queued, where the TV has its queue row too.
+                item { ListsBar(nav) }
                 val rails = h.rails.orEmpty()
                     .filter { !(it.kind == "channels" && !ui.on("live")) && !(it.kind == "recordings" && !ui.on("recordings")) }
                     .map { r -> if (r.items != null) r.copy(items = r.items.filter { ui.titleShown(it.kind) }) else r }
@@ -133,13 +144,13 @@ fun HomeScreen(nav: NavHostController) {
                         when (rail.kind) {
                             "channels" -> if (!rail.channels.isNullOrEmpty()) {
                                 SectionTitle(rail.title)
-                                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                LazyRow(contentPadding = PaddingValues(start = gutter(), end = gutter(), top = 8.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                                     items(rail.channels) { n -> ChannelCard(n) { ui.play(PlaybackRequest("channel", n.channel.id), name = n.channel.name) } }
                                 }
                             }
                             "recordings" -> if (!rail.recordings.isNullOrEmpty()) {
                                 SectionTitle(rail.title)
-                                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                LazyRow(contentPadding = PaddingValues(start = gutter(), end = gutter(), top = 8.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                                     items(rail.recordings) { r -> RecordingCard(r) { ui.play(PlaybackRequest("recording", r.id), name = r.programme.title) } }
                                 }
                             }
@@ -166,7 +177,7 @@ fun GuideScreen(nav: NavHostController) {
         Header("TV Guide", nav)
         Loaded(choices) { c ->
             val current = selected ?: c.default.orEmpty()
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(contentPadding = PaddingValues(horizontal = gutter(), vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(c.choices.orEmpty().filter { it.count > 0 }) { g ->
                     FilterChip(selected = g.id == current, onClick = { selected = g.id }, label = { Text(g.label) })
                 }
@@ -201,7 +212,7 @@ fun GuideScreen(nav: NavHostController) {
 
 @Composable
 private fun ChannelRow(n: NowNext, liked: Boolean, play: () -> Unit, schedule: () -> Unit, favourite: () -> Unit) {
-    Row(Modifier.fillMaxWidth().tvClickable(onClick = play).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().tvClickable(onClick = play).padding(horizontal = gutter(), vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.width(64.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Picture(n.channel.logo, Modifier.size(56.dp, 36.dp).clip(RoundedCornerShape(4.dp)), ContentScale.Fit)
             Text("${n.channel.number}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -237,7 +248,7 @@ fun ChannelScreen(nav: NavHostController, id: String, name: String) {
     var open by remember { mutableStateOf<Programme?>(null) }
     Column {
         Header(name, nav, back = true)
-        Row(Modifier.padding(horizontal = 16.dp)) {
+        Row(Modifier.padding(horizontal = gutter())) {
             Button(onClick = { ui.play(PlaybackRequest("channel", id), name = name) }) {
                 Icon(Icons.Default.PlayArrow, null)
                 Text("Watch live")
@@ -262,7 +273,7 @@ fun ChannelScreen(nav: NavHostController, id: String, name: String) {
                     }
                     item {
                         val onNow = p.start <= now && p.end > now
-                        Row(Modifier.fillMaxWidth().tvClickable { open = p }.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Row(Modifier.fillMaxWidth().tvClickable { open = p }.padding(horizontal = gutter(), vertical = 10.dp)) {
                             Text(clock(p.start), Modifier.width(56.dp), color = if (onNow) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                             Column(Modifier.weight(1f)) {
                                 Text(p.title, fontWeight = if (onNow) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)

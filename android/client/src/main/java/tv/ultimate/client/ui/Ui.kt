@@ -42,6 +42,15 @@ class Ui(private val context: Context, val scope: CoroutineScope, val snackbar: 
     /** Features switched off on this phone (Hub: /api/features), remembered for away from home. */
     var featuresOff by mutableStateOf(App.instance.prefs.featuresOff)
     var features by mutableStateOf<FeatureState?>(null)
+    /** The TV's theme (today's, seasonal ones included), from the Hub; the last one seen while it is away. */
+    var theme by mutableStateOf(Utv.saved(App.instance.prefs.themeJson))
+
+    suspend fun loadTheme() {
+        val info = runCatching { hub.theme() }.getOrNull() ?: return
+        if (info.palette.isNullOrEmpty()) return
+        App.instance.prefs.themeJson = themeJson(info)
+        theme = Utv.of(info)
+    }
 
     fun on(feature: String): Boolean = feature !in featuresOff
 

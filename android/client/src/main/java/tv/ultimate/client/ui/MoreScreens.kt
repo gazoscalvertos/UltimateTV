@@ -36,11 +36,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -94,7 +92,7 @@ fun SearchScreen(nav: NavHostController) {
             leadingIcon = { Icon(Icons.Default.Search, null) },
             placeholder = { Text("Channels, programmes, films, shows") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = gutter()),
         )
         error?.let { Text(explain(it), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
@@ -114,7 +112,7 @@ fun SearchScreen(nav: NavHostController) {
                             "recording" -> ui.play(PlaybackRequest("recording", r.recording?.id ?: r.id), name = r.name)
                             else -> details(nav, r.title?.id ?: r.id)
                         }
-                    }.padding(horizontal = 16.dp, vertical = 8.dp),
+                    }.padding(horizontal = gutter(), vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val poster = r.kind == "title"
@@ -185,7 +183,7 @@ fun SettingsScreen(nav: NavHostController) {
     fun browse(url: String) = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
     Column {
         Header("Settings", nav, back = !isWide())
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = gutter(), vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Watching as", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(prefs.profileName ?: "No profile chosen", Modifier.weight(1f))
@@ -345,8 +343,8 @@ fun ProfilesScreen(nav: NavHostController) {
             }
         }
     }
-    Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.height(48.dp))
+    Column(Modifier.fillMaxSize().padding(horizontal = gutter(), vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Spacer(Modifier.height(if (rememberIsTv()) 24.dp else 48.dp))
         Text("Who's watching?", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(32.dp))
         Loaded(list) { ps ->
@@ -355,7 +353,7 @@ fun ProfilesScreen(nav: NavHostController) {
                 items(ps.profiles.orEmpty(), key = { it.id }) { p ->
                     val needsPin = p.hasPin == true || (locked && p.kind == "adult")
                     Column(Modifier.tvClickable { if (needsPin) pinFor = p else choose(p, null) }, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(88.dp).clip(CircleShape).background(colourOf(p.colour)), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(if (rememberIsTv()) 100.dp else 88.dp).clip(RoundedCornerShape(if (rememberIsTv()) 16.dp else 44.dp)).background(colourOf(p.colour)), contentAlignment = Alignment.Center) {
                             Text(p.name.take(1).uppercase(), fontSize = 36.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                         Spacer(Modifier.height(8.dp))

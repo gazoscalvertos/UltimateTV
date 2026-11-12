@@ -17,7 +17,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,7 +64,7 @@ fun WhatsNewScreen(nav: NavHostController) {
             if (releases.isEmpty()) {
                 Text("This Hub doesn't have a change log.", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(contentPadding = PaddingValues(horizontal = gutter(), vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (r in releases) {
                     item { Text(label(r), Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
                     r.note?.takeIf { it.isNotBlank() }?.let { note -> item { Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }

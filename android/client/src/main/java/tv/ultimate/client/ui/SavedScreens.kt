@@ -23,11 +23,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -93,7 +91,7 @@ private fun RecordingRow(r: Recording, entry: OfflineEntry?, reload: () -> Unit)
     val p = r.programme
     val playable = r.status == "completed" || r.status == "recording"
     Row(
-        Modifier.fillMaxWidth().tvClickable(enabled = playable) { ui.play(PlaybackRequest("recording", r.id), name = p.title) }.padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().tvClickable(enabled = playable) { ui.play(PlaybackRequest("recording", r.id), name = p.title) }.padding(horizontal = gutter(), vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {
@@ -144,7 +142,7 @@ fun DownloadsScreen(nav: NavHostController) {
         Header("Downloads", nav)
         val used = size(Offline.usedBytes()) ?: "Nothing"
         val free = size(Offline.freeBytes()) ?: "0 MB"
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = gutter()), verticalAlignment = Alignment.CenterVertically) {
             Text("$used saved · $free free", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (entries.any { !it.done }) TextButton(onClick = { paused = !paused; Offline.pause(paused) }) { Text(if (paused) "Resume all" else "Pause all") }
         }
@@ -166,7 +164,7 @@ private fun DownloadRow(e: OfflineEntry, paused: Boolean) {
     val item = e.item
     val watched = Offline.position(item.progressKey)?.let { p -> p.durationMs?.let { d -> if (d > 0) p.positionMs.toFloat() / d else null } }
     Row(
-        Modifier.fillMaxWidth().tvClickable(enabled = e.done) { PlayerActivity.playOffline(context, e) }.padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().tvClickable(enabled = e.done) { PlayerActivity.playOffline(context, e) }.padding(horizontal = gutter(), vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {

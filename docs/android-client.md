@@ -2,6 +2,25 @@
 
 **UltimateTV for Android** watches everything the TV does, on a phone or tablet on the home Wi-Fi: live TV and the guide, catch-up, recordings, films and TV from Jellyfin, TorBox and IPTV, and the music video channels. It also downloads films, episodes and recordings to watch away from home. It's a separate app from the [phone remote](phone-remote.md), and both can be installed.
 
+## The look: the same as the TV
+
+The app is drawn like the TV app, and wears the same theme (Dark, Ocean, Halloween, … and the
+seasonal ones; [themes](themes.md)). The Hub sends today's palette (`GET /api/theme`) each time the
+app comes to the front, and the last one is kept for away from home.
+
+- **Fire TV and other TVs, and tablets:** the TV app's top bar: the app's name, pill tabs (Home, TV
+  Guide, Films, TV Shows, Recordings, Downloads, Search, Settings), the clock and who's watching.
+  There is no side rail. Under the remote a tab, button or chip turns solid and lifts a little; a
+  poster gets a white ring and lifts. A TV is drawn on a fixed 120 × 67.5 rem canvas like the TV
+  app's own screens (1 rem is 10 dp in the code), so it looks the same on a 720p stick and a 4K one.
+  Rails, titles and gutters use the same sizes as `ui/src/styles.css`.
+- **Vertical (portrait):** the whole app, the player included, turns with the phone or tablet (it follows the rotation lock). Held upright, a tablet gets the phone layout (tabs along the bottom); on its side it has the TV-style top bar.
+- **Phones:** a slim bar with the name, Search, Settings and who's watching, and the tabs along the
+  bottom (Films and TV shows share one tab, with a chip to choose). Same colours, cards and rails.
+
+Everything else (Settings, Downloads, the lists) takes its colours from the theme too, so a change of
+theme on the TV or the phone remote reaches the app.
+
 ## Installing
 
 1. On the phone, open `http://192.168.0.19:8095/api/client/app.apk` in Chrome. The Hub fetches the latest build from GitHub. It's also in the latest CI run's `ultimatetv-client-apk` artifact.

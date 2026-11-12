@@ -44,6 +44,10 @@ class Prefs(context: Context) {
     var appName: String
         get() = sp.getString("appName", null) ?: "UltimateTV"
         set(v) = sp.edit().putString("appName", v).apply()
+    /** Today's theme (the TV's own, or the seasonal one), remembered for when the Hub is away. */
+    var themeJson: String?
+        get() = sp.getString("themeJson", null)
+        set(v) = sp.edit().putString("themeJson", v).apply()
     /** The newest change in What's new this phone has shown (CHANGELOG.md, via the Hub). */
     var changesSeen: String?
         get() = sp.getString("changesSeen", null)
@@ -296,6 +300,8 @@ class Hub(private val prefs: Prefs) {
     suspend fun features(): FeatureState = get("/api/features?client=android", 5000)
     suspend fun setFeatures(device: String, off: List<String>): List<String> =
         (post<Map<String, Any?>>("/api/features/${enc(device)}", mapOf("off" to off), method = "PUT")["off"] as? List<*>)?.filterIsInstance<String>().orEmpty()
+
+    suspend fun theme(): ThemeInfo = get("/api/theme", 5000)
 
     suspend fun appName(): String? = (get<Map<String, Any?>>("/api/settings", 5000)["appName"] as? String)?.takeIf { it.isNotBlank() }
 

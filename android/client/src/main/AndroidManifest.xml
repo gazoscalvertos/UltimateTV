@@ -37,7 +37,7 @@
             android:name=".PlayerActivity"
             android:exported="false"
             android:launchMode="singleTask"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="fullUser"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"

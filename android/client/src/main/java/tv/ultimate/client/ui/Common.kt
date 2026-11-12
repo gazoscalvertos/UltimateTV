@@ -4,6 +4,14 @@
 package tv.ultimate.client.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +30,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -122,71 +129,168 @@ fun Empty(text: String) {
 @Composable
 fun isWide(): Boolean = LocalConfiguration.current.screenWidthDp >= 600
 
+/** A poster is 13.5 rem wide on the TV; a tablet's are a little larger than a phone's. */
 @Composable
-fun posterWidth(): Dp = if (isWide()) 140.dp else 112.dp
+fun posterWidth(): Dp = if (rememberIsTv()) 135.dp else if (isWide()) 140.dp else 112.dp
+
+/** The wide cards (channels, recordings, Continue watching): 24 rem on the TV. */
+@Composable
+fun wideCardWidth(): Dp = if (rememberIsTv()) 240.dp else if (isWide()) 240.dp else 200.dp
+
+@Composable
+private fun artShape(): RoundedCornerShape = RoundedCornerShape(if (rememberIsTv()) 8.dp else 10.dp)
 
 /** A Hub image (relative paths become absolute), or a saved file. */
 @Composable
 fun Picture(model: Any?, modifier: Modifier = Modifier, scale: ContentScale = ContentScale.Crop) {
     val m = if (model is String) App.instance.hub.abs(model) else model
-    Box(modifier.background(Color(0xFF1A2333))) {
+    val c = LocalUtv.current
+    Box(modifier.background(c.panel)) {
         if (m != null) AsyncImage(model = m, contentDescription = null, contentScale = scale, modifier = Modifier.fillMaxSize())
     }
 }
 
+/** A picture that falls back to the name on a plain card, as the TV does when there is no artwork. */
 @Composable
-fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 8.dp))
+private fun Art(model: Any?, name: String, modifier: Modifier) {
+    val c = LocalUtv.current
+    if (model == null) {
+        Box(modifier.background(Brush.linearGradient(listOf(c.panel2, c.panel))).padding(8.dp), contentAlignment = Alignment.Center) {
+            Text(name, color = c.muted, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 4, overflow = TextOverflow.Ellipsis, fontSize = if (rememberIsTv()) 12.sp else 14.sp)
+        }
+    } else Picture(model, modifier)
 }
 
+/** A rail's title: 1.55 rem, as on the TV. */
 @Composable
-fun Poster(t: TitleRef, onClick: () -> Unit) {
-    val w = posterWidth()
-    Column(Modifier.width(w).tvClickable(onClick = onClick)) {
-        Box {
-            Picture(t.poster ?: t.backdrop, Modifier.width(w).aspectRatio(2f / 3f).clip(RoundedCornerShape(8.dp)))
-            t.progress?.let { p ->
-                if (p > 0.01) LinearProgressIndicator(progress = { p.toFloat().coerceIn(0f, 1f) }, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp).height(3.dp))
-            }
-        }
-        Text(t.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
-        val sub = t.subtitle ?: t.year?.toString()
-        if (sub != null) Text(sub, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun SectionTitle(text: String, modifier: Modifier = Modifier) {
+    if (text.isBlank()) return
+    val c = LocalUtv.current
+    val tv = rememberIsTv()
+    Text(
+        text,
+        color = c.fg,
+        fontSize = if (tv) 15.5.sp else 18.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = modifier.padding(start = gutter(), end = gutter(), top = if (tv) 14.dp else 20.dp, bottom = if (tv) 4.dp else 6.dp),
+    )
+}
+
+/**
+ * A card the remote can land on. The picture lifts and gets a white ring when focused, and the
+ * name stays put underneath, as on the TV. [content] draws the picture; [label] the lines below.
+ */
+@Composable
+private fun FocusCard(onClick: () -> Unit, width: Dp, art: @Composable (Modifier) -> Unit, label: @Composable () -> Unit) {
+    val c = LocalUtv.current
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.07f else 1f, label = "cardFocus")
+    val shape = artShape()
+    Column(
+        Modifier.width(width).onFocusChanged { focused = it.isFocused }.clickable(onClick = onClick),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            Modifier
+                .graphicsLayer { scaleX = scale; scaleY = scale }
+                .then(if (focused) Modifier.border(2.5.dp, c.focus, shape) else Modifier)
+                .clip(shape),
+        ) { art(Modifier) }
+        label()
     }
 }
 
 @Composable
+private fun CardLabel(title: String, sub: String?, modifier: Modifier = Modifier) {
+    val c = LocalUtv.current
+    val tv = rememberIsTv()
+    Column(modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Text(title, color = c.fg, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold, fontSize = if (tv) 11.5.sp else 14.sp)
+        if (!sub.isNullOrBlank()) Text(sub, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = if (tv) 10.sp else 12.sp)
+    }
+}
+
+@Composable
+private fun Badge(text: String, modifier: Modifier = Modifier, fill: Color = Color(0xA6000000)) {
+    Text(
+        text,
+        modifier.clip(RoundedCornerShape(4.dp)).background(fill).padding(horizontal = 5.dp, vertical = 2.dp),
+        color = Color.White, fontWeight = FontWeight.Bold, fontSize = if (rememberIsTv()) 8.5.sp else 10.sp, maxLines = 1,
+    )
+}
+
+@Composable
+fun Poster(t: TitleRef, onClick: () -> Unit) {
+    val c = LocalUtv.current
+    FocusCard(
+        onClick, posterWidth(),
+        art = {
+            Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
+                Art(t.poster ?: t.backdrop, t.name, Modifier.fillMaxSize())
+                t.badges?.firstOrNull()?.let { Badge(it, Modifier.align(Alignment.TopStart).padding(6.dp)) }
+                t.progress?.let { p ->
+                    if (p > 0.01) LinearProgressIndicator(
+                        progress = { p.toFloat().coerceIn(0f, 1f) },
+                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp).height(3.5.dp).clip(RoundedCornerShape(2.dp)),
+                        color = c.accent,
+                        trackColor = c.lift(0.22f),
+                    )
+                }
+            }
+        },
+        label = { CardLabel(t.name, t.subtitle ?: t.year?.toString()) },
+    )
+}
+
+/** A rail of posters (or nothing, if there are none). */
+@Composable
 fun PosterRail(title: String, items: List<TitleRef>, open: (TitleRef) -> Unit) {
     if (items.isEmpty()) return
     SectionTitle(title)
-    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    // Room above and below, so a lifted poster and its ring aren't cut off by the edge of the row.
+    LazyRow(contentPadding = PaddingValues(start = gutter(), end = gutter(), top = 8.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(if (rememberIsTv()) 14.dp else 12.dp)) {
         items(items) { Poster(it) { open(it) } }
     }
 }
 
 @Composable
 fun ChannelCard(n: NowNext, onClick: () -> Unit) {
-    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.width(220.dp).tvClickable(onClick = onClick)) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Picture(n.channel.logo, Modifier.size(40.dp, 28.dp), ContentScale.Fit)
-                Spacer(Modifier.width(8.dp))
-                Text("${n.channel.number}  ${n.channel.name}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
+    val c = LocalUtv.current
+    FocusCard(
+        onClick, wideCardWidth(),
+        art = {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+                Art(n.now?.image, n.channel.name, Modifier.fillMaxSize())
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0x73000000), Color.Transparent, Color.Transparent, Color(0x99000000)))))
+                if (n.channel.logo != null) Picture(n.channel.logo, Modifier.align(Alignment.TopStart).padding(7.dp).size(34.dp, 22.dp).background(Color.Transparent), ContentScale.Fit)
+                else Badge(n.channel.name, Modifier.align(Alignment.TopStart).padding(7.dp))
+                Text("${n.channel.number}", Modifier.align(Alignment.TopEnd).padding(8.dp), color = Color.White, fontWeight = FontWeight.Bold, fontSize = if (rememberIsTv()) 11.sp else 12.sp)
+                n.now?.let { p ->
+                    LinearProgressIndicator(
+                        progress = { progressOf(p.start, p.end) },
+                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp).height(3.5.dp).clip(RoundedCornerShape(2.dp)),
+                        color = c.accent,
+                        trackColor = Color(0x55FFFFFF),
+                    )
+                }
             }
-            Spacer(Modifier.height(8.dp))
-            Text(n.now?.title ?: "No information", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-            n.now?.let { p -> LinearProgressIndicator(progress = { progressOf(p.start, p.end) }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp).height(3.dp)) }
-        }
-    }
+        },
+        label = { CardLabel(n.now?.title ?: "No information", n.channel.name + (n.now?.let { " · until ${clock(it.end)}" } ?: "")) },
+    )
 }
 
 @Composable
 fun RecordingCard(r: Recording, onClick: () -> Unit) {
-    Column(Modifier.width(200.dp).tvClickable(onClick = onClick)) {
-        Picture(r.programme.image, Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp)))
-        Text(r.programme.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
-        Text("${r.channelName} · ${day(r.programme.start)}", maxLines = 1, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    FocusCard(
+        onClick, wideCardWidth(),
+        art = {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+                Art(r.programme.image, r.programme.title, Modifier.fillMaxSize())
+                if (r.watched != true) Badge("New", Modifier.align(Alignment.TopStart).padding(7.dp), LocalUtv.current.accent)
+            }
+        },
+        label = { CardLabel(r.programme.title, listOfNotNull(episodeLabel(r.programme.season, r.programme.episode), r.channelName, day(r.programme.start)).joinToString(" · ")) },
+    )
 }
 
 // -------------------------------------------------------------------------
