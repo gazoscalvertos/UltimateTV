@@ -143,6 +143,8 @@ fun HomeScreen(nav: NavHostController) {
                                     items(rail.recordings) { r -> RecordingCard(r) { ui.play(PlaybackRequest("recording", r.id), name = r.programme.title) } }
                                 }
                             }
+                            // Sport today (#231) is on the TV and the phone remote only for now.
+                            "sport" -> Unit
                             else -> PosterRail(rail.title, rail.items.orEmpty()) { details(nav, it.id) }
                         }
                     }

@@ -52,6 +52,7 @@ import { startSaveNotices } from "./save";
 import { DownloadsScreen } from "./screens/Downloads";
 import { ElsewhereScreen } from "./screens/Elsewhere";
 import { ComingUpScreen } from "./screens/ComingUp";
+import { SportScreen } from "./screens/Sport";
 import { startEpisodePopups } from "./following";
 import { startWatching } from "./watching";
 import { pairingWait, pairScreen } from "./pairing";
@@ -356,6 +357,9 @@ export function App() {
           </Match>
           <Match when={nav.current().name === "coming-up"}>
             <ComingUpScreen />
+          </Match>
+          <Match when={nav.current().name === "sport"}>
+            <SportScreen />
           </Match>
           <Match when={nav.current().name === "elsewhere"}>
             <ElsewhereScreen />

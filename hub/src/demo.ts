@@ -58,7 +58,7 @@ const POOLS: Record<ChannelCategory, string[]> = {
     "Hidden Villages", "Two Up, Two Down", "Market Town", "The Long Weekend", "Ward 9", "Pub Quiz Champions", "Dragon's Kitchen",
   ],
   films: ["The Long Road North", "Paper Moons", "Last Train to Brighton", "Starfall", "The Clockmaker", "Glasshouse", "Night Ferry", "Copper Sky", "The Lighthouse Keeper", "Thin Ice"],
-  sport: ["Live: Premier League Football", "Super Sunday", "Goals Express", "Grand Prix Qualifying", "Test Cricket Highlights", "Fight Night Live", "Racing Today", "Golf Weekly"],
+  sport: ["Premier League: Arsenal v Tottenham", "Premier League: Chelsea v Liverpool", "Super Sunday: Man City v Newcastle", "Goals Express", "Formula 1: Qualifying", "Test Cricket: England v India", "Fight Night Live", "Six Nations Rugby: Wales v Ireland", "Golf Weekly"],
   news: ["News Hour", "World Tonight", "Business Live", "The Briefing", "Politics Live", "Newsday"],
   documentaries: ["Planet Ocean", "Wild Islands", "Engineering Giants", "Ancient Roads", "Deep Freeze", "Volcano Watch", "Secrets of the Nile"],
   kids: ["Rocket Pups", "Mo and the Moonbeams", "Space Detectives", "Art Attackers", "Dino Ranch Rescue", "The Muddles"],
@@ -267,6 +267,8 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   ctx.guide.upsert(programmes);
   if (!ctx.guides.list().length) ctx.guides.create({ name: "Evenings", channels: ["sky-atlantic", "bbc-one", "channel-4", "film4", "sky-sports-main-event", "dave"] });
   ctx.db.setKv("epgUpdatedAt", now);
+  // The household follows Arsenal and Formula 1, so Sport tonight has favourites to show (#231).
+  ctx.db.setKv("sport:default", { teams: ["Arsenal", "Formula 1"], remind: true, record: false });
   ctx.db.setKv("sourcesUpdatedAt", now);
   // A few recent searches, so the Search screen shows them before anything is typed.
   if (!ctx.db.getKv("search-history:default")) {

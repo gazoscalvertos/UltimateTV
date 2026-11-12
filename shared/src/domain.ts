@@ -10,6 +10,7 @@ import type { AdBreak, Alert, SleepChoice, SleepState } from "./household.js";
 import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
 import { seasonOn } from "./seasons.js";
 import type { ThemeChoice, ThemeName } from "./themes.js";
+import type { SportMatch } from "./sport.js";
 import type { AccessibilitySettings } from "./accessibility.js";
 import type { KidsAsk } from "./kidsallow.js";
 import type { FeatureId } from "./features.js";
@@ -376,10 +377,12 @@ export interface SubtitleResult {
 export interface Rail {
   id: string;
   title: string;
-  kind: "titles" | "channels" | "recordings";
+  kind: "titles" | "channels" | "recordings" | "sport";
   items: TitleRef[];
   channels?: NowNext[];
   recordings?: Recording[];
+  /** Sport today (issue #231). */
+  sport?: SportMatch[];
 }
 
 export interface HomeScreen {
@@ -871,6 +874,8 @@ export type HubEvent =
   | { type: "settings.changed" }
   | { type: "profiles.changed" }
   | { type: "toast"; message: string }
+  /** A profile's sport favourites changed (issue #231). */
+  | { type: "sport.changed"; profileId: string | null }
   /** A profile's followed series changed (issue #226). */
   | { type: "following.changed"; profileId: string | null }
   /** A followed series has a new episode (issue #226): the TV pops it up for that profile only. */
