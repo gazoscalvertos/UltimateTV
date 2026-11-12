@@ -117,6 +117,8 @@ export class HubContext {
   readonly proxy: StreamProxy;
   readonly downloads: DownloadManager;
   readonly mix: MixManager;
+  /** yt-dlp, or null when it isn't installed (and on the demo Hub). */
+  readonly ytdlp: YtDlp | null;
   readonly photos: PhotoFolder;
   readonly art: ArtGallery;
   readonly log: Logger;
@@ -210,6 +212,7 @@ export class HubContext {
     this.downloads = new DownloadManager(this.db, this.settings, this.events, this.log, () => this.torbox(), onLibraryChanged, this.fetchImpl);
     const env = opts.env ?? {};
     const run = opts.ytdlp === undefined ? spawnRun(env.YTDLP_PATH || "yt-dlp") : opts.ytdlp;
+    this.ytdlp = run ? new YtDlp(run, (env.YTDLP_ARGS ?? "").split(/\s+/).filter(Boolean)) : null;
     this.mix = new MixManager({
       db: this.db,
       channels: this.channels,
@@ -217,7 +220,7 @@ export class HubContext {
       settings: this.settings,
       events: this.events,
       log: this.log,
-      ytdlp: run ? new YtDlp(run, (env.YTDLP_ARGS ?? "").split(/\s+/).filter(Boolean)) : null,
+      ytdlp: this.ytdlp,
       ...(opts.demo ? { demo: true } : {}),
       ...(opts.mixPauseMs !== undefined ? { pauseMs: opts.mixPauseMs } : {}),
       ...(opts.mixMinFreeBytes !== undefined ? { minFreeBytes: opts.mixMinFreeBytes } : {}),

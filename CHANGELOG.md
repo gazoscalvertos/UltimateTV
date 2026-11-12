@@ -28,6 +28,11 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-12
+
+- **Muted trailer behind the Home hero**: after a few seconds on Home's top title, its trailer fades in behind the details, muted, over the still. It's off until a profile turns it on (Settings › Profiles › the profile › Trailer behind Home), so a Kids profile only has it if a grown-up chose it. It stops while anything is playing, with reduced motion on, and for the session if the box drops a quarter of the frames. ([docs/hero-trailer.md](docs/hero-trailer.md)) (#240)
+  Household: Home can play a quiet trailer behind the top film, if you switch it on for your profile.
+
 ## 2026-11-09
 
 - **Phone remote: bigger touch targets and a tidier small-phone layout**: all seven tabs now share the bar equally on a 360px phone, the Now Playing buttons all fit, and the small buttons (settings, chips, queue buttons, the dismiss ×) are at least 44px. Sheets get a grab handle and close with Escape, the status text is announced by screen readers, keyboard focus is visible, animations stop when the phone asks for reduced motion, and pinch-zoom works again. ([docs/phone-remote.md](docs/phone-remote.md#small-phones-and-accessibility)) (#258)

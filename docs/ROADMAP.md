@@ -56,6 +56,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Nightly Hub backup, box screen when the Hub is down | #63 | Untested |
 | Weather | #64 | Untested |
 | Trailers and scores, More like this, OpenSubtitles | #65 | Untested |
+| Muted trailer behind the Home hero | #240 | Untested; CPU/GPU on the K7 Plus still to measure |
 | What's new (change log in every app) | #112 | Untested |
 | Home Assistant both ways (media player, playback events) | #113 | Untested |
 | Kids TV time and bedtime | #114 | Untested |
