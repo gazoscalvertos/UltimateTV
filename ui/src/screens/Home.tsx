@@ -17,6 +17,7 @@ import { errorToast, isKids, nav, toast } from "../store";
 import { choose } from "../components/Dialog";
 import { continueOptions, undoLabel, type ContinuePick } from "../continueWatching";
 import { castSettings } from "../cast";
+import { HomeFamily } from "../components/HomeFamily";
 import { HomeWeather } from "../components/HomeWeather";
 import { featureOn, shownRails, titleShown } from "../features";
 import { current } from "../focus";
@@ -141,7 +142,10 @@ export function Home() {
       </Show>
       <TopBar />
       <div class="page" data-scroll-y="120">
-        <HomeWeather />
+        <div class="home-asides">
+          <HomeWeather />
+          <HomeFamily />
+        </div>
         <Show when={home()} fallback={<div class="spinner" />}>
           <Show when={hero()}>
             {(hero) => (

@@ -3,8 +3,9 @@
 // Typing an address on the TV is slow, so the alert URLs can be set from the phone too.
 
 import { createResource, createSignal, For, Show } from "solid-js";
+import type { FamilyPatch, FamilySettingsView } from "@ultimatetv/shared";
 import type { AdvertScan, FeatureId, HomeRowId, HomeRowState, AlertSettings, ProjectionSettings, SeasonId, WeatherSettings } from "@ultimatetv/shared";
-import { daysFromNow, formatBytes, householdChanges, releaseLabel, SEASONS } from "@ultimatetv/shared";
+import { addDays, binItems, dayKey, daysFromNow, familyDayLabel, formatBytes, parseBirthdayText, weekdayName, householdChanges, releaseLabel, SEASONS } from "@ultimatetv/shared";
 import { hub } from "../api";
 import { canCast, castSettings, castState, refreshCast, saveCastSettings, setAirplay, shareUrl } from "../cast";
 import { askText, choose } from "../components/Dialog";
@@ -12,6 +13,7 @@ import { cycle, Row, Status } from "../components/SettingRow";
 import { onHubEvent } from "../events";
 import { featureChoices, featureLabel, featureOn, featureState, saveFeatures } from "../features";
 import { setWeatherState, weather, weatherLine } from "../weather";
+import { loadFamily } from "../family";
 import { errorToast, nav, toast } from "../store";
 import { markChangesSeen } from "../whatsnew";
 import { onCleanup } from "solid-js";
@@ -274,6 +276,158 @@ export function WeatherSection() {
             <Show when={s().settings.place}>
               <Row label="Forget where we live" icon="trash" onSelect={() => void save({ place: null })} />
             </Show>
+          </>
+        )}
+      </Show>
+    </>
+  );
+}
+
+/**
+ * The family board (issue #233): calendars, birthdays, bin day and the school run, for the card on
+ * Home and the Today screensaver. Typing long calendar links is much easier on the phone's
+ * Settings page, which has the same things.
+ */
+export function FamilySection() {
+  const [view, { mutate }] = createResource(() => hub.familySettings().catch(() => null));
+  const [read, setRead] = createSignal<{ name: string; message: string }[] | null>(null);
+  const save = async (patch: FamilyPatch) => {
+    try {
+      mutate(await hub.saveFamilySettings(patch));
+      void loadFamily();
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  const readNow = async () => {
+    try {
+      const st = await hub.refreshFamily();
+      setRead(st.errors ?? []);
+      toast(st.errors?.length ? "Some calendars couldn't be read" : "Calendars read", st.errors?.length ? "bad" : "good");
+      void loadFamily();
+    } catch (err) {
+      errorToast(err);
+    }
+  };
+  const addCalendar = async (s: FamilySettingsView, kind: "ical" | "ha") => {
+    const ref = await askText(kind === "ical" ? "Calendar link (iCal)" : "Home Assistant calendar", kind === "ical" ? "https://" : "calendar.", kind === "ical" ? "Google: Settings › your calendar › Secret address in iCal format. Easier to paste on the phone's Settings page." : "The entity, like calendar.family. Needs the Home Assistant address and token below.");
+    if (!ref) return;
+    const name = await askText("What's it called?", "Family");
+    if (!name) return;
+    const kids = await choose({ title: "Show it on Kids profiles?", message: "Kids profiles only see calendars you say they may. Anything else stays off them.", options: [{ label: "No, grown-ups only", value: false }, { label: "Yes, Kids can see it", value: true }] });
+    if (kids === undefined) return;
+    await save({ calendars: [...s.calendars, { id: "", name, kind, kids, ...(kind === "ical" ? { url: ref } : { entity: ref }) }] });
+  };
+  const addBirthday = async (s: FamilySettingsView) => {
+    const name = await askText("Whose birthday?", "");
+    if (!name) return;
+    const when = await askText(`${name}'s birthday`, "", "Day then month: 14 March, or 14/3. Add the year (14/3/2017) to show their age.");
+    const b = when ? parseBirthdayText(when) : null;
+    if (!b) return when === undefined ? undefined : toast("Try it as 14 March or 14/3", "bad");
+    await save({ birthdays: [...s.birthdays, { id: "", name, ...b }] });
+  };
+  const addBin = async (s: FamilySettingsView) => {
+    const name = await askText("Which bin?", "Green bin");
+    if (!name) return;
+    const weekday = await choose({ title: `Which day is the ${name} collected?`, options: [1, 2, 3, 4, 5, 6, 0].map((d) => ({ label: weekdayName(d), value: d })) });
+    if (weekday === undefined) return;
+    const every = await choose({ title: "How often?", options: [{ label: "Every week", value: 1 }, { label: "Every other week", value: 2 }, { label: "Every three weeks", value: 3 }, { label: "Every four weeks", value: 4 }] });
+    if (every === undefined) return;
+    // The next two dates it falls on: pick the one that really is a collection day.
+    const today = dayKey(Date.now());
+    const dates: string[] = [];
+    for (let i = 0; i < 28 && dates.length < (every === 1 ? 1 : every); i++) {
+      const day = addDays(today, i);
+      if (binItems([{ id: "x", name: "x", weekday, everyWeeks: 1, from: day }], day, 0).length) dates.push(day);
+    }
+    const from = every === 1 ? dates[0]! : await choose({ title: "Which of these is the next collection?", options: dates.map((d) => ({ label: `${familyDayLabel(d, Date.now())} ${d.slice(8)}/${d.slice(5, 7)}`, value: d })) });
+    if (!from) return;
+    await save({ bins: { ...s.bins, mode: "schedule", rules: [...s.bins.rules, { id: "", name, weekday, everyWeeks: every, from }] } });
+  };
+  return (
+    <>
+      <h2>Family board</h2>
+      <p class="hint">One view of the day: calendar events, birthdays, bin day and the school run, on Home and as the Today screensaver (pick it in Screensaver). Kids profiles see a smaller version, only of what you share with them; a Guest sees none of it. Pasting links is quicker on the phone's Settings page.</p>
+      <Show when={view()} fallback={<Show when={view.loading} fallback={<p class="hint">Couldn't ask the Hub.</p>}><div class="spinner" /></Show>}>
+        {(s) => (
+          <>
+            <h3>Calendars</h3>
+            <For each={s().calendars}>
+              {(c) => (
+                <Row
+                  label={c.name}
+                  icon="info"
+                  value={c.kind === "ha" ? "Home Assistant" : "iCal link"}
+                  hint={`${c.kids ? "Kids can see it" : "Grown-ups only"}${read()?.find((e) => e.name === c.name) ? ` · ${read()!.find((e) => e.name === c.name)!.message}` : ""}`}
+                  onSelect={async () => {
+                    const pick = await choose({ title: c.name, options: [{ label: c.kids ? "Keep it off Kids profiles" : "Let Kids profiles see it", value: "kids" as const }, { label: "Remove", value: "remove" as const, tone: "danger" as const }] });
+                    if (pick === "kids") await save({ calendars: s().calendars.map((x) => (x.id === c.id ? { ...x, kids: !x.kids } : x)) });
+                    else if (pick === "remove") await save({ calendars: s().calendars.filter((x) => x.id !== c.id) });
+                  }}
+                />
+              )}
+            </For>
+            <Row label="Add a calendar link" icon="edit" hint="Google, Nextcloud, iCloud or Outlook: any iCal address" onSelect={() => void addCalendar(s(), "ical")} />
+            <Row label="Add a Home Assistant calendar" icon="edit" onSelect={() => void addCalendar(s(), "ha")} />
+            <Row label="Home Assistant address" value={s().ha.url || <Status ok={false} text="Not set" />} hint="Like http://192.168.0.20:8123" onSelect={async () => {
+              const url = await askText("Home Assistant address", s().ha.url || "http://");
+              if (url !== undefined) await save({ ha: { url } });
+            }} />
+            <Row label="Home Assistant token" value={s().ha.tokenSet ? <Status ok text="Set" /> : <Status ok={false} text="Not set" />} hint="A long-lived access token (your Home Assistant profile page). Easier to paste on the phone" onSelect={async () => {
+              const token = await askText("Home Assistant token", "");
+              if (token !== undefined) await save({ ha: { url: s().ha.url, token } });
+            }} />
+            <Show when={s().calendars.length || s().bins.mode === "ha"}>
+              <Row label="Read the calendars now" icon="restart" hint="They're read every 15 minutes anyway" onSelect={() => void readNow()} />
+            </Show>
+
+            <h3>Birthdays</h3>
+            <For each={s().birthdays}>
+              {(b) => (
+                <Row label={b.name} icon="info" value={`${b.day} ${new Date(2000, b.month - 1).toLocaleString("en-GB", { month: "long" })}${b.year ? ` ${b.year}` : ""}`} hint="Select to remove" onSelect={async () => {
+                  if (await choose({ title: `Remove ${b.name}'s birthday?`, options: [{ label: "Remove", value: true, tone: "danger" as const }, { label: "Keep", value: false }] })) await save({ birthdays: s().birthdays.filter((x) => x.id !== b.id) });
+                }} />
+              )}
+            </For>
+            <Row label="Add a birthday" icon="edit" onSelect={() => void addBirthday(s())} />
+            <Row label="Birthdays on Kids profiles" value={onOff(s().birthdaysForKids)} onSelect={() => void save({ birthdaysForKids: !s().birthdaysForKids })} />
+
+            <h3>Bin day</h3>
+            <Row label="Where it comes from" value={{ off: "No bin card", schedule: "A schedule", ha: "Home Assistant" }[s().bins.mode]} onSelect={() => void save({ bins: { ...s().bins, mode: cycle(["off", "schedule", "ha"] as const, s().bins.mode) } })} />
+            <Show when={s().bins.mode === "schedule"}>
+              <For each={s().bins.rules}>
+                {(r) => (
+                  <Row label={r.name} icon="info" value={`${weekdayName(r.weekday)}s${r.everyWeeks > 1 ? `, every ${r.everyWeeks} weeks` : ""}`} hint="Select to remove" onSelect={async () => {
+                    if (await choose({ title: `Remove the ${r.name}?`, options: [{ label: "Remove", value: true, tone: "danger" as const }, { label: "Keep", value: false }] })) await save({ bins: { ...s().bins, rules: s().bins.rules.filter((x) => x.id !== r.id) } });
+                  }} />
+                )}
+              </For>
+              <Row label="Add a bin" icon="edit" onSelect={() => void addBin(s())} />
+            </Show>
+            <Show when={s().bins.mode === "ha"}>
+              <For each={s().bins.entities}>
+                {(e) => <Row label={e} icon="info" hint="Select to remove" onSelect={() => void save({ bins: { ...s().bins, entities: s().bins.entities.filter((x) => x !== e) } })} />}
+              </For>
+              <Row label="Add a Home Assistant sensor" icon="edit" hint="One whose state is the next collection date, like sensor.green_bin" onSelect={async () => {
+                const e = await askText("Sensor", "sensor.");
+                if (e) await save({ bins: { ...s().bins, entities: [...s().bins.entities, e] } });
+              }} />
+            </Show>
+            <Row label="Remind the evening before from" value={s().bins.eveningFrom ? `${s().bins.eveningFrom}:00` : "Off"} onSelect={() => void save({ bins: { ...s().bins, eveningFrom: cycle([0, 16, 17, 18, 19, 20], s().bins.eveningFrom) } })} />
+
+            <h3>School run</h3>
+            <Row label="Show the school run" hint="A line on school days until it's time to go" value={onOff(s().school.on)} onSelect={() => void save({ school: { ...s().school, on: !s().school.on } })} />
+            <Show when={s().school.on}>
+              <Row label="Called" value={s().school.label} onSelect={async () => {
+                const label = await askText("What's it called?", s().school.label);
+                if (label) await save({ school: { ...s().school, label } });
+              }} />
+              <Row label="Leave at" value={s().school.time} onSelect={() => void save({ school: { ...s().school, time: cycle(["07:30", "07:45", "08:00", "08:15", "08:30", "08:45", "09:00"], s().school.time) } })} />
+            </Show>
+
+            <h3>On screen</h3>
+            <Row label="Card on Home" value={onOff(s().onHome)} onSelect={() => void save({ onHome: !s().onHome })} />
+            <Row label="Items on the card" value={String(s().homeItems)} onSelect={() => void save({ homeItems: cycle([3, 4, 5, 6, 8], s().homeItems) })} />
           </>
         )}
       </Show>

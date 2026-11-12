@@ -141,7 +141,7 @@
     <h1><span id="brand-name">UltimateTV</span> settings<small>Everything the TV's Settings has, plus sources and logins. Changes reach the TV straight away.</small></h1>
   </header>
   <nav class="jump">
-    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#radio">Radio</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#bluetooth">Bluetooth</a><a href="#devices">Phones</a><a href="#apps">Apps</a><a href="#iptv">Live TV</a><a href="#sources">Source options</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin, Plex or Emby</a><a href="#vod">Films</a><a href="#requests">Requests</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
+    <a href="/setup/stats.html">Stats</a><a href="#software">Updates</a><a href="#whatsnew">What's new</a><a href="#name">Name</a><a href="#theme">Theme</a><a href="#playback">Picture and sound</a><a href="#screensaver">Screensaver</a><a href="#weather">Weather</a><a href="#family">Family board</a><a href="#alerts">Alerts</a><a href="#recording">Recording</a><a href="#music">Music channels</a><a href="#radio">Radio</a><a href="#profiles">Profiles</a><a href="#homerows">Home rows</a><a href="#bluetooth">Bluetooth</a><a href="#devices">Phones</a><a href="#apps">Apps</a><a href="#iptv">Live TV</a><a href="#sources">Source options</a><a href="#guide">Guide</a><a href="#lists">Channels</a><a href="#jellyfin">Jellyfin, Plex or Emby</a><a href="#vod">Films</a><a href="#requests">Requests</a><a href="#extras">Scores and subtitles</a><a href="#folders">Folders</a>
   </nav>
 
   <section>
@@ -283,6 +283,60 @@
     <label class="opt"><span>On Home<small>Today's weather in the top corner</small></span><input type="checkbox" data-wx="onHome"></label>
     <label class="opt"><span>Along the top<small>The temperature next to the clock; choose it for the week ahead</small></span><input type="checkbox" data-wx="inTopBar"></label>
     <label class="opt"><span>On the screensaver<small>Under the clock</small></span><input type="checkbox" data-wx="onScreensaver"></label>
+  </section>
+
+  <section id="family">
+    <h2>Family board <span class="pill" id="fam-pill">Not set</span></h2>
+    <p class="hint">One view of the day: calendar events, birthdays, bin day and the school run. It shows as a card on the TV's Home and as the <b>Today</b> screensaver (choose it under Screensaver). Kids profiles see a smaller version and only what you share with them; a Guest sees none of it.</p>
+    <h3 style="margin:14px 0 4px">Calendars</h3>
+    <p class="hint">Paste an iCal link: in Google Calendar it's Settings › your calendar › <i>Secret address in iCal format</i>; Nextcloud and iCloud have a share link; Outlook can publish a calendar. Treat these links like passwords. Home Assistant calendars work too.</p>
+    <ul class="list" id="fam-cals"></ul>
+    <form id="fam-cal-form">
+      <input name="url" type="url" placeholder="https://… (iCal link)" autocomplete="off">
+      <div class="row" style="grid-template-columns:1fr auto"><input name="name" placeholder="Called, e.g. Family" maxlength="40"><button class="small" style="margin:0">Add</button></div>
+      <label class="opt"><span>Kids can see it<small>Otherwise only grown-ups see these events</small></span><input type="checkbox" name="kids"></label>
+    </form>
+    <form id="fam-ha-form">
+      <label>Home Assistant<small> the address and a long-lived access token (your profile page in Home Assistant). The Hub keeps the token and never shows it again.</small></label>
+      <input name="url" placeholder="http://192.168.0.20:8123" autocomplete="off">
+      <input name="token" type="password" placeholder="Token (leave empty to keep the one saved)" autocomplete="off">
+      <button class="small" style="margin:6px 0 0">Save Home Assistant</button>
+    </form>
+    <form id="fam-hacal-form">
+      <div class="row" style="grid-template-columns:1fr 1fr auto"><input name="entity" placeholder="calendar.family" autocomplete="off"><input name="name" placeholder="Called" maxlength="40"><button class="small" style="margin:0">Add</button></div>
+      <label class="opt"><span>Kids can see it</span><input type="checkbox" name="kids"></label>
+    </form>
+    <button type="button" class="small" id="fam-read">Read the calendars now</button>
+    <p class="hint" id="fam-errors"></p>
+
+    <h3 style="margin:14px 0 4px">Birthdays</h3>
+    <ul class="list" id="fam-bdays"></ul>
+    <form id="fam-bday-form">
+      <div class="row" style="grid-template-columns:1fr auto auto"><input name="name" placeholder="Name" maxlength="40"><input name="date" type="date" required><button class="small" style="margin:0">Add</button></div>
+      <label class="opt"><span>Show their age<small>Uses the year of the date: "Turns 7"</small></span><input type="checkbox" name="age"></label>
+    </form>
+    <label class="opt"><span>Birthdays on Kids profiles</span><input type="checkbox" data-fam="birthdaysForKids"></label>
+
+    <h3 style="margin:14px 0 4px">Bin day</h3>
+    <label class="opt"><span>Where it comes from</span><select data-fam-bins="mode"><option value="off">No bin card</option><option value="schedule">A schedule</option><option value="ha">Home Assistant sensors</option></select></label>
+    <ul class="list" id="fam-bins"></ul>
+    <form id="fam-bin-form">
+      <div class="row" style="grid-template-columns:1fr 1fr"><input name="name" placeholder="Green bin" maxlength="30"><select name="weekday"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></div>
+      <div class="row" style="grid-template-columns:1fr 1fr auto"><select name="every"><option value="1">Every week</option><option value="2">Every 2 weeks</option><option value="3">Every 3 weeks</option><option value="4">Every 4 weeks</option></select><input name="from" type="date" required title="A day it is collected"><button class="small" style="margin:0">Add</button></div>
+      <small class="hint">The date can be any day that bin is collected, past or future: it lines up the alternate weeks.</small>
+    </form>
+    <label>Home Assistant sensors<small> one per line, each with the next collection date as its state</small></label>
+    <textarea id="fam-entities" rows="2" placeholder="sensor.green_bin"></textarea>
+    <label class="opt"><span>Say it the evening before from<small>"Green bin out tonight"</small></span><select data-fam-bins="eveningFrom" data-number><option value="0">Off</option><option value="16">16:00</option><option value="17">17:00</option><option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option></select></label>
+
+    <h3 style="margin:14px 0 4px">School run</h3>
+    <label class="opt"><span>Show the school run<small>A line on school days until it's time to go</small></span><input type="checkbox" data-fam-school="on"></label>
+    <div class="row" style="grid-template-columns:1fr auto"><input id="fam-school-label" placeholder="School run" maxlength="30"><input id="fam-school-time" type="time"></div>
+    <div class="row" id="fam-school-days" style="grid-template-columns:repeat(7,auto);justify-content:start;gap:10px"></div>
+
+    <h3 style="margin:14px 0 4px">On the TV</h3>
+    <label class="opt"><span>Card on Home</span><input type="checkbox" data-fam="onHome"></label>
+    <label class="opt"><span>Items on the card</span><select data-fam="homeItems" data-number><option>3</option><option>4</option><option>5</option><option>6</option><option>8</option></select></label>
   </section>
 
   <section id="alerts">
@@ -1307,6 +1361,94 @@ function showWeather(st) {
   const now = st.report?.now;
   pill("#wx-pill", now ? `${p.name} ${Math.round(st.settings.temperature === "f" ? (now.tempC * 9) / 5 + 32 : now.tempC)}°` : p ? p.name : "Not set", p ? "ok" : "");
 }
+// The family board (see docs/family-board.md): calendars, birthdays, bins and the school run.
+let famSettings = null;
+const FAM_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function famList(ul, rows) {
+  ul.innerHTML = "";
+  for (const r of rows) {
+    const li = document.createElement("li");
+    const t = document.createElement("span");
+    t.textContent = r.text;
+    if (r.small) { const sm = document.createElement("small"); sm.textContent = r.small; t.append(sm); }
+    li.append(t, ...r.buttons.map(([label, fn]) => button(label, label === "Remove" ? "danger" : "", fn)));
+    ul.append(li);
+  }
+}
+function showFamily(st) {
+  famSettings = st;
+  for (const el of document.querySelectorAll("[data-fam]")) setValue(el, st[el.dataset.fam]);
+  for (const el of document.querySelectorAll("[data-fam-bins]")) setValue(el, st.bins[el.dataset.famBins]);
+  for (const el of document.querySelectorAll("[data-fam-school]")) setValue(el, st.school[el.dataset.famSchool]);
+  $("#fam-school-label").value = st.school.label;
+  $("#fam-school-time").value = st.school.time;
+  $("#fam-school-days").innerHTML = "";
+  FAM_DAYS.forEach((d, i) => {
+    const l = document.createElement("label");
+    l.style.cssText = "display:flex;gap:4px;align-items:center;font-size:13px";
+    const c = document.createElement("input");
+    c.type = "checkbox"; c.checked = st.school.days.includes(i);
+    c.onchange = () => saveFamily({ school: { days: FAM_DAYS.map((_, j) => j).filter((j) => (j === i ? c.checked : st.school.days.includes(j))) } });
+    l.append(c, d);
+    $("#fam-school-days").append(l);
+  });
+  $("#fam-ha-form").url.value = st.ha.url;
+  $("#fam-ha-form").token.placeholder = st.ha.tokenSet ? "Token saved (type to replace it)" : "Token";
+  famList($("#fam-cals"), st.calendars.map((c) => ({
+    text: c.name, small: `${c.kind === "ha" ? "Home Assistant " + c.entity : "iCal link"} · ${c.kids ? "Kids can see it" : "grown-ups only"}`,
+    buttons: [[c.kids ? "Hide from Kids" : "Show Kids", () => saveFamily({ calendars: st.calendars.map((x) => (x.id === c.id ? { ...x, kids: !x.kids } : x)) })], ["Remove", () => saveFamily({ calendars: st.calendars.filter((x) => x.id !== c.id) })]],
+  })));
+  famList($("#fam-bdays"), st.birthdays.map((b) => ({ text: b.name, small: `${b.day}/${b.month}${b.year ? "/" + b.year : ""}`, buttons: [["Remove", () => saveFamily({ birthdays: st.birthdays.filter((x) => x.id !== b.id) })]] })));
+  famList($("#fam-bins"), st.bins.mode === "schedule" ? st.bins.rules.map((r) => ({ text: r.name, small: `${["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"][r.weekday]}${r.everyWeeks > 1 ? `, every ${r.everyWeeks} weeks` : ""}`, buttons: [["Remove", () => saveFamily({ bins: { rules: st.bins.rules.filter((x) => x.id !== r.id) } })]] })) : []);
+  $("#fam-bin-form").hidden = st.bins.mode !== "schedule";
+  $("#fam-entities").value = st.bins.entities.join("\n");
+  $("#fam-entities").hidden = st.bins.mode !== "ha";
+  const n = st.calendars.length + st.birthdays.length + st.bins.rules.length + st.bins.entities.length + (st.school.on ? 1 : 0);
+  pill("#fam-pill", n ? "Set up" : "Not set", n ? "ok" : "");
+}
+const loadFamily = () => api("/api/family/settings").then(showFamily);
+const saveFamily = (patch, done) => api("/api/family/settings", { method: "PUT", body: patch }).then((st) => { if (done) toast(done); showFamily(st); }).catch((e) => { toast(e.message, true); loadFamily().catch(() => {}); });
+for (const el of document.querySelectorAll("[data-fam]")) el.addEventListener("change", () => saveFamily({ [el.dataset.fam]: valueOf(el) }, "Saved"));
+for (const el of document.querySelectorAll("[data-fam-bins]")) el.addEventListener("change", () => saveFamily({ bins: { [el.dataset.famBins]: valueOf(el) } }, "Saved"));
+for (const el of document.querySelectorAll("[data-fam-school]")) el.addEventListener("change", () => saveFamily({ school: { [el.dataset.famSchool]: valueOf(el) } }, "Saved"));
+$("#fam-school-label").onchange = (e) => saveFamily({ school: { label: e.target.value } }, "Saved");
+$("#fam-school-time").onchange = (e) => e.target.value && saveFamily({ school: { time: e.target.value } }, "Saved");
+$("#fam-entities").onchange = (e) => saveFamily({ bins: { entities: e.target.value.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean) } }, "Saved");
+$("#fam-cal-form").onsubmit = (e) => {
+  e.preventDefault();
+  const f = e.target;
+  if (!f.url.value.trim()) return;
+  saveFamily({ calendars: [...famSettings.calendars, { id: "", kind: "ical", url: f.url.value.trim(), name: f.name.value.trim(), kids: f.kids.checked }] }, "Calendar added").then(() => { f.reset(); });
+};
+$("#fam-hacal-form").onsubmit = (e) => {
+  e.preventDefault();
+  const f = e.target;
+  if (!f.entity.value.trim()) return;
+  saveFamily({ calendars: [...famSettings.calendars, { id: "", kind: "ha", entity: f.entity.value.trim(), name: f.name.value.trim(), kids: f.kids.checked }] }, "Calendar added").then(() => { f.reset(); });
+};
+$("#fam-ha-form").onsubmit = (e) => {
+  e.preventDefault();
+  const f = e.target;
+  saveFamily({ ha: { url: f.url.value.trim(), ...(f.token.value ? { token: f.token.value } : {}) } }, "Saved").then(() => { f.token.value = ""; });
+};
+$("#fam-bday-form").onsubmit = (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const [y, m, d] = f.date.value.split("-").map(Number);
+  if (!f.name.value.trim() || !m) return;
+  saveFamily({ birthdays: [...famSettings.birthdays, { id: "", name: f.name.value.trim(), month: m, day: d, ...(f.age.checked ? { year: y } : {}) }] }, "Birthday added").then(() => { f.reset(); });
+};
+$("#fam-bin-form").onsubmit = (e) => {
+  e.preventDefault();
+  const f = e.target;
+  if (!f.name.value.trim()) return;
+  saveFamily({ bins: { rules: [...famSettings.bins.rules, { id: "", name: f.name.value.trim(), weekday: Number(f.weekday.value), everyWeeks: Number(f.every.value), from: f.from.value }] } }, "Bin added").then(() => { f.reset(); });
+};
+$("#fam-read").onclick = () => api("/api/family/refresh", { method: "POST" }).then((st) => {
+  $("#fam-errors").textContent = st.errors?.length ? st.errors.map((x) => `${x.name}: ${x.message}`).join(" · ") : "Read fine.";
+  toast(st.errors?.length ? "Some calendars couldn't be read" : "Calendars read", Boolean(st.errors?.length));
+}).catch((e) => toast(e.message, true));
+
 // Alerts (see docs/notifications.md): where they go, and what the Hub is worried about.
 const AGO = (t) => { const m = Math.round((Date.now() - t) / 60_000); return m < 2 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`; };
 const LEVEL_TEXT = { bad: "Needs fixing", warn: "Soon", info: "Note" };
@@ -1929,6 +2071,7 @@ async function load() {
   for (const el of document.querySelectorAll("[data-rad]")) setValue(el, (s.radio ?? {})[el.dataset.rad]);
   if (s.screensaver) loadScreensaver(s).catch(() => {});
   loadWeather().catch(() => {});
+  loadFamily().catch(() => {});
   loadAlerts().catch(() => {});
   for (const [id, on] of [["#tmdb-pill", s.tmdb], ["#torbox-pill", s.torbox], ["#omdb-pill", s.omdb], ["#os-pill", s.openSubtitles?.configured]]) { $(id).textContent = on ? "Set" : "Not set"; $(id).className = "pill" + (on ? " ok" : ""); }
   loadRequests(s);

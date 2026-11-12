@@ -35,6 +35,7 @@ if (!config.demo) {
 
 // The forecast refreshes every half hour wherever the Hub is (it needs no sources).
 app.jobs.weather.start();
+app.jobs.family.start();
 
 const moved = movedAway(ctx.db);
 if (!moved) {

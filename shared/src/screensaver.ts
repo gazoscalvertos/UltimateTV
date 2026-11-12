@@ -73,7 +73,8 @@ export type ScreensaverThemeId =
   | "bounce"
   | "landscapes"
   | "art"
-  | "gallery";
+  | "gallery"
+  | "today";
 
 export interface ScreensaverTheme {
   id: ScreensaverThemeId;
@@ -89,6 +90,7 @@ export const SCREENSAVER_THEMES: readonly ScreensaverTheme[] = [
   { id: "off", name: "None", detail: "Just dim the screen", kind: "special" },
   { id: "shuffle", name: "Shuffle", detail: "A different one every 10 minutes", kind: "special" },
   { id: "gallery", name: "Art gallery", detail: "Famous paintings in high resolution, one at a time, like pictures on a wall", kind: "special" },
+  { id: "today", name: "Today", detail: "The family board: the clock, the weather, what's on, bin day and birthdays (set up in Settings › Family board)", kind: "special" },
   { id: "photos", name: "Your photos", detail: "Photos and short videos from a folder on the NAS", kind: "special" },
   { id: "black", name: "Black screen", detail: "Turns the picture off until a button is pressed", kind: "special" },
   { id: "aurora", name: "Northern lights", detail: "The aurora rippling over snowy mountains", kind: "moving" },

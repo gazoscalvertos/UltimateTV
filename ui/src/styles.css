@@ -4940,11 +4940,17 @@ html.mirroring #app > :not(.mirroring-layer):not(.toasts) {
   height: 2rem;
 }
 
-.home-weather {
+.home-asides {
   position: absolute;
   top: 2rem;
   right: 6rem;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1rem;
+}
+.home-weather {
   display: flex;
   align-items: center;
   gap: 1.2rem;
@@ -5484,6 +5490,7 @@ html.mouse .skip-button {
 .ask-parent-status {
   margin: 0;
   font-size: 1.4rem;
+}
 /* Easy mode (#229): four big tiles on Home. */
 .easy-tiles {
   display: grid;
@@ -5563,6 +5570,7 @@ html.mouse .skip-button {
   outline: 0.25rem solid #ffd23f;
   outline-offset: 0.2rem;
   box-shadow: 0 0 1.6rem rgba(255, 210, 63, 0.7);
+}
 /* X-Ray cast panel (player Info key) */
 .xray-grid {
   display: grid;
@@ -5627,6 +5635,7 @@ html.mouse .skip-button {
 }
 .xray-bio {
   line-height: 1.5;
+}
 /* Watching elsewhere: a chip in the top bar while another screen plays, and its list. */
 .elsewhere-chip {
   gap: 0.4rem;
@@ -5676,4 +5685,168 @@ html.mouse .skip-button {
   text-align: center;
   padding: 0.5rem 0 1rem;
   font-variant-numeric: tabular-nums;
+}
+
+/* The family board: Home's card and the "Today" idle screen. */
+.home-family {
+  width: 30rem;
+  padding: 1.1rem 1.6rem 1.2rem;
+  border-radius: 1.2rem;
+  background: rgb(var(--panel-rgb) / 0.6);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.25);
+}
+.home-family h3 {
+  margin: 0 0 0.6rem;
+  font-size: calc(1.1rem * var(--ts));
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.home-family ul,
+.today-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.family-item {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  column-gap: 0.8rem;
+  align-items: baseline;
+  padding: 0.35rem 0;
+  border-left: 0.3rem solid var(--accent);
+  padding-left: 0.8rem;
+  margin-top: 0.45rem;
+}
+.family-item.kind-birthday {
+  border-color: #ff7ab8;
+}
+.family-item.kind-bin {
+  border-color: #4fcf8a;
+}
+.family-item.kind-school {
+  border-color: #ffc447;
+}
+.family-when {
+  font-size: calc(1.05rem * var(--ts));
+  color: var(--muted);
+  white-space: nowrap;
+}
+.family-title {
+  font-size: calc(1.3rem * var(--ts));
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.family-item small {
+  grid-column: 2;
+  font-size: calc(1rem * var(--ts));
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.family-bin {
+  display: inline-block;
+  margin-bottom: 0.3rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 99rem;
+  background: rgb(79 207 138 / 0.2);
+  color: #7ee6ae;
+  font-size: calc(1.15rem * var(--ts));
+  font-weight: 600;
+}
+.family-none {
+  font-size: calc(1.2rem * var(--ts));
+  color: var(--muted);
+}
+
+.saver-today {
+  position: absolute;
+  inset: 0;
+  color: #fff;
+  background: radial-gradient(ellipse at 20% 15%, #14243f 0%, #0a1020 55%, #05070d 100%);
+}
+.today-board {
+  position: absolute;
+  inset: 8vh 7vw;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 6vw;
+  align-items: center;
+  transition: transform 3s ease;
+}
+.today-board.spot-0 { transform: translate(0, 0); }
+.today-board.spot-1 { transform: translate(1.4vw, 1vh); }
+.today-board.spot-2 { transform: translate(-1.2vw, 1.6vh); }
+.today-board.spot-3 { transform: translate(0.6vw, -1.4vh); }
+.today-greeting {
+  font-size: calc(2.2rem * var(--ts));
+  color: #9fb4d8;
+}
+.today-time {
+  font-size: calc(11rem * var(--ts));
+  font-weight: 200;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.today-date {
+  font-size: calc(2.6rem * var(--ts));
+  font-weight: 300;
+  margin-top: 0.4rem;
+}
+.today-weather {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2.2rem;
+  font-size: calc(2rem * var(--ts));
+}
+.today-weather .wx-icon {
+  width: 4.4rem;
+  height: 4.4rem;
+}
+.today-weather small {
+  display: block;
+  font-size: calc(1.4rem * var(--ts));
+  color: #9fb4d8;
+}
+.today-bin {
+  display: inline-block;
+  margin-top: 2rem;
+  padding: 0.6rem 1.4rem;
+  border-radius: 99rem;
+  background: rgb(79 207 138 / 0.2);
+  color: #8df0bb;
+  font-size: calc(1.8rem * var(--ts));
+  font-weight: 600;
+}
+.today-list .family-item {
+  grid-template-columns: 14rem 1fr;
+  margin-top: 1.4rem;
+  border-left-width: 0.4rem;
+  padding-left: 1.4rem;
+}
+.today-list .family-when {
+  font-size: calc(1.6rem * var(--ts));
+  color: #9fb4d8;
+}
+.today-list .family-title {
+  font-size: calc(2.2rem * var(--ts));
+  white-space: normal;
+}
+.today-list .family-item small {
+  font-size: calc(1.4rem * var(--ts));
+  color: #9fb4d8;
+}
+.today-empty {
+  font-size: calc(2.2rem * var(--ts));
+  color: #9fb4d8;
 }

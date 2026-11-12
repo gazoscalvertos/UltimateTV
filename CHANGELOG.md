@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-12
 
+- **Family board: today at home on Home and the idle screen** ([docs/family-board.md](docs/family-board.md)): a "Coming up at home" card on Home and a **Today** screensaver show the next five things: calendar events (iCal links from Google, Nextcloud, iCloud or Outlook, or Home Assistant calendars), birthdays, bin day (a weekly or alternate-week schedule, or Home Assistant sensors, with "Green bin out tonight" the evening before) and the school run, beside the clock and the weather. Set up in Settings › Family board or on the phone's Settings page. A calendar is grown-ups only until you share it with Kids; Kids profiles see a smaller version and a Guest sees none of it. Also closes three CSS rules that were missing their closing brace (Easy mode, X-Ray and Watching elsewhere styles). (#233)
+  Household: The TV now shows what's on today, bin day and birthdays at home on Home and when it's idle.
+
 - **Preview pictures when you scrub a recording** ([docs/seek-preview.md](docs/seek-preview.md#recordings)): once a recording finishes, the Hub makes a sheet of small frames (one every 10 seconds, a quiet low-priority ffmpeg pass), so dragging along the seek bar in the TV, desktop and Android players shows the picture at that moment, as it does for Jellyfin films. Recordings from the last fortnight get them too; if ffmpeg can't make them, nothing is shown. (#227)
   Household: When you wind through a recording you can now see where you are, not just the time.
 

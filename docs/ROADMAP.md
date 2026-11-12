@@ -41,6 +41,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Play queue | #43 | Untested |
 | Sport tonight (Home row, favourite teams, auto reminders) | #231 | Untested with a real guide and on the box (demo Hub only); no phone or Android screen yet |
 | Coming up and New episodes (follow a series) | #226 | Untested with real TMDB and Jellyfin (demo Hub only) |
+| Family board (Home card, Today screensaver, calendars, bins, birthdays) | #233 | Untested with real Google/Nextcloud calendars and Home Assistant (unit tests and a demo Hub only); TV and phone setup page only, no Android screen |
 | Request a title (Jellyseerr, Radarr, Sonarr) | #225 | Untested against real Jellyseerr/Radarr/Sonarr (a pretend Jellyseerr and unit tests only) |
 | Screensavers and dimming | #46 | Untested |
 | Halloween, Spooky TV, jump scares | #45 | Untested |
