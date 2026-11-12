@@ -2,7 +2,7 @@
 
 import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsAsk, KidsAskAnswer, KidsSummary, KidsTimeStatus, PersonDetails, SubtitleResult, TitleCast, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, TrackPref, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
-import type { FollowingView, ArtItem, ArtStatus, BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
+import type { RequestsView, TitleRequest, FollowingView, ArtItem, ArtStatus, BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
 const store = {
   get(key: string): string | null {
@@ -260,6 +260,9 @@ export const hub = {
   // Favourites (films, shows and guide channels), per profile.
   favourites: () => api<Favourites>("/api/favourites"),
   favourite: (input: FavouriteInput) => api<FavouriteResult>("/api/favourites", { method: "POST", body: input }),
+  requests: () => api<RequestsView>("/api/requests"),
+  request: (title: TitleRef) => api<{ request: TitleRequest; fresh: boolean }>("/api/requests", { method: "POST", body: { title } }),
+  answerRequest: (id: string, answer: "approve" | "decline") => api<{ request: TitleRequest }>(`/api/requests/${enc(id)}/answer`, { method: "POST", body: { answer } }),
   following: () => api<FollowingView>("/api/following"),
   follow: (title: TitleRef) => api<FollowingView>("/api/following", { method: "POST", body: { title } }),
   unfollow: (title: TitleRef) => api<FollowingView>(`/api/following/${enc(title.id)}?name=${enc(title.name)}`, { method: "DELETE" }),

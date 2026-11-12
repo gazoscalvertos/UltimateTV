@@ -181,6 +181,7 @@
     }
     renderNow();
     if (polls % 2 === 0) void checkAsks();
+    if (polls % 4 === 1) void checkRequests();
   }
 
   // ---------------------------------------------------------------------------
@@ -226,6 +227,73 @@
           if (/PIN/.test(e.message)) {
             $("ask-pin").hidden = false;
             $("ask-pin-in").focus();
+          }
+          toast(e.message, true);
+        }
+      };
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Requests (#225): a Kids or Guest profile asked for a title that isn't in the library (a grown-up
+  // approves it here or on the TV), and a requested title that has arrived.
+
+  const seenRequests = new Set();
+  const READY_KEY = "seenReadyRequests";
+  let seenReady = new Set();
+  try {
+    seenReady = new Set(JSON.parse(localStorage.getItem(READY_KEY) || "[]"));
+  } catch {}
+  async function checkRequests() {
+    let v;
+    try {
+      // No profile on purpose: this is the household's phone, not the child's.
+      v = await get("/api/requests", null);
+    } catch {
+      return;
+    }
+    if (!v.configured) return;
+    const fresh = Date.now() - 24 * 3600_000;
+    const arrived = v.requests.filter((r) => r.status === "ready" && r.updatedAt > fresh && !seenReady.has(r.id));
+    for (const r of arrived) {
+      seenReady.add(r.id);
+      toast(`${r.name} is ready`);
+    }
+    if (arrived.length) {
+      try {
+        localStorage.setItem(READY_KEY, JSON.stringify([...seenReady].slice(-60)));
+      } catch {}
+    }
+    const shown = $("sheet-body").dataset.request;
+    if (shown && !v.awaiting.some((r) => r.id === shown)) {
+      delete $("sheet-body").dataset.request;
+      closeSheet();
+      toast("Someone has already answered");
+    }
+    const next = v.awaiting.find((r) => !seenRequests.has(r.id));
+    if (!next || !$("sheet").hidden) return;
+    seenRequests.add(next.id);
+    requestSheet(next);
+  }
+  function requestSheet(r) {
+    openSheet(`<h2>${esc(r.profileName)} would like ${esc(r.name)}</h2>
+      <p class="meta">Approving sends it to be downloaded. The first grown-up to answer decides.</p>
+      <div id="req-pin" hidden><input class="field" id="req-pin-in" type="password" inputmode="numeric" autocomplete="off" placeholder="A grown-up's PIN"></div>
+      <div class="actions"><button class="primary" data-ans="approve">Approve</button><button data-ans="decline">Not this time</button></div>
+      <button class="link" data-close>Later</button>`);
+    $("sheet-body").dataset.request = r.id;
+    for (const b of $("sheet-body").querySelectorAll("[data-ans]")) {
+      b.onclick = async () => {
+        const pin = $("req-pin-in").value;
+        try {
+          await post(`/api/requests/${encodeURIComponent(r.id)}/answer`, { answer: b.dataset.ans, ...(pin ? { pin } : {}) });
+          delete $("sheet-body").dataset.request;
+          closeSheet();
+          toast(b.dataset.ans === "decline" ? `Told ${r.profileName} not this time` : `Requested ${r.name} for ${r.profileName}`);
+        } catch (e) {
+          if (/PIN/.test(e.message)) {
+            $("req-pin").hidden = false;
+            $("req-pin-in").focus();
           }
           toast(e.message, true);
         }

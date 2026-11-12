@@ -40,6 +40,7 @@ From the project's notes. **Tested** means it has run on the real box or Hub; **
 | Pop-ups and breaking news | #39 | Untested |
 | Play queue | #43 | Untested |
 | Coming up and New episodes (follow a series) | #226 | Untested with real TMDB and Jellyfin (demo Hub only) |
+| Request a title (Jellyseerr, Radarr, Sonarr) | #225 | Untested against real Jellyseerr/Radarr/Sonarr (a pretend Jellyseerr and unit tests only) |
 | Screensavers and dimming | #46 | Untested |
 | Halloween, Spooky TV, jump scares | #45 | Untested |
 | Trips (`travel.sh`) and Download to box | #47, #50 | Untested |

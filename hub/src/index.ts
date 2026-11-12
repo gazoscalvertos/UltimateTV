@@ -37,6 +37,13 @@ if (!config.demo) {
 app.jobs.weather.start();
 
 const moved = movedAway(ctx.db);
+if (!moved) {
+  // Requested titles (#225): how each is getting on in Jellyseerr/Radarr/Sonarr, so "ready" reaches the TV and the phone.
+  // (Also on the demo Hub, which has no other jobs: it does nothing until requests are set up.)
+  const checkRequests = () => void ctx.requests?.refresh().catch((err) => app.log.warn({ err: String(err) }, "Couldn't check the requests"));
+  setTimeout(checkRequests, 90_000);
+  setInterval(checkRequests, 5 * 60_000);
+}
 if (moved) {
   // The Hub's data went with the TV box (tools/hub/travel.sh): stand by, so this Hub doesn't record
   // or use the IPTV connection while the box's own Hub does.

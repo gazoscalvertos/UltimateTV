@@ -239,12 +239,15 @@ export class Library {
     if (this.ctx.addons().length) return refs;
     const jf = this.ctx.media();
     const out: TitleRef[] = [];
+    const missing: TitleRef[] = [];
     for (const r of refs) {
       const tmdbId = Number(/^tmdb:(?:movie|series):(\d+)$/.exec(r.id)?.[1]) || undefined;
       if (jf && tmdbId && (await jf.hasProviderId("tmdb", String(tmdbId), r.kind === "movie" ? "Movie" : "Series").catch(() => false))) out.push({ ...r, badges: ["In your library"] });
       else if (this.vodMatches(r.kind, r.name, r.year, tmdbId).length) out.push({ ...r, badges: ["IPTV"] });
+      else missing.push(r);
     }
-    return out;
+    // Nothing plays it, but it can be asked for (#225): kept, marked Request (or where the request is).
+    return [...out, ...(await this.withRequestBadges(missing)).filter((r) => r.badges?.length)];
   }
 
   /**
@@ -472,7 +475,9 @@ export class Library {
       const kind = rest[0] as TitleKind;
       const tmdbId = Number(rest[1]);
       let d: TitleDetails;
-      if (tmdb) d = await tmdb.details(kind, tmdbId);
+      const demoTitle = this.ctx.demoCatalogue?.find((x) => x.id === id);
+      if (demoTitle) d = { ...demoTitle };
+      else if (tmdb) d = await tmdb.details(kind, tmdbId);
       else d = { id, kind, name: "Unknown", genres: [], cast: [], availability: [], inLibrary: false, tmdbId };
       if (jf) {
         const item = await jf.byProviderId("tmdb", String(tmdbId), kind === "movie" ? "Movie" : "Series").catch(() => undefined);
@@ -702,13 +707,34 @@ export class Library {
       jf ? Promise.all([jf.items({ type: "Movie", search: q, limit: 10, ...(max ? { maxRating: max } : {}) }), jf.items({ type: "Series", search: q, limit: 10, ...(max ? { maxRating: max } : {}) })]).then(([a, b]) => [...a.items, ...b.items].map((i) => jf.toTitleRef(i))).catch((): TitleRef[] => []) : ([] as TitleRef[]),
     ]);
     for (const t of [...local, ...tm]) if (!titles.has(t.id)) titles.set(t.id, local.includes(t) ? { ...t, badges: ["In your library"] } : t);
+    for (const x of this.ctx.demoCatalogue ?? []) if (normaliseTitle(x.name).includes(norm) && !titles.has(x.id)) titles.set(x.id, { id: x.id, kind: x.kind, name: x.name, ...(x.year ? { year: x.year } : {}), ...(x.poster ? { poster: x.poster } : {}), ...(x.certification ? { certification: x.certification } : {}), genres: x.genres });
     for (const e of this.ctx.db.json<VodEntry>("SELECT data FROM vod WHERE name_norm LIKE ? LIMIT 20", `%${norm}%`)) {
       const ref = this.vodRef(e);
       if (!titles.has(ref.id)) titles.set(ref.id, ref);
     }
     // Searched for on purpose: watched titles go behind the others but are never dropped.
-    for (const t of f.unseen([...titles.values()].filter((t) => f.ref(t)), true)) results.push({ kind: "title", id: t.id, name: t.name, ...(t.year ? { subtitle: String(t.year) } : {}), ...(t.poster ? { image: t.poster } : {}), title: t });
+    for (const t of await this.withRequestBadges(f.unseen([...titles.values()].filter((t) => f.ref(t)), true))) results.push({ kind: "title", id: t.id, name: t.name, ...(t.year ? { subtitle: String(t.year) } : {}), ...(t.poster ? { image: t.poster } : {}), title: t });
     return results;
+  }
+
+  /**
+   * With Requests set up (#225), a title that no source has says "Request" on its card, and one
+   * that was asked for says where it got to ("Requested", "Downloading", "Ready").
+   */
+  async withRequestBadges(refs: TitleRef[]): Promise<TitleRef[]> {
+    const requests = this.ctx.requests;
+    if (!requests?.enabled()) return refs;
+    return Promise.all(
+      refs.map(async (r) => {
+        if (r.badges?.length || (r.kind !== "movie" && r.kind !== "series") || !requests.enabled(r.kind)) return r;
+        const tmdbId = Number(/^tmdb:(?:movie|series):(\d+)$/.exec(r.id)?.[1]) || undefined;
+        if (!tmdbId) return r;
+        const asked = requests.badgeFor(r.id);
+        if (asked) return { ...r, badges: [asked] };
+        const there = this.vodMatches(r.kind, r.name, r.year, tmdbId).length > 0 || (await Promise.all(this.ctx.mediaServers().map((s) => s.hasProviderId("tmdb", String(tmdbId), r.kind === "movie" ? "Movie" : "Series").catch(() => false)))).some(Boolean);
+        return there ? r : { ...r, badges: ["Request"] };
+      }),
+    );
   }
 
   badgesFor(c: StreamCandidate): string[] {

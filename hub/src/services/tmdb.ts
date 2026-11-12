@@ -303,6 +303,12 @@ export class TmdbClient {
     return details;
   }
 
+  /** A series' TheTVDB id, which Sonarr looks series up by (issue #225). */
+  async tvdbId(tvId: number): Promise<number | undefined> {
+    const ids = await this.get<{ tvdb_id?: number | null }>(`/tv/${tvId}/external_ids`, {}, 30 * DAY);
+    return ids.tvdb_id ?? undefined;
+  }
+
   /**
    * When a series last aired and next airs (issue #226): TMDB's own "last" and "next" episode, which
    * are dates with no time of day. Kept for six hours, so a new air date shows up the same morning.

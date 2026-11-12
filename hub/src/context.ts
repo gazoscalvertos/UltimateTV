@@ -1,10 +1,11 @@
 // Wires the Hub's services together. Built once at start-up; clients that depend on settings
 // (the media server, TMDB, TorBox, addons) are rebuilt when settings change.
 
+import type { TitleRequests } from "./requests.js";
 import path from "node:path";
 import { ArtGallery } from "./art.js";
 import { PhotoFolder } from "./screensaver.js";
-import type { Settings } from "@ultimatetv/shared";
+import type { Settings, TitleDetails } from "@ultimatetv/shared";
 import { ChannelStore } from "./channels.js";
 import { ConnectionGuard } from "./connections.js";
 import type { CropDetect } from "./cropdetect.js";
@@ -104,6 +105,10 @@ export class HubContext {
   readonly jellyfinProgress: JellyfinProgressQueue;
   /** When a saved title is next on TV, matched against the guide (#74). */
   readonly nextAirings: NextAirings;
+  /** Requests for titles that aren't in the library (#225); set by the server. */
+  requests?: TitleRequests;
+  /** The demo Hub's made-up titles that no source has, so Request can be shown (#225). */
+  demoCatalogue?: TitleDetails[];
   /** Looks for new episodes of followed series and pops each up once (#226); set by the server. */
   checkEpisodes?: () => Promise<number>;
   /** The radio stations the household can start (#86). */

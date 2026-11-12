@@ -3,7 +3,7 @@
 
 import { existsSync } from "node:fs";
 import path from "node:path";
-import type { Channel, ChannelCategory, Episode, Programme, Recording, Season, SeriesLink, TitleRef } from "@ultimatetv/shared";
+import type { Channel, ChannelCategory, Episode, Programme, Recording, Season, SeriesLink, TitleDetails, TitleRef } from "@ultimatetv/shared";
 import { normaliseTitle } from "@ultimatetv/shared";
 import type { SeriesSchedule } from "./services/tmdb.js";
 import type { StoredFeed } from "./channels.js";
@@ -493,4 +493,32 @@ export function demoSchedule(title: TitleRef, now: number): SeriesSchedule | und
     default:
       return undefined;
   }
+}
+
+/**
+ * Made-up films and series that are not in the demo library, so Request has something to ask for
+ * (issue #225). They have TMDB-style ids, like a real search result, and generated artwork.
+ */
+export function demoRequestables(): TitleDetails[] {
+  const make = (kind: "movie" | "series", n: number, name: string, year: number, genres: string[], overview: string): TitleDetails => ({
+    id: `tmdb:${kind}:${n}`,
+    kind,
+    name,
+    year,
+    poster: `/api/art/poster/${slugOf(name)}.svg`,
+    backdrop: `/api/art/backdrop/${slugOf(name)}.svg`,
+    genres,
+    overview,
+    cast: [],
+    tmdbId: n,
+    rating: 7.4,
+    certification: "12",
+    availability: [],
+    inLibrary: false,
+  });
+  return [
+    make("movie", 9001, "Glass Harbour", 2025, ["Thriller"], "A salvage diver finds a ship that was never reported lost, and a crew that is still aboard."),
+    make("movie", 9002, "The Long Meridian", 2024, ["Adventure"], "Two rival surveyors race to chart the last unmapped valley before the winter closes it."),
+    make("series", 9003, "Lighthouse Row", 2025, ["Drama"], "Three families share a terrace on a clifftop, and one secret too many."),
+  ];
 }

@@ -11,6 +11,7 @@ export type HomeRowId =
   | "favourites"
   | "nextup"
   | "new-episodes"
+  | "requests"
   | "because"
   | "kids-films"
   | "kids-series"
@@ -39,6 +40,7 @@ export const HOME_ROWS: HomeRowInfo[] = [
   { id: "favourites", label: "Favourites", detail: "Films and series starred on this profile." },
   { id: "nextup", label: "Next up", detail: "The next episode of series you're watching." },
   { id: "new-episodes", label: "New episodes", detail: "Brand new episodes of the series you follow (#226)." },
+  { id: "requests", label: "Your requests", detail: "Films and series you asked for that aren't here yet, and the ones that just arrived (#225)." },
   { id: "because", label: "Because you watched", detail: "Picks based on the last thing played on this profile." },
   { id: "kids-films", label: "Family films", detail: "Films picked for children (a kids profile)." },
   { id: "kids-series", label: "Cartoons and kids' shows", detail: "Children's series (a kids profile)." },
