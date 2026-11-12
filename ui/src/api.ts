@@ -2,7 +2,7 @@
 
 import type { AccessibilitySettings, Changelog, HaEvent, HaSettings, HomeRowId, HomeRowsView, KidsAllowKind, KidsAllowList, KidsAllowReply, KidsAsk, KidsAskAnswer, KidsSummary, KidsTimeStatus, PersonDetails, SubtitleResult, TitleCast, TitleExtras, SelfTestReport, PerfReport, SourceTestResult } from "@ultimatetv/shared";
 import type { AdSkipSettings, AdvertScan, AlertSettings, BackupState, AlertState, WeatherPlace, WeatherSettings, WeatherState, CastSettings, CommunityIndex, DrawnProjection, ProjectionSettings, ProjectionState, RecentSearch, TrackPref, SeasonId, ShareSession, WatchItem, WatchlistInput, FavouriteInput, FavouriteResult, Favourites } from "@ultimatetv/shared";
-import type { RequestsView, TitleRequest, FollowingView, ArtItem, ArtStatus, BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
+import type { RequestsView, TitleRequest, SportView, FollowingView, ArtItem, ArtStatus, BoxState, Channel, ClipLibrary, Conflict, CustomGuide, DeviceList, Download, GuideChoices, GuideWindow, HomeScreen, HubEvent, HubSoftware, HubStatus, MixChannel, MixChannelInfo, MixEntry, MixOverview, MixPlaylist, NasListing, NowNext, PairedDevice, PairingCode, PlaybackInfo, PlaybackRequest, PodcastSearchResult, PodcastShow, PodcastShowWithEpisodes, PodcastsReply, Profile, Programme, PublicSettings, RadioNow, RadioReply, RadioStation, Rail, ScreensaverInfo, ScreensaverPhoto, ScreensaverSettings, Recording, Reminder, Scare, ScareSettings, ScareState, SearchResult, Season, SeriesLink, Settings, StreamCandidate, TitleDetails, TitleRef, WebAppLoginReport } from "@ultimatetv/shared";
 
 const store = {
   get(key: string): string | null {
@@ -134,6 +134,8 @@ export const hub = {
   planner: () => api<Planner>("/api/recordings"),
   record: (programmeId: string) => api<Recording>("/api/recordings", { method: "POST", body: { programmeId } }),
   deleteRecording: (id: string) => api<{ ok: true }>(`/api/recordings/${enc(id)}`, { method: "DELETE" }),
+  extendRecording: (id: string, minutes: number) => api<Recording>(`/api/recordings/${enc(id)}/extend`, { method: "POST", body: { minutes } }),
+  followOverrun: (id: string, follow: boolean | null) => api<Recording>(`/api/recordings/${enc(id)}/follow`, { method: "POST", body: { follow } }),
   markWatched: (id: string, watched: boolean) => api<{ ok: true }>(`/api/recordings/${enc(id)}/watched`, { method: "POST", body: { watched } }),
   seriesLink: (programmeId: string) => api<SeriesLink>("/api/series-links", { method: "POST", body: { programmeId } }),
   updateSeriesLink: (id: string, patch: Partial<SeriesLink>) => api<SeriesLink>(`/api/series-links/${enc(id)}`, { method: "PATCH", body: patch }),
@@ -263,6 +265,10 @@ export const hub = {
   requests: () => api<RequestsView>("/api/requests"),
   request: (title: TitleRef) => api<{ request: TitleRequest; fresh: boolean }>("/api/requests", { method: "POST", body: { title } }),
   answerRequest: (id: string, answer: "approve" | "decline") => api<{ request: TitleRequest }>(`/api/requests/${enc(id)}/answer`, { method: "POST", body: { answer } }),
+  sport: () => api<SportView>("/api/sport"),
+  sportSettings: (patch: { teams?: string[]; remind?: boolean; record?: boolean }) => api<SportView>("/api/sport/settings", { method: "PUT", body: patch }),
+  sportAddTeam: (name: string) => api<SportView>("/api/sport/teams", { method: "POST", body: { name } }),
+  sportRemoveTeam: (name: string) => api<SportView>(`/api/sport/teams?name=${enc(name)}`, { method: "DELETE" }),
   following: () => api<FollowingView>("/api/following"),
   follow: (title: TitleRef) => api<FollowingView>("/api/following", { method: "POST", body: { title } }),
   unfollow: (title: TitleRef) => api<FollowingView>(`/api/following/${enc(title.id)}?name=${enc(title.name)}`, { method: "DELETE" }),

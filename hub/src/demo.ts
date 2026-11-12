@@ -58,7 +58,7 @@ const POOLS: Record<ChannelCategory, string[]> = {
     "Hidden Villages", "Two Up, Two Down", "Market Town", "The Long Weekend", "Ward 9", "Pub Quiz Champions", "Dragon's Kitchen",
   ],
   films: ["The Long Road North", "Paper Moons", "Last Train to Brighton", "Starfall", "The Clockmaker", "Glasshouse", "Night Ferry", "Copper Sky", "The Lighthouse Keeper", "Thin Ice"],
-  sport: ["Live: Premier League Football", "Super Sunday", "Goals Express", "Grand Prix Qualifying", "Test Cricket Highlights", "Fight Night Live", "Racing Today", "Golf Weekly"],
+  sport: ["Premier League: Arsenal v Tottenham", "Premier League: Chelsea v Liverpool", "Super Sunday: Man City v Newcastle", "Goals Express", "Formula 1: Qualifying", "Test Cricket: England v India", "Fight Night Live", "Six Nations Rugby: Wales v Ireland", "Golf Weekly"],
   news: ["News Hour", "World Tonight", "Business Live", "The Briefing", "Politics Live", "Newsday"],
   documentaries: ["Planet Ocean", "Wild Islands", "Engineering Giants", "Ancient Roads", "Deep Freeze", "Volcano Watch", "Secrets of the Nile"],
   kids: ["Rocket Pups", "Mo and the Moonbeams", "Space Detectives", "Art Attackers", "Dino Ranch Rescue", "The Muddles"],
@@ -267,6 +267,8 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   ctx.guide.upsert(programmes);
   if (!ctx.guides.list().length) ctx.guides.create({ name: "Evenings", channels: ["sky-atlantic", "bbc-one", "channel-4", "film4", "sky-sports-main-event", "dave"] });
   ctx.db.setKv("epgUpdatedAt", now);
+  // The household follows Arsenal and Formula 1, so Sport tonight has favourites to show (#231).
+  ctx.db.setKv("sport:default", { teams: ["Arsenal", "Formula 1"], remind: true, record: false });
   ctx.db.setKv("sourcesUpdatedAt", now);
   // A few recent searches, so the Search screen shows them before anything is typed.
   if (!ctx.db.getKv("search-history:default")) {
@@ -336,12 +338,19 @@ export function seedDemo(ctx: HubContext, config: HubConfig, now = Date.now()): 
   const clash = lm ? programmes.find((p) => p.channelId === itv.id && p.start < lm.end && p.end > lm.start) : undefined;
   if (clash && lm && lm.end > now) ctx.recordings.save(rec("demo-r3", clash, "scheduled"));
 
+  // A live match coming up, which follows an overrun (#230).
+  const matchStart = today.getTime() + 86_400_000 + 19 * 3_600_000;
+  const match = demoProgramme(itv, matchStart, 120, "Cup Final Live", { categories: ["Sport", "Football"] }, "The final, live from the stadium.");
+  ctx.recordings.save(rec("demo-r4", match, "scheduled", { followOverrun: true }));
+
   const done = (title: string, daysAgo: number, season: number, episode: number, sub: string, channelIdx: number, watched = false) => {
     const c = channels[channelIdx]!;
     const s = today.getTime() - daysAgo * 86_400_000 + 20 * 3_600_000;
     const p = demoProgramme(c, s, 60, title, { season, episode, subtitle: sub }, DESCRIPTIONS[episode % DESCRIPTIONS.length]!);
     const extra: Partial<Recording> = { path: path.join(config.clipsDir, "h264-1080p25-aac.mp4"), sizeBytes: 2.4e9, watched, positionMs: episode === 3 ? 22 * 60_000 : 0 };
     if (title === "Harbour Lights") extra.seriesLinkId = link.id;
+    // A live final that ran over: the Hub kept recording for 12 minutes (#230).
+    if (title === "Kitchen Rivals") Object.assign(extra, { extendedMs: 12 * 60_000, followOverrun: true });
     // Advert breaks found by comskip, for the Skip adverts button.
     if (title === "Wild Islands") Object.assign(extra, { adBreaks: [{ startMs: 1000, endMs: 4 * 60_000 }, { startMs: 22 * 60_000, endMs: 25 * 60_000 }], adScan: "done" });
     return rec(`demo-done-${slugOf(title)}-${episode}`, p, "completed", extra);

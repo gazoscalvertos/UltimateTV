@@ -7,13 +7,15 @@ import { mkdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import type { Recording } from "@ultimatetv/shared";
+import { followsOverrun, type Recording } from "@ultimatetv/shared";
 import { catchupUrl, type CatchupContext } from "./catchup.js";
 import type { ChannelStore } from "./channels.js";
 import { ConnectionBusyError, type ConnectionGuard } from "./connections.js";
+import type { GuideStore } from "./epg.js";
 import type { EventBus } from "./events.js";
 import { fetchOk, IPTV_USER_AGENT, redactUrl, type Fetch } from "./http.js";
 import type { Logger } from "./log.js";
+import { planOverrun } from "./overrun.js";
 import { nfoFor, recordingPath, type RecordingStore } from "./recordings.js";
 import type { LiveRelay } from "./relay.js";
 import type { SettingsStore } from "./settings.js";
@@ -39,6 +41,10 @@ export interface RecorderDeps {
   events: EventBus;
   log: Logger;
   catchup: CatchupContext;
+  /** The guide, watched for overruns while a live recording runs (#230). */
+  guide?: Pick<GuideStore, "get" | "onChannel">;
+  /** Reloads the guide so a changed end time is picked up near the end of a followed recording. */
+  refreshGuide?: () => Promise<unknown>;
   tmpDir: string;
   remux?: Remux;
   fetchImpl?: Fetch;
@@ -47,9 +53,13 @@ export interface RecorderDeps {
 }
 
 const MIN_BYTES = 256 * 1024;
+/** How often a followed recording looks at the guide, and how early before its end it asks for a fresh one. */
+const OVERRUN_CHECK_MS = 30_000;
+const GUIDE_REFRESH_LEAD_MS = 3 * 60_000;
+const GUIDE_REFRESH_EVERY_MS = 10 * 60_000;
 
 export class Recorder {
-  private active = new Map<string, { stop: (reason: string) => void }>();
+  private active = new Map<string, { stop: (reason: string) => void; extend?: (ms: number) => void }>();
 
   constructor(private d: RecorderDeps) {}
 
@@ -67,6 +77,14 @@ export class Recorder {
 
   stop(id: string, reason = "stopped"): void {
     this.active.get(id)?.stop(reason);
+  }
+
+  /** Records for longer, by hand ("Record 15 more minutes"). Returns false when it isn't recording now. */
+  extend(id: string, ms: number): boolean {
+    const a = this.active.get(id);
+    if (!a?.extend) return false;
+    a.extend(ms);
+    return true;
   }
 
   private update(r: Recording, patch: Partial<Recording>): Recording {
@@ -91,7 +109,51 @@ export class Recorder {
         stopped = reason;
         current?.close();
       },
+      extend: (ms) => {
+        r = this.update(r, { end: r.end + ms, extendedMs: (r.extendedMs ?? 0) + ms });
+      },
     });
+
+    // Following an overrun (#230): near the end, and then every half minute, ask the guide whether
+    // the programme is still on, and push the end out to match.
+    const programmeEnd = r.programme.end;
+    const plannedEnd = r.end - (r.extendedMs ?? 0);
+    let lastRefresh = 0;
+    let warnedClash = false;
+    const follow = Boolean(this.d.guide) && followsOverrun(r, this.d.settings.get().recording.followOverruns);
+    const checkOverrun = () => {
+      if (!follow || !this.d.guide) return;
+      const now = this.now();
+      if (this.d.refreshGuide && r.end - now <= GUIDE_REFRESH_LEAD_MS && now - lastRefresh >= GUIDE_REFRESH_EVERY_MS) {
+        lastRefresh = now;
+        void this.d.refreshGuide().catch((err) => this.d.log.warn({ id: r.id, err: String(err) }, "Reloading the guide for an overrunning recording failed"));
+      }
+      const current = this.d.guide.get(r.programme.id) ?? this.d.guide.onChannel(r.channelId, r.programme.start - 600_000, 4).find((p) => p.title === r.programme.title && Math.abs(p.start - r.programme.start) <= 600_000);
+      if (!current || current.end <= r.programme.end) return;
+      const settings = this.d.settings.get();
+      const plan = planOverrun({
+        rec: r,
+        guideEnd: current.end,
+        plannedEnd,
+        plannedProgrammeEnd: programmeEnd,
+        maxExtraMs: Math.max(0, settings.recording.maxOverrunMin) * 60_000,
+        upcoming: this.d.store.withStatus("scheduled").filter((o) => o.method === "live"),
+        limit: this.d.settings.connectionLimit(),
+        now,
+      });
+      if (!plan) return;
+      if (plan.clashes.length && !warnedClash) {
+        warnedClash = true;
+        const names = plan.clashes.map((c) => `${c.programme.title} on ${c.channelName}`).join(" and ");
+        this.d.events.emit({ type: "connection.conflict", message: `${r.programme.title} is running over, but ${names} needs the connection, so ${r.programme.title} will stop when it starts.` });
+      }
+      if (plan.end > r.end) {
+        this.d.log.info({ id: r.id, extraMin: Math.round((plan.end - r.end) / 60_000), limited: plan.limited }, "Recording extended: the programme is running over");
+        r = this.update(r, { programme: { ...r.programme, end: current.end }, end: plan.end, extendedMs: plan.end - plannedEnd, ...(plan.limited ? { overrunLimited: plan.limited } : {}) });
+      } else if (plan.limited) {
+        r = this.update(r, { overrunLimited: plan.limited });
+      }
+    };
 
     const out = createWriteStream(tmp, { flags: "a" });
     let gaps = 0;
@@ -109,7 +171,18 @@ export class Recorder {
           continue;
         }
         current = consumer;
-        const timer = setTimeout(() => consumer.close(), Math.max(0, r.end - this.now()));
+        let timer: NodeJS.Timeout;
+        const arm = () => {
+          if (r.end - this.now() <= 0) {
+            checkOverrun();
+            if (r.end - this.now() <= 0) {
+              consumer.close();
+              return;
+            }
+          } else if (follow) checkOverrun();
+          timer = setTimeout(arm, Math.min(OVERRUN_CHECK_MS, Math.max(1, r.end - this.now())));
+        };
+        timer = setTimeout(arm, Math.min(OVERRUN_CHECK_MS, Math.max(0, r.end - this.now())));
         consumer.stream.on("data", (chunk: Buffer) => out.write(chunk));
         const reason = await consumer.ended;
         clearTimeout(timer);

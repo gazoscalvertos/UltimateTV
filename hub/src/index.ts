@@ -74,6 +74,16 @@ if (moved) {
   const checkEpisodes = () => void ctx.checkEpisodes?.().catch((err) => app.log.warn({ err: String(err) }, "Couldn't check for new episodes"));
   setTimeout(checkEpisodes, 60_000);
   setInterval(checkEpisodes, HOUR);
+  // Favourite teams' games: a look two minutes after start (the guide needs to be in) and then every half hour.
+  const checkSport = () => {
+    try {
+      ctx.checkSport?.();
+    } catch (err) {
+      app.log.warn({ err: String(err) }, "Couldn't check the guide for favourite teams");
+    }
+  };
+  setTimeout(checkSport, 120_000);
+  setInterval(checkSport, HOUR / 2);
   // Warnings before things break, and advert breaks in new recordings.
   app.jobs.alerts.start();
   app.jobs.adSkipper.start();

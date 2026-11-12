@@ -10,7 +10,9 @@ import type { CastLink, ShareOffer } from "./cast.js";
 import type { AdBreak, Alert, SleepChoice, SleepState } from "./household.js";
 import type { Projection, ProjectionMotion, SeasonId } from "./seasons.js";
 import { seasonOn } from "./seasons.js";
+import type { FollowOverruns } from "./overrun.js";
 import type { ThemeChoice, ThemeName } from "./themes.js";
+import type { SportMatch } from "./sport.js";
 import type { AccessibilitySettings } from "./accessibility.js";
 import type { KidsAsk } from "./kidsallow.js";
 import type { FeatureId } from "./features.js";
@@ -151,6 +153,12 @@ export interface Recording {
   seriesLinkId?: Id;
   /** Set when the recording finished early or had gaps. */
   incomplete: boolean;
+  /** Follow the guide past the end time (#230). Left out: use the Settings choice. */
+  followOverrun?: boolean;
+  /** How much longer than planned the recording ran, because the programme overran or it was extended by hand. */
+  extendedMs?: number;
+  /** The overrun carried on past the limit, or stopped short so the next recording could have the connection. */
+  overrunLimited?: "cap" | "clash";
   error?: string;
   path?: string;
   sizeBytes?: number;
@@ -379,10 +387,12 @@ export interface SubtitleResult {
 export interface Rail {
   id: string;
   title: string;
-  kind: "titles" | "channels" | "recordings";
+  kind: "titles" | "channels" | "recordings" | "sport";
   items: TitleRef[];
   channels?: NowNext[];
   recordings?: Recording[];
+  /** Sport today (issue #231). */
+  sport?: SportMatch[];
 }
 
 export interface HomeScreen {
@@ -774,6 +784,10 @@ export interface Settings {
     paddingAfterMin: number;
     preferCatchup: boolean;
     autoDeleteWatchedDays: number;
+    /** Keep recording while the guide says the programme is still on: sport and live only, always, or never. */
+    followOverruns: FollowOverruns;
+    /** The most a recording is extended for an overrun, in minutes. */
+    maxOverrunMin: number;
   };
   playback: {
     preferredAudioLang: string;
@@ -884,6 +898,8 @@ export type HubEvent =
   | { type: "request.awaiting"; request: TitleRequest; message: string }
   /** A requested title has arrived (issue #225): the TV pops it up for the profile that asked. */
   | { type: "request.ready"; profileId: string | null; request: TitleRequest; message: string }
+  /** A profile's sport favourites changed (issue #231). */
+  | { type: "sport.changed"; profileId: string | null }
   /** A profile's followed series changed (issue #226). */
   | { type: "following.changed"; profileId: string | null }
   /** A followed series has a new episode (issue #226): the TV pops it up for that profile only. */

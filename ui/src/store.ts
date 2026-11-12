@@ -24,7 +24,8 @@ export type Route =
   | { name: "weather" }
   | { name: "elsewhere" }
   | { name: "coming-up" }
-  | { name: "requests" };
+  | { name: "requests" }
+  | { name: "sport" };
 
 export type PlannerTab = "recorded" | "scheduled" | "reminders" | "series" | "downloads";
 

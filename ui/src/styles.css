@@ -654,6 +654,10 @@ html.high-contrast .guide-grid:focus .gg-cell.selected {
 .card-badge-new {
   background: var(--accent);
 }
+.card-badge-live {
+  background: #d4162c;
+  letter-spacing: 0.04em;
+}
 .card-badge-download {
   left: auto;
   right: 0.7rem;

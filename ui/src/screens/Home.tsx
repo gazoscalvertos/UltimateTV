@@ -22,6 +22,7 @@ import { featureOn, shownRails, titleShown } from "../features";
 import { current } from "../focus";
 import { openComingUp } from "../following";
 import { openRequests, requestsOn } from "../requests";
+import { openSport } from "../sport";
 import { markHome } from "../perf";
 import type { TitleRef, WatchItem } from "@ultimatetv/shared";
 
@@ -176,6 +177,9 @@ export function Home() {
               <Show when={!isKids()}>
                 <button class="chip" data-focus onClick={openComingUp}>
                   <Icon name="bell" /> Coming up
+                </button>
+                <button class="chip" data-focus onClick={openSport}>
+                  <Icon name="star" /> Sport
                 </button>
               </Show>
               <Show when={requestsOn()}>
