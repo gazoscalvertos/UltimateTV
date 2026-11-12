@@ -27,7 +27,23 @@ film without the sheets) means nothing is shown and nothing is fetched.
   the remote's held left and right both show it. Only the one frame is decoded (a region decoder), to be
   kind to a Fire stick's memory.
 
+## Recordings
+
+Recordings are plain files on the NAS, so Jellyfin has no sheets for them until its next scan (and
+never for a `.ts` it can't process). The Hub makes its own (`hub/src/seeksheets.ts`):
+
+- When a recording finishes, it joins a one-at-a-time queue. ffmpeg reads only the keyframes (cheap on
+  the N150, two threads) and writes a 320x180 frame every 10 seconds, 100 to a JPEG, to
+  `<data>/seek-sheets/<recording id>/0.jpg, 1.jpg ...` with a small `meta.json`.
+- On start the Hub also looks at recordings finished in the last fortnight that have no sheets, after a
+  ten-minute pause so it isn't busy while settling in.
+- Playing the recording adds the same `trickplay` block as Jellyfin gives
+  (`/api/recordings/<id>/seek/{n}.jpg`), so the TV, desktop and Android players need nothing new.
+- Deleting a recording (by hand, a prune, or auto-delete of watched ones) deletes its sheets.
+- No ffmpeg, a failed pass, or a recording still in progress means no `trickplay` block: nothing is
+  shown and nothing is waited for. Uses `FFMPEG_PATH` when set, like the advert search.
+
 ## Not done
 
-The issue also asks for the Hub to make a sheet with ffmpeg for finished recordings and TorBox copies.
-That isn't built yet; those still show no preview.
+TorBox copies play from a remote link, so the Hub can't cheaply make sheets for them. Saved to the NAS,
+they are in Jellyfin and get its trickplay. Unsaved TorBox streams still show no preview.
