@@ -2,7 +2,7 @@
 // subtitles, skip markers, frame rate and what plays next.
 
 import { randomBytes } from "node:crypto";
-import type { Channel, PlaybackInfo, PlaybackRequest, StreamCandidate, TitleRef } from "@ultimatetv/shared";
+import type { Channel, PlaybackInfo, PlaybackRequest, StreamCandidate, TitleRef, Trickplay } from "@ultimatetv/shared";
 import { episodeLabel, skipMarkersFrom } from "@ultimatetv/shared";
 import { adSkipSettings } from "./adskip.js";
 import { catchupUrl } from "./catchup.js";
@@ -234,6 +234,7 @@ export class Playback {
       skip: (r.adBreaks ?? []).map((b) => ({ kind: "adverts" as const, startMs: b.startMs, endMs: b.endMs })),
       ...(r.adBreaks?.length && adSkipSettings(this.ctx.db).mode === "auto" ? { autoSkipAdverts: true } : {}),
       ...(p.image ? { artwork: p.image } : {}),
+      ...trickplayOf(this.ctx.seekSheets.trickplay(id, hubBase)),
     };
   }
 
@@ -445,4 +446,8 @@ export function episodeNumbers(episodeId: string): { season: number; episode: nu
   const se = /(?:^|:)s(\d+)e(\d+)$/i.exec(episodeId);
   if (se) return { season: Number(se[1]), episode: Number(se[2]) };
   return undefined;
+}
+
+function trickplayOf(t: Trickplay | undefined): { trickplay?: Trickplay } {
+  return t ? { trickplay: t } : {};
 }

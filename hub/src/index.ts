@@ -88,6 +88,8 @@ if (moved) {
   // Warnings before things break, and advert breaks in new recordings.
   app.jobs.alerts.start();
   app.jobs.adSkipper.start();
+  // Seek-bar preview pictures for new recordings.
+  ctx.seekSheets.start();
   // Paintings for Art mode are fetched in the background when that screensaver is chosen.
   ctx.art.start();
   // A copy of the Hub's data on the NAS every night.

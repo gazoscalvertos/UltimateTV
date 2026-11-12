@@ -1677,6 +1677,16 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     return sendFile(req, reply, r.path);
   });
 
+  // Seek-bar preview sheet n for a finished recording (#227).
+  app.get("/api/recordings/:id/seek/:sheet", async (req: Req<{ id: string; sheet: string }>, reply) => {
+    const r = ctx.recordings.get(req.params.id);
+    if (!r) return reply.code(404).send({ error: "No such recording" });
+    if (!recordingAllowed(req, r.channelId)) throw new NotAllowedError();
+    const file = ctx.seekSheets.sheetFile(r.id, Number(req.params.sheet.replace(/\.jpg$/, "")));
+    if (!file) return reply.code(404).send({ error: "No preview there" });
+    return sendFile(req, reply, file);
+  });
+
   app.get("/api/series-links", async () => ({ seriesLinks: ctx.recordings.links() }));
 
   app.post("/api/series-links", async (req: Req<Record<string, string>, Record<string, string>, { programmeId: string; scope?: "this" | "any"; newOnly?: boolean; keepLatest?: number }>) => {
