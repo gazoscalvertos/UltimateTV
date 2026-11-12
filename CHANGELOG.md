@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-12
 
+- **Preview pictures when you scrub a recording** ([docs/seek-preview.md](docs/seek-preview.md#recordings)): once a recording finishes, the Hub makes a sheet of small frames (one every 10 seconds, a quiet low-priority ffmpeg pass), so dragging along the seek bar in the TV, desktop and Android players shows the picture at that moment, as it does for Jellyfin films. Recordings from the last fortnight get them too; if ffmpeg can't make them, nothing is shown. (#227)
+  Household: When you wind through a recording you can now see where you are, not just the time.
+
 - **Request a film or series that isn't in the library** ([docs/requests.md](docs/requests.md)): search and a title's page show **Request** for anything no source has, and the Hub passes it to Jellyseerr/Overseerr or straight to Radarr and Sonarr (set up on the phone's setup page, with a Test button; nothing shows until then). Status (Requested, Downloading, Ready) is on the title, in Home › Requests and in a Home row, and the TV, the phone and Home Assistant/ntfy are told when it arrives. A Kids or Guest profile can only ask: a grown-up approves on the TV or the phone first. (#225)
   Household: If a film isn't here, ask for it from the TV and you'll be told when it's ready.
 
