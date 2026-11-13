@@ -195,8 +195,10 @@ interface StoredVideo extends MixVideo {
   crop?: string;
   /** Downloads of it that hung and were stopped. */
   stalls?: number;
-  /** Someone picked this exact video (a link, or added by hand): it downloads at any picture size. */
+  /** Someone picked this exact video (a link, or added by hand): if it can't be had at the channel's picture size, another source of the song is looked for. */
   anySize?: boolean;
+  /** Another source was looked for; now the video itself downloads at any picture size. */
+  lowRes?: boolean;
 }
 
 /** Channels saved before ambience channels existed are music channels. */
@@ -1268,6 +1270,22 @@ export class MixManager {
     return added;
   }
 
+  /** Another upload of the same song that meets every one of the channels' rules (720p or better by default). */
+  private async findAlternative(v: StoredVideo, channels: MixChannel[]): Promise<MixCandidate | undefined> {
+    const yt = this.o.ytdlp;
+    const c = channels[0];
+    if (!yt || !c) return undefined;
+    // The strictest channel decides.
+    const rules = { ...c, minHeight: Math.max(...channels.map((x) => x.minHeight)), maxMinutes: Math.min(...channels.map((x) => x.maxMinutes)), exclude: channels.flatMap((x) => x.exclude) };
+    const query = displayTitle(v).replace(/\s+[–—]\s+/, " - ");
+    const found = (await yt.search(`${query} official video`, 8))
+      .filter((i) => i.id !== v.id && overlap(query, i) >= 0.7)
+      .map((i) => toCandidate(i, rules, query))
+      .filter((cand) => !cand.rejected.length)
+      .sort((a, b) => b.score - a.score);
+    return found[0];
+  }
+
   /** Downloads one video and puts it into the schedules of the channels that have it. */
   async download(videoId: string): Promise<void> {
     const v = this.store.video(videoId);
@@ -1277,7 +1295,7 @@ export class MixManager {
     if (!channelIds.length) return;
     const channels = channelIds.map((id) => this.store.channel(id)).filter((c): c is MixChannel => c !== undefined);
     // The strictest channel's smallest size and the most generous one's largest.
-    const size = { minHeight: v.anySize ? 0 : Math.min(...channels.map((c) => c.minHeight)), maxHeight: Math.max(...channels.map((c) => c.maxHeight)) };
+    const size = { minHeight: v.lowRes ? 0 : Math.min(...channels.map((c) => c.minHeight)), maxHeight: Math.max(...channels.map((c) => c.maxHeight)) };
     await mkdir(this.dir, { recursive: true });
     try {
       const fs = await statfs(this.dir);
@@ -1325,6 +1343,29 @@ export class MixManager {
         delete again.progress;
         this.store.saveVideo(again);
         this.o.log.warn({ video: v.id, title: v.title }, "Music video download stalled; trying again");
+        this.changed(channelIds[0]);
+        return;
+      }
+      // A video someone picked by link: look for another source of the song at the channel's size
+      // first; if there isn't one, take the video itself at whatever size it has.
+      if (v.anySize && !v.lowRes && !this.stopped) {
+        const alt = await this.findAlternative(v, channels).catch(() => undefined);
+        const fallback: StoredVideo = { ...v, status: "queued", lowRes: true };
+        delete fallback.progress;
+        this.store.saveVideo(fallback);
+        if (alt) {
+          for (const c of channels) {
+            const nv = this.store.video(alt.id) ?? this.newVideo(alt);
+            this.addToChannel(c, nv, `another source of ${displayTitle(v)}`.slice(0, 120));
+            this.store.removeEntry(c.id, v.id);
+            this.reshuffle(c.id);
+          }
+          await this.dropIfOrphan(v.id);
+          this.o.log.info({ video: v.id, alternative: alt.id }, "Linked video not available at the channel's size; using another source");
+        } else {
+          this.queue({ kind: "download", videoId: v.id });
+          this.o.log.info({ video: v.id }, "No other source found; downloading the linked video at its own size");
+        }
         this.changed(channelIds[0]);
         return;
       }
