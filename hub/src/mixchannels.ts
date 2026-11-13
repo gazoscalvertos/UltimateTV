@@ -195,6 +195,8 @@ interface StoredVideo extends MixVideo {
   crop?: string;
   /** Downloads of it that hung and were stopped. */
   stalls?: number;
+  /** Someone picked this exact video (a link, or added by hand): it downloads at any picture size. */
+  anySize?: boolean;
 }
 
 /** Channels saved before ambience channels existed are music channels. */
@@ -533,6 +535,7 @@ export class MixManager {
       const info = await this.o.ytdlp.info(url);
       video = this.store.video(info.id) ?? this.newVideo(toCandidate(info, c));
     }
+    video = this.pickedByHand(video);
     this.addToChannel(c, video, String(input.origin ?? "added by hand").slice(0, 120));
     return { video: this.store.video(video.id)!, origin: input.origin ?? "added by hand", addedAt: Date.now() };
   }
@@ -820,6 +823,18 @@ export class MixManager {
     if (cand.uploader) v.uploader = cand.uploader;
     this.store.saveVideo(v);
     return v;
+  }
+
+  /** Marks a video someone chose themselves so it downloads at any picture size, and retries it if it had failed on size. */
+  private pickedByHand(v: StoredVideo): StoredVideo {
+    if (v.anySize) return v;
+    const marked: StoredVideo = { ...v, anySize: true };
+    if (v.status === "failed") {
+      marked.status = "queued";
+      delete marked.error;
+    }
+    this.store.saveVideo(marked);
+    return marked;
   }
 
   private addToChannel(c: MixChannel, v: StoredVideo, origin: string): void {
@@ -1221,7 +1236,7 @@ export class MixManager {
     let added = 0;
     for (const pick of c.picks) {
       if (!yt || this.stopped) break;
-      if (!isYoutubeLink(pick) || tried.has(`pick:${pick}`)) continue;
+      if (!isYoutubeLink(pick) || tried.has(`link:${pick}`)) continue;
       const list = playlistId(pick);
       const single = /[?&]v=|youtu\.be\/[\w-]|\/shorts\/[\w-]/.test(pick);
       try {
@@ -1230,8 +1245,13 @@ export class MixManager {
         } else {
           this.busy.curate = `Reading ${pick}`;
           const info = await yt.info(pick);
-          if (!entries.some((e) => e.video.id === info.id)) {
-            const v = this.store.video(info.id) ?? this.newVideo(toCandidate(info, c));
+          const have = entries.find((e) => e.video.id === info.id);
+          if (have) {
+            // Already on the channel (an earlier pass): if it failed at the size limits, it gets another go at any size.
+            const v = this.pickedByHand(this.store.video(info.id) ?? have.video);
+            if (v.status === "queued") this.queue({ kind: "download", videoId: v.id });
+          } else {
+            const v = this.pickedByHand(this.store.video(info.id) ?? this.newVideo(toCandidate(info, c)));
             this.addToChannel(c, v, `link: ${pick}`.slice(0, 120));
             entries.push({ video: v, origin: `link: ${pick}`, addedAt: now });
             added++;
@@ -1242,7 +1262,7 @@ export class MixManager {
         this.o.log.warn({ link: pick, err: String(err) }, "Couldn't read a YouTube link in the songs to include");
         continue;
       }
-      tried.add(`pick:${pick}`);
+      tried.add(`link:${pick}`);
       this.o.db.setKv(`mix-tried:${c.id}`, [...tried]);
     }
     return added;
@@ -1257,7 +1277,7 @@ export class MixManager {
     if (!channelIds.length) return;
     const channels = channelIds.map((id) => this.store.channel(id)).filter((c): c is MixChannel => c !== undefined);
     // The strictest channel's smallest size and the most generous one's largest.
-    const size = { minHeight: Math.min(...channels.map((c) => c.minHeight)), maxHeight: Math.max(...channels.map((c) => c.maxHeight)) };
+    const size = { minHeight: v.anySize ? 0 : Math.min(...channels.map((c) => c.minHeight)), maxHeight: Math.max(...channels.map((c) => c.maxHeight)) };
     await mkdir(this.dir, { recursive: true });
     try {
       const fs = await statfs(this.dir);

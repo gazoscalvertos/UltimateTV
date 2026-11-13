@@ -513,6 +513,8 @@ describe("YouTube playlists on a channel", () => {
       expect(ids.some((i) => i.startsWith("AlphaOne"))).toBe(true);
       // The links aren't searched for as songs.
       expect(fake.calls.some((a) => a.some((x) => x.startsWith("ytsearch") && x.includes("http")))).toBe(false);
+      // Videos picked by link download at any picture size (the fake serves 480p only on request).
+      expect(ctx.mix.store.video("abc123DEF45")?.anySize).toBe(true);
       // Taking one off by hand keeps it off; the unreadable one is tried again, the others aren't.
       await ctx.mix.removeVideo(c.id, "xyz987");
       await ctx.mix.curate(c.id);
