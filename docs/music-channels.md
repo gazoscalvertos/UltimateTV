@@ -62,6 +62,14 @@ takes a still for the guide. API: `GET /api/mix/nas?dir=…` and
 **Add a YouTube playlist** (on a channel) takes a playlist link: type it, or type it on the phone
 remote's keyboard while the box is open and it fills in. See [YouTube playlists](#youtube-playlists).
 
+**YouTube links in "Songs to include".** Besides `Artist - Title`, a song entry can be a YouTube
+video link (watch, youtu.be or shorts). The Hub reads that exact video and adds it to the channel,
+whatever the "How many videos" target is and without the length and picture rules (like a video
+added by hand). A playlist link there is followed like **Add a YouTube playlist**. On the TV,
+"Add artists, genres or songs" accepts links; on the phone's settings page they go in the
+"Songs to include" box, one per line. Each link is read once, so a video taken off by hand stays
+off; a link that can't be read is tried again on the next pass.
+
 **Create a channel** asks for a name and what it should play ("Oasis, Blur, Pulp, 90s Britpop").
 Each part between commas becomes a search for official videos.
 Each pass reads a search 25 results at a time, up to three pages, and the next pass carries on

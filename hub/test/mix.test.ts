@@ -490,6 +490,39 @@ describe("YouTube playlists on a channel", () => {
     }
   });
 
+  it("takes YouTube links among the songs to include, whatever the target", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-links-"));
+    const fake = fakeYtDlp();
+    const run: Run = async (args, opts) => {
+      if (args.includes("--dump-json") && !args.some((a) => a.startsWith("ytsearch"))) {
+        const url = args[args.length - 1]!;
+        if (url.includes("bad")) return { code: 1, stdout: "", stderr: "ERROR: Video unavailable" };
+        const id = /[?&]v=([\w-]+)|youtu\.be\/([\w-]+)/.exec(url)!.slice(1).find(Boolean)!;
+        return { code: 0, stdout: JSON.stringify({ id, title: `Link Artist - Link Song ${id}`, duration: 200, height: 480, uploader: "x", view_count: 5 }), stderr: "" };
+      }
+      return fake.run(args, opts);
+    };
+    const ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: run, mixPauseMs: 0, mixMinFreeBytes: 0, mixCropDetect: async () => "" });
+    try {
+      const picks = ["Alpha - One", "https://www.youtube.com/watch?v=abc123DEF45&list=PLignored12345", "https://youtu.be/xyz987", "https://www.youtube.com/watch?v=bad"];
+      const c = ctx.mix.create({ name: "Links TV", brief: "x", picks, target: 5 });
+      expect(await ctx.mix.curate(c.id)).toBe(2 + 1);
+      const ids = ctx.mix.store.entries(c.id).map((e) => e.video.id);
+      expect(ids).toContain("abc123DEF45");
+      expect(ids).toContain("xyz987");
+      expect(ids.some((i) => i.startsWith("AlphaOne"))).toBe(true);
+      // The links aren't searched for as songs.
+      expect(fake.calls.some((a) => a.some((x) => x.startsWith("ytsearch") && x.includes("http")))).toBe(false);
+      // Taking one off by hand keeps it off; the unreadable one is tried again, the others aren't.
+      await ctx.mix.removeVideo(c.id, "xyz987");
+      await ctx.mix.curate(c.id);
+      expect(ctx.mix.store.entries(c.id).map((e) => e.video.id)).not.toContain("xyz987");
+    } finally {
+      ctx.close();
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
   it("reads a followed playlist from the work loop when it's added", async () => {
     const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-playlist3-"));
     const yt = playlistYtDlp();

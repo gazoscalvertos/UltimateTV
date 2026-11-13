@@ -378,7 +378,7 @@
     <form id="mix-add">
       <label>New channel's name</label><input name="name" autocomplete="off" placeholder="90s Dance">
       <label>What it should play</label><input name="brief" autocomplete="off" placeholder="90s eurodance and club classics">
-      <label>Songs to include<small> one per line, Artist - Title (optional)</small></label><textarea name="picks" placeholder="Cascada - Everytime We Touch"></textarea>
+      <label>Songs to include<small> one per line: Artist - Title, or a YouTube link (optional)</small></label><textarea name="picks" placeholder="Cascada - Everytime We Touch&#10;https://www.youtube.com/watch?v=…"></textarea>
       <label>Or a YouTube playlist<small> every video in it is downloaded (optional)</small></label><input name="playlist" autocomplete="off" placeholder="https://www.youtube.com/playlist?list=…">
       <button>Add channel</button>
     </form>
@@ -1099,7 +1099,7 @@ async function loadMix() {
     edit.innerHTML = `
       <div class="row"><div><label>Name</label><input name="name"></div><div><label>Number</label><input name="number" type="number" disabled></div></div>
       <label>What it should play</label><input name="brief">
-      <label>Songs to include<small> one per line, Artist - Title</small></label><textarea name="picks"></textarea>
+      <label>Songs to include<small> one per line: Artist - Title, or a YouTube link</small></label><textarea name="picks"></textarea>
       <label>Searches to fill it up<small> one per line</small></label><textarea name="queries"></textarea>
       <label>Leave out videos whose title has<small> one per line</small></label><textarea name="exclude" style="min-height:50px"></textarea>
       <div class="row">

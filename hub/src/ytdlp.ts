@@ -224,6 +224,16 @@ export function playlistId(input: string): string | undefined {
   return list && /^[\w-]{8,}$/.test(list) ? list : undefined;
 }
 
+/** A YouTube address (watch, youtu.be, shorts, music or playlist link) typed where a song name goes. */
+export function isYoutubeLink(input: string): boolean {
+  try {
+    const u = new URL(input.trim());
+    return /^https?:$/.test(u.protocol) && /(^|\.)(youtube\.com|youtu\.be)$/i.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** A video as a playlist lists it (no picture size: that's only known when it downloads). */
 export interface PlaylistItem {
   id: string;
