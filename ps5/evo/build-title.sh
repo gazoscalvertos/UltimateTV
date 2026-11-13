@@ -25,7 +25,7 @@ if [[ "${1:-}" == "--check" ]]; then
   # The provider only has to agree with EVO's headers and cJSON's, so those are all this fetches.
   tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
   for h in evo_addon.h evo_provider.h evo_net.h; do curl -fsS "$RAW/$h" -o "$tmp/$h"; done
-  curl -fsS https://raw.githubusercontent.com/DaveGamble/cJSON/v1.7.18/cJSON.h -o "$tmp/cJSON.h"
+  curl -fsS "$RAW/cJSON.h" -o "$tmp/cJSON.h"   # EVO ships its own cJSON header
   gcc -std=gnu11 -Wall -Wextra -Werror -fsyntax-only -I"$tmp" "$HERE/provider_ultimatetv.c"
   echo "provider_ultimatetv.c compiles against EVO@$EVO_REF headers"
   exit 0
@@ -36,6 +36,7 @@ command -v docker >/dev/null || { echo "Docker is needed: EVO builds inside its 
 rm -rf "$WORK"
 git clone --quiet "$EVO_REPO" "$WORK"
 git -C "$WORK" checkout --quiet "$EVO_REF"
+git -C "$WORK" submodule update --init --recursive --quiet
 SHA="$(git -C "$WORK" rev-parse HEAD)"
 echo "EVO at $SHA"
 
@@ -51,10 +52,9 @@ sed -i 's|^extern const evo_provider_t evo_provider_jellyfin;|&\nextern const ev
 sed -i 's|^    &evo_provider_jellyfin,|    \&evo_provider_ultimatetv,   /* UltimateTV: first, so it opens first */\n&|' "$MGR"
 grep -q '&evo_provider_ultimatetv' "$MGR" || { echo "Couldn't add the provider to the table" >&2; exit 1; }
 
-# Make sure the build picks the new file up (EVO's Makefile globs addons/src; if it ever lists files, say so).
-if ! grep -Eq 'addons/src/\*\.c|wildcard' "$P/Makefile" 2>/dev/null; then
-  echo "warning: EVO's Makefile doesn't glob addons/src; add provider_ultimatetv.c to its source list" >&2
-fi
+# EVO's Makefile lists its sources one by one, so add ours next to the Jellyfin provider.
+sed -i 's|^\( *\)addons/src/provider_jellyfin.c \\|&\n\1addons/src/provider_ultimatetv.c \\|' "$P/Makefile"
+grep -q 'addons/src/provider_ultimatetv.c' "$P/Makefile" || { echo "Couldn't add the provider to EVO's Makefile" >&2; exit 1; }
 
 # Its own title, so it sits beside EVO Player instead of replacing it, and doesn't touch EVO's data.
 PJ="$P/sce_sys/param.json"
@@ -71,7 +71,16 @@ for loc in d.get("localizedParameters", {}).values():
 json.dump(d, open(path, "w"), indent=2)
 PY
 
-(cd "$WORK" && docker compose build && docker compose run --rm ps5-dev ./scripts/package-app.sh --ffpfsc --zip)
+# EVO needs FFmpeg 7.1.1 and the image only carries 7.0.1 (evo_dovi.c refuses to build against
+# anything else), so build it into the SDK volume first. It is the slow step, about half an hour.
+(cd "$WORK" && docker compose build \
+  && docker compose run --rm ps5-dev ./scripts/build-ffmpeg.sh --profile minimal --install \
+  && { docker compose run --rm ps5-dev ./scripts/package-app.sh --ffpfsc --zip || {
+         rc=$?
+         # package-app.sh only prints the last 40 lines of its compile log, which are usually warnings.
+         echo "--- compiler errors from output/app/.build/compile.log ---" >&2
+         docker compose run --rm ps5-dev bash -c 'f=output/app/.build/compile.log; ls -la "$f" >&2; wc -l "$f" >&2; grep -n -E "\*\*\*|Stop\.|No rule|Killed|signal|terminated|cannot |not found|error:|Error [0-9]|fatal|undefined" "$f" | cut -c1-300 | head -60 >&2; echo "--- non-warning lines near the end ---" >&2; grep -v -E "unused function|^ *[0-9]+ \||\^~|warning:|ccache prospero" "$f" | tail -30 | cut -c1-300 >&2' >&2 || true
+         exit "$rc"; }; })
 
 rm -rf "$OUT"; mkdir -p "$OUT"
 cp -r "$P/output/app/PPSA"*/. "$OUT/" 2>/dev/null || cp -r "$WORK/output/app/"* "$OUT/"
