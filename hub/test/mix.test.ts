@@ -513,10 +513,56 @@ describe("YouTube playlists on a channel", () => {
       expect(ids.some((i) => i.startsWith("AlphaOne"))).toBe(true);
       // The links aren't searched for as songs.
       expect(fake.calls.some((a) => a.some((x) => x.startsWith("ytsearch") && x.includes("http")))).toBe(false);
+      // Videos picked by link download at any picture size (the fake serves 480p only on request).
+      expect(ctx.mix.store.video("abc123DEF45")?.anySize).toBe(true);
       // Taking one off by hand keeps it off; the unreadable one is tried again, the others aren't.
       await ctx.mix.removeVideo(c.id, "xyz987");
       await ctx.mix.curate(c.id);
       expect(ctx.mix.store.entries(c.id).map((e) => e.video.id)).not.toContain("xyz987");
+    } finally {
+      ctx.close();
+      await rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("looks for another source when a linked video isn't available at the channel's size, then falls back to the video itself", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "utv-mix-alt-"));
+    const fake = fakeYtDlp();
+    const info = (id: string, title: string) => ({ id, title, duration: 200, height: 2160, uploader: "SomeVEVO", view_count: 1e6 });
+    let altExists = true;
+    const run: Run = async (args, opts) => {
+      if (args.includes("--dump-json") && !args.some((a) => a.startsWith("ytsearch"))) {
+        const url = args[args.length - 1]!;
+        const id = /[?&]v=([\w-]+)/.exec(url)![1]!;
+        return { code: 0, stdout: JSON.stringify(info(id, "Zed Band - Low Song")), stderr: "" };
+      }
+      // The linked video has no 720p version.
+      if (args.includes("--print") && args.some((a) => a.includes("lowvid"))) {
+        const min = /height>=(\d+)/.exec(args.join(" "))?.[1];
+        if (min && Number(min) > 0) return { code: 1, stdout: "", stderr: "ERROR: Requested format is not available" };
+      }
+      if (args.some((a) => a.startsWith("ytsearch")) && !altExists) return { code: 0, stdout: "", stderr: "" };
+      return fake.run(args, opts);
+    };
+    const ctx = new HubContext({ dataDir: tmp, mediaRoot: tmp, log: silent, ytdlp: run, mixPauseMs: 0, mixMinFreeBytes: 0, mixCropDetect: async () => "" });
+    try {
+      const c = ctx.mix.create({ name: "Alt TV", brief: "x", picks: ["https://www.youtube.com/watch?v=lowvid"], target: 5 });
+      await ctx.mix.curate(c.id);
+      await ctx.mix.download("lowvid");
+      const ids = ctx.mix.store.entries(c.id).map((e) => e.video.id);
+      // Another source replaced it.
+      expect(ids).not.toContain("lowvid");
+      expect(ids.some((i) => i.startsWith("ZedBandLowSo"))).toBe(true);
+
+      altExists = false;
+      const d = ctx.mix.create({ name: "Alt Two TV", brief: "x", picks: ["https://www.youtube.com/watch?v=lowvid"], target: 5 });
+      await ctx.mix.curate(d.id);
+      await ctx.mix.download("lowvid");
+      // No other source: the linked video itself, at its own size.
+      expect(ctx.mix.store.video("lowvid")?.lowRes).toBe(true);
+      expect(ctx.mix.store.entries(d.id).map((e) => e.video.id)).toContain("lowvid");
+      await ctx.mix.download("lowvid");
+      expect(ctx.mix.store.video("lowvid")?.status).toBe("ready");
     } finally {
       ctx.close();
       await rm(tmp, { recursive: true, force: true });

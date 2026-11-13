@@ -68,7 +68,10 @@ whatever the "How many videos" target is and without the length and picture rule
 added by hand). A playlist link there is followed like **Add a YouTube playlist**. On the TV,
 "Add artists, genres or songs" accepts links; on the phone's settings page they go in the
 "Songs to include" box, one per line. Each link is read once, so a video taken off by hand stays
-off; a link that can't be read is tried again on the next pass.
+off; a link that can't be read is tried again on the next pass. A linked video is downloaded at the channel's
+picture size (720p or better by default). If it can't be had at that size, the Hub looks for another
+upload of the same song that is, and swaps it in; if there isn't one, it downloads the linked video at
+whatever size it has.
 
 **Create a channel** asks for a name and what it should play ("Oasis, Blur, Pulp, 90s Britpop").
 Each part between commas becomes a search for official videos.
