@@ -408,7 +408,7 @@ static void ut_progress(const char *id, int64_t pos, int64_t dur, evo_provider_p
     cJSON_AddNumberToObject(o, "pos_sec", (double)pos);
     cJSON_AddNumberToObject(o, "dur_sec", (double)dur);
     cJSON_AddStringToObject(o, "state", st == EVO_PROVIDER_PLAY_START ? "start" : st == EVO_PROVIDER_PLAY_STOP ? "stop" : "update");
-    cJSON_AddBoolToObject(o, "paused", evo_provider_is_paused());
+    cJSON_AddItemToObject(o, "paused", cJSON_CreateBool(evo_provider_is_paused()));
     char *text = cJSON_PrintUnformatted(o);
     cJSON_Delete(o);
     if (text) hub_request("POST", "/api/ps5/progress", text, ignore, NULL);
