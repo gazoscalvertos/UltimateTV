@@ -28,7 +28,7 @@ import type { EventBus } from "./events.js";
 import type { Logger } from "./log.js";
 import { FIRST_SEED_NAMES, MIX_SEEDS, type MixSeed } from "./mixseeds.js";
 import type { SettingsStore } from "./settings.js";
-import { displayTitle, overlap, playlistId, songKey, toCandidate, type Playlist, type YtDlp, type YtInfo } from "./ytdlp.js";
+import { displayTitle, isYoutubeLink, overlap, playlistId, songKey, toCandidate, type Playlist, type YtDlp, type YtInfo } from "./ytdlp.js";
 
 const HOUR = 3_600_000;
 /** How far ahead the guide is filled, and when it is topped up. */
@@ -1110,10 +1110,12 @@ export class MixManager {
     const yt = this.o.ytdlp;
     if (!c || !yt || !searches(c)) return 0;
     const entries = this.store.entries(channelId);
+    // YouTube links among the songs to include are added whatever the target is.
+    const linked = await this.addLinkedPicks(c, entries, now);
     // Playlist videos come on top of the target.
     const listed = this.fromPlaylists(c);
     let need = c.target - entries.filter((e) => e.video.status !== "failed" && !listed.has(e.video.id)).length;
-    if (need <= 0) return 0;
+    if (need <= 0) return linked;
     this.busy.curate = `Choosing videos for ${c.name}`;
     const plan = await this.curators[c.curator].plan(c, entries);
     const tried = new Set(this.o.db.getKv<string[]>(`mix-tried:${channelId}`) ?? []);
@@ -1156,6 +1158,7 @@ export class MixManager {
       }
     };
     for (const pick of plan.picks) {
+      if (isYoutubeLink(pick)) continue;
       if (need <= 0 || this.stopped) break;
       if (tried.has(`pick:${pick}`)) continue;
       if (failures >= 3) break;
@@ -1204,6 +1207,44 @@ export class MixManager {
     this.changed(channelId);
     // Still short but getting somewhere: carry on down the search results after the queued downloads.
     if (need > 0 && added > 0 && failures < 3 && !this.stopped) this.queue({ kind: "curate", channelId });
+    return added + linked;
+  }
+
+  /**
+   * Songs to include can be YouTube links. A video link is added as it is (it ignores the target and
+   * the length and picture rules, like a video added by hand); a playlist link is followed. A link
+   * is only read once, so a video taken off the channel by hand stays off.
+   */
+  private async addLinkedPicks(c: MixChannel, entries: MixEntry[], now: number): Promise<number> {
+    const yt = this.o.ytdlp;
+    const tried = new Set(this.o.db.getKv<string[]>(`mix-tried:${c.id}`) ?? []);
+    let added = 0;
+    for (const pick of c.picks) {
+      if (!yt || this.stopped) break;
+      if (!isYoutubeLink(pick) || tried.has(`pick:${pick}`)) continue;
+      const list = playlistId(pick);
+      const single = /[?&]v=|youtu\.be\/[\w-]|\/shorts\/[\w-]/.test(pick);
+      try {
+        if (list && !single) {
+          if (!(c.playlists ?? []).some((p) => p.id === list)) this.followPlaylist(c.id, pick, now);
+        } else {
+          this.busy.curate = `Reading ${pick}`;
+          const info = await yt.info(pick);
+          if (!entries.some((e) => e.video.id === info.id)) {
+            const v = this.store.video(info.id) ?? this.newVideo(toCandidate(info, c));
+            this.addToChannel(c, v, `link: ${pick}`.slice(0, 120));
+            entries.push({ video: v, origin: `link: ${pick}`, addedAt: now });
+            added++;
+          }
+        }
+      } catch (err) {
+        // Not tried: a failed read is tried again on the next pass.
+        this.o.log.warn({ link: pick, err: String(err) }, "Couldn't read a YouTube link in the songs to include");
+        continue;
+      }
+      tried.add(`pick:${pick}`);
+      this.o.db.setKv(`mix-tried:${c.id}`, [...tried]);
+    }
     return added;
   }
 

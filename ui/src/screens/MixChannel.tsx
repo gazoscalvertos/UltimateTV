@@ -54,9 +54,10 @@ export function splitAdditions(text: string, style: MixChannel["style"] = "music
     .map((t) => t.trim())
     .filter((t) => t.length > 1);
   if (style === "ambience") return { picks: parts, queries: [] };
+  const song = (t: string) => / - /.test(t) || /^https?:\/\/(www\.|m\.|music\.)?(youtube\.com|youtu\.be)\//i.test(t);
   return {
-    picks: parts.filter((t) => / - /.test(t)),
-    queries: parts.filter((t) => !/ - /.test(t)).map((t) => `${t} official music video`),
+    picks: parts.filter(song),
+    queries: parts.filter((t) => !song(t)).map((t) => `${t} official music video`),
   };
 }
 
@@ -95,7 +96,7 @@ export function MixChannelScreen(props: { id: string }) {
   const addMore = async () => {
     const ch = c();
     if (!ch) return;
-    const text = await askText(ch.style === "ambience" ? "Add scenes to look for, with commas between" : "Add artists, genres or songs (Artist - Title), with commas between");
+    const text = await askText(ch.style === "ambience" ? "Add scenes to look for, with commas between" : "Add artists, genres, songs (Artist - Title) or YouTube video links, with commas between");
     if (!text) return;
     const add = splitAdditions(text, ch.style);
     await act(() => hub.updateMix(ch.id, { picks: [...add.picks, ...ch.picks], queries: [...add.queries, ...ch.queries], target: ch.target + add.picks.length }), "Added. The Hub is looking for them now.");
