@@ -18,7 +18,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const { chromium } = require("playwright");
+const { chromium } = require("playwright-core");
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const out = path.join(root, "docs/screenshots/samsung");
@@ -55,7 +55,7 @@ await new Promise((r) => files.listen(0, "127.0.0.1", r));
 const appUrl = `http://127.0.0.1:${files.address().port}/`;
 
 await mkdir(out, { recursive: true });
-const browser = await chromium.launch({ args: ["--disable-web-security"] });
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ["--disable-web-security"] });
 const errors = [];
 let failed = false;
 
