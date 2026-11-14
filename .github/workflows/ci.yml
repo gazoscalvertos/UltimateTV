@@ -24,6 +24,8 @@ jobs:
       - run: npm run build
       - name: Clip packs pass the Hub's checks and the community list is up to date
         run: node tools/packs/index-packs.mjs --check
+      - name: Check the Samsung TV app only uses what a 2018 set's Chromium 56 understands
+        run: npx esbuild samsung/js/*.js --target=chrome56 --outdir=/tmp/samsung-check --log-level=error
       - name: Check the probe bundle parses as ES2017
         run: npx esbuild tools/probe/dist/probe.js --target=es2017 --log-level=error > /dev/null
 
@@ -44,6 +46,8 @@ jobs:
       - run: npx playwright-core install --with-deps chromium
       - name: Run the TV journeys
         run: npm run e2e
+      - name: Run the Samsung TV app against a demo Hub
+        run: node tools/screenshots/samsung.mjs
       - name: Keep the screenshots of anything that failed
         if: failure()
         uses: actions/upload-artifact@v7
