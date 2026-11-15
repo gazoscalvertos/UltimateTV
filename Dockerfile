@@ -63,6 +63,11 @@ COPY --from=build /app/hub/packs hub/packs
 # What's new in the apps (GET /api/changelog).
 COPY CHANGELOG.md ./
 COPY --from=build /app/ui/dist ui/dist
+# The Samsung and LG TV apps' screens: the shells on those TVs load them from the Hub (docs/tv-updates.md).
+COPY samsung/js samsung/js
+COPY samsung/css samsung/css
+COPY lg/js lg/js
+COPY lg/css lg/css
 COPY --from=build /app/tools/probe/dist tools/probe/dist
 COPY --from=comskip /src/comskip /usr/local/bin/comskip
 COPY tools/clips/make-test-clips.sh /usr/local/bin/make-test-clips

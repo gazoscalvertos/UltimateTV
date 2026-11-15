@@ -650,7 +650,7 @@
     });
     row("Check the Hub", "", function () { Hub.health().then(function (r) { toast("Hub " + (r.version || "") + (r.status ? " · " + r.status : " · reachable")); }, failed); });
     row("Unpair this TV", "", function () { Hub.forget().then(function () { swap("connect", {}, true); }); });
-    row("About", "UltimateTV for LG TVs " + VERSION, function () { toast("UltimateTV for LG TVs " + VERSION + (window.webOS ? " · webOS " + ((webOS.platform && webOS.platform.tv) ? "TV" : "") : " · desktop browser")); });
+    row("About", "UltimateTV for LG TVs " + VERSION, function () { toast("UltimateTV for LG TVs " + VERSION + " · screens: " + (UTV.bootSource || "packaged") + (window.webOS ? " · webOS " + ((webOS.platform && webOS.platform.tv) ? "TV" : "") : " · desktop browser")); });
     body.appendChild(list);
     return { el: page, root: true, focus: function () { Nav.focus(list.querySelector(".f")); }, key: function (a) { return a === "back" ? (swap("home", {}, true), true) : false; } };
   };

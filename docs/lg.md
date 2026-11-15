@@ -64,6 +64,7 @@ The install is only good while the session lasts, so extend it before it runs ou
   [Keeping webOS Developer Mode alive with Home Assistant](https://elis.nu/blog/2022/07/keeping-webos-developer-mode-alive-with-home-assistant/)).
   The button positions can differ between webOS versions, so try it once by hand.
 - If the app disappears anyway, repeat steps 2 to 5 (the Hub's data and profiles are kept).
+- **New versions of the app need no reinstall.** The screens load from the Hub ([tv-updates.md](tv-updates.md)): update the Hub, then close and reopen the app. Only the Developer Mode session needs keeping alive.
 
 ## First run
 
@@ -113,7 +114,7 @@ copy when the only version is too big. **Picture quality: Up to 1080p** in Setti
 `lg/` is a plain web app with no build step (ES2015 only; CI checks it with `esbuild --target=chrome53`,
 the engine in webOS 4), made from `samsung/` with a different shell:
 
-- `appinfo.json` is the webOS app manifest, `js/player.js` plays with a `<video>` and draws captions
+- `boot.js` is the shell that loads the screens from the Hub ([tv-updates.md](tv-updates.md)), `appinfo.json` is the webOS app manifest, `js/player.js` plays with a `<video>` and draws captions
   itself, `js/util.js` has the LG key codes (Back is 461, the colour keys are 403 to 406, CH+/CH− are
   33 and 34), and the rest (`hub.js`, `nav.js`, `app.js`, `css/app.css`) is shared in spirit with
   `samsung/`.

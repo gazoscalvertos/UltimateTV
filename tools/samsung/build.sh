@@ -10,7 +10,7 @@ rm -f "$out/UltimateTV.wgt"
 cd "$here/samsung"
 # Same check CI runs: the 2018 sets run Chromium 56, so nothing newer may sneak in.
 if command -v npx >/dev/null 2>&1 && [ -d "$here/node_modules/esbuild" ]; then
-  (cd "$here" && npx esbuild samsung/js/*.js --target=chrome56 --outdir=/tmp/utv-samsung-check --log-level=error >/dev/null)
+  (cd "$here" && npx esbuild samsung/js/*.js samsung/boot.js --target=chrome56 --outdir=/tmp/utv-samsung-check --log-level=error >/dev/null)
 fi
-zip -qr "$out/UltimateTV.wgt" config.xml index.html icon.png css js
+zip -qr "$out/UltimateTV.wgt" config.xml index.html boot.js icon.png css js
 echo "Built $out/UltimateTV.wgt ($(du -h "$out/UltimateTV.wgt" | cut -f1))"

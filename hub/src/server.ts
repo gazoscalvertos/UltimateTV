@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { allowPackagedApps, registerTvApps } from "./tvapps.js";
 import { statfs } from "node:fs/promises";
 import os from "node:os";
 import { discoverServers, type DiscoveredServer } from "./discovery.js";
@@ -567,6 +568,7 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
     ["PUT /api/hub/move-file", "moving files: checks the X-Move-Key and keeps every path inside the NAS root"],
     ["DELETE /api/hub/move", "cancels a move: checks the X-Move-Key like the rest of that plugin"],
   ];
+  allowPackagedApps(app);
   // Share Play's tunnel (docs/share-play.md) reaches /share/ and nothing else of the Hub.
   onlyShareThroughTunnel(app, config.shareUrl);
   app.addHook("preHandler", async (req) => {
@@ -2424,6 +2426,10 @@ export async function buildServer(config: HubConfig, deps: ServerDeps = {}): Pro
   if (config.castDir) await serveDir(config.castDir, "/cast/", "Screen share page missing.");
   // The family quiz's page for phones (docs/family-quiz.md).
   if (config.quizDir) await serveDir(config.quizDir, "/quiz/", "Quiz page missing.");
+  // The Samsung and LG TV apps load their screens from here (docs/tv-updates.md).
+  registerTvApps(app, { samsung: config.samsungDir, lg: config.lgDir });
+  if (config.samsungDir && existsSync(config.samsungDir)) await serveDir(config.samsungDir, "/tv/samsung/", "Samsung TV app files missing.");
+  if (config.lgDir && existsSync(config.lgDir)) await serveDir(config.lgDir, "/tv/lg/", "LG TV app files missing.");
   if (config.remoteDir) {
     const remoteDir = config.remoteDir;
     // The install name follows the app's name, so a renamed app installs as "GazosTV Remote".

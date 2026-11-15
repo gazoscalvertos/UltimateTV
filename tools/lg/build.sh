@@ -11,7 +11,7 @@ rm -f "$out"/*.ipk
 cd "$here"
 # Same check CI runs: older sets run Chromium 53, so nothing newer may sneak in.
 if command -v npx >/dev/null 2>&1 && [ -d "$here/node_modules/esbuild" ]; then
-  npx esbuild lg/js/*.js --target=chrome53 --outdir=/tmp/utv-lg-check --log-level=error >/dev/null
+  npx esbuild lg/js/*.js lg/boot.js --target=chrome53 --outdir=/tmp/utv-lg-check --log-level=error >/dev/null
 fi
 if command -v ares-package >/dev/null 2>&1; then
   ares-package --outdir "$out" lg/ --no-minify
@@ -20,7 +20,7 @@ else
   trap 'rm -rf "$tmp"' EXIT
   id="home.ultimatetv.lg"; ver="0.1.0"
   mkdir -p "$tmp/data/usr/palm/applications/$id" "$tmp/control"
-  (cd lg && cp -r appinfo.json index.html icon.png css js "$tmp/data/usr/palm/applications/$id/")
+  (cd lg && cp -r appinfo.json index.html boot.js icon.png css js "$tmp/data/usr/palm/applications/$id/")
   printf 'Package: %s\nVersion: %s\nSection: misc\nPriority: optional\nArchitecture: all\nInstalled-Size: 1\nMaintainer: UltimateTV <noreply@example.invalid>\nDescription: UltimateTV\nwebOS-Package-Format-Version: 2\nwebOS-Packager-Version: 1.2.2\n' "$id" "$ver" > "$tmp/control/control"
   printf '#!/bin/sh\nexit 0\n' > "$tmp/control/postinst"; cp "$tmp/control/postinst" "$tmp/control/prerm"; chmod +x "$tmp/control/"*
   printf '2.0\n' > "$tmp/debian-binary"

@@ -90,6 +90,12 @@ try {
 
   await page.goto(appUrl);
   await page.waitForSelector(".profiles .profile, .rail, .empty", { timeout: 20000 });
+  // The shell must have taken the screens from the Hub, not the copy in the package.
+  const source = await page.evaluate(() => window.UTV.bootSource);
+  if (!/^Hub /.test(source)) {
+    console.error(`The screens came from "${source}", not the Hub`);
+    failed = true;
+  }
   await shot("01-profiles.png");
   await press("enter");
   await page.waitForSelector(".rail", { timeout: 20000 });
