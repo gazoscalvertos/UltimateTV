@@ -39,6 +39,9 @@ export interface HubConfig {
   shareDir?: string;
   /** The family quiz's page for phones. */
   quizDir?: string;
+  /** The Samsung and LG TV apps' files, which the shells installed on those TVs load from here. */
+  samsungDir?: string;
+  lgDir?: string;
   /** The HTTPS port as phones and laptops reach it (Docker maps it to 8096 by default). */
   httpsPublicPort?: number;
 }
@@ -61,6 +64,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     castDir: env.CAST_DIR ?? path.resolve(here, "../public/cast"),
     shareDir: env.SHARE_DIR ?? path.resolve(here, "../public/share"),
     quizDir: env.QUIZ_DIR ?? path.resolve(here, "../public/quiz"),
+    samsungDir: env.SAMSUNG_DIR ?? path.resolve(here, "../../samsung"),
+    lgDir: env.LG_DIR ?? path.resolve(here, "../../lg"),
     changelogPath: env.CHANGELOG_PATH ?? path.resolve(here, "../../CHANGELOG.md"),
     httpsPort: Number(env.HTTPS_PORT ?? 8443),
   };

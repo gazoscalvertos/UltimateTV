@@ -97,17 +97,18 @@ Settings lowers the limits.
 
 ## Updating, and when it stops working
 
-The app is stored on the TV, so a new version means building and installing it again (steps 1 and 5). The
-Hub's data and who's watching are kept. If the app stops opening, the certificate has probably
-expired: make a new one in Certificate Manager and install again. Keep the author certificate's backup,
-because an update signed with a different one installs as a separate app.
+The screens come from the Hub ([tv-updates.md](tv-updates.md)): update the Hub, then close and reopen the
+app on the TV. You only reinstall from a computer (steps 1 and 5) when the shell itself changes, which is
+rare, and when the certificate expires: make a new one in Certificate Manager and install again. Keep the
+author certificate's backup, because an update signed with a different one installs as a separate app.
+The Hub's data and who's watching are kept.
 
 ## How it's built
 
 `samsung/` is a plain web app with no build step (ES2015 only, since Chromium 56 has no object spread,
 optional chaining, flex gap or CSS grid, and CI checks that with `esbuild --target=chrome56`):
 
-- `js/util.js` pure helpers (tested in `samsung/test`), `js/hub.js` the Hub client and pairing, `js/nav.js`
+- `boot.js` the shell (loads the screens from the Hub, [tv-updates.md](tv-updates.md)), `js/util.js` pure helpers (tested in `samsung/test`), `js/hub.js` the Hub client and pairing, `js/nav.js`
   remote keys and spatial focus, `js/player.js` AVPlay (and a `<video>` fallback for a desktop browser),
   `js/app.js` the screens, `css/app.css` the look.
 - It calls the Hub's own routes (`/api/home`, `/api/browse`, `/api/nownext`, `/api/titles`, `/api/play`,
