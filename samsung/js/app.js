@@ -583,7 +583,7 @@
       var factsEl = h("div", { class: "facts" });
       facts.forEach(function (f, i) { if (i) factsEl.appendChild(document.createTextNode("   ·   ")); factsEl.appendChild(typeof f === "object" ? f : document.createTextNode(String(f))); });
       var play = playButton(t);
-      var buttons = h("div", {}, [play]);
+      var buttons = h("div", {}, [play, versionsButton(t), series ? h("div", { class: "hint", text: "Yellow on an episode: its versions" }) : null]);
       area.appendChild(h("div", { class: "details-main" }, [
         h("div", { class: "details-poster", style: t.poster ? "background-image:url('" + imgFor(t.poster).replace(/'/g, "%27") + "')" : "" }),
         h("div", { class: "details-info" }, [h("h1", { text: t.name }), factsEl, h("div", { class: "overview", text: t.overview || "" }), buttons]),
@@ -599,6 +599,7 @@
             h("div", { class: "still", style: ep.still ? "background-image:url('" + imgFor(ep.still).replace(/'/g, "%27") + "')" : "" }, ep.progress > 0 && ep.progress < 1 ? [h("div", { class: "bar" }, [h("i", { style: "width:" + Math.round(ep.progress * 100) + "%" })])] : []),
             h("div", { class: "now" }, [h("b", { text: ep.episode + ". " + ep.name + (ep.watched ? "  ✓" : "") }), h("span", { text: UTV.clip(ep.overview || "", 160) })]),
           ]);
+          row.setAttribute("data-ep", "s" + ep.season + "e" + ep.episode);
           list.appendChild(focusable(row, function () { playTitle(t.id, "s" + ep.season + "e" + ep.episode); }));
         });
         sa.appendChild(list);
@@ -610,8 +611,19 @@
       var label = t.resumeMs > 5000 ? "Resume from " + UTV.duration(t.resumeMs / 1000) : t.kind === "series" && t.episodeId ? "Play " + t.episodeId.toUpperCase().replace("S", "S").replace("E", " E") : "Play";
       return button(label, function () { playTitle(t.id, episode); }, true);
     }
+    function versionsButton(t) {
+      var ep = t.kind === "series" ? (t.episodeId || (t.seasons && t.seasons[0] && t.seasons[0].episodes[0] ? "s" + t.seasons[0].episodes[0].season + "e" + t.seasons[0].episodes[0].episode : undefined)) : undefined;
+      return button("Other versions", function () { chooseVersion(t, ep); });
+    }
     return {
       el: el,
+      key: function (action) {
+        if (action !== "yellow" || !details) return false;
+        var f = document.activeElement;
+        var ep = f && f.getAttribute ? f.getAttribute("data-ep") : null;
+        if (ep) { chooseVersion(details, ep); return true; }
+        return false;
+      },
       start: function () {
         Hub.title(p.id).then(function (t) {
           details = t;
@@ -649,6 +661,42 @@
 
   function playChannel(id) { startPlay({ kind: "channel", id: id }, { live: true, channelId: id }); }
   function playTitle(id, episodeId) { startPlay(episodeId ? { kind: "title", id: id, episodeId: episodeId } : { kind: "title", id: id }, {}); }
+  /** Every copy the sources have (4K remux, 1080p, IPTV…), to play the one you pick. */
+  function chooseVersion(t, episodeId) {
+    var back = document.activeElement;
+    var menu = h("div", { class: "v-menu" }, [h("h3", { text: "Choose a version" + (episodeId ? " · " + episodeId.toUpperCase() : "") }), h("div", { class: "v-note", text: "Asking every source…" })]);
+    document.body.appendChild(menu);
+    function close() {
+      if (menu.parentNode) menu.parentNode.removeChild(menu);
+      Nav.handle(onScreenKey);
+      if (back && document.body.contains(back)) Nav.focus(back);
+    }
+    Nav.handle(function (a) { if (a === "back") { close(); return true; } return false; });
+    Hub.streams(t.id, episodeId).then(function (r) {
+      if (!menu.parentNode) return;
+      var list = (r && r.streams) || [];
+      menu.removeChild(menu.querySelector(".v-note"));
+      if (!list.length) { menu.appendChild(h("div", { class: "v-note", text: "No versions found yet." })); return; }
+      var box = h("div", { class: "v-list scroll-y" });
+      list.forEach(function (s) {
+        var q = s.quality || {};
+        var badges = (s.badges || []).join("  ·  ");
+        var row = focusable(h("button", { class: "setting v-row" }, [
+          h("span", { class: "v-main" }, [h("b", { text: s.label || s.kind || "" }), h("small", { text: badges || (q.height ? q.height + "p" : "") })]),
+          h("small", { text: [UTV.bytes(q.sizeBytes), s.ready ? "Ready" : "Not cached"].filter(Boolean).join("  ·  ") }),
+        ]), function () {
+          close();
+          var req = { kind: "title", id: t.id, streamId: s.id };
+          if (episodeId) req.episodeId = episodeId;
+          startPlay(req, {});
+        });
+        box.appendChild(row);
+      });
+      menu.appendChild(box);
+      Nav.focus(box.querySelector(".f"));
+    }, function (e) { close(); failed(e); });
+  }
+
   function playRecording(r) { startPlay({ kind: "recording", id: r.id }, {}); }
 
   function startPlay(request, meta, force) {
