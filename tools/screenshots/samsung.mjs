@@ -105,6 +105,14 @@ try {
   await press("enter");
   await page.waitForSelector(".details-main", { timeout: 15000 });
   await shot("06-film-details.png");
+  // Other versions: the sheet opens over the page, lists every copy and Back closes it.
+  await page.evaluate(() => [...document.querySelectorAll(".btn")].find((b) => b.textContent === "Other versions").focus());
+  await press("enter");
+  await page.waitForSelector(".v-menu .v-row, .v-menu .v-note", { timeout: 20000 });
+  await wait(800);
+  await shot("12-versions.png");
+  await press("back");
+  await page.waitForSelector(".v-menu", { state: "detached", timeout: 5000 });
   await press("back");
   await goTab("TV Shows");
   await press("down");

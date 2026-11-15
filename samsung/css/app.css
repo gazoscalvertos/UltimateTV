@@ -171,3 +171,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .p-menu .setting { height: 3.8rem; font-size: 1.2rem; margin-bottom: 0.3rem; }
 .p-menu .setting.on small { color: var(--accent-2); }
 .toast { position: absolute; left: 50%; bottom: 5rem; transform: translateX(-50%); padding: 1rem 2rem; border-radius: 0.8rem; background: rgba(18,27,46,0.96); font-size: 1.3rem; z-index: 9; max-width: 70rem; text-align: center; }
+
+.hint { margin-top: 1rem; font-size: 1.05rem; color: var(--muted); }
+.v-menu { position: absolute; left: 50%; width: 70rem; margin-left: -35rem; top: 14rem; margin-top: 0; padding: 1.6rem; border-radius: 1.2rem; background: #121b2e; box-shadow: 0 0 0 100rem rgba(0,0,0,0.55); z-index: 60; }
+.v-menu h3 { margin: 0 0 1rem 0.5rem; font-size: 1.5rem; }
+.v-note { padding: 1.5rem; font-size: 1.3rem; color: var(--muted); }
+.v-list { position: relative; max-height: 36rem; overflow: hidden; }
+.v-row { height: 5.4rem; }
+.v-main { display: block; }
+.v-main b { display: block; font-size: 1.3rem; }
+.v-main small { display: block; margin-top: 0.2rem; }

@@ -70,7 +70,7 @@ installed again then (and after a factory reset).
 | Home | Hero, Live now, Continue watching, Next up, Saved for later, Favourites, New episodes, recordings and the rest of the profile's rows, in the profile's order |
 | TV Guide | Every channel with what's on now (with a progress bar) and next, in the same lists as the guide (All, Favourites, categories). OK plays it live; **CH+/CH−** change channel in the player |
 | Films, TV Shows | The Hub's browse rails |
-| Titles | Details with Play or Resume, seasons and episodes (with watched ticks and progress) |
+| Titles | Details with Play or Resume, seasons and episodes (with watched ticks and progress), and **Other versions** (on an episode, press the yellow key) to pick a 4K, 1080p or other copy |
 | Recordings | Finished and in-progress recordings play; scheduled ones show their status |
 | Search | On-screen keyboard, results for films, shows, channels and recordings |
 | Settings | Hub address, who's watching, picture quality (4K or 1080p), check the Hub, unpair |
@@ -78,7 +78,7 @@ installed again then (and after a factory reset).
 | Looks | The Hub's theme (including the seasonal ones) is applied on every start |
 
 Not in this version (they stay on the main TV and the phone): music channels, Cast & games, the family
-board, recordings management, downloads, the Versions list on a title, and the screensaver.
+board, recordings management, downloads and the screensaver.
 
 ## What plays, and what doesn't
 

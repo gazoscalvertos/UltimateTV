@@ -153,7 +153,14 @@
     for (var k in palette) if (Object.prototype.hasOwnProperty.call(palette, k) && k.indexOf("--") === 0) style.setProperty(k, palette[k]);
   }
 
-  var api = { DEFAULT_HUB: DEFAULT_HUB, normaliseHub: normaliseHub, absolute: absolute, clock: clock, duration: duration, runtime: runtime, clip: clip, esc: esc, keyAction: keyAction, MEDIA_KEYS: MEDIA_KEYS, pickNext: pickNext, skipAt: skipAt, SKIP_LABEL: SKIP_LABEL, deviceHeaders: deviceHeaders, progressBody: progressBody, titleSub: titleSub, applyPalette: applyPalette };
+  /** 1.5 GB, 700 MB: a file's size for the Versions list. */
+  function bytes(n) {
+    if (!n || n < 0) return "";
+    if (n >= 1e9) return (n / 1e9).toFixed(n >= 1e10 ? 0 : 1) + " GB";
+    return Math.max(1, Math.round(n / 1e6)) + " MB";
+  }
+
+  var api = { bytes: bytes, DEFAULT_HUB: DEFAULT_HUB, normaliseHub: normaliseHub, absolute: absolute, clock: clock, duration: duration, runtime: runtime, clip: clip, esc: esc, keyAction: keyAction, MEDIA_KEYS: MEDIA_KEYS, pickNext: pickNext, skipAt: skipAt, SKIP_LABEL: SKIP_LABEL, deviceHeaders: deviceHeaders, progressBody: progressBody, titleSub: titleSub, applyPalette: applyPalette };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.UTV = Object.assign(root.UTV || {}, api);
 })(typeof window !== "undefined" ? window : globalThis);
