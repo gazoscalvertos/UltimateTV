@@ -78,14 +78,14 @@ The install is only good while the session lasts, so extend it before it runs ou
 ## What it does
 
 The same as the Samsung app: Home (the profile's rows, in order), TV Guide (OK plays live; **CH+/CH−**
-change channel in the player), Films, TV Shows, title details with seasons and episodes, Recordings,
+change channel in the player), Films, TV Shows, title details with seasons and episodes and **Other versions** (on an episode, press the yellow key) to pick a 4K, 1080p or other copy, Recordings,
 Search, Settings (Hub address, who's watching, picture quality, check the Hub, unpair), and a player with
 pause, ±10 s (◄ ►), ±60 s (rewind and fast-forward), skip intro / recap / credits (press OK when the button
 shows), next episode, audio and subtitle tracks (▼ or the blue key) and progress sent back to the Hub.
 The Hub's theme (including the seasonal ones) is applied on every start.
 
 Not in this version (they stay on the main TV and the phone): music channels, Cast & games, the family
-board, recordings management, downloads, the Versions list on a title and the screensaver.
+board, recordings management, downloads and the screensaver.
 
 Remote keys: arrows and OK as usual, **Back** goes back (and leaves the app from the first screen),
 play, pause, stop, rewind and fast-forward work in the player, and the colour keys: **blue** opens audio

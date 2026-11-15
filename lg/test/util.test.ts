@@ -53,6 +53,13 @@ describe("LG TV app helpers", () => {
     expect(U.deviceHeaders(2160)["X-Codecs"]).toBe("h264,hevc,vp9");
     expect(U.deviceHeaders(1080)["X-Max-Height"]).toBe("1080");
   });
+
+  it("writes file sizes for the Versions list", () => {
+    expect(U.bytes(0)).toBe("");
+    expect(U.bytes(700e6)).toBe("700 MB");
+    expect(U.bytes(1.5e9)).toBe("1.5 GB");
+    expect(U.bytes(42e9)).toBe("42 GB");
+  });
 });
 
 describe("LG TV player helpers", () => {

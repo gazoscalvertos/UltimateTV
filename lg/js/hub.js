@@ -108,6 +108,7 @@
     home: function () { return request("GET", "/api/home"); },
     browse: function (kind) { return request("GET", "/api/browse/" + kind); },
     title: function (id) { return request("GET", "/api/titles/" + encodeURIComponent(id)); },
+    streams: function (id, episodeId) { return request("GET", "/api/titles/" + encodeURIComponent(id) + "/streams" + (episodeId ? "?episode=" + encodeURIComponent(episodeId) : ""), undefined, { timeout: 90000 }); },
     nowNext: function () { return request("GET", "/api/nownext"); },
     recordings: function () { return request("GET", "/api/recordings"); },
     search: function (q) { return request("GET", "/api/search?q=" + encodeURIComponent(q)); },
