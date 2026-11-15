@@ -50,6 +50,7 @@ How UltimateTV fits together as of 2026-10-29 (main at PR #60). [PLAN.md](PLAN.m
 | Setup page | `hub/public/setup/` | Any browser on the home network | Plain HTML/JS |
 | Android app | `android/client/` | Android phones and tablets | Kotlin, Jetpack Compose, Media3 ExoPlayer (+ Jellyfin ffmpeg audio decoder) |
 | Samsung TV app | `samsung/` | Samsung smart TVs (Tizen 4.0+), sideloaded in Developer Mode | Plain ES2015 web app, AVPlay ([samsung.md](samsung.md)) |
+| LG TV app | `lg/` | LG smart TVs (webOS 4+), sideloaded in Developer Mode | Plain ES2015 web app, HTML5 video ([lg.md](lg.md)) |
 | PS5 app | `ps5/` | A jailbroken PlayStation 5, as a homebrew tile | C++20, SDL2 + ImGui, FFmpeg via SDL_kitchensink, plain-socket HTTP ([ps5.md](ps5.md)) |
 | Tools | `tools/` | Box installer, PXE server, Hub update and travel scripts, screenshot capture, Phase 0 probes | Bash, Docker, iPXE, Playwright |
 
