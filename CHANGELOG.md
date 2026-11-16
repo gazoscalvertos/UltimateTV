@@ -30,7 +30,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-16
 
-- **Readable text on Android**: the Android app painted any text with no colour of its own black, so show overviews and episode titles vanished on the dark background. They now use the theme's text colour. Also lined up "Download all" with the rest and stopped episode times wrapping.
+- **Readable text on Android**: the Android app painted any text with no colour of its own black, so show overviews and episode titles vanished on the dark background. They now use the theme's text colour. Also lined up "Download all" with the rest and stopped episode times wrapping. (#280)
   Household: Show descriptions and episode titles are readable again in the Android app.
 
 ## 2026-11-12
