@@ -35,6 +35,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -156,7 +157,8 @@ class MainActivity : ComponentActivity() {
                 LocalGutter provides (if (tv) 60.dp else if (wide) 32.dp else 16.dp),
             ) {
                 MaterialTheme(colorScheme = ui.theme.scheme(), typography = if (tv) base.scaled(0.85f) else base) {
-                    Root(ui, snackbar, startTab)
+                    // Material's default ink is black; the app is dark, so every Text without its own colour uses the theme's.
+                    CompositionLocalProvider(LocalContentColor provides ui.theme.fg) { Root(ui, snackbar, startTab) }
                 }
             }
         }
@@ -221,6 +223,8 @@ private fun Root(ui: Ui, snackbar: SnackbarHostState, startTab: String?) {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbar) },
             containerColor = Color.Transparent,
+            // Without this every Text that names no colour is black (Transparent has no matching "on" colour).
+            contentColor = colours.fg,
             // The status bar, nav bar and (in landscape) the camera cut-out, applied here only once.
             contentWindowInsets = WindowInsets.safeDrawing,
             bottomBar = { if (!topMenu && showBars) BottomTabs(nav, route, tabs) },

@@ -271,7 +271,7 @@ fun DetailsScreen(nav: NavHostController, id: String) {
                                     "Download all ${episodes.size} episodes",
                                     Modifier.tvClickable {
                                         ui.downloadAll(episodes.map { e -> PlaybackRequest("title", d.id, "s${e.season}e${e.episode}") to episodeMeta(d, e) }, App.instance.prefs.smaller)
-                                    }.padding(16.dp),
+                                    }.padding(horizontal = gutter(), vertical = 16.dp),
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             }
@@ -367,7 +367,7 @@ private fun EpisodeRow(e: Episode, entry: OfflineEntry?, play: () -> Unit, downl
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("${e.episode}. ${e.name}", maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
-            e.runtimeMin?.let { Text(minutes(it * 60_000L), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            e.runtimeMin?.let { Text(minutes(it * 60_000L), maxLines = 1, softWrap = false, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             e.overview?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Text("Versions", Modifier.tvClickable(onClick = versions).padding(top = 4.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         }

@@ -28,6 +28,11 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-16
+
+- **Readable text on Android**: the Android app painted any text with no colour of its own black, so show overviews and episode titles vanished on the dark background. They now use the theme's text colour. Also lined up "Download all" with the rest and stopped episode times wrapping. (#280)
+  Household: Show descriptions and episode titles are readable again in the Android app.
+
 ## 2026-11-12
 
 - **Fire TV and Android apps look like the TV app** ([docs/android-client.md](docs/android-client.md#the-look-the-same-as-the-tv)): the Fire TV, tablet and phone apps now use the TV app's design: the same top menu (name, pill tabs, clock, who's watching) instead of a tall side rail, Films and TV Shows as their own tabs, the same poster cards, rails, buttons, chips and focus ring, a Home with a big picture at the top, and the TV's theme (the Hub sends today's, seasonal ones included). On a TV everything is sized like the TV app's own screens, so nothing is cut off at the bottom or sides, and posters without artwork show their name. The Hub gets `GET /api/theme`. App version 0.8.0; the Fire TV needs the new APK once (Settings › Check for updates). (#271)
