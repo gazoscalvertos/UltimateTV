@@ -30,7 +30,7 @@ pop up what's new after an update. So:
 
 ## 2026-11-22
 
-- **No mouse pointer on the TV box**: the box now uses an invisible pointer in its TV session, so no arrow shows on the screen, over the app or over playing video. Reaches the box with Settings › About › Update the box (the installer sets it up).
+- **No mouse pointer on the TV box**: the box now uses an invisible pointer in its TV session, so no arrow shows on the screen, over the app or over playing video. Reaches the box with Settings › About › Update the box (the installer sets it up). (#282)
   Household: The little mouse arrow no longer shows on the TV.
 
 ## 2026-11-16
