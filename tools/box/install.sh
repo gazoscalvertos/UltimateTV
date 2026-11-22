@@ -223,7 +223,7 @@ systemctl set-default graphical.target >/dev/null
 # shows on the TV, over the app or over the video. Xcursor file: header, one table entry, one image.
 cdir=/usr/share/icons/ultimatetv-blank/cursors
 install -d "$cdir"
-le32() { printf "$(printf '\\x%02x\\x%02x\\x%02x\\x%02x' $(($1 & 255)) $((($1 >> 8) & 255)) $((($1 >> 16) & 255)) $((($1 >> 24) & 255)))"; }
+le32() { printf '%b' "$(printf '\\x%02x\\x%02x\\x%02x\\x%02x' $(($1 & 255)) $((($1 >> 8) & 255)) $((($1 >> 16) & 255)) $((($1 >> 24) & 255)))"; }
 {
   printf 'Xcur'; le32 16; le32 65536; le32 1
   le32 4294770690; le32 1; le32 28
