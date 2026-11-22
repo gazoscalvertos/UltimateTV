@@ -71,6 +71,7 @@ Until the adapter arrives, use the phone remote, or a USB keyboard (arrows, Ente
 
 ## If something isn't right
 
+- **A mouse arrow on the screen:** the installer gives the TV session an invisible pointer theme (`/usr/share/icons/ultimatetv-blank`, set in `~/.config/kcminputrc` and by `XCURSOR_THEME` in `ultimatetv-session`). Update the box (or re-run `install.sh`) and it goes; a USB mouse then works but shows no pointer.
 - **Black screen with only a cursor, or a desktop:** check the log above, and that `/usr/share/wayland-sessions/ultimatetv.desktop` exists.
 - **"Can't reach the Hub":** check `HUB_URL` in `/etc/ultimatetv/box.env`, then `sudo systemctl restart sddm`.
 - **No sound on Dolby films:** set `AUDIO_DEVICE` in `box.env` to the HDMI output from `mpv --audio-device=help`.

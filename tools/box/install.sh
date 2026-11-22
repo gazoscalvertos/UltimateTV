@@ -199,6 +199,8 @@ cat > /usr/local/bin/ultimatetv-session <<'EOF'
 # The whole TV session: KWin with nothing but the app. If the app quits, the session restarts.
 mkdir -p "${XDG_STATE_HOME:-$HOME/.local/state}"
 export QT_QPA_PLATFORM=wayland XDG_CURRENT_DESKTOP=KDE XDG_SESSION_TYPE=wayland
+# A TV has no mouse, but KWin still draws its arrow when nothing tells it otherwise: use a pointer that's invisible.
+export XCURSOR_THEME=ultimatetv-blank XCURSOR_SIZE=24
 exec kwin_wayland --xwayland --no-lockscreen --no-global-shortcuts --exit-with-session=/usr/local/bin/ultimatetv-app
 EOF
 chmod 755 /usr/local/bin/ultimatetv-app /usr/local/bin/ultimatetv-session
@@ -217,9 +219,29 @@ EOF
 systemctl enable sddm.service >/dev/null 2>&1 || warn "couldn't enable sddm"
 systemctl set-default graphical.target >/dev/null
 
+# An invisible mouse pointer theme (one 1x1 transparent image under every cursor name), so no arrow
+# shows on the TV, over the app or over the video. Xcursor file: header, one table entry, one image.
+cdir=/usr/share/icons/ultimatetv-blank/cursors
+install -d "$cdir"
+le32() { printf '%b' "$(printf '\\x%02x\\x%02x\\x%02x\\x%02x' $(($1 & 255)) $((($1 >> 8) & 255)) $((($1 >> 16) & 255)) $((($1 >> 24) & 255)))"; }
+{
+  printf 'Xcur'; le32 16; le32 65536; le32 1
+  le32 4294770690; le32 1; le32 28
+  le32 36; le32 4294770690; le32 1; le32 1
+  le32 1; le32 1; le32 0; le32 0; le32 0
+  le32 0
+} > "$cdir/left_ptr"
+for n in default arrow top_left_arrow pointer hand hand1 hand2 pointing_hand text xterm ibeam watch wait progress \
+  left_ptr_watch crosshair cross grab grabbing openhand closedhand move fleur not-allowed no-drop forbidden \
+  help question_arrow context-menu all-scroll size_all col-resize row-resize e-resize w-resize n-resize s-resize \
+  ew-resize ns-resize nesw-resize nwse-resize sb_h_double_arrow sb_v_double_arrow zoom-in zoom-out; do
+  ln -sf left_ptr "$cdir/$n"
+done
+printf '[Icon Theme]\nName=ultimatetv-blank\nComment=No visible mouse pointer (a TV has no mouse)\n' > /usr/share/icons/ultimatetv-blank/index.theme
+
 # KWin: the UI window on top of the video window, no effects, no screen edges, no lock screen.
 install -d -o "$TV_USER" -g "$TV_USER" "$home/.config"
-for f in kwinrulesrc kwinrc kscreenlockerrc; do
+for f in kwinrulesrc kwinrc kscreenlockerrc kcminputrc; do
   install -m644 -o "$TV_USER" -g "$TV_USER" "$files/$f" "$home/.config/$f"
 done
 
