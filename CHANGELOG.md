@@ -28,6 +28,11 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-22
+
+- **No mouse pointer on the TV box**: the box now uses an invisible pointer in its TV session, so no arrow shows on the screen, over the app or over playing video. Reaches the box with Settings › About › Update the box (the installer sets it up).
+  Household: The little mouse arrow no longer shows on the TV.
+
 ## 2026-11-16
 
 - **Readable text on Android**: the Android app painted any text with no colour of its own black, so show overviews and episode titles vanished on the dark background. They now use the theme's text colour. Also lined up "Download all" with the rest and stopped episode times wrapping. (#280)
