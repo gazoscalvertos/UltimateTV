@@ -15,6 +15,8 @@ export interface DeviceCaps {
   maxBitrateKbps?: number;
   /** Hardware-decoded video codecs ("h264", "hevc", ...). Empty or absent means no limit. */
   codecs?: string[];
+  /** "10bit" (HEVC Main10, needed for HDR) and "dv" (Dolby Vision) when the hardware decodes them; absent means unknown. */
+  features?: string[];
 }
 
 const int = (v: unknown): number | undefined => {
@@ -32,8 +34,14 @@ export function capsFromHeaders(h: Record<string, string | string[] | undefined>
     .split(",")
     .map((c) => c.trim())
     .filter((c) => /^[a-z0-9]{2,8}$/.test(c));
+  const hasFeatures = one("x-features") !== undefined;
+  const features = (one("x-features") ?? "")
+    .toLowerCase()
+    .split(",")
+    .map((c) => c.trim())
+    .filter((c) => /^[a-z0-9]{2,8}$/.test(c));
   if (!maxHeight && !maxBitrateKbps && !codecs.length) return undefined;
-  return { ...(maxHeight ? { maxHeight } : {}), ...(maxBitrateKbps ? { maxBitrateKbps } : {}), ...(codecs.length ? { codecs } : {}) };
+  return { ...(maxHeight ? { maxHeight } : {}), ...(maxBitrateKbps ? { maxBitrateKbps } : {}), ...(codecs.length ? { codecs } : {}), ...(hasFeatures ? { features } : {}) };
 }
 
 /** Average video bitrate in kbit/s from the file size and runtime, when both are known. */
@@ -49,6 +57,12 @@ export function misfit(s: StreamCandidate, caps: DeviceCaps, runtimeMin?: number
   if (!q) return undefined;
   if (caps.maxHeight && q.height > caps.maxHeight + 16) return `${q.height}p is taller than the ${caps.maxHeight}p this device shows`;
   if (caps.codecs?.length && q.codec !== "unknown" && !caps.codecs.includes(q.codec)) return `${q.codec} is not decoded in hardware here`;
+  if (caps.features) {
+    // 10-bit HEVC (every HDR file) and Dolby Vision profile 5 or 7 give sound and a blank picture on a decoder without them.
+    const tenBit = q.hdr !== "sdr" && q.codec !== "h264";
+    if (tenBit && !caps.features.includes("10bit") && !(q.hdr === "dv" && caps.features.includes("dv"))) return `${q.hdr} needs 10-bit video, which this device does not decode`;
+    if (q.hdr === "dv" && q.dvProfile !== 8 && !caps.features.includes("dv")) return "Dolby Vision here needs a Dolby Vision decoder";
+  }
   const rate = bitrateKbps(s, runtimeMin);
   if (caps.maxBitrateKbps && rate && rate > caps.maxBitrateKbps) return `about ${Math.round(rate / 1000)} Mbit/s is more than this device can stream`;
   return undefined;

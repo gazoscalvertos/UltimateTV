@@ -18,6 +18,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -60,6 +64,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -358,8 +363,10 @@ private fun DownloadButton(entry: OfflineEntry?, onClick: () -> Unit) {
 @Composable
 private fun EpisodeRow(e: Episode, entry: OfflineEntry?, play: () -> Unit, download: () -> Unit, versions: () -> Unit) {
     Row(Modifier.fillMaxWidth().tvClickable(onClick = play).padding(horizontal = gutter(), vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box {
-            Picture(e.still, Modifier.width(if (isWide()) 200.dp else 136.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)))
+        // The box is as wide as the picture: the progress bar fills its parent, and without a width it
+        // grew to the whole row, leaving the title and Versions no room (one letter per line).
+        Box(Modifier.width(if (isWide()) 200.dp else 136.dp)) {
+            Picture(e.still, Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)))
             val p = e.progress ?: 0.0
             if (p > 0.01 && e.watched != true) LinearProgressIndicator(progress = { p.toFloat() }, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(4.dp).height(3.dp))
             if (e.watched == true) Icon(Icons.Default.CheckCircle, "Watched", Modifier.align(Alignment.TopEnd).padding(4.dp).size(18.dp), tint = Color.White)
@@ -369,7 +376,7 @@ private fun EpisodeRow(e: Episode, entry: OfflineEntry?, play: () -> Unit, downl
             Text("${e.episode}. ${e.name}", maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
             e.runtimeMin?.let { Text(minutes(it * 60_000L), maxLines = 1, softWrap = false, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             e.overview?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Text("Versions", Modifier.tvClickable(onClick = versions).padding(top = 4.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text("Versions", Modifier.tvClickable(onClick = versions).padding(top = 4.dp), maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         }
         when {
             entry == null -> IconButton(onClick = download) { Icon(Icons.Default.Download, "Download") }
@@ -389,8 +396,11 @@ private fun VersionSheet(d: TitleDetails, e: Episode?, download: Boolean, close:
     val streams = rememberLoad(d.id, episodeId) { hub.streams(d.id, episodeId) }
     var picked by remember { mutableStateOf<String?>(null) }
     var smaller by remember { mutableStateOf(App.instance.prefs.smaller) }
-    ModalBottomSheet(onDismissRequest = close) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp).heightIn(min = 200.dp)) {
+    // In landscape the sheet is short: open it full height and let the whole column scroll, so the Play and
+    // Save to NAS buttons below the list are never cut off.
+    val listMax = (LocalConfiguration.current.screenHeightDp * 0.4f).dp.coerceIn(120.dp, 380.dp)
+    ModalBottomSheet(onDismissRequest = close, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp).heightIn(min = 200.dp)) {
             Text(if (download) "Download ${e?.name ?: d.name}" else "Choose a version", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
             when (val st = streams.state) {
@@ -404,7 +414,7 @@ private fun VersionSheet(d: TitleDetails, e: Episode?, download: Boolean, close:
                     val list = st.value
                     if (list.isEmpty()) Text("Nothing to play this from yet.", Modifier.padding(vertical = 16.dp))
                     val chosen = list.find { it.id == picked } ?: list.firstOrNull { it.ready == true } ?: list.firstOrNull()
-                    LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                    LazyColumn(Modifier.heightIn(max = listMax)) {
                         items(list) { s -> VersionRow(s, s.id == chosen?.id) { picked = s.id } }
                     }
                     if (download && chosen != null) {
