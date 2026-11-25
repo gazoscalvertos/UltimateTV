@@ -30,6 +30,9 @@ pop up what's new after an update. So:
 
 ## 2026-11-25
 
+- **Android 0.8.2: update and tidier buttons**: The Android app and Fire TV app now offer 0.8.2 (the last fixes were not given a new version, so Check for updates saw nothing). Save for later, Queue and Save to NAS wrap onto a second line on a phone instead of squashing into three-line labels. (#288)
+  Household: Check for updates in the Android app now offers the new version with the episode list fixes.
+
 - **Android episode list, versions and playback fixes**: Episode rows on the phone no longer squash the title and Versions into a column when the episode is part-watched, Settings is no longer cut off in the top bar, and the version picker scrolls so Play and Save to NAS show in landscape. Play now skips HDR and Dolby Vision versions a phone cannot decode, so you get a picture as well as sound. (#287)
   Household: Fixed the Android app's episode list, and videos that played with sound but no picture.
 
