@@ -23,6 +23,8 @@ data class DeviceCaps(
     val maxBitrateKbps: Int,
     /** Video codecs a hardware decoder here handles at [maxHeight], e.g. "h264,hevc". */
     val codecs: List<String>,
+    /** Extra video features a hardware decoder here handles: "10bit" (HEVC Main10, so HDR) and "dv" (Dolby Vision). */
+    val features: List<String> = emptyList(),
     /** One line for Settings: where the numbers came from. */
     val summary: String,
 )
@@ -84,7 +86,19 @@ object DeviceProfile {
             bitrate = if (height < 2160) 20_000 else 40_000
             summary = "Fire TV · $summary"
         }
-        return DeviceCaps(height, bitrate, codecs.ifEmpty { listOf("h264") }, summary)
+        return DeviceCaps(height, bitrate, codecs.ifEmpty { listOf("h264") }, features(infos), summary)
+    }
+
+    /** 10-bit HEVC and Dolby Vision, which many phones lack: a file needing them plays sound with no picture. */
+    private fun features(infos: Array<MediaCodecInfo>): List<String> {
+        val out = mutableListOf<String>()
+        val hevc10 = infos.any { info ->
+            !info.isEncoder && !isSoftware(info) && info.supportedTypes.any { it.equals("video/hevc", true) } &&
+                runCatching { info.getCapabilitiesForType("video/hevc").profileLevels.any { it.profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10 } }.getOrDefault(false)
+        }
+        if (hevc10) out += "10bit"
+        if (infos.any { !it.isEncoder && !isSoftware(it) && it.supportedTypes.any { t -> t.equals("video/dolby-vision", true) } }) out += "dv"
+        return out
     }
 
     private fun isSoftware(info: MediaCodecInfo): Boolean =

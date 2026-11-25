@@ -157,9 +157,10 @@ fun TopBar(nav: NavHostController, route: String?, tabs: List<NavTab>) {
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             for (t in tabs) Pill(t.label, null, route == t.route, t.label) { go(nav, t.route) }
-            if (ui.on("search")) Pill(null, Icons.Default.Search, route == "search", "Search") { go(nav, "search") }
-            Pill("Settings", null, route == "settings", "Settings") { go(nav, "settings") }
         }
+        // Search and Settings stay put beside the clock: inside the scrolling tabs a landscape phone cut Settings off.
+        if (ui.on("search")) Pill(null, Icons.Default.Search, route == "search", "Search") { go(nav, "search") }
+        Pill("Settings", null, route == "settings", "Settings") { go(nav, "settings") }
         Clock()
         Avatar(nav)
     }

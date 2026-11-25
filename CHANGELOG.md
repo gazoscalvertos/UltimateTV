@@ -28,9 +28,14 @@ pop up what's new after an update. So:
 - **From the phone**: the remote's ⚙ Settings › Updates updates either one. The Hub's button needs
   the helper installed once: `sudo bash tools/hub/update.sh --phone-updates`.
 
+## 2026-11-25
+
+- **Android episode list, versions and playback fixes**: Episode rows on the phone no longer squash the title and Versions into a column when the episode is part-watched, Settings is no longer cut off in the top bar, and the version picker scrolls so Play and Save to NAS show in landscape. Play now skips HDR and Dolby Vision versions a phone cannot decode, so you get a picture as well as sound. (#287)
+  Household: Fixed the Android app's episode list, and videos that played with sound but no picture.
+
 ## 2026-11-22
 
-- **No mouse pointer on the TV box**: the box now uses an invisible pointer in its TV session, so no arrow shows on the screen, over the app or over playing video. Reaches the box with Settings › About › Update the box (the installer sets it up).
+- **No mouse pointer on the TV box**: the box now uses an invisible pointer in its TV session, so no arrow shows on the screen, over the app or over playing video. Reaches the box with Settings › About › Update the box (the installer sets it up). (#282)
   Household: The little mouse arrow no longer shows on the TV.
 
 ## 2026-11-16

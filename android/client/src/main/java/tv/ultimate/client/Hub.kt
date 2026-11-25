@@ -105,6 +105,7 @@ class Hub(private val prefs: Prefs) {
             c.setRequestProperty("X-Max-Height", caps.maxHeight.toString())
             c.setRequestProperty("X-Max-Bitrate", caps.maxBitrateKbps.toString())
             c.setRequestProperty("X-Codecs", caps.codecs.joinToString(","))
+            c.setRequestProperty("X-Features", caps.features.joinToString(","))
         }
         prefs.profileId?.let { c.setRequestProperty("X-Profile", it) }
         prefs.profileToken?.let { c.setRequestProperty("X-Profile-Token", it) }
