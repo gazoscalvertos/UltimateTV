@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -144,6 +146,7 @@ private fun downloaded(titleId: String, episodeId: String?): OfflineEntry? {
 /** Opens the version sheet for playing or downloading. */
 private data class Choose(val download: Boolean, val episode: Episode?)
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailsScreen(nav: NavHostController, id: String) {
     val hub = App.instance.hub
@@ -212,10 +215,12 @@ fun DetailsScreen(nav: NavHostController, id: String) {
                         // What goes on the queue: a film, or the episode you'd watch next.
                         val queueEpisode = if (d.kind == "series") nextEpisode(seasonLoad.state) else null
                         Spacer(Modifier.height(4.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // A row that wraps: three buttons don't fit across a phone in portrait, and squeezing them put
+                        // "Save to NAS" on three lines.
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             OutlinedButton(onClick = { ui.saveForLater(d.ref(), !isSaved) }) {
                                 if (isSaved) Icon(Icons.Default.Bookmark, null) else Icon(Icons.Default.BookmarkBorder, null)
-                                Text(if (isSaved) "Saved for later" else "Save for later")
+                                Text(if (isSaved) "Saved for later" else "Save for later", maxLines = 1, softWrap = false)
                             }
                             OutlinedButton(
                                 onClick = {
@@ -233,7 +238,7 @@ fun DetailsScreen(nav: NavHostController, id: String) {
                                 },
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null)
-                                Text(if (d.kind == "series" && queueEpisode != null) "Queue S${queueEpisode.season} E${queueEpisode.episode}" else "Add to queue")
+                                Text(if (d.kind == "series" && queueEpisode != null) "Queue S${queueEpisode.season} E${queueEpisode.episode}" else "Add to queue", maxLines = 1, softWrap = false)
                             }
                             // TorBox and addon copies can be kept on the NAS for good, with Jellyfin
                             // told about them; grown-ups only, since the Hub refuses it for Kids. A
@@ -337,7 +342,7 @@ private fun SaveToNasButton(d: TitleDetails, episode: Episode?) {
     OutlinedButton(onClick = { ui.saveToNas(d.id, episode?.let { "s${it.season}e${it.episode}" }, null, name) }) {
         Icon(Icons.Default.Save, null)
         Spacer(Modifier.width(6.dp))
-        Text("Save to NAS")
+        Text("Save to NAS", maxLines = 1, softWrap = false)
     }
 }
 

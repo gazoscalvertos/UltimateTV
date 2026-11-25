@@ -14,8 +14,8 @@ android {
         applicationId "tv.ultimate.client"
         minSdk 26
         targetSdk 35
-        versionCode 19
-        versionName "0.8.1"
+        versionCode 20
+        versionName "0.8.2"
     }
 
     // Two builds of one app. They share a version and an application id, so only one can be
